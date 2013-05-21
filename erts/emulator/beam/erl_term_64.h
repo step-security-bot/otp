@@ -73,6 +73,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_IMMED1_PORT	((UWORD_CONSTANT(0x1) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_IMMED2	((UWORD_CONSTANT(0x2) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_SMALL	((UWORD_CONSTANT(0x3) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
+#define _DATA_IMMED1_OFFSET     0
 
 #define _TAG_IMMED2_SIZE	6
 #define _TAG_IMMED2_OFFSET      (_TAG_IMMED1_OFFSET - 2)
@@ -161,7 +162,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 #define _CPMASK		        _TAG_PRIMARY_MASK
 
-/* immediate object access methods */
 #define is_immed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_IMMED1)
 #define is_not_immed(x)		(!is_immed((x)))
 #define IS_CONST(x)		is_immed((x))
@@ -177,7 +177,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _is_taggable_pointer(x)	 (((Uint)(x) & _CPMASK) == 0)
 #define  _boxed_precond(x)       (is_boxed(x))
 #define _is_aligned(x)		(((Uint)(x) & _CPMASK) == 0)
-#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
+#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) | TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
@@ -193,20 +193,16 @@ _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) | TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
-#if 1
-#define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
+#define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
+#define _unchecked_is_not_list(x) (!is_list((x)))
 _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		_ET_APPLY(is_not_list,(x))
-#define is_list(x)		(!is_not_list((x)))
-#else
-#define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
-#define is_not_list(x)		(!is_list((x)))
-#endif
+
 #define _list_precond(x)       (is_list(x))
-#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) & ~(TAG_PRIMARY_LIST)))
+#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) & ~(_TAG_PRIMARY_MASK)))
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -232,7 +228,8 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define MAX_SMALL	((SWORD_CONSTANT(1) << (SMALL_BITS-1))-1)
 #define MIN_SMALL	(-(SWORD_CONSTANT(1) << (SMALL_BITS-1)))
 #define SIGN_TAG        (UWORD_CONSTANT(1) << 63)
-#define make_small(x)	((_TAG_IMMED1_SMALL) | (((x) < 0)?(SIGN_TAG | -(x)):(x)))
+/* DO NOT USE make_small(x++)!! */
+#define make_small(x)	(_TAG_IMMED1_SMALL | (((x) < 0)?(SIGN_TAG | -(x)):(x)))
 #define is_small(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_SMALL)
 #define is_not_small(x)	(!is_small((x)))
 #define MY_IS_SSMALL(x) ((Uint)(x) & SIGN_TAG)
@@ -260,7 +257,7 @@ _ET_DECLARE_CHECKED(Sint,signed_val,Eterm)
 #define make_atom(x)  ((Eterm)(((x)) | _TAG_IMMED2_ATOM))
 #define is_atom(x)	(((x) & _TAG_IMMED2_MASK) == _TAG_IMMED2_ATOM)
 #define is_not_atom(x)	(!is_atom(x))
-#define _unchecked_atom_val(x)	((x) && ~(_TAG_IMMED2_MASK))
+#define _unchecked_atom_val(x)	((x) & ~(_TAG_IMMED2_MASK))
 _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 #define atom_val(x)	_ET_APPLY(atom_val,(x))
 
@@ -387,11 +384,7 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
 #define big_val(x)		_ET_APPLY(big_val,(x))
 
 /* flonum ("float") access methods */
-#if defined(ARCH_64) && !HALFWORD_HEAP
 #define HEADER_FLONUM   _make_header(1,_TAG_HEADER_FLOAT)
-#else
-#define HEADER_FLONUM	_make_header(2,_TAG_HEADER_FLOAT)
-#endif
 #define make_float(x)	make_boxed((x))
 #define is_float(x)	(is_boxed((x)) && *boxed_val((x)) == HEADER_FLONUM)
 #define is_not_float(x)	(!is_float(x))
@@ -413,26 +406,12 @@ typedef union float_def
 #endif
 } FloatDef;
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
-
 #define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fdw = *((fval)+1)
 
 #define PUT_DOUBLE(f, x)  *(x) = HEADER_FLONUM, \
                           *((x)+1) = (f).fdw
 #define GET_DOUBLE_DATA(p, f) (f).fdw = *((Uint *) (p))
 #define PUT_DOUBLE_DATA(f,p) *((Uint *) (p)) = (f).fdw
-#else
-#define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fw[0] = *((fval)+1), \
-				      (f).fw[1] = *((fval)+2)
-
-#define PUT_DOUBLE(f, x)  *(x) = HEADER_FLONUM, \
-                          *((x)+1) = (f).fw[0], \
-			  *((x)+2) = (f).fw[1]
-#define GET_DOUBLE_DATA(p, f) (f).fw[0] = *((Uint *) (p)),\
-                              (f).fw[1] = *(((Uint *) (p))+1)
-#define PUT_DOUBLE_DATA(f,p) *((Uint *) (p)) = (f).fw[0],\
-                             *(((Uint *) (p))+1) = (f).fw[1]
-#endif
 
 #define GET_DOUBLE(x, f) FLOAT_VAL_GET_DOUBLE(float_val(x), f)
 
@@ -563,7 +542,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define _PID_NUM_SIZE 		15
 
 #define _PID_DATA_SIZE		28
-#define _PID_DATA_SHIFT		(_TAG_IMMED1_SIZE)
+#define _PID_DATA_SHIFT		(_DATA_IMMED1_OFFSET)
 
 #define _GET_PID_DATA(X)	_GETBITS((X),_PID_DATA_SHIFT,_PID_DATA_SIZE)
 #define _GET_PID_NUM(X)		_GETBITS((X),0,_PID_NUM_SIZE)
@@ -611,7 +590,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
 #define _PORT_DATA_SIZE		28
-#define _PORT_DATA_SHIFT	(_TAG_IMMED1_SIZE)
+#define _PORT_DATA_SHIFT	(_DATA_IMMED1_OFFSET)
 
 #define _GET_PORT_DATA(X)	_GETBITS((X),_PORT_DATA_SHIFT,_PORT_DATA_SIZE)
 #define _GET_PORT_NUM(X)	_GETBITS((X), 0, _PORT_NUM_SIZE)
@@ -712,8 +691,6 @@ typedef struct {
 #define make_ref_thing_header(DW) \
   _make_header((DW)+REF_THING_HEAD_SIZE-1,_TAG_HEADER_REF)
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
-
 /*
  * Ref layout on a 64-bit little endian machine:
  *
@@ -737,18 +714,6 @@ do {									\
   ((RefThing *) (Hp))->data.ui32[2] = (R1);				\
   ((RefThing *) (Hp))->data.ui32[3] = (R2);				\
 } while (0)
-
-#else
-
-#define write_ref_thing(Hp, R0, R1, R2)					\
-do {									\
-  ((RefThing *) (Hp))->header  = make_ref_thing_header(ERTS_REF_WORDS);	\
-  ((RefThing *) (Hp))->data.ui32[0] = (R0);				\
-  ((RefThing *) (Hp))->data.ui32[1] = (R1);				\
-  ((RefThing *) (Hp))->data.ui32[2] = (R2);				\
-} while (0)
-
-#endif
 
 #define is_ref_thing_header(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
 #define make_internal_ref(x)	make_boxed((Eterm*)(x))

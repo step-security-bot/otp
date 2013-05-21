@@ -140,7 +140,7 @@ typedef struct {
 } ErtsPTab;
 
 #define ERTS_PTAB_ID_DATA_SIZE	28
-#define ERTS_PTAB_ID_DATA_SHIFT	(_TAG_IMMED1_SIZE)
+#define ERTS_PTAB_ID_DATA_SHIFT	(_DATA_IMMED1_OFFSET)
 /* ERTS_PTAB_MAX_SIZE must be a power of 2 */
 #define ERTS_PTAB_MAX_SIZE (SWORD_CONSTANT(1) << 27)
 #if (ERTS_PTAB_MAX_SIZE-1) > MAX_SMALL
@@ -287,7 +287,7 @@ erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag)
     low_data &= (1 << ERTS_PTAB_ID_DATA_SIZE) - 1;
     low_data <<= ERTS_PTAB_ID_DATA_SHIFT;
     huint.hval[ERTS_HUINT_HVAL_HIGH] = erts_ptab_data2pix(ptab, data);
-    huint.hval[ERTS_HUINT_HVAL_LOW] = low_data | ((Uint32) tag);
+    huint.hval[ERTS_HUINT_HVAL_LOW] = low_data | ((Uint) tag);
     return (Eterm) huint.val;
 }
 

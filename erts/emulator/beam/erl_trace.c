@@ -1033,6 +1033,7 @@ int
 seq_trace_update_send(Process *p)
 {
     Eterm seq_tracer = erts_get_system_seq_tracer();
+    Uint e;
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
     if ( (p->common.id == seq_tracer) || (SEQ_TRACE_TOKEN(p) == NIL)
 #ifdef USE_VM_PROBES
@@ -1042,8 +1043,8 @@ seq_trace_update_send(Process *p)
 	return 0;
     }
     SEQ_TRACE_TOKEN_SENDER(p) = p->common.id;
-    SEQ_TRACE_TOKEN_SERIAL(p) = 
-	make_small(++(p -> seq_trace_clock));
+    e = ++(p -> seq_trace_clock);
+    SEQ_TRACE_TOKEN_SERIAL(p) = make_small(e);
     SEQ_TRACE_TOKEN_LASTCNT(p) = 
 	make_small(p -> seq_trace_lastcnt);
     return 1;

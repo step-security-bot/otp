@@ -566,8 +566,9 @@ static int remove_named_tab(DbTable *tb, int have_lock)
 	}
 	else {
 	    size_t size, old_size;
+	    Uint _cnt = --cnt;
 	    ASSERT(cnt > 2);
-	    bucket->u.mcnt = make_small(--cnt);
+	    bucket->u.mcnt = make_small(_cnt);
 	    if (i != cnt) {
 		/* reposition last one before realloc destroys it */
 		bucket->pu.mvec[i] = bucket->pu.mvec[cnt];

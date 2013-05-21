@@ -2348,7 +2348,8 @@ dec_term_atom_common:
 	    }
 	    *objp = make_list(hp);
 	    while (n-- > 0) {
-		hp[0] = make_small(*ep++);
+	        byte e = *ep++;
+		hp[0] = make_small(e);
 		hp[1] = make_list(hp+2);
 		hp += 2;
 	    }

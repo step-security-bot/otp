@@ -222,7 +222,8 @@ erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint b
 {
     if (bitoffs == 0) {
 	while (size) {
-	    previous = CONS(hp, make_small(bytes[--size]), previous);
+	    byte b = bytes[--size];
+	    previous = CONS(hp, make_small(b), previous);
 	    hp += 2;
 	}
     } else {
