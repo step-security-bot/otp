@@ -287,15 +287,15 @@ erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag)
     low_data &= (1 << ERTS_PTAB_ID_DATA_SIZE) - 1;
     low_data <<= ERTS_PTAB_ID_DATA_SHIFT;
     huint.hval[ERTS_HUINT_HVAL_HIGH] = erts_ptab_data2pix(ptab, data);
-    huint.hval[ERTS_HUINT_HVAL_LOW] = low_data | ((Uint) tag);
-    return (Eterm) huint.val;
+    huint.hval[ERTS_HUINT_HVAL_LOW] = low_data;
+    return (Eterm) (huint.val | tag);
 }
 
 ERTS_GLB_INLINE int
 erts_ptab_id2pix(ErtsPTab *ptab, Eterm id)
 {
     HUint huint;
-    huint.val = id;
+    huint.val = id &~(_TAG_IMMED1_PID);
     return (int) huint.hval[ERTS_HUINT_HVAL_HIGH];
 }
 

@@ -20,6 +20,8 @@
 #ifndef __ERL_TERM_64_H
 #define __ERL_TERM_64_H
 
+#define ERTS_USE_NAN_ENCODING 1
+
 typedef UWord Wterm;  /* Full word terms */
 
 #ifndef ARCH_64
