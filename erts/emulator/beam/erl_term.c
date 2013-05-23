@@ -169,7 +169,5 @@ ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
 ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);
-ET_DEFINE_CHECKED(Uint,x_reg_index,Uint,_is_xreg);
-ET_DEFINE_CHECKED(Uint,y_reg_index,Uint,_is_yreg);
 
 #endif	/* ET_DEBUG */

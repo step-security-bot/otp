@@ -222,10 +222,10 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
-#define _immed2_val(x) ((x) && ~(_TAG_IMMED2_MASK))
+#define _immed2_val(x) ((x) & ~(_TAG_IMMED2_MASK))
 
 /* fixnum ("small") access methods */
-#define SMALL_BITS	(64-8)
+#define SMALL_BITS	(64-16)
 #define SMALL_DIGITS	(17)
 #define MAX_SMALL	((SWORD_CONSTANT(1) << (SMALL_BITS-1))-1)
 #define MIN_SMALL	(-(SWORD_CONSTANT(1) << (SMALL_BITS-1)))
@@ -234,7 +234,7 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define make_small(x)	(_TAG_IMMED1_SMALL | (((x) < 0)?(SIGN_TAG | -(x)):(x)))
 #define is_small(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_SMALL)
 #define is_not_small(x)	(!is_small((x)))
-#define MY_IS_SSMALL(x) ((Uint)(x) & SIGN_TAG)
+#define MY_IS_SSMALL(x) (((Uint) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
 #define _unchecked_unsigned_val(x)	(Uint)(MY_IS_SSMALL(x)?-_immed2_val(x):_immed2_val(x))
 _ET_DECLARE_CHECKED(Uint,unsigned_val,Eterm)
 #define unsigned_val(x)	_ET_APPLY(unsigned_val,(x))
@@ -281,7 +281,7 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define make_arityval(sz)	_make_header((sz),_TAG_HEADER_ARITYVAL)
 #define is_arity_value(x)	(((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL)
 #define is_sane_arity_value(x)	((((x) & _TAG_HEADER_MASK) == _TAG_HEADER_ARITYVAL) && \
-				 (((x) && ~(_TAG_HEADER_MASK)) <= MAX_ARITYVAL))
+				 (((x) & ~(_TAG_HEADER_MASK)) <= MAX_ARITYVAL))
 #define is_not_arity_value(x)	(!is_arity_value((x)))
 #define _unchecked_arityval(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
@@ -970,11 +970,11 @@ _ET_DECLARE_CHECKED(Uint,catch_val,Eterm)
  * two bits.
  */
 
-#define X_REG_DEF	0
-#define Y_REG_DEF	1
-#define R_REG_DEF	2
+#define X_REG_DEF	TAG_PRIMARY_HEADER
+#define Y_REG_DEF	TAG_PRIMARY_LIST
+#define R_REG_DEF	TAG_PRIMARY_BOXED
 
-#define beam_reg_tag(x)	((x) & 3)
+#define beam_reg_tag(x)	((x) & _TAG_PRIMARY_MASK)
 
 #define make_rreg()	R_REG_DEF
 #define make_xreg(ix)	(((ix) * sizeof(Eterm)) | X_REG_DEF)
@@ -983,23 +983,15 @@ _ET_DECLARE_CHECKED(Uint,catch_val,Eterm)
 #define _is_xreg(x)	(beam_reg_tag(x) == X_REG_DEF)
 #define _is_yreg(x)	(beam_reg_tag(x) == Y_REG_DEF)
 
-#define _unchecked_x_reg_offset(R)	((R) - X_REG_DEF)
+#define _unchecked_x_reg_offset(R)	((R) & ~(X_REG_DEF))
 _ET_DECLARE_CHECKED(Uint,x_reg_offset,Uint)
 #define x_reg_offset(R)	_ET_APPLY(x_reg_offset,(R))
 
-#define _unchecked_y_reg_offset(R)	((R) - Y_REG_DEF)
+#define _unchecked_y_reg_offset(R)	((R) & ~(Y_REG_DEF))
 _ET_DECLARE_CHECKED(Uint,y_reg_offset,Uint)
 #define y_reg_offset(R)	_ET_APPLY(y_reg_offset,(R))
 
-#define reg_index(R) ((R) / sizeof(Eterm))
-
-#define _unchecked_x_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,x_reg_index,Uint)
-#define x_reg_index(R)	_ET_APPLY(x_reg_index,(R))
-
-#define _unchecked_y_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
-#define y_reg_index(R)	_ET_APPLY(y_reg_index,(R))
+#define reg_index(R) (((R) & ~(_TAG_PRIMARY_MASK)) / sizeof(Eterm))
 
 /*
  * Backwards compatibility definitions:

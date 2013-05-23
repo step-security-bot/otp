@@ -295,7 +295,7 @@ ERTS_GLB_INLINE int
 erts_ptab_id2pix(ErtsPTab *ptab, Eterm id)
 {
     HUint huint;
-    huint.val = id &~(_TAG_IMMED1_PID);
+    huint.val = id &~(_TAG_IMMED1_MASK);
     return (int) huint.hval[ERTS_HUINT_HVAL_HIGH];
 }
 

@@ -2324,18 +2324,33 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_r:
 		CodeNeed(1);
+#ifdef ERTS_USE_NAN_ENCODING
+		code[ci++] = (R_REG_DEF >> _TAG_PRIMARY_SIZE) |
+		    TAG_PRIMARY_HEADER;
+#else
 		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
 		    TAG_PRIMARY_HEADER;
+#endif
 		break;
 	    case TAG_x:
 		CodeNeed(1);
+#ifdef ERTS_USE_NAN_ENCODING
+		code[ci++] = (tmp_op->a[arg].val) |
+		    (X_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+#else
 		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
 		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+#endif
 		break;
 	    case TAG_y:
 		CodeNeed(1);
+#ifdef ERTS_USE_NAN_ENCODING
+		code[ci++] = (tmp_op->a[arg].val) |
+		    (Y_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+#else
 		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
 		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+#endif
 		break;
 	    case TAG_n:
 		CodeNeed(1);
@@ -4387,7 +4402,7 @@ transform_engine(LoaderState* st)
     Uint* restart;		/* Where to restart if current match fails. */
     GenOpArg def_vars[TE_MAX_VARS]; /* Default buffer for variables. */
     GenOpArg* var = def_vars;
-    int i;			/* General index. */
+    Sint i;			/* General index. */
     Uint mask;
     GenOp* instr;
     Uint* pc;

@@ -2283,14 +2283,14 @@ void process_main(void)
      do {
 	 Eterm term = *I++;
 	 switch (term & _TAG_IMMED1_MASK) {
-	 case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	 case (R_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
 	     *hp++ = r(0);
 	     break;
-	 case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = x(term >> _TAG_IMMED1_SIZE);
+	 case (X_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	     *hp++ = x(term &~(_TAG_IMMED1_MASK));
 	     break;
-	 case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = y(term >> _TAG_IMMED1_SIZE);
+	 case (Y_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	   *hp++ = y(term &~(_TAG_IMMED1_MASK));
 	     break;
 	 default:
 	     *hp++ = term;
