@@ -2358,8 +2358,8 @@ tailrecur_ne:
     a_tag = 42;			/* Suppress warning */
     switch (primary_tag(a)) {
     case TAG_PRIMARY_IMMED1:
-	switch ((a & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-	case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):
+	switch ((a & _TAG_IMMED1_MASK)) {
+	case (_TAG_IMMED1_PORT):
 	    if (is_internal_port(b)) {
 		bnode = erts_this_node;
 		bdata = internal_port_data(b);
@@ -2377,7 +2377,7 @@ tailrecur_ne:
 	    CMP_NODES(anode, bnode);
 	    ON_CMP_GOTO((Sint)(adata - bdata));
 
-	case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):
+	case (_TAG_IMMED1_PID):
 	    if (is_internal_pid(b)) {
 		bnode = erts_this_node;
 		bdata = internal_pid_data(b);
@@ -2397,15 +2397,15 @@ tailrecur_ne:
 	    }
 	    CMP_NODES(anode, bnode);
 	    goto pop_next;
-	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+	case (_TAG_IMMED1_SMALL):
 	    a_tag = SMALL_DEF;
 	    goto mixed_types;
-	case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
-	    switch ((a & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
-	    case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):
+	case (_TAG_IMMED1_IMMED2): {
+	    switch ((a & _TAG_IMMED2_MASK)) {
+	    case (_TAG_IMMED2_ATOM):
 		a_tag = ATOM_DEF;
 		goto mixed_types;
-	    case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):
+	    case (_TAG_IMMED2_NIL):
 		a_tag = NIL_DEF;
 		goto mixed_types;
 	    }
@@ -2443,8 +2443,8 @@ tailrecur_ne:
     case TAG_PRIMARY_BOXED:
 	{
 	    Eterm ahdr = *boxed_val_rel(a,a_base);
-	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
+	    switch ((ahdr & _TAG_HEADER_MASK)) {
+	    case (_TAG_HEADER_ARITYVAL):
 		if (!is_tuple_rel(b,b_base)) {
 		    a_tag = TUPLE_DEF;
 		    goto mixed_types;
@@ -2463,7 +2463,7 @@ tailrecur_ne:
 		++bb;
 		goto term_array;
 
-	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_FLOAT):
 		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;
 		    goto mixed_types;
@@ -2475,14 +2475,14 @@ tailrecur_ne:
 		    GET_DOUBLE_REL(b, bf, b_base);
 		    ON_CMP_GOTO(float_comp(af.fd, bf.fd));
 		}
-	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_POS_BIG):
+	    case (_TAG_HEADER_NEG_BIG):
 		if (!is_big_rel(b,b_base)) {
 		    a_tag = BIG_DEF;
 		    goto mixed_types;
 		}
 		ON_CMP_GOTO(big_comp(rterm2wterm(a,a_base), rterm2wterm(b,b_base)));
-	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_EXPORT):
 		if (!is_export_rel(b,b_base)) {
 		    a_tag = EXPORT_DEF;
 		    goto mixed_types;
@@ -2499,7 +2499,7 @@ tailrecur_ne:
 		    ON_CMP_GOTO((Sint) a_exp->code[2] - (Sint) b_exp->code[2]);
 		}
 		break;
-	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_FUN):
 		if (!is_fun_rel(b,b_base)) {
 		    a_tag = FUN_DEF;
 		    goto mixed_types;
@@ -2533,7 +2533,7 @@ tailrecur_ne:
 		    bb = f2->env;
 		    goto term_array;
 		}
-	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_EXTERNAL_PID):
 		if (is_internal_pid(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_pid_data(b);
@@ -2547,7 +2547,7 @@ tailrecur_ne:
 		anode = external_pid_node_rel(a,a_base);
 		adata = external_pid_data_rel(a,a_base);
 		goto pid_common;
-	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_EXTERNAL_PORT):
 		if (is_internal_port(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_port_data(b);
@@ -2561,7 +2561,7 @@ tailrecur_ne:
 		anode = external_port_node_rel(a,a_base);
 		adata = external_port_data_rel(a,a_base);
 		goto port_common;
-	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_REF):
 		/*
 		 * Note! When comparing refs we need to compare ref numbers
 		 * (32-bit words), *not* ref data words.
@@ -2615,7 +2615,7 @@ tailrecur_ne:
 		    if (anum[i] != bnum[i])
 			RETURN_NEQ((Sint32) (anum[i] - bnum[i]));
 		goto pop_next;
-	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
+	    case (_TAG_HEADER_EXTERNAL_REF):
 		if (is_internal_ref_rel(b,b_base)) {
 		    RefThing* bthing = ref_thing_ptr_rel(b,b_base);
 		    bnode = erts_this_node;

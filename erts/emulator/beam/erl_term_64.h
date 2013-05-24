@@ -182,13 +182,15 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) | TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
-#if 1
+#if 0
 #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
 #define _unchecked_is_boxed(x)	(!_is_not_boxed((x)))
 _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #define is_boxed(x)		_ET_APPLY(is_boxed,(x))
 #else
-#define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
+#define _unchecked_is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
+_ET_DECLARE_CHECKED(int,is_boxed,Eterm)
+#define is_boxed(x)		_ET_APPLY(is_boxed,(x))
 #endif
 #define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) & ~(TAG_PRIMARY_BOXED))))
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
