@@ -548,7 +548,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define _PID_SER_SIZE		(_PID_DATA_SIZE - _PID_NUM_SIZE)
 #define _PID_NUM_SIZE 		15
 
-#define _PID_DATA_SIZE		28
+#define _PID_DATA_SIZE		24
 #define _PID_DATA_SHIFT		(_DATA_IMMED1_OFFSET)
 
 #define _GET_PID_DATA(X)	_GETBITS((X),_PID_DATA_SHIFT,_PID_DATA_SIZE)
@@ -596,7 +596,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
  */
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
-#define _PORT_DATA_SIZE		28
+#define _PORT_DATA_SIZE		24
 #define _PORT_DATA_SHIFT	(_DATA_IMMED1_OFFSET)
 
 #define _GET_PORT_DATA(X)	_GETBITS((X),_PORT_DATA_SHIFT,_PORT_DATA_SIZE)

@@ -139,10 +139,10 @@ typedef struct {
     } r;
 } ErtsPTab;
 
-#define ERTS_PTAB_ID_DATA_SIZE	28
+#define ERTS_PTAB_ID_DATA_SIZE	24
 #define ERTS_PTAB_ID_DATA_SHIFT	(_DATA_IMMED1_OFFSET)
 /* ERTS_PTAB_MAX_SIZE must be a power of 2 */
-#define ERTS_PTAB_MAX_SIZE (SWORD_CONSTANT(1) << 27)
+#define ERTS_PTAB_MAX_SIZE (SWORD_CONSTANT(1) << (32-18))
 #if (ERTS_PTAB_MAX_SIZE-1) > MAX_SMALL
 # error "The maximum number of processes/ports must fit in a SMALL."
 #endif
