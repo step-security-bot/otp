@@ -2112,7 +2112,8 @@ load_code(LoaderState* stp)
 	    case 'c':		/* Tagged constant */
 		switch (tag) {
 		case TAG_i:
-		    code[ci++] = (BeamInstr) make_small((Uint) tmp_op->a[arg].val);
+		    code[ci++] = (BeamInstr) make_small((Sint) tmp_op->a[arg].val);
+		    ASSERT(signed_val(code[ci-1]) == tmp_op->a[arg].val);
 		    break;
 		case TAG_a:
 		    code[ci++] = tmp_op->a[arg].val;
@@ -2142,7 +2143,8 @@ load_code(LoaderState* stp)
 		    code[ci++] = make_yreg(tmp_op->a[arg].val);
 		    break;
 		case TAG_i:
-		    code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
+		    code[ci++] = (BeamInstr) make_small((Sint)tmp_op->a[arg].val);
+		    ASSERT(signed_val(code[ci-1]) == tmp_op->a[arg].val);
 		    break;
 		case TAG_a:
 		    code[ci++] = tmp_op->a[arg].val;
@@ -2308,7 +2310,8 @@ load_code(LoaderState* stp)
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
 		CodeNeed(1);
-		code[ci++] = make_small(tmp_op->a[arg].val);
+		code[ci++] = make_small((Sint)tmp_op->a[arg].val);
+		ASSERT(signed_val(code[ci-1]) == tmp_op->a[arg].val);
 		break;
 	    case TAG_u:
 	    case TAG_a:

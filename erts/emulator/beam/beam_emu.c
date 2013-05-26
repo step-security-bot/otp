@@ -2696,7 +2696,7 @@ void process_main(void)
 	 /*
 	  * No need to untag -- TAG | TAG == TAG.
 	  */
-	 result = tmp_arg1 | tmp_arg2;
+         result = make_small(signed_val(tmp_arg1) | signed_val(tmp_arg2));
 	 STORE_ARITH_RESULT(result);
      }
      arith_func = ARITH_FUNC(bor);
