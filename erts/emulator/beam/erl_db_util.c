@@ -3310,15 +3310,15 @@ static DMCRet dmc_one_term(DMCContext *context,
 	break;
     case TAG_PRIMARY_BOXED: {
 	Eterm hdr = *boxed_val(c);
-	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-	case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):    
+	switch ((hdr & _TAG_HEADER_MASK)) {
+	case (_TAG_HEADER_ARITYVAL):    
 	    n = arityval(*tuple_val(c));
 	    DMC_PUSH(*text, matchPushT);
 	    ++(context->stack_used);
 	    DMC_PUSH(*text, n);
 	    DMC_PUSH(*stack, c);
 	    break;
-	case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
+	case (_TAG_HEADER_REF):
 	{
 	    Eterm* ref_val = internal_ref_val(c);
 	    DMC_PUSH(*text, matchEqRef);
@@ -3344,8 +3344,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 #endif
 	    break;
 	}
-	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
-	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+	case (_TAG_HEADER_POS_BIG):
+	case (_TAG_HEADER_NEG_BIG):
 	{
 	    Eterm* bval = big_val(c);
 	    n = thing_arityval(bval[0]);
@@ -3377,7 +3377,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 #endif
 	    break;
 	}
-	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
+	case (_TAG_HEADER_FLOAT):
 	    DMC_PUSH(*text,matchEqFloat);
 #if HALFWORD_HEAP
 	    {
@@ -4796,9 +4796,7 @@ static Uint my_size_object(Eterm t)
 	    my_size_object(CDR(list_val(t)));
 	break;
     case TAG_PRIMARY_BOXED:
-	if ((((*boxed_val(t)) & 
-	      _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) !=
-	    (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
+	if ((((*boxed_val(t)) & _TAG_HEADER_MASK)) != _TAG_HEADER_ARITYVAL) {
 	    goto simple_term;
 	}
 

@@ -2702,12 +2702,12 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
 	    return cmp_rel(a,NULL,b,b_base);
 	}
-	a_hdr = ((*boxed_val(a)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
-	b_hdr = ((*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
+	a_hdr = ((*boxed_val(a)) & _TAG_HEADER_MASK);
+	b_hdr = ((*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK);
 	if (a_hdr != b_hdr) {
 	    return cmp_rel(a, NULL, b, b_base);
 	}
-	if (a_hdr == (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
+	if (a_hdr == _TAG_HEADER_ARITYVAL) {
 	    aa = tuple_val(a);
 	    bb = tuple_val_rel(b, b_base);
 	    /* compare the arities */

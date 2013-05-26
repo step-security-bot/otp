@@ -74,33 +74,33 @@ unsigned tag_val_def(Wterm x)
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
 	  ET_ASSERT(is_header(hdr),file,line);
-	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
-	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
-	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
-	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
-	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;
-	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):	return FLOAT_DEF;
-	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):     return EXPORT_DEF;
-	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):	return FUN_DEF;
-	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PID_DEF;
-	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PORT_DEF;
-	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):	return EXTERNAL_REF_DEF;
+	  switch ((hdr & _TAG_HEADER_MASK)) {
+	    case (_TAG_HEADER_ARITYVAL):	return TUPLE_DEF;
+	    case (_TAG_HEADER_POS_BIG):	return BIG_DEF;
+	    case (_TAG_HEADER_NEG_BIG):	return BIG_DEF;
+	    case (_TAG_HEADER_REF):	return REF_DEF;
+	    case (_TAG_HEADER_FLOAT):	return FLOAT_DEF;
+	    case (_TAG_HEADER_EXPORT):     return EXPORT_DEF;
+	    case (_TAG_HEADER_FUN):	return FUN_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PID):	return EXTERNAL_PID_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PORT):	return EXTERNAL_PORT_DEF;
+	    case (_TAG_HEADER_EXTERNAL_REF):	return EXTERNAL_REF_DEF;
 	    default:						return BINARY_DEF;
 	  }
 	  break;
       }
       case TAG_PRIMARY_IMMED1: {
-	  switch ((x & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
-	    case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):	return PID_DEF;
-	    case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):	return PORT_DEF;
-	    case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
-		switch ((x & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
-		  case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
-		  case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return NIL_DEF;
+	  switch ((x & _TAG_IMMED1_MASK)) {
+	    case (_TAG_IMMED1_PID):	return PID_DEF;
+	    case (_TAG_IMMED1_PORT):	return PORT_DEF;
+	    case (_TAG_IMMED1_IMMED2): {
+		switch ((x & _TAG_IMMED2_MASK)) {
+		  case (_TAG_IMMED2_ATOM):	return ATOM_DEF;
+		  case (_TAG_IMMED2_NIL):	return NIL_DEF;
 		}
 		break;
 	    }
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):	return SMALL_DEF;
+	    case (_TAG_IMMED1_SMALL):	return SMALL_DEF;
 	  }
 	  break;
       }
