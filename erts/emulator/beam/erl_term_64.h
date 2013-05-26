@@ -58,9 +58,10 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _ET_APPLY(F,X)	_unchecked_##F(X)
 #endif
 
+#define _TAG_DOUBLE_NAN         (~(UWORD_CONSTANT(0x7FF0) << _TAG_PRIMARY_OFFSET))
 #define _TAG_PRIMARY_SIZE	2
 #define _TAG_PRIMARY_OFFSET     48
-#define _TAG_PRIMARY_MASK	(UWORD_CONSTANT(0x3) << _TAG_PRIMARY_OFFSET)
+#define _TAG_PRIMARY_MASK	(UWORD_CONSTANT(0x7FF3) << _TAG_PRIMARY_OFFSET)
 #define TAG_PRIMARY_HEADER	(UWORD_CONSTANT(0x0) << _TAG_PRIMARY_OFFSET)
 #define TAG_PRIMARY_LIST	(UWORD_CONSTANT(0x1) << _TAG_PRIMARY_OFFSET)
 #define TAG_PRIMARY_BOXED	(UWORD_CONSTANT(0x2) << _TAG_PRIMARY_OFFSET)
@@ -70,7 +71,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 #define _TAG_IMMED1_SIZE	4
 #define _TAG_IMMED1_OFFSET      (_TAG_PRIMARY_OFFSET - 2)
-#define _TAG_IMMED1_MASK	(UWORD_CONSTANT(0xF) << _TAG_IMMED1_OFFSET)
+#define _TAG_IMMED1_MASK	((UWORD_CONSTANT(0x3) << _TAG_IMMED1_OFFSET) | _TAG_PRIMARY_MASK)
 #define _TAG_IMMED1_PID		((UWORD_CONSTANT(0x0) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_PORT	((UWORD_CONSTANT(0x1) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_IMMED2	((UWORD_CONSTANT(0x2) << _TAG_IMMED1_OFFSET) | TAG_PRIMARY_IMMED1)
@@ -79,7 +80,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 #define _TAG_IMMED2_SIZE	6
 #define _TAG_IMMED2_OFFSET      (_TAG_IMMED1_OFFSET - 2)
-#define _TAG_IMMED2_MASK	(UWORD_CONSTANT(0x3F) << _TAG_IMMED2_OFFSET)
+#define _TAG_IMMED2_MASK	((UWORD_CONSTANT(0x3) << _TAG_IMMED2_OFFSET) | _TAG_IMMED1_MASK)
 #define _TAG_IMMED2_ATOM	((UWORD_CONSTANT(0x0) << _TAG_IMMED2_OFFSET) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_CATCH	((UWORD_CONSTANT(0x1) << _TAG_IMMED2_OFFSET) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_NIL		((UWORD_CONSTANT(0x3) << _TAG_IMMED2_OFFSET) | _TAG_IMMED1_IMMED2)
@@ -224,6 +225,7 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
+#define _immed1_val(x) ((x) & ~(_TAG_IMMED1_MASK))
 #define _immed2_val(x) ((x) & ~(_TAG_IMMED2_MASK))
 
 /* fixnum ("small") access methods */
@@ -234,14 +236,14 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define SIGN_TAG        (UWORD_CONSTANT(1) << 63)
 #define _is_signed(x) (!!((x) & SIGN_TAG))
 /* DO NOT USE make_small(x++)!! */
-#define make_small(x)	(_TAG_IMMED1_SMALL | (((x) < 0)?(SIGN_TAG | -(x)):(x)))
+#define make_small(x)	(_TAG_DOUBLE_NAN & (_TAG_IMMED1_SMALL | (((x) < 0)?(SIGN_TAG | -(x)):(x))))
 #define is_small(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_SMALL)
 #define is_not_small(x)	(!is_small((x)))
 #define MY_IS_SSMALL(x) (((Uint) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
-#define _unchecked_unsigned_val(x)	(Uint)(_is_signed(x)?-_immed2_val((x & ~(SIGN_TAG))):_immed2_val(x))
+#define _unchecked_unsigned_val(x)	(Uint)(_is_signed(x)?-_immed1_val(((x) & ~(SIGN_TAG))):_immed1_val(x))
 _ET_DECLARE_CHECKED(Uint,unsigned_val,Eterm)
 #define unsigned_val(x)	_ET_APPLY(unsigned_val,(x))
-#define _unchecked_signed_val(x)	(Sint)(_is_signed(x)?-_immed2_val(((x) & ~(SIGN_TAG))):_immed2_val(x))
+#define _unchecked_signed_val(x) (Sint)(_is_signed(x)?-_immed1_val(((x) & ~(SIGN_TAG))):_immed1_val(x))
 _ET_DECLARE_CHECKED(Sint,signed_val,Eterm)
 #define signed_val(x)	_ET_APPLY(signed_val,(x))
 #define is_byte(x)	(is_small(x) && signed_val(x) < 256)
