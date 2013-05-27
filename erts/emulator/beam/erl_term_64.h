@@ -231,8 +231,8 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 /* fixnum ("small") access methods */
 #define SMALL_BITS	(64-16)
 #define SMALL_DIGITS	(17)
-#define MAX_SMALL	((SWORD_CONSTANT(1) << (SMALL_BITS-1))-1)
-#define MIN_SMALL	(-(SWORD_CONSTANT(1) << (SMALL_BITS-1)))
+#define MAX_SMALL	((SWORD_CONSTANT(1) << (SMALL_BITS))-1)
+#define MIN_SMALL	(-(SWORD_CONSTANT(1) << (SMALL_BITS))+1)
 #define SIGN_TAG        (UWORD_CONSTANT(1) << 63)
 #define _is_signed(x) (!!((x) & SIGN_TAG))
 /* DO NOT USE make_small(x++)!! */
