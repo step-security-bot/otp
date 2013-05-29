@@ -333,14 +333,14 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
     Sint ires;
 
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
-	switch ((arg1 & _TAG_IMMED1_MASK)) {
-	case (_TAG_IMMED1_SMALL):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK)) {
-		case (_TAG_IMMED1_SMALL):
+    switch new_primary_tag(arg1) {
+    case TAG_PRIMARY_IMMED1_NS:
+      switch immed1_tag(arg1) {
+	case _TAG_IMMED1_SMALL_NS:
+	  switch new_primary_tag(arg2) {
+	    case TAG_PRIMARY_IMMED1_NS:
+	      switch immed1_tag(arg1) {
+		case _TAG_IMMED1_SMALL_NS:
 		    ires = signed_val(arg1) + signed_val(arg2);
 		    ASSERT(MY_IS_SSMALL(ires) == IS_SSMALL(ires));
 		    if (MY_IS_SSMALL(ires)) {
@@ -355,7 +355,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		    p->freason = BADARITH;
 		    return THE_NON_VALUE;
 		}
-	    case TAG_PRIMARY_BOXED:
+	    case TAG_PRIMARY_BOXED_NS:
 		hdr = *boxed_val(arg2);
 		switch ((hdr & _TAG_HEADER_MASK)) {
 		case (_TAG_HEADER_POS_BIG):
@@ -376,15 +376,15 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	default:
 	    goto badarith;
 	}
-    case TAG_PRIMARY_BOXED:
+    case TAG_PRIMARY_BOXED_NS:
 	hdr = *boxed_val(arg1);
-	switch ((hdr & _TAG_HEADER_MASK)) {
-	case (_TAG_HEADER_POS_BIG):
-	case (_TAG_HEADER_NEG_BIG):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK)) {
-		case (_TAG_IMMED1_SMALL):
+	switch header_tag(hdr) {
+	case _TAG_HEADER_POS_BIG_NS:
+	case _TAG_HEADER_NEG_BIG_NS:
+	  switch new_primary_tag(arg2) {
+	    case TAG_PRIMARY_IMMED1_NS:
+	      switch immed1_tag(arg2) {
+		case _TAG_IMMED1_SMALL_NS:
 		    if (arg2 == SMALL_ZERO) {
 			return arg1;
 		    }
@@ -393,11 +393,11 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
-	    case TAG_PRIMARY_BOXED:
+	    case TAG_PRIMARY_BOXED_NS:
 		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK)) {
-		case (_TAG_HEADER_POS_BIG):
-		case (_TAG_HEADER_NEG_BIG):
+		switch header_tag(hdr) {
+		case _TAG_HEADER_POS_BIG_NS:
+		case _TAG_HEADER_NEG_BIG_NS:
 		do_big:
 		    sz1 = big_size(arg1);
 		    sz2 = big_size(arg2);
@@ -411,7 +411,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 			return THE_NON_VALUE;
 		    }
 		    return res;
-		case (_TAG_HEADER_FLOAT):
+		case _TAG_HEADER_FLOAT_NS:
 		    if (big_to_double(arg1, &f1.fd) < 0) {
 			goto badarith;
 		    }
@@ -421,28 +421,28 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		    goto badarith;
 		}
 	    }
-	case (_TAG_HEADER_FLOAT):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
-		switch ((arg2 & _TAG_IMMED1_MASK)) {
-		case (_TAG_IMMED1_SMALL):
+	case _TAG_HEADER_FLOAT_NS:
+	  switch primary_tag(arg2) {
+	    case TAG_PRIMARY_IMMED1_NS:
+	      switch immed1_tag(arg2) {
+		case _TAG_IMMED1_SMALL_NS:
 		    GET_DOUBLE(arg1, f1);
 		    f2.fd = signed_val(arg2);
 		    goto do_float;
 		default:
 		    goto badarith;
 		}
-	    case TAG_PRIMARY_BOXED:
+	    case TAG_PRIMARY_BOXED_NS:
 		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK)) {
-		case (_TAG_HEADER_POS_BIG):
-		case (_TAG_HEADER_NEG_BIG):
+		switch header_tag(hdr) {
+		case _TAG_HEADER_POS_BIG_NS:
+		case _TAG_HEADER_NEG_BIG_NS:
 		    GET_DOUBLE(arg1, f1);
 		    if (big_to_double(arg2, &f2.fd) < 0) {
 			goto badarith;
 		    }
 		    goto do_float;
-		case (_TAG_HEADER_FLOAT):
+		case _TAG_HEADER_FLOAT_NS:
 		    GET_DOUBLE(arg1, f1);
 		    GET_DOUBLE(arg2, f2);
 
