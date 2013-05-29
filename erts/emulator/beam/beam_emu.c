@@ -2282,15 +2282,15 @@ void process_main(void)
 
      do {
 	 Eterm term = *I++;
-	 switch (term & _TAG_IMMED1_MASK) {
-	 case (R_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	 switch (beam_reg_arg_tag(term)) {
+	 case R_REG_ARG_DEF:
 	     *hp++ = r(0);
 	     break;
-	 case (X_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = x(term &~(_TAG_IMMED1_MASK));
+	 case X_REG_ARG_DEF:
+	     *hp++ = x(beam_reg_arg_value(term));
 	     break;
-	 case (Y_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	   *hp++ = y(term &~(_TAG_IMMED1_MASK));
+	 case Y_REG_ARG_DEF:
+	     *hp++ = y(beam_reg_arg_value(term));
 	     break;
 	 default:
 	     *hp++ = term;

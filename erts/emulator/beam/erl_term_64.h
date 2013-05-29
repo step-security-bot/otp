@@ -999,6 +999,20 @@ _ET_DECLARE_CHECKED(Uint,y_reg_offset,Uint)
 #define reg_index(R) (((R) & ~(_TAG_PRIMARY_MASK)) / sizeof(Eterm))
 
 /*
+ * ARG_DEF tags are used to store regs/immed in tuples as arguments. 
+ */
+
+#define X_REG_ARG_DEF   ((X_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define Y_REG_ARG_DEF   ((Y_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define R_REG_ARG_DEF   ((R_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+
+#define beam_reg_arg_value(x) ((x) &~(_TAG_IMMED1_MASK))
+#define beam_reg_arg_tag(x)   ((x) & _TAG_IMMED1_MASK)
+#define make_rreg_arg()	      R_REG_ARG_DEF
+#define make_xreg_arg(ix)     ((ix) | X_REG_ARG_DEF)
+#define make_yreg_arg(ix)     ((ix) | Y_REG_ARG_DEF)
+
+/*
  * Backwards compatibility definitions:
  * - #define virtal *_DEF constants with values that fit term order:
  *   number < atom < ref < fun < port < pid < tuple < nil < cons < binary

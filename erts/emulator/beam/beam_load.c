@@ -2327,33 +2327,15 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_r:
 		CodeNeed(1);
-#ifdef ERTS_USE_NAN_ENCODING
-		code[ci++] = (R_REG_DEF >> _TAG_PRIMARY_SIZE) |
-		    TAG_PRIMARY_HEADER;
-#else
-		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
-		    TAG_PRIMARY_HEADER;
-#endif
+		code[ci++] = make_rreg_arg();
 		break;
 	    case TAG_x:
 		CodeNeed(1);
-#ifdef ERTS_USE_NAN_ENCODING
-		code[ci++] = (tmp_op->a[arg].val) |
-		    (X_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
-#else
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
-#endif
+		code[ci++] = make_xreg_arg(tmp_op->a[arg].val);
 		break;
 	    case TAG_y:
 		CodeNeed(1);
-#ifdef ERTS_USE_NAN_ENCODING
-		code[ci++] = (tmp_op->a[arg].val) |
-		    (Y_REG_DEF >> _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
-#else
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
-#endif
+		code[ci++] = make_yreg_arg(tmp_op->a[arg].val);
 		break;
 	    case TAG_n:
 		CodeNeed(1);
