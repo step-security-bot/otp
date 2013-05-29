@@ -88,7 +88,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_IMMED1_PORT	((0x1 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_IMMED2	((0x2 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_IMMED1)
 #define _TAG_IMMED1_SMALL	((0x3 << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_IMMED1)
-#define _DATA_IMMED1_OFFSET     0
+#define _DATA_IMMED1_OFFSET     _TAG_IMMED1_SIZE
 
 #define _TAG_IMMED2_SIZE	6
 #define _TAG_IMMED2_MASK	0x3F
@@ -195,7 +195,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define  _boxed_precond(x)       (is_boxed(x))
 #endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
-#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) | TAG_PRIMARY_BOXED)
+#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
@@ -206,12 +206,12 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
-#define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) & ~(TAG_PRIMARY_BOXED))))
+#define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) | TAG_PRIMARY_LIST)
+#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
@@ -228,7 +228,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #else
 #define _list_precond(x)       (is_list(x))
 #endif
-#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) & ~(TAG_PRIMARY_LIST)))
+#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x)  - TAG_PRIMARY_LIST))
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -591,7 +591,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define _PID_SER_SIZE		(_PID_DATA_SIZE - _PID_NUM_SIZE)
 #define _PID_NUM_SIZE 		15
 
-#define _PID_DATA_SIZE		28
+#define _PID_DATA_SIZE		24
 #define _PID_DATA_SHIFT		(_DATA_IMMED1_OFFSET)
 
 #define _GET_PID_DATA(X)	_GETBITS((X),_PID_DATA_SHIFT,_PID_DATA_SIZE)
@@ -639,8 +639,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
  */
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
-#define _PORT_DATA_SIZE		28
-#define _PORT_DATA_SHIFT	(_TAG_IMMED1_SIZE)
+#define _PORT_DATA_SIZE		24
+#define _PORT_DATA_SHIFT	(_DATA_IMMED1_OFFSET)
 
 #define _GET_PORT_DATA(X)	_GETBITS((X),_PORT_DATA_SHIFT,_PORT_DATA_SIZE)
 #define _GET_PORT_NUM(X)	_GETBITS((X), 0, _PORT_NUM_SIZE)
