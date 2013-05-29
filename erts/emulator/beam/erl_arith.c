@@ -382,7 +382,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO) {
@@ -525,7 +525,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO) {
@@ -706,7 +706,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO)
@@ -850,7 +850,7 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
@@ -1227,7 +1227,7 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO) {
@@ -1392,7 +1392,7 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO) {
@@ -1599,7 +1599,7 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (arg2 == SMALL_ZERO)
@@ -1761,7 +1761,7 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 	case (_TAG_HEADER_POS_BIG):
 	case (_TAG_HEADER_NEG_BIG):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK)) {
 		case (_TAG_IMMED1_SMALL):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
