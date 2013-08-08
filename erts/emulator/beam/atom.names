@@ -236,6 +236,7 @@ atom force
 atom format_cpu_topology
 atom free
 atom fullsweep_after
+atom fullsweep_after_ref_bins
 atom fullsweep_if_old_binaries
 atom fun
 atom function
@@ -546,6 +547,7 @@ atom timeout_value
 atom Times='*'
 atom timestamp
 atom total
+atom total_bin_vheap_size
 atom total_heap_size
 atom tpkt
 atom trace trace_ts traced 

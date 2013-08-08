@@ -841,6 +841,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     so.min_vheap_size = BIN_VH_MIN_SIZE;
     so.priority       = PRIORITY_NORMAL;
     so.max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
+    so.pb_full_gc     = (Uint16) erts_smp_atomic32_read_nob(&erts_pb_full_gc);
     so.scheduler      = 0;
 
     /*
@@ -895,6 +896,13 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    goto error;
 		} else {
 		    so.max_gen_gcs = max_gen_gcs;
+		}
+	    } else if (arg == am_fullsweep_after_ref_bins && is_small(val)) {
+		Sint pb_full_gc = signed_val(val);
+		if (pb_full_gc < 0) {
+		    goto error;
+		} else {
+		    so.pb_full_gc = pb_full_gc;
 		}
 	    } else if (arg == am_scheduler && is_small(val)) {
 		Sint scheduler = signed_val(val);
@@ -4375,6 +4383,16 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
 	nval = (n > (Sint) ((Uint16) -1)) ? ((Uint16) -1) : ((Uint16) n);
 	oval = (Uint) erts_smp_atomic32_xchg_nob(&erts_max_gen_gcs,
+						 (erts_aint32_t) nval);
+	BIF_RET(make_small(oval));
+    } else if (BIF_ARG_1 == am_fullsweep_after_ref_bins) {
+	Uint16 nval;
+	Uint oval;
+	if (!is_small(BIF_ARG_2) || (n = signed_val(BIF_ARG_2)) < 0) {
+	    goto error;
+	}
+	nval = (n > (Sint) ((Uint16) -1)) ? ((Uint16) -1) : ((Uint16) n);
+	oval = (Uint) erts_smp_atomic32_xchg_nob(&erts_pb_full_gc,
 						 (erts_aint32_t) nval);
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_min_heap_size) {

@@ -1657,6 +1657,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    pb->size = real_size;
 		    pb->next = MSO(p).first;
 		    MSO(p).first = (struct erl_off_heap_header*)pb;
+		    MSO(p).pb_cnt++;
 		    pb->val = result_bin;
 		    pb->bytes = (byte*) result_bin->orig_bytes;
 		    pb->flags = 0;
@@ -1730,6 +1731,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 			pb->size = context->s.cc.dest_len+6;
 			pb->next = MSO(p).first;
 			MSO(p).first = (struct erl_off_heap_header*)pb;
+			MSO(p).pb_cnt++;
 			pb->val = result_bin;
 			pb->bytes = (byte*) result_bin->orig_bytes;
 			pb->flags = 0;
@@ -1754,6 +1756,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		    pb->size = context->s.cc.real_size;
 		    pb->next = MSO(p).first;
 		    MSO(p).first = (struct erl_off_heap_header*)pb;
+		    MSO(p).pb_cnt++;
 		    pb->val = result_bin;
 		    pb->bytes = (byte*) result_bin->orig_bytes;
 		    pb->flags = 0;

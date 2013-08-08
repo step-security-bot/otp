@@ -1385,6 +1385,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	pb->size = used_size_in_bytes;
 	pb->next = MSO(c_p).first;
 	MSO(c_p).first = (struct erl_off_heap_header*)pb;
+	MSO(c_p).pb_cnt++;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
@@ -1550,6 +1551,7 @@ erts_bs_init_writable(Process* p, Eterm sz)
     pb->size = 0;
     pb->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) pb;
+    MSO(p).pb_cnt++;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;

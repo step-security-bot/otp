@@ -3595,6 +3595,7 @@ void process_main(void)
 	 pb->size = num_bytes;
 	 pb->next = MSO(c_p).first;
 	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
+	 MSO(c_p).pb_cnt++;
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
@@ -3696,6 +3697,7 @@ void process_main(void)
 	 pb->size = tmp_arg1;
 	 pb->next = MSO(c_p).first;
 	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
+	 MSO(c_p).pb_cnt++;
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;

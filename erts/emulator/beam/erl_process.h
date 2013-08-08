@@ -732,6 +732,7 @@ struct ErlExtraRootSet_ {
 #  define MBUF_SIZE(p)      (p)->mbuf_sz
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
+#  define PB_FULL_GC(p)     (p)->pb_full_gc
 
 #  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
 #  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
@@ -845,6 +846,7 @@ struct process {
     Eterm *old_heap;
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
+    Uint16 pb_full_gc;          /* Full GC after X ProcBin have been added */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
     ErlHeapFragment* mbuf;	/* Pointer to message buffer list */
     Uint mbuf_sz;		/* Size of all message buffers */
@@ -987,6 +989,7 @@ typedef struct {
     Uint min_vheap_size;	/* Minimum virtual heap size  */
     int priority;		/* Priority for process. */
     Uint16 max_gen_gcs;		/* Maximum number of gen GCs before fullsweep. */
+    Uint16 pb_full_gc;
     int scheduler;
 } ErlSpawnOpts;
 

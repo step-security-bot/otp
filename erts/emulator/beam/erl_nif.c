@@ -677,6 +677,7 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	pb->size = bptr->orig_size;
 	pb->next = MSO(env->proc).first;
 	MSO(env->proc).first = (struct erl_off_heap_header*) pb;
+	MSO(env->proc).pb_cnt++;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = 0;

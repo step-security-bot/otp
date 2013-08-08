@@ -317,6 +317,7 @@ erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
     pb->size = 0;
     pb->next = ohp->first;
     ohp->first = (struct erl_off_heap_header*) pb;
+    ohp->pb_cnt++;
     pb->val = mbp;
     pb->bytes = (byte *) mbp->orig_bytes;
     pb->flags = 0;
@@ -350,6 +351,7 @@ extern Uint display_items;	/* no of items to display in traces etc */
 
 extern int erts_backtrace_depth;
 extern erts_smp_atomic32_t erts_max_gen_gcs;
+extern erts_smp_atomic32_t erts_pb_full_gc;
 
 extern int erts_disable_tolerant_timeofday;
 

@@ -7212,7 +7212,12 @@ Process *schedule(Process *p, int calls)
 
 	if (!(state & ERTS_PSFLG_EXITING)
 	    && ((FLAGS(p) & F_FORCE_GC)
-		|| (MSO(p).overhead > BIN_VHEAP_SZ(p)))) {
+		|| (MSO(p).overhead > BIN_VHEAP_SZ(p))
+		|| (MSO(p).pb_cnt > PB_FULL_GC(p)))) {
+	    if (MSO(p).pb_cnt > PB_FULL_GC(p)) {
+	      FLAGS(p) |= F_NEED_FULLSWEEP;
+	      MSO(p).pb_cnt = 0;
+	    }
 	    reds -= erts_garbage_collect(p, 0, p->arg_reg, p->arity);
 	    if (reds < 0) {
 		reds = 1;
@@ -7550,10 +7555,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	p->min_heap_size  = so->min_heap_size;
 	p->min_vheap_size = so->min_vheap_size;
 	p->max_gen_gcs    = so->max_gen_gcs;
+	p->pb_full_gc     = so->pb_full_gc;
     } else {
 	p->min_heap_size  = H_MIN_SIZE;
 	p->min_vheap_size = BIN_VH_MIN_SIZE;
 	p->max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
+	p->pb_full_gc     = (Uint16) erts_smp_atomic32_read_nob(&erts_pb_full_gc);
     }
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
@@ -7798,6 +7805,7 @@ void erts_init_empty_process(Process *p)
     p->heap = NULL;
     p->gen_gcs = 0;
     p->max_gen_gcs = 0;
+    p->pb_full_gc = 0;
     p->min_heap_size = 0;
     p->min_vheap_size = 0;
     p->rcount = 0;

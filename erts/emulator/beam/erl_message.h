@@ -44,6 +44,7 @@ struct erl_off_heap_header {
 typedef struct erl_off_heap {
     struct erl_off_heap_header* first;
     Uint64 overhead;     /* Administrative overhead (used to force GC). */
+    Uint64 pb_cnt;
 } ErlOffHeap;
 
 #include "external.h"

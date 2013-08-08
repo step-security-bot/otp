@@ -169,6 +169,7 @@ int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 */
 
 erts_smp_atomic32_t erts_max_gen_gcs;
+erts_smp_atomic32_t erts_pb_full_gc;
 
 Eterm erts_error_logger_warnings; /* What to map warning logs to, am_error, 
 				     am_info or am_warning, am_error is 
@@ -689,6 +690,8 @@ early_init(int *argc, char **argv) /*
 
     erts_smp_atomic32_init_nob(&erts_max_gen_gcs,
 			       (erts_aint32_t) ((Uint16) -1));
+    erts_smp_atomic32_init_nob(&erts_pb_full_gc,
+			       (erts_aint32_t) ((Uint32) -1));
 
     erts_pre_init_process();
 #if defined(USE_THREADS) && !defined(ERTS_SMP)

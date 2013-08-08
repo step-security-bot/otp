@@ -337,6 +337,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    erts_refc_inc(&pb->val->refc, 2);
 		    pb->next = off_heap->first;
 		    pb->flags = 0;
+		    off_heap->pb_cnt++;
 		    off_heap->first = (struct erl_off_heap_header*) pb;
 		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
@@ -387,6 +388,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			to->next = off_heap->first;
 			to->flags = 0;
 			off_heap->first = (struct erl_off_heap_header*) to;
+			off_heap->pb_cnt++;
 			OH_OVERHEAD(off_heap, to->size / sizeof(Eterm));
 		    }
 		    *argp = make_binary_rel(hbot, dst_base);

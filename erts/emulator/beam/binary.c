@@ -90,6 +90,7 @@ new_binary(Process *p, byte *buf, Uint len)
     pb->size = len;
     pb->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*)pb;
+    MSO(p).pb_cnt++;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = 0;
@@ -129,6 +130,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
     pb->size = len;
     pb->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*)pb;
+    MSO(p).pb_cnt++;
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = 0;

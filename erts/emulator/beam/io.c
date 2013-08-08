@@ -3107,6 +3107,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	pb->size = len;
 	pb->next = ohp->first;
 	ohp->first = (struct erl_off_heap_header*)pb;
+	ohp->pb_cnt++;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = 0;
@@ -3275,6 +3276,7 @@ deliver_vec_message(Port* prt,			/* Port */
 	    pb->size = iov->iov_len;
 	    pb->next = ohp->first;
 	    ohp->first = (struct erl_off_heap_header*)pb;
+	    ohp->pb_cnt++;
 	    pb->val = ErlDrvBinary2Binary(b);
 	    pb->bytes = base;
 	    pb->flags = 0;
@@ -3820,6 +3822,7 @@ write_port_control_result(int control_flags,
 		pb->size = dbin->orig_size;
 		pb->next = ohp->first;
 		ohp->first = (struct erl_off_heap_header *) pb;
+		ohp->pb_cnt++;
 		pb->val = ErlDrvBinary2Binary(dbin);
 		pb->bytes = (byte*) dbin->orig_bytes;
 		pb->flags = 0;
@@ -5405,6 +5408,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		pb->size = size;
 		pb->next = ohp->first;
 		ohp->first = (struct erl_off_heap_header*)pb;
+		ohp->pb_cnt++;
 		pb->val = ErlDrvBinary2Binary(b);
 		pb->bytes = ((byte*) b->orig_bytes) + offset;
 		pb->flags = 0;
@@ -5447,6 +5451,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 		pbp->size = size;
 		pbp->next = ohp->first;
 		ohp->first = (struct erl_off_heap_header*)pbp;
+		ohp->pb_cnt++;
 		pbp->val = bp;
 		pbp->bytes = (byte*) bp->orig_bytes;
 		pbp->flags = 0;
