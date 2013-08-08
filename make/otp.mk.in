@@ -215,7 +215,7 @@ TEXDIR = .
 SPECDIR = $(DOCDIR)/specs
 
 ifeq ($(CSS_FILE),)
-CSS_FILE = otp_doc.css
+CSS_FILE = bootstrap.css
 endif
 ifeq ($(WINPREFIX),)
 WINPREFIX = Erlang

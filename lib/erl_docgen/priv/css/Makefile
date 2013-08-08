@@ -38,7 +38,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/erl_docgen-$(VSN)
 
 
 CSS_FILES = \
-	otp_doc.css
+	bootstrap.css
 
 
 # ----------------------------------------------------

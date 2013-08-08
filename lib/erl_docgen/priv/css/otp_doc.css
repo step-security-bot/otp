@@ -32,16 +32,8 @@ a:visited      { color: blue; text-decoration: none }
 }
 
 #leftnav {
-  position: fixed;
-  float: left;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 200px;
-  overflow:auto;
-  margin: 0;
   padding: 1px;
-  border-right: 1px solid red;
+  border-right: 1px solid #CCC;
 }
 
 #content {

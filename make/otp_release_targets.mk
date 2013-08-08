@@ -119,7 +119,7 @@ local_html: TOPDOCDIR=.
 local_html: local_copy_of_topdefs html
 
 local_copy_of_topdefs:
-	$(INSTALL) $(DOCGEN)/priv/css/otp_doc.css $(HTMLDIR)
+	$(INSTALL) $(DOCGEN)/priv/css/bootstrap.css $(HTMLDIR)
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.png $(HTMLDIR)
 	$(INSTALL) $(DOCGEN)/priv/images/erlang-logo.gif $(HTMLDIR)
 	$(INSTALL_DIR) $(HTMLDIR)/js/flipmenu

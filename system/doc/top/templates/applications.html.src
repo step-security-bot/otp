@@ -21,33 +21,14 @@ under the License.
 <html>
 <head>
   <title>Erlang/OTP #version# Applications</title>
-  <style type="text/css">
-<!--
-    BODY           { background: white }
-
-    BODY           { font-family: Verdana, Arial, Helvetica, sans-serif }
-    TH             { font-family: Verdana, Arial, Helvetica, sans-serif }
-    TD             { font-family: Verdana, Arial, Helvetica, sans-serif }
-    P              { font-family: Verdana, Arial, Helvetica, sans-serif }
-
-    .header        { background: #222; color: #fff }
-    .app           { background: #ccc }
-
-    a.anum:link    { color: green; text-decoration: none }
-    a.anum:active  { color: green; text-decoration: none }
-    a.anum:visited { color: green; text-decoration: none }
-
-    a:link         { text-decoration: none }
-    a:active       { text-decoration: none }
-    a:visited      { text-decoration: none }
--->
-  </style>
+  <link rel="stylesheet" href="bootstrap.css">
 </head>
 
-<body bgcolor=white text="#000000" link="#0000ff" vlink="#ff00ff"
-      alink="#ff0000">
-<center>
-#groups#
-</center>
+<body>
+<div class="container">
+  <div class="col-lg-12">
+    #groups#
+  </div>
+</div>
 </body>
 </html>
