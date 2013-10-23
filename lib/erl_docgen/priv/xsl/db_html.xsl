@@ -598,6 +598,28 @@
           </xsl:when>
           <xsl:otherwise>
 	    <link rel="stylesheet" href="{$topdocdir}/bootstrap.css" type="text/css"/>
+	    
+	  <xsl:text disable-output-escaping="yes"><![CDATA[
+	  <!--[if lt IE 9]>
+	      <style>
+	      .col-lg-12{
+	        width:1024px;
+	      }
+              .col-lg-10{
+	        width:853;
+	      }
+	      .col-lg-9 {
+	        width:768px;
+	      }
+	      .col-lg-3 {
+	        width:256px;
+	      }
+	      .col-lg-2 {
+	        width:170px;
+	      }
+	      </style>
+	  <![endif]-->
+	  ]]></xsl:text>
           </xsl:otherwise>
         </xsl:choose>
         <xsl:choose>
@@ -2166,6 +2188,27 @@
     <html>
       <head>
 	<link rel="stylesheet" href="{$topdocdir}/bootstrap.css" type="text/css"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[
+	  <!--[if lt IE 9]>
+	      <style>
+	      .col-lg-12{
+	        width:1024px;
+	      }
+              .col-lg-10{
+	        width:853;
+	      }
+	      .col-lg-9 {
+	        width:768px;
+	      }
+	      .col-lg-3 {
+	        width:256px;
+	      }
+	      .col-lg-2 {
+	        width:170px;
+	      }
+	      </style>
+	  <![endif]-->
+	  ]]></xsl:text>
         <title>Erlang Documentation -- <xsl:value-of select="header/title"/></title>
       </head>
       <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
@@ -2221,6 +2264,27 @@
     <html>
       <head>
 	<link rel="stylesheet" href="{$topdocdir}/bootstrap.css" type="text/css"/>
+	<xsl:text disable-output-escaping="yes"><![CDATA[
+	  <!--[if lt IE 9]>
+	      <style>
+	      .col-lg-12{
+	        width:1024px;
+	      }
+              .col-lg-10{
+	        width:853;
+	      }
+	      .col-lg-9 {
+	        width:768px;
+	      }
+	      .col-lg-3 {
+	        width:256px;
+	      }
+	      .col-lg-2 {
+	        width:170px;
+	      }
+	      </style>
+	  <![endif]-->
+	  ]]></xsl:text>
         <title>Erlang Documentation -- <xsl:value-of select="header/title"/></title>
       </head>
       <body bgcolor="white" text="#000000" link="#0000ff" vlink="#ff00ff" alink="#ff0000">
