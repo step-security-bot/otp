@@ -137,7 +137,7 @@ static Uint meta_main_tab_seq_cnt = 0;  /* To give unique(-ish) table identifier
 #  define META_NAME_TAB_LOCK_CNT 16
 union {
     erts_smp_rwmtx_t lck;
-    byte _cache_line_alignment[64];
+    byte _cache_line_alignment[ERTS_CACHE_LINE_SIZE];
 }meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
 #endif
 static struct meta_name_tab_entry {

@@ -42,7 +42,7 @@ typedef struct hash_db_term {
 typedef struct db_table_hash_fine_locks {
     union {
 	erts_smp_rwmtx_t lck;
-	byte _cache_line_alignment[64];
+	byte _cache_line_alignment[ERTS_CACHE_LINE_SIZE];
     }lck_vec[DB_HASH_LOCK_CNT];
 } DbTableHashFineLocks;
 

@@ -81,7 +81,7 @@ typedef struct
 
     union {
 	erts_smp_mtx_t mtx;
-	byte __cache_line__[64];
+	byte __cache_line__[ERTS_CACHE_LINE_SIZE];
     }lock_vec[SAFE_HASH_LOCK_CNT];
 
     /* C: Constants initialized once */

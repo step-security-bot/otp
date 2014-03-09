@@ -129,7 +129,7 @@ static int max_fds = -1;
 #define DRV_EV_STATE_LOCK_CNT 16
 static union {
     erts_smp_mtx_t lck;
-    byte _cache_line_alignment[64];
+    byte _cache_line_alignment[ERTS_CACHE_LINE_SIZE];
 }drv_ev_state_locks[DRV_EV_STATE_LOCK_CNT];
 
 #ifdef ERTS_SMP
