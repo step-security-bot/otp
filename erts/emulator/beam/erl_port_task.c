@@ -68,8 +68,6 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 #define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
 #endif
 
-erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
-
 #define ERTS_PT_STATE_SCHEDULED		0
 #define ERTS_PT_STATE_ABORTED		1
 #define ERTS_PT_STATE_EXECUTING		2
@@ -563,6 +561,27 @@ set_tmp_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
 	 */
 	erts_smp_atomic_set_relb(pthp, (erts_aint_t) ptp);
     }
+}
+
+/*
+ * Outstanding IO handling for multiple pollsets
+ */
+static erts_aint_t
+update_outstanding_io(int no, erts_aint_t outstanding) {
+  ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(no);
+  erts_aint_t res;
+
+  res = erts_smp_atomic_add_read_relb(&esdp->port_task_outstanding_io_tasks,
+				      outstanding);
+  
+  ASSERT((outstanding < 0 && res >= 0) || (res > 0));
+
+  /* We have to wakeup scheduler if it sleeping in tse wait */
+  if (res == 0)
+    erts_wake_scheduler(esdp->run_queue, ERTS_SSI_FLG_TSE_TO_POLL);
+
+  return res;
+
 }
 
 
@@ -1248,9 +1267,7 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	    case ERTS_PORT_TASK_INPUT:
 	    case ERTS_PORT_TASK_OUTPUT:
 	    case ERTS_PORT_TASK_EVENT:
-		ASSERT(erts_smp_atomic_read_nob(
-			   &erts_port_task_outstanding_io_tasks) > 0);
-		erts_smp_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
+	        update_outstanding_io(erts_port_task_event_to_schedid(ptp),-1);
 		break;
 	    default:
 		break;
@@ -1408,20 +1425,24 @@ erts_port_task_schedule(Eterm id,
     switch (type) {
     case ERTS_PORT_TASK_INPUT:
     case ERTS_PORT_TASK_OUTPUT: {
+        ErtsSchedulerData *esdp;
 	va_list argp;
 	va_start(argp, type);
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
 	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+	esdp = erts_get_scheduler_data();
+	update_outstanding_io(erts_port_task_event_to_schedid(ptp),1);
 	break;
     }
     case ERTS_PORT_TASK_EVENT: {
+        ErtsSchedulerData *esdp;
 	va_list argp;
 	va_start(argp, type);
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
 	ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
 	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+	esdp = erts_get_scheduler_data();
+	update_outstanding_io(erts_port_task_event_to_schedid(ptp),1);
 	break;
     }
     case ERTS_PORT_TASK_PROC_SIG: {
@@ -1595,10 +1616,11 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int res = 0;
     int vreds = 0;
     int reds = 0;
-    erts_aint_t io_tasks_executed = 0;
+    erts_aint_t *io_tasks_executed;
     int fpe_was_unmasked;
     erts_aint32_t state;
     int active;
+    int i;
     Uint64 start_time = 0;
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
@@ -1627,6 +1649,11 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	}
 	erts_smp_spin_unlock(&erts_sched_stat.lock);
     }
+
+    io_tasks_executed = erts_alloc(ERTS_ALC_T_TMP,sizeof(erts_aint32_t)*
+				   erts_no_schedulers);
+    for (i = 0; i < erts_no_schedulers; i++)
+      io_tasks_executed[i] = 0;
 
     prepare_exec(pp, &execq, &processing_busy_q);
 
@@ -1685,7 +1712,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
 					ptp->u.alive.td.io.event);
-	    io_tasks_executed++;
+	    io_tasks_executed[erts_port_task_event_to_schedid(ptp)]++;
 	    break;
 	case ERTS_PORT_TASK_OUTPUT:
 	    reds = ERTS_PORT_REDS_OUTPUT;
@@ -1693,7 +1720,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
             DTRACE_DRIVER(driver_ready_output, pp);
 	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
 					 ptp->u.alive.td.io.event);
-	    io_tasks_executed++;
+	    io_tasks_executed[erts_port_task_event_to_schedid(ptp)]++;
 	    break;
 	case ERTS_PORT_TASK_EVENT:
 	    reds = ERTS_PORT_REDS_EVENT;
@@ -1702,7 +1729,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
 				  ptp->u.alive.td.io.event,
 				  ptp->u.alive.td.io.event_data);
-	    io_tasks_executed++;
+	    io_tasks_executed[erts_port_task_event_to_schedid(ptp)]++;
 	    break;
 	case ERTS_PORT_TASK_PROC_SIG: {
 	    ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
@@ -1770,11 +1797,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     	trace_sched_ports(pp, am_out);
     }
 
-    if (io_tasks_executed) {
-	ASSERT(erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
-	       >= io_tasks_executed);
-	erts_smp_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
-				 -1*io_tasks_executed);
+    for (i = 0; i < erts_no_schedulers; i++) {
+      if (io_tasks_executed[i])
+        update_outstanding_io(i,-1*io_tasks_executed[i]);
     }
 
 #ifdef ERTS_SMP
@@ -1827,7 +1852,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     }
 
  done:
-    res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
+    res = (erts_smp_atomic_read_nob(&(erts_get_scheduler_data()->port_task_outstanding_io_tasks))
 	   != (erts_aint_t) 0);
 
     runq->scheduler->reductions += reds;
@@ -2102,8 +2127,6 @@ erts_dequeue_port(ErtsRunQueue *rq)
 void
 erts_port_task_init(void)
 {
-    erts_smp_atomic_init_nob(&erts_port_task_outstanding_io_tasks,
-			     (erts_aint_t) 0);
     init_port_task_alloc();
     init_busy_caller_table_alloc();
 }

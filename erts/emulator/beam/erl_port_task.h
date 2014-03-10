@@ -61,11 +61,6 @@ typedef enum {
     ERTS_PORT_TASK_PROC_SIG
 } ErtsPortTaskType;
 
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-/* NOTE: Do not access any of the exported variables directly */
-extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
-#endif
-
 #define ERTS_PTS_FLG_IN_RUNQ			(((erts_aint32_t) 1) <<  0)
 #define ERTS_PTS_FLG_EXEC			(((erts_aint32_t) 1) <<  1)
 #define ERTS_PTS_FLG_HAVE_TASKS			(((erts_aint32_t) 1) <<  2)
@@ -138,6 +133,9 @@ ERTS_GLB_INLINE void erts_port_task_sched_lock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE int erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp);
+
+#define erts_port_task_event_to_schedid(PTP) \
+  ((PTP)->u.alive.td.io.event % erts_no_schedulers)
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
@@ -241,7 +239,8 @@ erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_have_outstanding_io_tasks(void)
 {
-    return (erts_smp_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
+    
+  return (erts_smp_atomic_read_acqb(&(erts_get_scheduler_data()->port_task_outstanding_io_tasks))
 	    != 0);
 }
 

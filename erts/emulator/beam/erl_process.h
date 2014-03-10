@@ -249,6 +249,7 @@ typedef enum {
 #define ERTS_SSI_FLG_TSE_SLEEPING 	(((erts_aint32_t) 1) << 2)
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
+#define ERTS_SSI_FLG_TSE_TO_POLL	(((erts_aint32_t) 1) << 5)
 
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
@@ -604,6 +605,8 @@ struct ErtsSchedulerData_ {
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
 #endif
+
+    erts_smp_atomic_t port_task_outstanding_io_tasks;
 };
 
 typedef union {
@@ -1321,6 +1324,8 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define ERTS_SCHEDULER_IX(IX)						\
   (ASSERT(0 <= (IX) && (IX) < erts_no_schedulers),			\
    &erts_aligned_scheduler_data[(IX)].esd)
+#define ERTS_SCHEDULER_OUTSTANDING_IO(IX)	\
+  (&(ERTS_SCHEDULER_IX(IX)->port_task_outstanding_io_tasks))
 #ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_DIRTY_CPU_SCHEDULER_IX(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_cpu_schedulers),		\
@@ -1366,6 +1371,8 @@ Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
+
+void erts_wake_scheduler_to_poll(ErtsRunQueue *rq);
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);

@@ -1205,6 +1205,7 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
 {
     switch (flags & ERTS_SSI_FLGS_SLEEP_TYPE) {
     case ERTS_SSI_FLG_POLL_SLEEPING:
+        ASSERT(!(flags & ERTS_SSI_FLG_TSE_TO_POLL));
 	erts_sys_schedule_interrupt(1);
 	break;
     case ERTS_SSI_FLG_POLL_SLEEPING|ERTS_SSI_FLG_TSE_SLEEPING:
@@ -1212,6 +1213,7 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
 	 * Thread progress blocking while poll sleeping; need
 	 * to signal on both...
 	 */
+        ASSERT(!(flags & ERTS_SSI_FLG_TSE_TO_POLL));
 	erts_sys_schedule_interrupt(1);
 	/* fall through */
     case ERTS_SSI_FLG_TSE_SLEEPING:
@@ -2363,35 +2365,22 @@ erts_active_schedulers(void)
     return as;
 }
 
-#ifdef ERTS_SMP
-
-static ERTS_INLINE void
-clear_sys_scheduling(void)
-{
-    erts_smp_atomic32_set_mb(&doing_sys_schedule, 0);
-}
-
-static ERTS_INLINE int
-try_set_sys_scheduling(void)
-{
-    return 0 == erts_smp_atomic32_cmpxchg_acqb(&doing_sys_schedule, 1, 0);
-}
-
-#endif
-
 static ERTS_INLINE int
 prepare_for_sys_schedule(ErtsSchedulerData *esdp)
 {
+  return !erts_port_task_have_outstanding_io_tasks();
+}
+
+#if 0
 #ifdef ERTS_SMP
-    while (!erts_port_task_have_outstanding_io_tasks()
-	   && try_set_sys_scheduling()) {
+    while (!erts_port_task_have_outstanding_io_tasks()) {
 #ifdef ERTS_SCHED_ONLY_POLL_SCHED_1
       if (esdp->no != 1) {
 	/* If we are not scheduler 1 and ERTS_SCHED_ONLY_POLL_SCHED_1 is used
 	   then we make sure to wake scheduler 1 */
 	ErtsRunQueue *rq = ERTS_RUNQ_IX(0);
 	clear_sys_scheduling();
-	wake_scheduler(rq);
+	erts_wake_scheduler_to_poll(rq);
 	return 0;
       }
 #endif
@@ -2404,6 +2393,8 @@ prepare_for_sys_schedule(ErtsSchedulerData *esdp)
     return !erts_port_task_have_outstanding_io_tasks();
 #endif
 }
+
+#endif
 
 #ifdef ERTS_SMP
 
@@ -2828,10 +2819,24 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
 		    erts_thr_progress_finalize_wait(esdp);
 	    }
-
+	    
 	    if (!(flgs & ERTS_SSI_FLG_WAITING)) {
 		ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
 		break;
+	    }
+
+	    if (flgs & ERTS_SSI_FLG_TSE_TO_POLL) {
+	      /* we were woken from tse_wait because our poll bucket
+		 was empied by another thread. So go to sys poll spinning.*/
+	      flgs = sched_prep_cont_poll_wait(ssi);
+	      if (!(flgs & ERTS_SSI_FLG_WAITING)) {
+		ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
+		break;
+	      }
+	      ASSERT(!thr_prgr_active);
+	      working = 0;
+	      spincount /= ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
+	      goto sys_poll_aux_work;
 	    }
 
 	    flgs = sched_prep_cont_spin_wait(ssi);
@@ -2872,7 +2877,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	ASSERT(esdp->no == 1);
 #endif
 	sched_waiting_sys(esdp->no, rq);
-
 
 	erts_smp_runq_unlock(rq);
 
@@ -2931,7 +2935,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * call erl_sys_schedule() until it is handled.
 	     */
 	    if (erts_port_task_have_outstanding_io_tasks()) {
-		clear_sys_scheduling();
 		/*
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
@@ -2952,7 +2955,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	 * sleep in erl_sys_schedule().
 	 */
 	if (erts_port_task_have_outstanding_io_tasks()) {
-	    clear_sys_scheduling();
 
 	    /*
 	     * Got to check that we still got I/O tasks; otherwise
@@ -2975,6 +2977,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    goto sys_poll_aux_work;
 	}
 #ifdef ERTS_SMP
+
 	flgs = sched_set_sleeptype(ssi, ERTS_SSI_FLG_POLL_SLEEPING);
 	if (!(flgs & ERTS_SSI_FLG_SLEEPING)) {
 	    if (!(flgs & ERTS_SSI_FLG_WAITING)) {
@@ -3031,7 +3034,6 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 	    erts_smp_runq_lock(rq);
 	}
-	clear_sys_scheduling();
 	if (flgs & ~ERTS_SSI_FLG_SUSPENDED)
 	    erts_smp_atomic32_read_band_nob(&ssi->flags, ERTS_SSI_FLG_SUSPENDED);
 #endif
@@ -3046,23 +3048,23 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #ifdef ERTS_SMP
 
 static ERTS_INLINE erts_aint32_t
-ssi_flags_set_wake(ErtsSchedulerSleepInfo *ssi)
+ssi_flags_set_wake(ErtsSchedulerSleepInfo *ssi, erts_aint32_t extra)
 {
     /* reset all flags but suspended */
     erts_aint32_t oflgs;
-    erts_aint32_t nflgs = 0;
+    erts_aint32_t nflgs = 0|extra;
     erts_aint32_t xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
     while (1) {
 	oflgs = erts_smp_atomic32_cmpxchg_relb(&ssi->flags, nflgs, xflgs);
-	if (oflgs == xflgs)
+	if (oflgs == xflgs || oflgs & nflgs)
 	    return oflgs;
-	nflgs = oflgs & ERTS_SSI_FLG_SUSPENDED;
+	nflgs = (oflgs & ERTS_SSI_FLG_SUSPENDED) | nflgs;
 	xflgs = oflgs;
     }
 }
 
-static void
-wake_scheduler(ErtsRunQueue *rq)
+void
+erts_wake_scheduler(ErtsRunQueue *rq, erts_aint32_t extra)
 {
     ErtsSchedulerSleepInfo *ssi;
     erts_aint32_t flgs;
@@ -3079,7 +3081,7 @@ wake_scheduler(ErtsRunQueue *rq)
 
     ssi = rq->scheduler->ssi;
 
-    flgs = ssi_flags_set_wake(ssi);
+    flgs = ssi_flags_set_wake(ssi, extra);
     erts_sched_finish_poke(ssi, flgs);
 }
 
@@ -5295,6 +5297,8 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 
     init_sched_wall_time(&esdp->sched_wall_time);
     erts_port_task_handle_init(&esdp->nosuspend_port_task_handle);
+    erts_smp_atomic_init_nob(&esdp->port_task_outstanding_io_tasks,
+			     (erts_aint_t) 0);
 }
 
 void
@@ -9160,7 +9164,6 @@ Process *schedule(Process *p, int calls)
 
 #ifdef ERTS_SMP
 	    erts_smp_runq_lock(rq);
-	    clear_sys_scheduling();
 	    goto continue_check_activities_to_run;
 #else
 	    goto check_activities_to_run;
@@ -9179,6 +9182,18 @@ Process *schedule(Process *p, int calls)
 	 */
 
 	if (RUNQ_READ_LEN(&rq->ports.info.len)) {
+	  /* How do we do this with multiple poll sets? We have no way of
+	     knowing how many io tasks are left for this scheduler to execute.
+	     We only know many io tasks are left for port that are in this
+	     schedulers poll bucket, and those ports could be on other
+	     schedulers. Right now erts_port_task_execute returns if this
+	     schedulers poll bucket has any io tasks left. 
+
+	     If we want to track how many io tasks a scheduler has left to
+	     execute for it's ports then we have to keep another counter per
+	     scheduler that has to be updated when a port is migrated. Or
+	     disable port migration of ports that have io tasks scheduled. 
+	  */
 	    int have_outstanding_io;
 	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port);
 	    if ((have_outstanding_io && fcalls > 2*input_reductions)
