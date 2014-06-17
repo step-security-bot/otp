@@ -891,7 +891,15 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
         size_after = HEAP_TOP(p) - HEAP_START(p);
         need_after = size_after + need + stack_size;
         *recl += (size_before - size_after);
-	
+
+	/* Deallocate old heap if it is empty */
+	if (OLD_HEAP(p) && (OLD_HEND(p) - OLD_HEAP(p)) == 0) {
+	  ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
+			 OLD_HEAP(p),
+			 (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
+	  OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
+	}
+
         /*
          * Excessively large heaps should be shrunk, but
          * don't even bother on reasonable small heaps.
