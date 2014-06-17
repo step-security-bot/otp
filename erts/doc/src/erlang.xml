@@ -1295,6 +1295,13 @@ true
 	    message on the form:<br/>
 	    <c>{garbage_collect, <anno>RequestId</anno>, <anno>GCResult</anno>}</c>.
 	  </item>
+	  <tag><c>{fullsweep, boolean()}</c></tag>
+          <item>
+	    This option can be used to tune how thorough the garbage collection
+	    issued should be. If set to <c>true</c> a collection of the entire
+	    process will be triggered. If set to <c>false</c> a smaller less
+	    expensive collection will be triggered.
+	  </item>
         </taglist>
 	<p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
 	no <c>async</c> option has been passed, the garbage

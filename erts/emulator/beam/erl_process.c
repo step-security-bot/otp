@@ -9710,7 +9710,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    else {
 		if (!garbage_collected) {
-		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+		    if (st->arg[0] == am_true) {
+		       FLAGS(c_p) |= F_NEED_FULLSWEEP;
+		    }
 		    reds += erts_garbage_collect(c_p,
 						 0,
 						 c_p->arg_reg,

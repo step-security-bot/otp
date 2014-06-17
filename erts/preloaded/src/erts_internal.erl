@@ -147,7 +147,7 @@ port_info(_Result, _Item) ->
 
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
-      Request :: {'garbage_collect', term()}
+      Request :: {'garbage_collect', term(), boolean()}
 	       | {'check_process_code', term(), module(), boolean()},
       Pid :: pid().
 

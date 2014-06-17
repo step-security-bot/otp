@@ -52,6 +52,7 @@
 	 otp_7738_waiting/1, otp_7738_suspended/1,
 	 otp_7738_resume/1,
 	 garb_other_running/1,
+	 garb_non_fullsweep/1,
 	 no_priority_inversion/1,
 	 no_priority_inversion2/1,
 	 system_task_blast/1,
@@ -79,7 +80,7 @@ all() ->
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
      spawn_opt_heap_size, otp_6237, {group, processes_bif},
-     {group, otp_7738}, garb_other_running,
+     {group, otp_7738}, garb_other_running, garb_non_fullsweep,
      {group, system_task}].
 
 groups() -> 
@@ -2224,6 +2225,50 @@ garb_other_running(Config) when is_list(Config) ->
 	  end,
     receive {'DOWN', Mon, process, Pid, normal} -> ok end,
     ok.
+
+
+%% Test that doing non-fullsweep garbage collections work
+garb_non_fullsweep(Config) when is_list(Config) ->
+
+    SyncCollect = fun(Pid) ->
+			  erlang:garbage_collect(Pid,[{fullsweep,false}])
+		  end,
+    AsyncCollect = fun(Pid) ->
+			   Ref = make_ref(),
+			   erlang:garbage_collect(Pid,[{fullsweep,false},
+						       {async,Ref}]),
+			   receive
+			       {garbage_collect, Ref, true} ->
+				  ok
+			   end
+		  end,
+
+    do_garb_non_fullsweep(SyncCollect),
+    do_garb_non_fullsweep(AsyncCollect).
+
+do_garb_non_fullsweep(Collect) ->
+    Parent = self(),
+    {Pid, Mon} = spawn_monitor(fun () ->
+				       A = lists:seq(1,10),
+				       Parent ! go,
+				       receive _ -> A end
+			       end),
+    receive go -> ok end,
+    Collect(Pid),
+    erlang:trace(Pid,true,[garbage_collection]),
+    Collect(Pid),
+    erlang:trace(Pid,false,[garbage_collection]),
+    Pid ! stop,
+    receive {'DOWN', Mon, process, Pid, normal} -> ok end,
+    receive {trace,Pid,gc_start,_} -> ok end,
+    receive
+	{trace,Pid,gc_end,Stats} ->
+	    %% We verify that there is data on the old heap and
+	    %% no data on the normal heap.
+	    true = proplists:get_value(old_heap_size,Stats) /= 0,
+	    0 = proplists:get_value(heap_size,Stats)
+    end.
+
 
 no_priority_inversion(Config) when is_list(Config) ->
     Prio = process_flag(priority, max),

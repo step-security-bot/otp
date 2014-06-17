@@ -861,32 +861,36 @@ garbage_collect(Pid) ->
 -spec garbage_collect(Pid, OptionList) -> GCResult | async when
       Pid :: pid(),
       RequestId :: term(),
-      Option :: {async, RequestId},
+      Option :: {async, RequestId} | {fullsweep, boolean()},
       OptionList :: [Option],
       GCResult :: boolean().
 garbage_collect(Pid, OptionList)  ->
     try
-	Async = get_gc_opts(OptionList, sync),
+	{Async, AsyncOList} = get_gc_opts(OptionList, async, sync),
+	{{_,DoFullsweep}, FullOList} = get_gc_opts(AsyncOList,
+						   fullsweep,
+						   {fullsweep,true}),
+
+	%% Verify that no invalid options were given
+	if FullOList =/= [] -> erlang:error(badarg); true -> ok end,
+
 	case Async of
 	    {async, ReqId} ->
 		{priority, Prio} = erlang:process_info(erlang:self(),
 						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {garbage_collect, ReqId}),
+		erts_internal:request_system_task(
+		  Pid, Prio, {garbage_collect, ReqId, DoFullsweep}),
 		async;
 	    sync ->
 		case Pid == erlang:self() of
-		    true ->
+		    true when DoFullsweep ->
 			erlang:garbage_collect();
-		    false ->
+		    _ ->
 			{priority, Prio} = erlang:process_info(erlang:self(),
 							       priority),
 			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {garbage_collect,
-							   ReqId}),
+			erts_internal:request_system_task(
+			  Pid, Prio, {garbage_collect, ReqId, DoFullsweep}),
 			receive
 			    {garbage_collect, ReqId, GCResult} ->
 				GCResult
@@ -898,10 +902,13 @@ garbage_collect(Pid, OptionList)  ->
     end.
 
 % gets async opt and verify valid option list
-get_gc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
-    get_gc_opts(Options, AsyncTuple);
-get_gc_opts([], Async) ->
-    Async.
+get_gc_opts([{Option, Val} | Options], Option, _Default) ->
+    {{Option,Val}, Options};
+get_gc_opts([H|T], Option, Default) ->
+    {Res, O} = get_gc_opts(T, Option, Default),
+    {Res, [H|O]};
+get_gc_opts([], _Option, Default) ->
+    {Default, []}.
 
 %% garbage_collect_message_area/0
 -spec erlang:garbage_collect_message_area() -> boolean().
