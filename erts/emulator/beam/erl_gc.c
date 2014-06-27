@@ -1081,16 +1081,18 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     if (mature_size == 0) {
 	n_htop = sweep_one_area(n_heap, n_htop, heap, heap_size);
     } else {
+	Eterm* saved_n_hp = NULL;
 	Eterm* n_hp = n_heap;
 	Eterm* ptr;
 	Eterm val;
 	Eterm gval;
 
 	while (n_hp != n_htop) {
-	    ASSERT(n_hp < n_htop);
+	    /*ASSERT(n_hp < n_htop);*/
 	    gval = *n_hp;
 	    switch (primary_tag(gval)) {
 	    case TAG_PRIMARY_BOXED: {
+		ASSERT(!saved_n_hp);
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
@@ -1109,17 +1111,33 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		ptr = list_val(gval);
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
-		    *n_hp++ = ptr[1];
+		    *n_hp = ptr[1];
 		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_CONS(ptr,val,old_htop,n_hp++);
+		    MOVE_CONS(ptr, val, old_htop, n_hp);
+		    if (is_list(old_htop[-1])) {
+			if (!saved_n_hp)
+			    saved_n_hp = n_hp;
+			n_hp = old_htop - 1;
+			break;
+		    }
 		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
-		} else {
-		    n_hp++;
+		    MOVE_CONS(ptr, val, n_htop, n_hp);
+		    if (is_list(n_htop[-1])) {
+			if (!saved_n_hp)
+			    saved_n_hp = n_hp;
+			n_hp = n_htop - 1;
+			break;
+		    }
 		}
+		if (saved_n_hp) {
+		    n_hp = saved_n_hp;
+		    saved_n_hp = NULL;
+		}
+		n_hp++;
 		break;
 	    }
 	    case TAG_PRIMARY_HEADER: {
+		ASSERT(!saved_n_hp);
 		if (!header_is_thing(gval))
 		    n_hp++;
 		else {
@@ -1145,6 +1163,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		break;
 	    }
 	    default:
+		ASSERT(!saved_n_hp);
 		n_hp++;
 		break;
 	    }
@@ -1328,6 +1347,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     if (oh_size == 0) {
 	n_htop = sweep_one_area(n_heap, n_htop, src, src_size);
     } else {
+	Eterm* saved_n_hp = NULL;
 	Eterm* n_hp = n_heap;
 
 	while (n_hp != n_htop) {
@@ -1337,6 +1357,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
 	    switch (primary_tag(gval)) {
 	    case TAG_PRIMARY_BOXED: {
+		ASSERT(!saved_n_hp);
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
@@ -1353,15 +1374,25 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		ptr = list_val(gval);
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
-		    *n_hp++ = ptr[1];
+		    *n_hp = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
-		} else {
-		    n_hp++;
+		    MOVE_CONS(ptr,val,n_htop,n_hp);
+		    if (is_list(n_htop[-1])) {
+			if (!saved_n_hp)
+			    saved_n_hp = n_hp;
+			n_hp = n_htop - 1;
+			break;
+		    }
 		}
+		if (saved_n_hp) {
+		    n_hp = saved_n_hp;
+		    saved_n_hp = NULL;
+		}
+		n_hp++;
 		break;
 	    }
 	    case TAG_PRIMARY_HEADER: {
+		ASSERT(!saved_n_hp);
 		if (!header_is_thing(gval))
 		    n_hp++;
 		else {
@@ -1388,6 +1419,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		break;
 	    }
 	    default:
+		ASSERT(!saved_n_hp);
 		n_hp++;
 		break;
 	    }
@@ -1767,6 +1799,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 static Eterm*
 sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 {
+    Eterm* saved_n_hp = NULL;
     Eterm* ptr;
     Eterm val;
     Eterm gval;
@@ -1776,6 +1809,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	gval = *n_hp;
 	switch (primary_tag(gval)) {
 	case TAG_PRIMARY_BOXED: {
+	    ASSERT(!saved_n_hp);
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
@@ -1792,15 +1826,25 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    ptr = list_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_CONS(val)) {
-		*n_hp++ = ptr[1];
+		*n_hp = ptr[1];
 	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_CONS(ptr,val,n_htop,n_hp++);
-	    } else {
-		n_hp++;
+		MOVE_CONS(ptr,val,n_htop,n_hp);
+		if (is_list(n_htop[-1])) {
+		    if (!saved_n_hp)
+			saved_n_hp = n_hp;
+		    n_hp = n_htop - 1;
+		    break;
+		}
 	    }
+	    if (saved_n_hp) {
+		n_hp = saved_n_hp;
+		saved_n_hp = NULL;
+	    }
+	    n_hp++;
 	    break;
 	}
 	case TAG_PRIMARY_HEADER: {
+	    ASSERT(!saved_n_hp);
 	    if (!header_is_thing(gval)) {
 		n_hp++;
 	    } else {
@@ -1824,6 +1868,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    break;
 	}
 	default:
+	    ASSERT(!saved_n_hp);
 	    n_hp++;
 	    break;
 	}
