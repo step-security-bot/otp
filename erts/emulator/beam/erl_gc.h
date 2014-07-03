@@ -28,8 +28,10 @@
 #  define HARDDEBUG 1
 #endif
 
-#define IS_MOVED_BOXED(x)	(!is_header((x)))
+#define IS_MOVED_BOXED(x)	(is_non_value((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
+
+#define BOXED_FORWARD_WORD 1
 
 #define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
 do {									\
@@ -44,25 +46,32 @@ do {									\
     HTOP += 2;			/* update tospace htop */		\
 } while(0)
 
-#define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
-do {                                                                    \
-    Eterm gval;                                                         \
-    Sint nelts;                                                         \
-                                                                        \
-    ASSERT(is_header(HDR));                                             \
-    nelts = header_arity(HDR);                                          \
-    switch ((HDR) & _HEADER_SUBTAG_MASK) {                              \
-    case SUB_BINARY_SUBTAG: nelts++; break;                             \
-    case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;               \
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
-    }                                                                   \
-    gval    = make_boxed(HTOP);                                         \
-    *ORIG   = gval;                                                     \
-    *HTOP++ = HDR;                                                      \
-    *PTR++  = gval;                                                     \
-    while (nelts--) *HTOP++ = *PTR++;                                   \
-                                                                        \
-} while(0)
+#define MOVE_BOXED(PTR,HDR,HTOP,ORIG) move_boxed(&PTR,&HDR,&HTOP,&ORIG)
+
+static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
+
+    Eterm gval, *orig_ptr;
+    Sint nelts;
+    Eterm *PTR, *HTOP, *ORIG, HDR;
+    PTR = *rptr; HTOP = *rhtop; ORIG = *rgptr; HDR = *rhdr;
+    ASSERT(is_header(HDR));
+    nelts = header_arity(HDR);
+    switch ((HDR) & _HEADER_SUBTAG_MASK) {
+    case SUB_BINARY_SUBTAG: nelts++; break;
+    case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
+    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
+    }
+    gval    = make_boxed(HTOP);
+    *ORIG   = gval;
+    *HTOP++ = HDR;
+    orig_ptr = PTR;
+    PTR++;
+    while (nelts--) *HTOP++ = *PTR++;
+    orig_ptr[0] = THE_NON_VALUE;
+    orig_ptr[1] = gval;
+
+    *rptr = PTR; *rhtop = HTOP; *rgptr = ORIG; *rhdr = HDR;
+}
 
 #define in_area(ptr,start,nbytes) \
  ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
@@ -84,11 +93,11 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	if (IS_MOVED_BOXED(*ptr)) term = ptr[BOXED_FORWARD_WORD];
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	if (IS_MOVED_CONS(ptr[0])) term = ptr[BOXED_FORWARD_WORD];
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");

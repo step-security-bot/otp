@@ -638,7 +638,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
-		*hp = val;
+		*hp = ptr[1];
 	    }
 	    break;
 	case TAG_PRIMARY_LIST:
@@ -666,6 +666,7 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
     Eterm* ptr = src;
     Eterm* end = ptr + src_sz;
     Eterm dummy_ref;
+    Eterm *dummy_refp = &dummy_ref;
     Eterm* hp = *hpp;
 
     while (ptr != end) {
@@ -676,7 +677,7 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, hp, &dummy_ref);	    
+	    MOVE_BOXED(ptr, val, hp, dummy_refp);	    
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:

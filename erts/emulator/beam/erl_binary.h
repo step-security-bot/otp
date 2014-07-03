@@ -70,8 +70,8 @@ typedef struct erl_heap_bin {
  * Get the size in bytes of any type of binary.
  */
 
-#define binary_size(Bin) (binary_val(Bin)[1])
-#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[1])
+#define binary_size(Bin) (binary_val(Bin)[offsetof(ErlHeapBin,size)/sizeof(Eterm)])
+#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[offsetof(ErlHeapBin,size)/sizeof(Eterm)])
 
 #define binary_bitsize(Bin)			\
   ((*binary_val(Bin) == HEADER_SUB_BIN) ?	\

@@ -75,6 +75,89 @@ do {									\
     OverRunCheck((P));							\
 } while (0)
 #endif
+
+#define ERTS_CHK_NON_TNV(p) erts_check_tnv(p)
+
+static void erts_check_tnv(Process *p) {
+    Eterm *hp = p->heap;
+    Eterm gval, val;
+
+    while (hp < p->htop) {
+        gval = *hp;
+        ASSERT(gval != THE_NON_VALUE);
+        switch (primary_tag(gval)) {
+        case TAG_PRIMARY_LIST:
+        case TAG_PRIMARY_BOXED: {
+            ptr = gval & ~((Eterm)_TAG_PRIMARY_MASK);
+            ASSERT(in_area(ptr, p->head, p->htop) ||
+                   in_area(ptr, p->old_heap, p->old_htop));
+	    break;
+        }
+        case TAG_PRIMARY_HEADER: {
+            Eterm hdr = *boxed_val_rel(gval,base);
+            ASSERT(is_header(hdr));
+            switch (hdr & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+                break;
+            case FUN_SUBTAG:
+            {
+                Eterm* bptr = fun_val_rel(gval,base);
+                ErlFunThing* funp = (ErlFunThing *) bptr;
+                Uint eterms = 1 /* creator */ + funp->num_free;
+                Uint sz = thing_arityval(hdr);
+                ASSERT(funp->arity == fe->arity);
+                ASSERT(is_pid(funp->creator));
+                ASSERT(funp->num_free >= 0);
+                hp += sz;
+                break;
+            }
+            case SUB_BINARY_SUBTAG:
+            {
+                Eterm real_bin;
+                ErlSubBin *sb = (ErlSubBin *) binary_val_rel(gval,base);
+		Eterm real_bin = sb->orig;
+		Uint bitsize = sb->bitsize;
+		Uint bitoffs = sb->bitoffs;
+		Uint offset = sb->offs;
+		Uint real_size = binary_size_rel(real_bin,base);
+
+		ASSERT(bitsize >= bitoffs);
+		ASSERT(in_area(real_bin, p->head, p->htop) ||
+		       in_area(real_bin, p->old_heap, p->old_htop));
+		ASSERT(real_size >= (bitsize*8));
+		ASSERT(real_size >= offset);
+		ASSERT(sb->is_writable == 0 || sb->is_writable == 1);
+		hp += thing_arityval(gval);
+		break;
+            }
+	    case REFC_BINARY_SUBTAG:
+	    {
+	      ProcBin *pb = (ProcBin *) binary_val_rel(gval,base);
+	      hp += thing_arityval(gval);
+	      break;
+	    }
+	    case HEAP_BINARY_SUBTAG:
+	    {
+	      HeapBin *hb = (HeapBin *) binary_val_rel(gval,base);
+	      ASSERT((hb->size / sizeof(Eterm) + 1) == thing_arityval(gval));
+	      hp += thing_arityval(gval);
+	      break;
+	    }
+
+            default: {
+                hp += thing_arityval(gval);
+		break;
+            }
+	    }
+	}
+	default: {
+	  break;
+	}
+	}
+	hp++;
+    }
+}
+
 /*
  * This structure describes the rootset for the GC.
  */
@@ -176,12 +259,15 @@ erts_init_gc(void)
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
-    ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
+    ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,u.size));
     ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
     ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
     ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
     ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
     ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
+    ASSERT(offsetof(struct erl_off_heap_header,u.forward) == offsetof(ProcBin,size));
+    ASSERT(offsetof(struct erl_off_heap_header,u.forward) == offsetof(ErlFunThing,arity));
+    ASSERT(offsetof(struct erl_off_heap_header,u.forward) == offsetof(ExternalThing,forward));
 
     erts_test_long_gc_sleep = 0;
 
@@ -456,6 +542,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     /*
      * Finish.
      */
+
+    ERTS_CHK_NON_TNV(p);
 
     ERTS_CHK_OFFHEAP(p);
 
@@ -741,10 +829,10 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 		ptr = boxed_val(gval);
 		val = *ptr;
                 if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
 		} else if (in_area(ptr, area, area_size)) {
-                    MOVE_BOXED(ptr,val,old_htop,g_ptr++);
+                    MOVE_BOXED(ptr,val,old_htop,g_ptr); g_ptr++;
 		} else {
 		    g_ptr++;
 		}
@@ -755,7 +843,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
 		} else if (in_area(ptr, area, area_size)) {
-                    MOVE_CONS(ptr,val,old_htop,g_ptr++);
+                    MOVE_CONS(ptr,val,old_htop,g_ptr); g_ptr++;
                 } else {
 		    g_ptr++;
 		}
@@ -801,7 +889,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 	    Binary* bptr;
 	    struct erl_off_heap_header* ptr;
 
-	    ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
+	    ptr = (struct erl_off_heap_header*) boxed_val(oh->u.forward);
 	    ASSERT(thing_subtag(ptr->thing_word) == REFC_BINARY_SUBTAG);
 	    bptr = ((ProcBin*)ptr)->val;
 
@@ -1035,12 +1123,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		ptr = boxed_val(gval);
                 val = *ptr;
                 if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
                 } else if (in_area(ptr, heap, mature_size)) {
-                    MOVE_BOXED(ptr,val,old_htop,g_ptr++);
+                    MOVE_BOXED(ptr,val,old_htop,g_ptr); g_ptr++;
                 } else if (in_area(ptr, heap, heap_size)) {
-                    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
+                    MOVE_BOXED(ptr,val,n_htop,g_ptr); g_ptr++;
                 } else {
 		    g_ptr++;
 		}
@@ -1053,9 +1141,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
                 } else if (in_area(ptr, heap, mature_size)) {
-                    MOVE_CONS(ptr,val,old_htop,g_ptr++);
+                    MOVE_CONS(ptr,val,old_htop,g_ptr); g_ptr++;
                 } else if (in_area(ptr, heap, heap_size)) {
-                    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+                    MOVE_CONS(ptr,val,n_htop,g_ptr); g_ptr++;
                 } else {
 		    g_ptr++;
 		}
@@ -1094,12 +1182,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *n_hp++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+		    *n_hp++ = ptr[BOXED_FORWARD_WORD];
 		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
+		    MOVE_BOXED(ptr,val,old_htop,n_hp); n_hp++;
 		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
+		    MOVE_BOXED(ptr,val,n_htop,n_hp); n_hp++;
 		} else {
 		    n_hp++;
 		}
@@ -1111,9 +1199,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_CONS(ptr,val,old_htop,n_hp++);
+		    MOVE_CONS(ptr,val,old_htop,n_hp); n_hp++;
 		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
+		    MOVE_CONS(ptr,val,n_htop,n_hp); n_hp++;
 		} else {
 		    n_hp++;
 		}
@@ -1130,8 +1218,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 			ptr = boxed_val(*origptr);
 			val = *ptr;
 			if (IS_MOVED_BOXED(val)) {
-			    *origptr = val;
-			    mb->base = binary_bytes(val);
+			    *origptr = ptr[BOXED_FORWARD_WORD];
+			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, heap, mature_size)) {
 			    MOVE_BOXED(ptr,val,old_htop,origptr);
 			    mb->base = binary_bytes(mb->orig);
@@ -1285,10 +1373,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *g_ptr++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+		    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
+		    MOVE_BOXED(ptr,val,n_htop,g_ptr); g_ptr++;
 		} else {
 		    g_ptr++;
 		}
@@ -1301,7 +1389,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+		    MOVE_CONS(ptr,val,n_htop,g_ptr); g_ptr++;
 		} else {
 		    g_ptr++;
 		}
@@ -1340,10 +1428,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-		    *n_hp++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+		    *n_hp++ = ptr[BOXED_FORWARD_WORD];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
+		    MOVE_BOXED(ptr,val,n_htop,n_hp); n_hp++;
 		} else {
 		    n_hp++;
 		}
@@ -1355,7 +1443,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
-		    MOVE_CONS(ptr,val,n_htop,n_hp++);
+		    MOVE_CONS(ptr,val,n_htop,n_hp); n_hp++;
 		} else {
 		    n_hp++;
 		}
@@ -1373,14 +1461,12 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 			ptr = boxed_val(*origptr);
 			val = *ptr;
 			if (IS_MOVED_BOXED(val)) {
-			    *origptr = val;
+			    *origptr = ptr[BOXED_FORWARD_WORD];
 			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, src, src_size) ||
 				   in_area(ptr, oh, oh_size)) {
 			    MOVE_BOXED(ptr,val,n_htop,origptr); 
 			    mb->base = binary_bytes(*origptr);
-			    ptr = boxed_val(*origptr);
-			    val = *ptr;
 			}
 		    }
 		    n_hp += (thing_arityval(gval)+1);
@@ -1555,7 +1641,7 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 	    ptr = _unchecked_boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
+		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
 		objv++;
 	    } else {
  		for (qb = mbuf; qb != NULL; qb = qb->next) {
@@ -1732,10 +1818,10 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 		ptr = boxed_val(gval);
                 val = *ptr;
                 if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(val));
-                    *g_ptr++ = val;
+		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
                 } else if (in_area(ptr, src, src_size)) {
-                    MOVE_BOXED(ptr,val,htop,g_ptr++);
+                    MOVE_BOXED(ptr,val,htop,g_ptr); g_ptr++;
                 } else {
 		    g_ptr++;
 		}
@@ -1747,7 +1833,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
                 if (IS_MOVED_CONS(val)) {
                     *g_ptr++ = ptr[1];
                 } else if (in_area(ptr, src, src_size)) {
-                    MOVE_CONS(ptr,val,htop,g_ptr++);
+                    MOVE_CONS(ptr,val,htop,g_ptr); g_ptr++;
                 } else {
 		    g_ptr++;
 		}
@@ -1779,10 +1865,10 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
-		*n_hp++ = val;
+		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+		*n_hp++ = ptr[BOXED_FORWARD_WORD];
 	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_BOXED(ptr,val,n_htop,n_hp++);
+		MOVE_BOXED(ptr,val,n_htop,n_hp); n_hp++;
 	    } else {
 		n_hp++;
 	    }
@@ -1794,7 +1880,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
 	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_CONS(ptr,val,n_htop,n_hp++);
+		MOVE_CONS(ptr,val,n_htop,n_hp); n_hp++;
 	    } else {
 		n_hp++;
 	    }
@@ -1812,7 +1898,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 		    ptr = boxed_val(*origptr);
 		    val = *ptr;
 		    if (IS_MOVED_BOXED(val)) {
-			*origptr = val;
+			*origptr = ptr[BOXED_FORWARD_WORD];
 			mb->base = binary_bytes(*origptr);
 		    } else if (in_area(ptr, src, src_size)) {
 			MOVE_BOXED(ptr,val,n_htop,origptr); 
@@ -1844,10 +1930,10 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
-		*heap_ptr++ = val;
+		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+		*heap_ptr++ = ptr[BOXED_FORWARD_WORD];
 	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_BOXED(ptr,val,htop,heap_ptr++);
+		MOVE_BOXED(ptr,val,htop,heap_ptr);heap_ptr++;
 	    } else {
 		heap_ptr++;
 	    }
@@ -1890,6 +1976,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
     Eterm* ptr = (Eterm*) src;
     Eterm* end = ptr + src_size/sizeof(Eterm);
     Eterm dummy_ref;
+    Eterm *dummy_refp = &dummy_ref;
 
     while (ptr != end) {
 	Eterm val;
@@ -1898,7 +1985,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(val != ERTS_HOLE_MARKER);
 	if (is_header(val)) {
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, n_htop, &dummy_ref);	    
+	    MOVE_BOXED(ptr, val, n_htop, dummy_refp);	    
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
@@ -2285,15 +2372,15 @@ sweep_off_heap(Process *p, int fullsweep)
     while (ptr) {
 	if (IS_MOVED_BOXED(ptr->thing_word)) {
 	    ASSERT(!in_area(ptr, oheap, oheap_sz));
-	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
+	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->u.forward);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    if (ptr->thing_word == HEADER_PROC_BIN) {
 		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 		if (to_new_heap) {
-		    bin_vheap += ptr->size / sizeof(Eterm);
+		    bin_vheap += ptr->u.size / sizeof(Eterm);
 		} else {
-		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
+		    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
 		}		
 		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
 	    }
@@ -2337,7 +2424,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	ASSERT(in_area(ptr, oheap, oheap_sz));
 	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
 	if (ptr->thing_word == HEADER_PROC_BIN) {
-	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
+	    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
 	}
 	else {

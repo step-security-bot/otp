@@ -123,7 +123,8 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  * - The tag is zero for arityval and non-zero for thing headers.
  * - A single bit differentiates between positive and negative bignums.
  * - If more tags are needed, the REF and and EXTERNAL_REF tags could probably
- *   be combined to one tag.
+ *   be combined to one tag. Also bignums could be merged and the signbit be
+ *   part of the arity value.
  *
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX
  */
@@ -135,7 +136,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define REF_SUBTAG		(0x4 << _TAG_PRIMARY_SIZE) /* REF */
 #define FUN_SUBTAG		(0x5 << _TAG_PRIMARY_SIZE) /* FUN */
 #define FLOAT_SUBTAG		(0x6 << _TAG_PRIMARY_SIZE) /* FLOAT */
-#define EXPORT_SUBTAG		(0x7 << _TAG_PRIMARY_SIZE) /* FLOAT */
+#define EXPORT_SUBTAG		(0x7 << _TAG_PRIMARY_SIZE) /* FUN EXPORT */
 #define _BINARY_XXX_MASK	(0x3 << _TAG_PRIMARY_SIZE)
 #define REFC_BINARY_SUBTAG	(0x8 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
@@ -212,19 +213,14 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
-/* cons cell ("list") access methods */
+/* cons cell lists access methods */
 #define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
-#if 1
 #define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
 _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		_ET_APPLY(is_not_list,(x))
 #define is_list(x)		(!is_not_list((x)))
-#else
-#define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
-#define is_not_list(x)		(!is_list((x)))
-#endif
 #if HALFWORD_HEAP
 #define _list_precond(x)        (is_list(x))
 #else
@@ -862,12 +858,16 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
 
    XXX:Sverk - Problem made worse by "one off-heap list" when 'next' pointer
      must align with 'next' in ProcBin, erl_fun_thing and erl_off_heap_header.
+
+   XXX:Lukas - Problem made even worse when storing gc forwarding ptr in second
+     word.
 */
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */
-    struct erl_node_*       node;       /*  > External thing head   */
+    Eterm                   forward;    /* |                        */
     struct erl_off_heap_header* next;   /* |                        */
+    struct erl_node_*       node;       /*  > External thing head   */
     /*                                 ----+                        */
     union {
 	Uint32              ui32[1];
