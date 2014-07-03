@@ -53,12 +53,12 @@ typedef struct erl_fun_entry {
 
 typedef struct erl_fun_thing {
     Eterm thing_word;		/* Subtag FUN_SUBTAG. */
-    ErlFunEntry* fe;		/* Pointer to fun entry. */
+    Uint arity;			/* The arity of the fun. */
     struct erl_off_heap_header* next;
+    ErlFunEntry* fe;		/* Pointer to fun entry. */
 #ifdef HIPE
     UWord* native_address;	/* Native code for the fun. */
 #endif
-    Uint arity;			/* The arity of the fun. */
     Uint num_free;		/* Number of free variables (in env). */
   /* -- The following may be compound Erlang terms ---------------------- */
     Eterm creator;		/* Pid of creator process (contains node). */

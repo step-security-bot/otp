@@ -28,8 +28,10 @@
 #  define HARDDEBUG 1
 #endif
 
-#define IS_MOVED_BOXED(x)	(!is_header((x)))
+#define IS_MOVED_BOXED(x)	(is_non_value((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
+
+#define BOXED_FORWARD_WORD 1
 
 #define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
 do {									\
@@ -46,7 +48,7 @@ do {									\
 
 #define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
 do {                                                                    \
-    Eterm gval;                                                         \
+    Eterm gval, *orig_ptr;                                              \
     Sint nelts;                                                         \
                                                                         \
     ASSERT(is_header(HDR));                                             \
@@ -61,6 +63,12 @@ do {                                                                    \
               *HTOP++ = TUPLE0();                                       \
         }                                                               \
         break;                                                          \
+    case POS_BIG_SUBTAG:                                                \
+        if (nelts == 0) {                                               \
+            *ORIG = make_boxed(HTOP);                                   \
+            *HTOP++ = HDR;                                              \
+        }                                                               \
+        break;                                                          \
     }                                                                   \
     if (nelts == 0) {                                                   \
         PTR++;                                                          \
@@ -69,8 +77,11 @@ do {                                                                    \
     gval    = make_boxed(HTOP);                                         \
     *ORIG   = gval;                                                     \
     *HTOP++ = HDR;                                                      \
-    *PTR++  = gval;                                                     \
+    orig_ptr = PTR;                                                     \
+    PTR++;                                                              \
     while (nelts--) *HTOP++ = *PTR++;                                   \
+    orig_ptr[0] = THE_NON_VALUE;                                        \
+    orig_ptr[1] = gval;                                                 \
 } while(0)
 
 #define in_area(ptr,start,nbytes) \
@@ -93,12 +104,12 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	if (IS_MOVED_BOXED(*ptr)) term = ptr[BOXED_FORWARD_WORD];
         else if (*ptr == make_arityval(0)) term = TUPLE0();
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	if (IS_MOVED_CONS(ptr[0])) term = ptr[BOXED_FORWARD_WORD];
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");

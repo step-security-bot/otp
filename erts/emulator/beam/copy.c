@@ -637,8 +637,8 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
-		*hp = val;
+                ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+                *hp = ptr[BOXED_FORWARD_WORD];
             } else if (val == make_arityval(0)) {
                 *hp = TUPLE0();
             }
@@ -693,7 +693,6 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
 	    MOVE_CONS(ptr, val, hp, &dummy_ref);
-	    ptr += 2;
 	}
     }
     *hpp = hp;
