@@ -2682,13 +2682,16 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	return 0;
     
     switch (a & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST:
-	if (!is_list(b)) {
+    case TAG_PRIMARY_BOXED:
+	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
 	    return cmp_rel(a,NULL,b,b_base);
 	}
-	aa = list_val(a);
-	bb = list_val_rel(b,b_base);
-	while (1) {
+	a_hdr = (*boxed_val(a)) & _TAG_HEADER_MASK;
+	b_hdr = (*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK;
+	if (!is_header(a_hdr) && !is_header(b_hdr)) {
+	  aa = list_val(a);
+	  bb = list_val_rel(b,b_base);
+	  while (1) {
 	    if ((j = do_cmp_partly_bound(*aa++, *bb++, b_base, done)) != 0 || *done)
 		return j;
 	    if (is_same(*aa, NULL, *bb, b_base))
@@ -2697,13 +2700,9 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 		return do_cmp_partly_bound(*aa, *bb, b_base, done);
 	    aa = list_val(*aa);
 	    bb = list_val_rel(*bb,b_base);
+	  }
 	}
-    case TAG_PRIMARY_BOXED:
-	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
-	    return cmp_rel(a,NULL,b,b_base);
-	}
-	a_hdr = ((*boxed_val(a)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
-	b_hdr = ((*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE;
+
 	if (a_hdr != b_hdr) {
 	    return cmp_rel(a, NULL, b, b_base);
 	}

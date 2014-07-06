@@ -1170,234 +1170,232 @@ make_hash2(Eterm term)
     for (;;) {
         Eterm hdr = 0;
 	switch (primary_tag(term)) {
-	case TAG_PRIMARY_LIST:
-	{
-	    int c = 0;
-	    Uint32 sh = 0;
-	    Eterm* ptr = list_val(term);
-	    while (is_byte(*ptr)) {
-		/* Optimization for strings. */
-		sh = (sh << 8) + unsigned_val(*ptr);
-		if (c == 3) {
-		    UINT32_HASH(sh, HCONST_4);
-		    c = sh = 0;
-		} else {
-		    c++;
-		}
-		term = CDR(ptr);
-		if (is_not_list(term))
-		    break;
-		ptr = list_val(term);
-	    }
-	    if (c > 0)
-		UINT32_HASH(sh, HCONST_4);
-	    if (is_list(term)) {
-		term = *ptr;
-		tmp = *++ptr;
-		ESTACK_PUSH(s, tmp);	    
-	    }
-	}
-	break;
 	case TAG_PRIMARY_BOXED:
 	{
 	    hdr = *boxed_val(term);
-	    ASSERT(is_header(hdr));
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG:
-            hash2_arity:
-	    {
-		int i;
-		int arity = header_arity(hdr);
-		Eterm* elem = tuple_val(term);
-		UINT32_HASH(arity, HCONST_9);
-		if (arity == 0) /* Empty tuple */ 
-		    goto hash2_common;
-		for (i = arity; i >= 1; i--) {
-		    tmp = elem[i];
-		    ESTACK_PUSH(s, tmp);
-		}
-		goto hash2_common;
-	    }
-	    break;
-	    case MAP_SUBTAG:
-	    {
-		map_t *mp = (map_t *)map_val(term);
-		int i;
-		int size  = map_get_size(mp);
-		Eterm *ks = map_get_keys(mp);
-		Eterm *vs = map_get_values(mp);
-		UINT32_HASH(size, HCONST_16);
-		if (size == 0) {
-		    goto hash2_common;
-		}
-		ESTACK_PUSH(s, hash_xor_values);
-		ESTACK_PUSH(s, hash_xor_keys);
-		ESTACK_PUSH(s, hash);
-		ESTACK_PUSH(s, HASH_MAP_TAIL);
-		hash = 0;
-		hash_xor_keys = 0;
-		hash_xor_values = 0;
-		for (i = size - 1; i >= 0; i--) {
-		    tmp = vs[i];
-		    ESTACK_PUSH(s, HASH_MAP_VAL);
-		    ESTACK_PUSH(s, tmp);
-		}
-		/* We do not want to expose the tuple representation.
-		 * Do not push the keys as a tuple.
-		 */
-		for (i = size - 1; i >= 0; i--) {
-		    tmp = ks[i];
-		    ESTACK_PUSH(s, HASH_MAP_KEY);
-		    ESTACK_PUSH(s, tmp);
-		}
-		goto hash2_common;
-	    }
-	    break;
-	    case EXPORT_SUBTAG:
-	    {
-		Export* ep = *((Export **) (export_val(term) + 1));
-
-		UINT32_HASH_2
-		    (ep->code[2], 
-		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
-		     HCONST);
-		UINT32_HASH
-		    (atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue,
-		     HCONST_14);
-		goto hash2_common;
-	    }
-
-	    case FUN_SUBTAG:
-	    {
-		ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-		Uint num_free = funp->num_free;
-
-		UINT32_HASH_2
-		    (num_free, 
-		     atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
-		     HCONST);
-		UINT32_HASH_2
-		    (funp->fe->old_index, funp->fe->old_uniq, HCONST);
-		if (num_free == 0) {
-		    goto hash2_common;
+	    if (!is_header(hdr)) {
+	      int c = 0;
+	      Uint32 sh = 0;
+	      Eterm* ptr = list_val(term);
+	      while (is_byte(*ptr)) {
+		/* Optimization for strings. */
+		sh = (sh << 8) + unsigned_val(*ptr);
+		if (c == 3) {
+		  UINT32_HASH(sh, HCONST_4);
+		  c = sh = 0;
 		} else {
-		    Eterm* bptr = funp->env + num_free - 1;
-		    while (num_free-- > 1) {
-			term = *bptr--;
-			ESTACK_PUSH(s, term);
-		    }
-		    term = *bptr;
+		  c++;
 		}
-	    }
-	    break;
-	    case REFC_BINARY_SUBTAG:
-	    case HEAP_BINARY_SUBTAG:
-	    case SUB_BINARY_SUBTAG:
-	    {
-		byte* bptr;
-		unsigned sz = binary_size(term);
-		Uint32 con = HCONST_13 + hash;
-		Uint bitoffs;
-		Uint bitsize;
+		term = CDR(ptr);
+		if (is_not_list(term))
+		  break;
+		ptr = list_val(term);
+	      }
+	      if (c > 0)
+		UINT32_HASH(sh, HCONST_4);
+	      if (is_list(term)) {
+		term = *ptr;
+		tmp = *++ptr;
+		ESTACK_PUSH(s, tmp);	    
+	      }
+	    } else {
+                switch (hdr & _TAG_HEADER_MASK) {
+                case ARITYVAL_SUBTAG:
+                hash2_arity:
+                {
+                    int i;
+                    int arity = header_arity(hdr);
+                    Eterm* elem = tuple_val(term);
+                    UINT32_HASH(arity, HCONST_9);
+                    if (arity == 0) /* Empty tuple */
+                        goto hash2_common;
+                    for (i = arity; i >= 1; i--) {
+                        tmp = elem[i];
+                        ESTACK_PUSH(s, tmp);
+                    }
+                    goto hash2_common;
+                }
+                break;
+                case MAP_SUBTAG:
+                {
+                    map_t *mp = (map_t *)map_val(term);
+                    int i;
+                    int size  = map_get_size(mp);
+                    Eterm *ks = map_get_keys(mp);
+                    Eterm *vs = map_get_values(mp);
+                    UINT32_HASH(size, HCONST_16);
+                    if (size == 0) {
+                        goto hash2_common;
+                    }
+                    ESTACK_PUSH(s, hash_xor_values);
+                    ESTACK_PUSH(s, hash_xor_keys);
+                    ESTACK_PUSH(s, hash);
+                    ESTACK_PUSH(s, HASH_MAP_TAIL);
+                    hash = 0;
+                    hash_xor_keys = 0;
+                    hash_xor_values = 0;
+                    for (i = size - 1; i >= 0; i--) {
+                        tmp = vs[i];
+                        ESTACK_PUSH(s, HASH_MAP_VAL);
+                        ESTACK_PUSH(s, tmp);
+                    }
+                    /* We do not want to expose the tuple representation.
+                     * Do not push the keys as a tuple.
+                     */
+                    for (i = size - 1; i >= 0; i--) {
+                        tmp = ks[i];
+                        ESTACK_PUSH(s, HASH_MAP_KEY);
+                        ESTACK_PUSH(s, tmp);
+                    }
+                    goto hash2_common;
+                }
+                break;
+                case EXPORT_SUBTAG:
+                {
+                    Export* ep = *((Export **) (export_val(term) + 1));
 
-		ERTS_GET_BINARY_BYTES(term, bptr, bitoffs, bitsize);
-		if (sz == 0 && bitsize == 0) {
-		    hash = con;
-		} else {
-		    if (bitoffs == 0) {
-			hash = block_hash(bptr, sz, con);
-			if (bitsize > 0) {
-			    UINT32_HASH_2(bitsize, (bptr[sz] >> (8 - bitsize)),
-					  HCONST_15);
-			}
-		    } else {
-			byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP,
-							sz + (bitsize != 0));
-			erts_copy_bits(bptr, bitoffs, 1, buf, 0, 1, sz*8+bitsize);
-			hash = block_hash(buf, sz, con);
-			if (bitsize > 0) {
-			    UINT32_HASH_2(bitsize, (buf[sz] >> (8 - bitsize)),
-					  HCONST_15);
-			}
-			erts_free(ERTS_ALC_T_TMP, (void *) buf);
-		    }
-		}
-		goto hash2_common;
-	    }
-	    break;
-	    case POS_BIG_SUBTAG:
-	    case NEG_BIG_SUBTAG:
-	    {
-		Eterm* ptr = big_val(term);
-		Uint i = 0;
-		Uint n = BIG_SIZE(ptr);
-		Uint32 con = BIG_SIGN(ptr) ? HCONST_10 : HCONST_11;
+                    UINT32_HASH_2
+                        (ep->code[2],
+                         atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
+                         HCONST);
+                    UINT32_HASH
+                        (atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue,
+                         HCONST_14);
+                    goto hash2_common;
+                }
+
+                case FUN_SUBTAG:
+                {
+                    ErlFunThing* funp = (ErlFunThing *) fun_val(term);
+                    Uint num_free = funp->num_free;
+
+                    UINT32_HASH_2
+                        (num_free,
+                         atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue,
+                         HCONST);
+                    UINT32_HASH_2
+                        (funp->fe->old_index, funp->fe->old_uniq, HCONST);
+                    if (num_free == 0) {
+                        goto hash2_common;
+                    } else {
+                        Eterm* bptr = funp->env + num_free - 1;
+                        while (num_free-- > 1) {
+                            term = *bptr--;
+                            ESTACK_PUSH(s, term);
+                        }
+                        term = *bptr;
+                    }
+                }
+                break;
+                case REFC_BINARY_SUBTAG:
+                case HEAP_BINARY_SUBTAG:
+                case SUB_BINARY_SUBTAG:
+                {
+                    byte* bptr;
+                    unsigned sz = binary_size(term);
+                    Uint32 con = HCONST_13 + hash;
+                    Uint bitoffs;
+                    Uint bitsize;
+
+                    ERTS_GET_BINARY_BYTES(term, bptr, bitoffs, bitsize);
+                    if (sz == 0 && bitsize == 0) {
+                        hash = con;
+                    } else {
+                        if (bitoffs == 0) {
+                            hash = block_hash(bptr, sz, con);
+                            if (bitsize > 0) {
+                                UINT32_HASH_2(bitsize, (bptr[sz] >> (8 - bitsize)),
+                                              HCONST_15);
+                            }
+                        } else {
+                            byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP,
+                                                            sz + (bitsize != 0));
+                            erts_copy_bits(bptr, bitoffs, 1, buf, 0, 1, sz*8+bitsize);
+                            hash = block_hash(buf, sz, con);
+                            if (bitsize > 0) {
+                                UINT32_HASH_2(bitsize, (buf[sz] >> (8 - bitsize)),
+                                              HCONST_15);
+                            }
+                            erts_free(ERTS_ALC_T_TMP, (void *) buf);
+                        }
+                    }
+                    goto hash2_common;
+                }
+                break;
+                case POS_BIG_SUBTAG:
+                case NEG_BIG_SUBTAG:
+                {
+                    Eterm* ptr = big_val(term);
+                    Uint i = 0;
+                    Uint n = BIG_SIZE(ptr);
+                    Uint32 con = BIG_SIGN(ptr) ? HCONST_10 : HCONST_11;
 #if D_EXP == 16
-		do {
-		    Uint32 x, y;
-		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
-		    x += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
-		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
-		    y += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
-		    UINT32_HASH_2(x, y, con);
-		} while (i < n);
+                    do {
+                        Uint32 x, y;
+                        x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                        x += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+                        y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                        y += (Uint32)(i < n ? BIG_DIGIT(ptr, i++) : 0) << 16;
+                        UINT32_HASH_2(x, y, con);
+                    } while (i < n);
 #elif D_EXP == 32
-		do {
-		    Uint32 x, y;
-		    x = i < n ? BIG_DIGIT(ptr, i++) : 0;
-		    y = i < n ? BIG_DIGIT(ptr, i++) : 0;
-		    UINT32_HASH_2(x, y, con);
-		} while (i < n);
+                    do {
+                        Uint32 x, y;
+                        x = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                        y = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                        UINT32_HASH_2(x, y, con);
+                    } while (i < n);
 #elif D_EXP == 64
-		do {
-		    Uint t;
-		    Uint32 x, y;
-		    t = i < n ? BIG_DIGIT(ptr, i++) : 0;
-		    x = t & 0xffffffff;
-		    y = t >> 32;
-		    UINT32_HASH_2(x, y, con);
-		} while (i < n);
+                    do {
+                        Uint t;
+                        Uint32 x, y;
+                        t = i < n ? BIG_DIGIT(ptr, i++) : 0;
+                        x = t & 0xffffffff;
+                        y = t >> 32;
+                        UINT32_HASH_2(x, y, con);
+                    } while (i < n);
 #else
 #error "unsupported D_EXP size"
 #endif
-		goto hash2_common;
-	    }
-	    break;
-	    case REF_SUBTAG:
-		/* All parts of the ref should be hashed. */
-		UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
-		goto hash2_common;
-		break;
-	    case EXTERNAL_REF_SUBTAG:
-		/* All parts of the ref should be hashed. */
-		UINT32_HASH(external_ref_numbers(term)[0], HCONST_7);
-		goto hash2_common;
-		break;
-	    case EXTERNAL_PID_SUBTAG:
-		/* Only 15 bits are hashed. */
-		UINT32_HASH(external_pid_number(term), HCONST_5);
-		goto hash2_common;
-	    case EXTERNAL_PORT_SUBTAG:
-		/* Only 15 bits are hashed. */
-		UINT32_HASH(external_port_number(term), HCONST_6);
-		goto hash2_common;
-	    case FLOAT_SUBTAG:
-	    {
-		FloatDef ff;
-		GET_DOUBLE(term, ff);
+                    goto hash2_common;
+                }
+                break;
+                case REF_SUBTAG:
+                    /* All parts of the ref should be hashed. */
+                    UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
+                    goto hash2_common;
+                    break;
+                case EXTERNAL_REF_SUBTAG:
+                    /* All parts of the ref should be hashed. */
+                    UINT32_HASH(external_ref_numbers(term)[0], HCONST_7);
+                    goto hash2_common;
+                    break;
+                case EXTERNAL_PID_SUBTAG:
+                    /* Only 15 bits are hashed. */
+                    UINT32_HASH(external_pid_number(term), HCONST_5);
+                    goto hash2_common;
+                case EXTERNAL_PORT_SUBTAG:
+                    /* Only 15 bits are hashed. */
+                    UINT32_HASH(external_port_number(term), HCONST_6);
+                    goto hash2_common;
+                case FLOAT_SUBTAG:
+                {
+                    FloatDef ff;
+                    GET_DOUBLE(term, ff);
 #if defined(WORDS_BIGENDIAN) || defined(DOUBLE_MIDDLE_ENDIAN)
-		UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
+                    UINT32_HASH_2(ff.fw[0], ff.fw[1], HCONST_12);
 #else
-		UINT32_HASH_2(ff.fw[1], ff.fw[0], HCONST_12);
+                    UINT32_HASH_2(ff.fw[1], ff.fw[0], HCONST_12);
 #endif
-		goto hash2_common;
-	    }
-	    break;
+                    goto hash2_common;
+                }
+                break;
 		    
-	    default:
-		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
-	    }
-	}
+                default:
+                    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+                }
+            }
+        }
 	break;
 	case TAG_PRIMARY_IMMED1:
 	    switch (term & _TAG_IMMED1_MASK) {
@@ -2085,40 +2083,41 @@ tailrecur_ne:
         if (a == TUPLE0())
             goto eq_tuple;
         break;
-    case TAG_PRIMARY_LIST:
-	if (is_list(b)) {
-	    Eterm* aval = list_val_rel(a, a_base);
-	    Eterm* bval = list_val_rel(b, b_base);
-	    while (1) {
-		Eterm atmp = CAR(aval);
-		Eterm btmp = CAR(bval);
-		if (!is_same(atmp,a_base,btmp,b_base)) {
+    case TAG_PRIMARY_BOXED:
+	{
+	    Eterm hdr = *boxed_val_rel(a,a_base);
+	    if (!is_header(hdr)) {
+	      if (is_list(b)) {
+		Eterm* aval = list_val_rel(a, a_base);
+		Eterm* bval = list_val_rel(b, b_base);
+		while (1) {
+		  Eterm atmp = CAR(aval);
+		  Eterm btmp = CAR(bval);
+		  if (!is_same(atmp,a_base,btmp,b_base)) {
 		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
 		    a = atmp;
 		    b = btmp;
 		    goto tailrecur_ne;
-		}
-		atmp = CDR(aval);
-		btmp = CDR(bval);
-		if (is_same(atmp,a_base,btmp,b_base)) {
+		  }
+		  atmp = CDR(aval);
+		  btmp = CDR(bval);
+		  if (is_same(atmp,a_base,btmp,b_base)) {
 		    goto pop_next;
-		}
-		if (is_not_list(atmp) || is_not_list(btmp)) {
+		  }
+		  if (is_not_list(atmp) || is_not_list(btmp)) {
 		    a = atmp;
 		    b = btmp;
 		    goto tailrecur_ne;
+		  }
+		  aval = list_val_rel(atmp, a_base);
+		  bval = list_val_rel(btmp, b_base);
 		}
-		aval = list_val_rel(atmp, a_base);
-		bval = list_val_rel(btmp, b_base);
-	    }
-	}
-	break; /* not equal */
+	      }
+	      break; /* not equal */
+	    } else {
 
-    case TAG_PRIMARY_BOXED:
-	{	
-	    Eterm hdr = *boxed_val_rel(a,a_base);
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG:
+                switch (hdr & _TAG_HEADER_MASK) {
+                case ARITYVAL_SUBTAG:
 		{
                 eq_tuple:
 		    aa = tuple_val_rel(a, a_base);
@@ -2130,7 +2129,7 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
-	    case MAP_SUBTAG:
+                case MAP_SUBTAG:
 		{
 		    aa = map_val_rel(a, a_base);
 		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
@@ -2146,9 +2145,9 @@ tailrecur_ne:
 		    sz += 1; /* increment for tuple-keys */
 		    goto term_array;
 		}
-	    case REFC_BINARY_SUBTAG:
-	    case HEAP_BINARY_SUBTAG:
-	    case SUB_BINARY_SUBTAG:
+                case REFC_BINARY_SUBTAG:
+                case HEAP_BINARY_SUBTAG:
+                case SUB_BINARY_SUBTAG:
 		{
 		    byte* a_ptr;
 		    byte* b_ptr;
@@ -2177,7 +2176,7 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
-	    case EXPORT_SUBTAG:
+                case EXPORT_SUBTAG:
 		{
 		    if (is_export_rel(b,b_base)) {
 			Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
@@ -2186,7 +2185,7 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
-	    case FUN_SUBTAG:
+                case FUN_SUBTAG:
 		{
 		    ErlFunThing* f1;
 		    ErlFunThing* f2;
@@ -2207,56 +2206,57 @@ tailrecur_ne:
 		    goto term_array;
 		}
 
-	    case EXTERNAL_PID_SUBTAG:
-	    case EXTERNAL_PORT_SUBTAG: {
-		ExternalThing *ap;
-		ExternalThing *bp;
+                case EXTERNAL_PID_SUBTAG:
+                case EXTERNAL_PORT_SUBTAG:
+                {
+                    ExternalThing *ap;
+                    ExternalThing *bp;
 
-		if(!is_external_rel(b,b_base))
-		    goto not_equal;
+                    if(!is_external_rel(b,b_base))
+                        goto not_equal;
 
-		ap = external_thing_ptr_rel(a,a_base);
-		bp = external_thing_ptr_rel(b,b_base);
+                    ap = external_thing_ptr_rel(a,a_base);
+                    bp = external_thing_ptr_rel(b,b_base);
 
-		if(ap->header == bp->header && ap->node == bp->node) {
-		    ASSERT(1 == external_data_words_rel(a,a_base));
-		    ASSERT(1 == external_data_words_rel(b,b_base));
-		    
-		    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
-		}
-		break; /* not equal */
-	    }
-	    case EXTERNAL_REF_SUBTAG: {
-		/*
-		 * Observe!
-		 *  When comparing refs we need to compare ref numbers
-		 * (32-bit words) *not* ref data words.
-		 */
-		Uint32 *anum;
-		Uint32 *bnum;
-		Uint common_len;
-		Uint alen;
-		Uint blen;
-		Uint i;
-		ExternalThing* athing;
-		ExternalThing* bthing;
+                    if(ap->header == bp->header && ap->node == bp->node) {
+                        ASSERT(1 == external_data_words_rel(a,a_base));
+                        ASSERT(1 == external_data_words_rel(b,b_base));
 
-		if(!is_external_ref_rel(b,b_base))
-		    goto not_equal;
+                        if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
+                    }
+                    break; /* not equal */
+                }
+                case EXTERNAL_REF_SUBTAG: {
+                    /*
+                     * Observe!
+                     *  When comparing refs we need to compare ref numbers
+                     * (32-bit words) *not* ref data words.
+                     */
+                    Uint32 *anum;
+                    Uint32 *bnum;
+                    Uint common_len;
+                    Uint alen;
+                    Uint blen;
+                    Uint i;
+                    ExternalThing* athing;
+                    ExternalThing* bthing;
 
-		athing = external_thing_ptr_rel(a,a_base);
-		bthing = external_thing_ptr_rel(b,b_base);
+                    if(!is_external_ref_rel(b,b_base))
+                        goto not_equal;
 
-		if(athing->node != bthing->node)
-		    goto not_equal;
+                    athing = external_thing_ptr_rel(a,a_base);
+                    bthing = external_thing_ptr_rel(b,b_base);
 
-		anum = external_thing_ref_numbers(athing);
-		bnum = external_thing_ref_numbers(bthing);
-		alen = external_thing_ref_no_of_numbers(athing);
-		blen = external_thing_ref_no_of_numbers(bthing);
+                    if(athing->node != bthing->node)
+                        goto not_equal;
 
-		goto ref_common;
-	    case REF_SUBTAG:
+                    anum = external_thing_ref_numbers(athing);
+                    bnum = external_thing_ref_numbers(bthing);
+                    alen = external_thing_ref_no_of_numbers(athing);
+                    blen = external_thing_ref_no_of_numbers(bthing);
+
+                    goto ref_common;
+                case REF_SUBTAG:
 		    if (!is_internal_ref_rel(b,b_base))
 			goto not_equal;
 
@@ -2269,7 +2269,7 @@ tailrecur_ne:
 			bnum = internal_thing_ref_numbers(bthing);
 		    }
 
-	    ref_common:
+                ref_common:
 		    ASSERT(alen > 0 && blen > 0);
 
 		    if (anum[0] != bnum[0])
@@ -2306,9 +2306,9 @@ tailrecur_ne:
 			}			
 		    }
 		    goto pop_next;
-	    }
-	    case POS_BIG_SUBTAG:
-	    case NEG_BIG_SUBTAG:
+                }
+                case POS_BIG_SUBTAG:
+                case NEG_BIG_SUBTAG:
 		{
 		    int i;
   
@@ -2325,7 +2325,7 @@ tailrecur_ne:
 		    }
 		    goto pop_next;
 		}
-	    case FLOAT_SUBTAG:
+                case FLOAT_SUBTAG:
 		{
 		    FloatDef af;
 		    FloatDef bf;
@@ -2337,6 +2337,7 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
+	    }
 	    }
 	    break;
 	}
@@ -2569,38 +2570,39 @@ tailrecur_ne:
 	    }
 	}
 	}
-    case TAG_PRIMARY_LIST:
-	if (is_not_list(b)) {
-	    a_tag = LIST_DEF;
-	    goto mixed_types;
-	}
-	aa = list_val_rel(a,a_base);
-	bb = list_val_rel(b,b_base);
-	while (1) {
-	    Eterm atmp = CAR(aa);
-	    Eterm btmp = CAR(bb);
-	    if (!is_same(atmp,a_base,btmp,b_base)) {
-		WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
-		a = atmp;
-		b = btmp;
-		goto tailrecur_ne;
-	    }
-	    atmp = CDR(aa);
-	    btmp = CDR(bb);
-	    if (is_same(atmp,a_base,btmp,b_base)) {
-		goto pop_next;
-	    }
-	    if (is_not_list(atmp) || is_not_list(btmp)) {
-		a = atmp;
-		b = btmp;
-		goto tailrecur_ne;
-	    }
-	    aa = list_val_rel(atmp,a_base);
-	    bb = list_val_rel(btmp,b_base);
-	}
     case TAG_PRIMARY_BOXED:
 	{
 	    Eterm ahdr = *boxed_val_rel(a,a_base);
+	    if (!is_header(ahdr)) {
+	      if (is_not_list(b)) {
+		a_tag = LIST_DEF;
+		goto mixed_types;
+	      }
+	      aa = list_val_rel(a,a_base);
+	      bb = list_val_rel(b,b_base);
+	      while (1) {
+		Eterm atmp = CAR(aa);
+		Eterm btmp = CAR(bb);
+		if (!is_same(atmp,a_base,btmp,b_base)) {
+		  WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
+		  a = atmp;
+		  b = btmp;
+		  goto tailrecur_ne;
+		}
+		atmp = CDR(aa);
+		btmp = CDR(bb);
+		if (is_same(atmp,a_base,btmp,b_base)) {
+		  goto pop_next;
+		}
+		if (is_not_list(atmp) || is_not_list(btmp)) {
+		  a = atmp;
+		  b = btmp;
+		  goto tailrecur_ne;
+		}
+		aa = list_val_rel(atmp,a_base);
+		bb = list_val_rel(btmp,b_base);
+	      }
+	    } else {
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
             cmp_tuple:
@@ -2850,6 +2852,7 @@ tailrecur_ne:
 		    }
 		    ON_CMP_GOTO((Sint)(a_size - b_size));
 		}
+	    }
 	    }
 	}
     }

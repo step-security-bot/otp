@@ -71,12 +71,9 @@ unsigned tag_val_def(Wterm x)
     static char msg[32];
 
     switch (x & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST:
-	ET_ASSERT(_list_precond(x),file,line);
-	return LIST_DEF;
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
-	  ET_ASSERT(is_header(hdr),file,line);
+	  if (!is_header(hdr)) return LIST_DEF;
 	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;

@@ -235,17 +235,17 @@ Eterm erts_dictionary_copy(Process *p, ProcDict *pd)
 					   sizeof(Eterm) * pd->numElements * 2);
     for (i = 0; i < num; ++i) {
 	tmp = ARRAY_GET(pd, i);
-	if (is_boxed(tmp)) {
-	    ASSERT(is_tuple(tmp));
-	    res = CONS(hp, tmp, res);
-	    hp += 2;
-	} else if (is_list(tmp)) {
+        if (is_list(tmp)) {
 	    while (tmp != NIL) {
 		tmp2 = TCAR(tmp);
 		res = CONS(hp, tmp2, res);
 		hp += 2;
 		tmp = TCDR(tmp);
 	    }
+	} else if (is_boxed(tmp)) {
+	    ASSERT(is_tuple(tmp));
+	    res = CONS(hp, tmp, res);
+	    hp += 2;
 	}
     }
     res = copy_object(res, p);
@@ -330,14 +330,7 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
     }
     hval = pd_hash_value(p->dictionary, id);
     old = ARRAY_GET(p->dictionary, hval);
-    if (is_boxed(old)) {	/* Tuple */
-	ASSERT(is_tuple(old));
-	if (EQ(tuple_val(old)[1], id)) {
-	    array_put(&(p->dictionary), hval, NIL);
-	    --(p->dictionary->numElements);
-	    *ret = tuple_val(old)[2];
-	}
-    } else if (is_list(old)) {
+    if (is_list(old)) {
 	/* Find cons cell for identical value */
 	Eterm* prev = &p->dictionary->data[hval];
 
@@ -354,6 +347,13 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
 	ASSERT(is_list(old));
 	if (is_nil(TCDR(old))) {
 	    array_put(&p->dictionary, hval, TCAR(old));
+	}
+    } else if (is_boxed(old)) {	/* Tuple */
+	ASSERT(is_tuple(old));
+	if (EQ(tuple_val(old)[1], id)) {
+	    array_put(&(p->dictionary), hval, NIL);
+	    --(p->dictionary->numElements);
+	    *ret = tuple_val(old)[2];
 	}
     } else if (is_not_nil(old)) {
 #ifdef DEBUG
@@ -388,17 +388,17 @@ Eterm erts_pd_hash_get(Process *p, Eterm id)
 	return am_undefined;
     hval = pd_hash_value(pd, id);
     tmp = ARRAY_GET(pd, hval);
-    if (is_boxed(tmp)) {	/* Tuple */
-	ASSERT(is_tuple(tmp));
-	if (EQ(tuple_val(tmp)[1], id)) {
-	    return tuple_val(tmp)[2];
-	}
-    } else if (is_list(tmp)) {
+    if (is_list(tmp)) {
 	for (; tmp != NIL && !EQ(tuple_val(TCAR(tmp))[1], id); tmp = TCDR(tmp)) {
 	    ;
 	}
 	if (tmp != NIL) {
 	    return tuple_val(TCAR(tmp))[2];
+	}
+    } else if (is_boxed(tmp)) {	/* Tuple */
+	ASSERT(is_tuple(tmp));
+	if (EQ(tuple_val(tmp)[1], id)) {
+	    return tuple_val(tmp)[2];
 	}
     } else if (is_not_nil(tmp)) {
 #ifdef DEBUG
@@ -427,13 +427,7 @@ static Eterm pd_hash_get_keys(Process *p, Eterm value)
     num = HASH_RANGE(pd);
     for (i = 0; i < num; ++i) {
 	tmp = ARRAY_GET(pd, i);
-	if (is_boxed(tmp)) {
-	    ASSERT(is_tuple(tmp));
-	    if (EQ(tuple_val(tmp)[2], value)) {
-		hp = HAlloc(p, 2);
-		res = CONS(hp, tuple_val(tmp)[1], res);
-	    }
-	} else if (is_list(tmp)) {
+        if (is_list(tmp)) {
 	    while (tmp != NIL) {
 		tmp2 = TCAR(tmp);
 		if (EQ(tuple_val(tmp2)[2], value)) {
@@ -441,6 +435,12 @@ static Eterm pd_hash_get_keys(Process *p, Eterm value)
 		    res = CONS(hp, tuple_val(tmp2)[1], res);
 		}
 		tmp = TCDR(tmp);
+	    }
+	} else  if (is_boxed(tmp)) {
+	    ASSERT(is_tuple(tmp));
+	    if (EQ(tuple_val(tmp)[2], value)) {
+		hp = HAlloc(p, 2);
+		res = CONS(hp, tuple_val(tmp)[1], res);
 	    }
 	}
     }
@@ -465,17 +465,17 @@ pd_hash_get_all(Process *p, ProcDict *pd)
     
     for (i = 0; i < num; ++i) {
 	tmp = ARRAY_GET(pd, i);
-	if (is_boxed(tmp)) {
-	    ASSERT(is_tuple(tmp));
-	    res = CONS(hp, tmp, res);
-	    hp += 2;
-	} else if (is_list(tmp)) {
+	if (is_list(tmp)) {
 	    while (tmp != NIL) {
 		tmp2 = TCAR(tmp);
 		res = CONS(hp, tmp2, res);
 		hp += 2;
 		tmp = TCDR(tmp);
 	    }
+	} else if (is_boxed(tmp)) {
+	    ASSERT(is_tuple(tmp));
+	    res = CONS(hp, tmp, res);
+	    hp += 2;
 	}
     }
     return res;
@@ -507,13 +507,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
      * collect if necessary. (Might be a slight overestimation.)
      */
     needed = 3;			/* {Key,Value} tuple */
-    if (is_boxed(old)) {
-	/*
-	 * We don't want to compare keys twice, so we'll always
-	 * reserve the space for two CONS cells.
-	 */
-	needed += 2+2;
-    } else if (is_list(old)) {
+    if (is_list(old)) {
 	i = 0;
 	for (tmp = old; tmp != NIL && !EQ(tuple_val(TCAR(tmp))[1], id); tmp = TCDR(tmp)) {
 	    ++i;
@@ -524,6 +518,12 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	} else {
 	    needed += 2*(i+1);
 	}
+    } else if (is_boxed(old)) {
+	/*
+	 * We don't want to compare keys twice, so we'll always
+	 * reserve the space for two CONS cells.
+	 */
+	needed += 2+2;
     }
     if (HeapWordsLeft(p) < needed) {
 	Eterm root[3];
@@ -551,20 +551,6 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
     if (is_nil(old)) {
 	array_put(&(p->dictionary), hval, tpl);
 	++(p->dictionary->numElements);
-    } else if (is_boxed(old)) {
-	ASSERT(is_tuple(old));
-	if (EQ(tuple_val(old)[1],id)) {
-	    array_put(&(p->dictionary), hval, tpl);
-	    return tuple_val(old)[2];
-	} else {
-	    hp = HeapOnlyAlloc(p, 4);
-	    tmp = CONS(hp, old, NIL);
-	    hp += 2;
-	    ++(p->dictionary->numElements);
-	    array_put(&(p->dictionary), hval, CONS(hp, tpl, tmp));
-	    hp += 2;
-	    ASSERT(hp <= hp_limit);
-	}
     } else if (is_list(old)) {
 	if (i == -1) {
 	    /*
@@ -608,6 +594,20 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	    ASSERT(hp <= hp_limit);
 	    array_put(&(p->dictionary), hval, nlist);
 	    return tuple_val(TCAR(tmp))[2];
+	}
+    } else if (is_boxed(old)) {
+	ASSERT(is_tuple(old));
+	if (EQ(tuple_val(old)[1],id)) {
+	    array_put(&(p->dictionary), hval, tpl);
+	    return tuple_val(old)[2];
+	} else {
+	    hp = HeapOnlyAlloc(p, 4);
+	    tmp = CONS(hp, old, NIL);
+	    hp += 2;
+	    ++(p->dictionary->numElements);
+	    array_put(&(p->dictionary), hval, CONS(hp, tpl, tmp));
+	    hp += 2;
+	    ASSERT(hp <= hp_limit);
 	}
     } else {
 #ifdef DEBUG

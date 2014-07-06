@@ -76,7 +76,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_PRIMARY_SIZE	2
 #define _TAG_PRIMARY_MASK	0x3
 #define TAG_PRIMARY_HEADER	0x0
-#define TAG_PRIMARY_LIST	0x1
 #define TAG_PRIMARY_BOXED	0x2
 #define TAG_PRIMARY_IMMED1	0x3
 
@@ -215,10 +214,10 @@ _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+#define _unchecked_make_list(x)	_unchecked_make_boxed(x)
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
-#define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
+#define _unchecked_is_not_list(x) (_is_not_boxed(x) || is_header(*_unchecked_boxed_val(x)))
 _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		_ET_APPLY(is_not_list,(x))
 #define is_list(x)		(!is_not_list((x)))
@@ -227,7 +226,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #else
 #define _list_precond(x)       (is_list(x))
 #endif
-#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
+#define _unchecked_list_val(x) _unchecked_boxed_val(x)
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 

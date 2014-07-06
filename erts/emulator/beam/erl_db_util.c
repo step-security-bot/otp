@@ -201,6 +201,7 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
 
 /* Type checking... */
 
+#define BOXED_IS_LIST(Boxed)  !is_header(*boxed_val((Boxed)))
 #define BOXED_IS_TUPLE(Boxed) is_arity_value(*boxed_val((Boxed)))
 
 /*
@@ -1364,6 +1365,22 @@ restart:
 	for (;;) {
 	    switch (t & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_BOXED:
+	      if (BOXED_IS_LIST(t)) {
+		if (!structure_checked) {
+		  DMC_PUSH(text, matchList);
+		}
+		structure_checked = 0; /* Whatever it is, we did
+					  not pop it */
+		if ((res = dmc_one_term(&context, &heap, &stack,
+					&text, CAR(list_val(t))))
+		    != retOk) {
+		  if (res == retRestart) {
+		    goto restart;
+		  } else goto error;
+		}
+		t = CDR(list_val(t));
+		continue;
+	      }
 		if (!BOXED_IS_TUPLE(t)) {
 		    goto simple_term;
 		}
@@ -1389,21 +1406,7 @@ restart:
 		    }	    
 		}
 		break;
-	    case TAG_PRIMARY_LIST:
-		if (!structure_checked) {
-		    DMC_PUSH(text, matchList);
-		}
-		structure_checked = 0; /* Whatever it is, we did 
-					  not pop it */
-		if ((res = dmc_one_term(&context, &heap, &stack, 
-					&text, CAR(list_val(t))))
-		    != retOk) {
-		    if (res == retRestart) {
-			goto restart;
-		    } else goto error;
-		}	    
-		t = CDR(list_val(t));
-		continue;
+
 	    default: /* Nil and non proper tail end's or 
 			single terms as match 
 			expressions */
@@ -3159,16 +3162,15 @@ int db_is_variable(Eterm obj)
 int db_has_variable(Eterm obj)
 {
     switch(obj & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST: {
+    case TAG_PRIMARY_BOXED:
+      if (BOXED_IS_LIST(obj)) {
 	while (is_list(obj)) {
 	    if (db_has_variable(CAR(list_val(obj))))
 		return 1;
 	    obj = CDR(list_val(obj));
 	}
 	return(db_has_variable(obj));  /* Non wellformed list or [] */
-    }
-    case TAG_PRIMARY_BOXED: 
-	if (!BOXED_IS_TUPLE(obj)) {
+      } else if (!BOXED_IS_TUPLE(obj)) {
 	    return 0;
 	} else {
 	    Eterm *tuple = tuple_val(obj);
@@ -3319,13 +3321,14 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*text, (Uint) c);
 	}
 	break;
-    case TAG_PRIMARY_LIST:
-	DMC_PUSH(*text, matchPushL);
-	++(context->stack_used);
-	DMC_PUSH(*stack, c); 
-	break;
     case TAG_PRIMARY_BOXED: {
 	Eterm hdr = *boxed_val(c);
+	if (!is_header(hdr)) {
+	  DMC_PUSH(*text, matchPushL);
+	  ++(context->stack_used);
+	  DMC_PUSH(*stack, c);
+	  break;
+	}
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):    
 	    n = arityval(*tuple_val(c));
@@ -4575,11 +4578,12 @@ static DMCRet dmc_expr(DMCContext *context,
 
 
     switch (t & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST:
-	if ((ret = dmc_list(context, heap, text, t, constant)) != retOk)
-	    return ret;
-	break;
     case TAG_PRIMARY_BOXED:
+        if (BOXED_IS_LIST(t)) {
+	    if ((ret = dmc_list(context, heap, text, t, constant)) != retOk)
+	        return ret;
+	    break;
+	}
 	if (!BOXED_IS_TUPLE(t)) {
 	    goto simple_term;
 	}
@@ -4807,11 +4811,12 @@ static Uint my_size_object(Eterm t)
     Eterm tmp;
     Eterm *p;
     switch (t & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST:
-	sum += 2 + my_size_object(CAR(list_val(t))) + 
-	    my_size_object(CDR(list_val(t)));
-	break;
     case TAG_PRIMARY_BOXED:
+        if (BOXED_IS_LIST(t)) {
+	    sum += 2 + my_size_object(CAR(list_val(t))) +
+	        my_size_object(CDR(list_val(t)));
+	    break;
+	}
 	if ((((*boxed_val(t)) & 
 	      _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) !=
 	    (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE)) {
@@ -4848,13 +4853,14 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
     Eterm *p;
     Uint sz;
     switch (t & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_LIST:
-	a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
-	b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
-	ret = CONS(*hp, a, b);
-	*hp += 2;
-	break;
     case TAG_PRIMARY_BOXED:
+        if (BOXED_IS_LIST(t)) {
+	    a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
+	    b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
+	    ret = CONS(*hp, a, b);
+	    *hp += 2;
+	    break;
+	}
 	if (BOXED_IS_TUPLE(t)) {
 	    if (arityval(*tuple_val(t)) == 1 && 
 		is_tuple(a = tuple_val(t)[1])) {

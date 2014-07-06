@@ -357,6 +357,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -378,6 +380,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -395,6 +399,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -434,6 +440,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -503,6 +511,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -521,6 +531,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -551,6 +563,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -578,6 +592,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -679,6 +695,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -702,6 +720,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -721,6 +741,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -768,6 +790,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -825,6 +849,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -846,6 +872,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -863,6 +891,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -894,6 +924,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1202,6 +1234,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1223,6 +1257,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1240,6 +1276,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1289,6 +1327,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1370,6 +1410,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1388,6 +1430,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1428,6 +1472,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1455,6 +1501,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1572,6 +1620,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1595,6 +1645,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1614,6 +1666,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1671,6 +1725,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1736,6 +1792,8 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1757,6 +1815,8 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 	}
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
+        if (!is_header(hdr))
+            goto badarith; /* cons cell */
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1774,6 +1834,8 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
 		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -1805,7 +1867,9 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 		}
 	    case TAG_PRIMARY_BOXED:
 		hdr = *boxed_val(arg2);
-		switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+                if (!is_header(hdr))
+                    goto badarith; /* cons cell */
+                switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 		case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);

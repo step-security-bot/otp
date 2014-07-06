@@ -79,19 +79,17 @@ Uint size_object(Eterm obj)
     DECLARE_ESTACK(s);
     for (;;) {
 	switch (primary_tag(obj)) {
-	case TAG_PRIMARY_LIST:
-	    sum += 2;
-	    ptr = list_val_rel(obj,base);
-	    obj = *ptr++;
-	    if (!IS_CONST(obj)) {
-		ESTACK_PUSH(s, obj);
-	    }	    
-	    obj = *ptr;
-	    break;
 	case TAG_PRIMARY_BOXED:
 	    {
 		Eterm hdr = *boxed_val_rel(obj,base);
-		ASSERT(is_header(hdr));
+		if (!is_header(hdr)) {
+		  sum += 2;
+		  if (!IS_CONST(hdr)) {
+		    ESTACK_PUSH(s, hdr);
+		  }
+		  obj = CDR(boxed_val_rel(obj,base));
+		  break;
+		}
 		switch (hdr & _TAG_HEADER_MASK) {
 		case ARITYVAL_SUBTAG:
 		    ptr = tuple_val_rel(obj,base);
@@ -234,17 +232,9 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     const_tuple = 0;
 
     /* Copy the object onto the heap */
-    switch (primary_tag(obj)) {
-    case TAG_PRIMARY_LIST:
-	argp = &res;
-	objp = list_val_rel(obj,src_base);
-	goto L_copy_list;
-    case TAG_PRIMARY_BOXED: argp = &res; goto L_copy_boxed;
-    default:
-	erl_exit(ERTS_ABORT_EXIT,
-		 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
-		 __FILE__, __LINE__,obj);
-    }
+    ASSERT(is_boxed(obj));
+    argp = &res;
+    goto L_copy_boxed;
 
  L_copy:
     while (hp != htop) {
@@ -254,72 +244,62 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	case TAG_PRIMARY_IMMED1:
 	    hp++;
 	    break;
-	case TAG_PRIMARY_LIST:
-	    objp = list_val_rel(obj,src_base);
-	#if !HALFWORD_HEAP || defined(DEBUG)
-	    if (in_area(objp,hstart,hsize)) {
-		ASSERT(!HALFWORD_HEAP);
-		hp++;
-		break;
-	    }
-	#endif
-	    argp = hp++;
-	    /* Fall through */
 
-	L_copy_list:
-	    tailp = argp;
-	    for (;;) {
-		tp = tailp;
-		elem = CAR(objp);
-		if (IS_CONST(elem)) {
-		    hbot -= 2;
-		    CAR(hbot) = elem;
-		    tailp = &CDR(hbot);
-		}
-		else {
-		    CAR(htop) = elem;
-		#if HALFWORD_HEAP
-		    CDR(htop) = CDR(objp);
-		    *tailp = make_list_rel(htop,dst_base);
-		    htop += 2;
-		    goto L_copy;
-		#else
-		    tailp = &CDR(htop);
-		    htop += 2;
-		#endif
-		}
-		ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
-		*tp = make_list_rel(tailp - 1, dst_base);
-		obj = CDR(objp);
-		if (!is_list(obj)) {
-		    break;
-		}
-		objp = list_val_rel(obj,src_base);
-	    }
-	    switch (primary_tag(obj)) {
-	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
-	    case TAG_PRIMARY_BOXED: argp = tailp; goto L_copy_boxed;
-	    default:
-		erl_exit(ERTS_ABORT_EXIT,
-			 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
-			 __FILE__, __LINE__,obj);
-	    }
-	    
 	case TAG_PRIMARY_BOXED:
-	#if !HALFWORD_HEAP || defined(DEBUG)
+#if !HALFWORD_HEAP || defined(DEBUG)
 	    if (in_area(boxed_val_rel(obj,src_base),hstart,hsize)) {
 		ASSERT(!HALFWORD_HEAP);
 		hp++;
 		break;
 	    }
-	#endif
+#endif
 	    argp = hp++;
 
-	L_copy_boxed:
+        L_copy_boxed:
 	    objp = boxed_val_rel(obj, src_base);
-	    hdr = *objp;
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG:
+	    hdr = elem = *objp;
+	    if (!is_header(hdr)) {
+                tailp = argp;
+                for (;;) {
+                    tp = tailp;
+                    if (IS_CONST(elem)) {
+                        hbot -= 2;
+                        CAR(hbot) = elem;
+                        tailp = &CDR(hbot);
+                    }
+                    else {
+                        CAR(htop) = elem;
+#if HALFWORD_HEAP
+                        CDR(htop) = CDR(objp);
+                        *tailp = make_boxed_rel(htop,dst_base);
+                        htop += 2;
+                        goto L_copy;
+#else
+                        tailp = &CDR(htop);
+                        htop += 2;
+#endif
+                    }
+                    ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
+                    *tp = make_boxed_rel(tailp - 1, dst_base);
+                    obj = CDR(objp);
+
+                    if (!is_list(obj)) {
+                        switch (primary_tag(obj)) {
+                        case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
+                        case TAG_PRIMARY_BOXED: argp = tailp; goto L_copy_boxed;
+                        default:
+                            erl_exit(ERTS_ABORT_EXIT,
+                                     "%s, line %d: Internal error in copy_struct: 0x%08x\n",
+                                     __FILE__, __LINE__,obj);
+                        }
+                    }
+                    objp = boxed_val_rel(obj,src_base);
+                    elem = CAR(objp);
+                }
+            } else {
+
+                switch (hdr & _TAG_HEADER_MASK) {
+                case ARITYVAL_SUBTAG:
 		{
 		    int const_flag = 1; /* assume constant tuple */
 		    i = arityval(hdr);
@@ -338,7 +318,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 		}
 		break;
-	    case MAP_SUBTAG:
+                case MAP_SUBTAG:
 		{
 		    i = map_get_size(objp) + 3;
 		    *argp = make_map_rel(htop, dst_base);
@@ -347,7 +327,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    }
 		}
 		break;
-	    case REFC_BINARY_SUBTAG:
+                case REFC_BINARY_SUBTAG:
 		{
 		    ProcBin* pb;
 
@@ -370,7 +350,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		break;
-	    case SUB_BINARY_SUBTAG:
+                case SUB_BINARY_SUBTAG:
 		{
 		    ErlSubBin* sb = (ErlSubBin *) objp;
 		    Eterm real_bin = sb->orig;
@@ -435,7 +415,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    break;
 		}
 		break;
-	    case FUN_SUBTAG:
+                case FUN_SUBTAG:
 		{
 		    ErlFunThing* funp = (ErlFunThing *) objp;
 
@@ -451,9 +431,9 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    *argp = make_fun_rel(tp, dst_base);
 		}
 		break;
-	    case EXTERNAL_PID_SUBTAG:
-	    case EXTERNAL_PORT_SUBTAG:
-	    case EXTERNAL_REF_SUBTAG:
+                case EXTERNAL_PID_SUBTAG:
+                case EXTERNAL_PORT_SUBTAG:
+                case EXTERNAL_REF_SUBTAG:
 		{
 		  ExternalThing *etp = (ExternalThing *) htop;
 
@@ -471,18 +451,19 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		  *argp = make_external_rel(tp, dst_base);
 		}
 		break;
-	    case BIN_MATCHSTATE_SUBTAG:
-		erl_exit(ERTS_ABORT_EXIT,
-			 "copy_struct: matchstate term not allowed");
-	    default:
-		i = thing_arityval(hdr)+1;
-		hbot -= i;
-		tp = hbot;
-		*argp = make_boxed_rel(hbot, dst_base);
-		while (i--) {
-		    *tp++ = *objp++;
-		}
-	    }
+                case BIN_MATCHSTATE_SUBTAG:
+                    erl_exit(ERTS_ABORT_EXIT,
+                             "copy_struct: matchstate term not allowed");
+                default:
+                    i = thing_arityval(hdr)+1;
+                    hbot -= i;
+                    tp = hbot;
+                    *argp = make_boxed_rel(hbot, dst_base);
+                    while (i--) {
+                        *tp++ = *objp++;
+                    }
+                }
+            }
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (header_is_thing(obj) || hp == const_tuple) {
@@ -491,8 +472,9 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		hp++;
 	    }
 	    break;
-	}
-    }
+
+        }
+        }
 
 #ifdef DEBUG
     if (htop != hbot)
@@ -542,7 +524,6 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	case TAG_PRIMARY_IMMED1:
 	    *hp++ = val;
 	    break;
-	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
 	    *hp++ = byte_offset_ptr(val, offs);
 	    break;
@@ -643,13 +624,6 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
                 *hp = TUPLE0();
             }
 	    break;
-	case TAG_PRIMARY_LIST:
-	    ptr = list_val(gval);
-	    val = *ptr;
-	    if (IS_MOVED_CONS(val)) {
-		*hp = ptr[1];
-	    }
-	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (header_is_thing(gval)) {
 		hp += thing_arityval(gval);
@@ -675,10 +649,9 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	ASSERT(ptr < end);
 	val = *ptr;
 	ASSERT(val != ERTS_HOLE_MARKER);
+        MOVE_BOXED(ptr, val, hp, &dummy_ref);
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
-	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, hp, &dummy_ref);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
@@ -689,10 +662,6 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 		off_heap->first = hdr;
 		break;
 	    }
-	}
-	else { /* must be a cons cell */
-	    ASSERT(ptr+1 < end);
-	    MOVE_CONS(ptr, val, hp, &dummy_ref);
 	}
     }
     *hpp = hp;
