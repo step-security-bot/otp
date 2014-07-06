@@ -4097,7 +4097,6 @@ freeze_code(LoaderState* stp)
 	    while (ptr < high) {
 		Eterm val = *ptr;
 		switch (primary_tag(val)) {
-		case TAG_PRIMARY_LIST:
 		case TAG_PRIMARY_BOXED:
 		    *ptr++ = offset_ptr(val, offset);
 		    break;

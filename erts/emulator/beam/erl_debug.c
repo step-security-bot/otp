@@ -226,7 +226,6 @@ static int verify_eterm(Process *p,Eterm element)
     ErlHeapFragment* mbuf;
 
     switch (primary_tag(element)) {
-        case TAG_PRIMARY_LIST: ptr = list_val(element); break;
         case TAG_PRIMARY_BOXED: ptr = boxed_val(element); break;
         default: /* Immediate or header/cp */ return 1;
     }
@@ -269,7 +268,6 @@ void erts_check_stack(Process *p)
 	Eterm *ptr;
 	ErlHeapFragment* mbuf;
 	switch (primary_tag(*elemp)) {
-	case TAG_PRIMARY_LIST: ptr = list_val(*elemp); break;
 	case TAG_PRIMARY_BOXED: ptr = boxed_val(*elemp); break;
 	default: /* Immediate or cp */ continue;
 	}
@@ -492,17 +490,9 @@ void print_tagged_memory(Eterm *pos, Eterm *end)
 	} else {
             switch (primary_tag(val)) {
             case TAG_PRIMARY_BOXED:
-                if (!is_header(*boxed_val(val))) {
-                    erts_printf("Moved -> 0x%0*lx\n",PTR_SIZE,
-                                (unsigned long)*boxed_val(val));
-                    continue;
-                }
-                break;
-
-            case TAG_PRIMARY_LIST:
                 if (is_non_value(*list_val(val))) {
                     erts_printf("Moved -> 0x%0*lx\n",PTR_SIZE,
-                                (unsigned long)*(list_val(val) + 1));
+                                (unsigned long)*(boxed_val(val) + 1));
                     continue;
                 }
                 break;

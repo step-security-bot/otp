@@ -29,22 +29,8 @@
 #endif
 
 #define IS_MOVED_BOXED(x)	(is_non_value((x)))
-#define IS_MOVED_CONS(x)	(is_non_value((x)))
 
 #define BOXED_FORWARD_WORD 1
-
-#define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
-do {									\
-    Eterm gval;								\
-									\
-    HTOP[0] = CAR;		/* copy car */				\
-    HTOP[1] = PTR[1];		/* copy cdr */				\
-    gval = make_list(HTOP);	/* new location */			\
-    *ORIG = gval;		/* redirect original reference */	\
-    PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
-    PTR[1] = gval;		/* store forwarding address */		\
-    HTOP += 2;			/* update tospace htop */		\
-} while(0)
 
 #define MOVE_BOXED(PTR,HDR,HTOP,ORIG) move_boxed(&PTR,&HDR,&HTOP,&ORIG)
 
@@ -54,12 +40,17 @@ static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
     Sint nelts;
     Eterm *PTR, *HTOP, *ORIG, HDR;
     PTR = *rptr; HTOP = *rhtop; ORIG = *rgptr; HDR = *rhdr;
-    ASSERT(is_header(HDR));
-    nelts = header_arity(HDR);
-    switch ((HDR) & _HEADER_SUBTAG_MASK) {
-    case SUB_BINARY_SUBTAG: nelts++; break;
-    case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
+    if (is_header(HDR)) {
+      nelts = header_arity(HDR);
+      switch ((HDR) & _HEADER_SUBTAG_MASK) {
+      case SUB_BINARY_SUBTAG: nelts++; break;
+      case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
+      case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
+      }
+    } else {
+      /* cons cell */
+      /* TODO: Probably want to make a faster way for conses */
+      nelts = 1;
     }
     gval    = make_boxed(HTOP);
     *ORIG   = gval;
@@ -94,10 +85,6 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
 	if (IS_MOVED_BOXED(*ptr)) term = ptr[BOXED_FORWARD_WORD];
-	break;
-    case TAG_PRIMARY_LIST:
-	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[BOXED_FORWARD_WORD];
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");

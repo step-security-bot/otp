@@ -913,7 +913,6 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	val = *p;
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
-	case TAG_PRIMARY_LIST:
 	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
 	    }
@@ -933,7 +932,6 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	val = *p;
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
-	case TAG_PRIMARY_LIST:
 	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
 	    }

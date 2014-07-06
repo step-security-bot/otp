@@ -1169,38 +1169,35 @@ make_hash2(Eterm term)
     hash = 0;
     for (;;) {
 	switch (primary_tag(term)) {
-	case TAG_PRIMARY_LIST:
-	{
-	    int c = 0;
-	    Uint32 sh = 0;
-	    Eterm* ptr = list_val(term);
-	    while (is_byte(*ptr)) {
-		/* Optimization for strings. */
-		sh = (sh << 8) + unsigned_val(*ptr);
-		if (c == 3) {
-		    UINT32_HASH(sh, HCONST_4);
-		    c = sh = 0;
-		} else {
-		    c++;
-		}
-		term = CDR(ptr);
-		if (is_not_list(term))
-		    break;
-		ptr = list_val(term);
-	    }
-	    if (c > 0)
-		UINT32_HASH(sh, HCONST_4);
-	    if (is_list(term)) {
-		term = *ptr;
-		tmp = *++ptr;
-		ESTACK_PUSH(s, tmp);	    
-	    }
-	}
-	break;
 	case TAG_PRIMARY_BOXED:
 	{
 	    Eterm hdr = *boxed_val(term);
-	    ASSERT(is_header(hdr));
+	    if (!is_header(hdr)) {
+	      int c = 0;
+	      Uint32 sh = 0;
+	      Eterm* ptr = list_val(term);
+	      while (is_byte(*ptr)) {
+		/* Optimization for strings. */
+		sh = (sh << 8) + unsigned_val(*ptr);
+		if (c == 3) {
+		  UINT32_HASH(sh, HCONST_4);
+		  c = sh = 0;
+		} else {
+		  c++;
+		}
+		term = CDR(ptr);
+		if (is_not_list(term))
+		  break;
+		ptr = list_val(term);
+	      }
+	      if (c > 0)
+		UINT32_HASH(sh, HCONST_4);
+	      if (is_list(term)) {
+		term = *ptr;
+		tmp = *++ptr;
+		ESTACK_PUSH(s, tmp);	    
+	      }
+	    } else {
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 	    {
@@ -1395,7 +1392,8 @@ make_hash2(Eterm term)
 	    default:
 		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 	    }
-	}
+            }
+        }
 	break;
 	case TAG_PRIMARY_IMMED1:
 	    switch (term & _TAG_IMMED1_MASK) {
@@ -2075,38 +2073,40 @@ tailrecur:
 tailrecur_ne:
 
     switch (primary_tag(a)) {
-    case TAG_PRIMARY_LIST:
-	if (is_list(b)) {
-	    Eterm* aval = list_val_rel(a, a_base);
-	    Eterm* bval = list_val_rel(b, b_base);
-	    while (1) {
-		Eterm atmp = CAR(aval);
-		Eterm btmp = CAR(bval);
-		if (!is_same(atmp,a_base,btmp,b_base)) {
-		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
-		    a = atmp;
-		    b = btmp;
-		    goto tailrecur_ne;
-		}
-		atmp = CDR(aval);
-		btmp = CDR(bval);
-		if (is_same(atmp,a_base,btmp,b_base)) {
-		    goto pop_next;
-		}
-		if (is_not_list(atmp) || is_not_list(btmp)) {
-		    a = atmp;
-		    b = btmp;
-		    goto tailrecur_ne;
-		}
-		aval = list_val_rel(atmp, a_base);
-		bval = list_val_rel(btmp, b_base);
-	    }
-	}
-	break; /* not equal */
 
     case TAG_PRIMARY_BOXED:
 	{	
 	    Eterm hdr = *boxed_val_rel(a,a_base);
+	    if (!is_header(hdr)) {
+	      if (is_list(b)) {
+		Eterm* aval = list_val_rel(a, a_base);
+		Eterm* bval = list_val_rel(b, b_base);
+		while (1) {
+		  Eterm atmp = CAR(aval);
+		  Eterm btmp = CAR(bval);
+		  if (!is_same(atmp,a_base,btmp,b_base)) {
+		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
+		    a = atmp;
+		    b = btmp;
+		    goto tailrecur_ne;
+		  }
+		  atmp = CDR(aval);
+		  btmp = CDR(bval);
+		  if (is_same(atmp,a_base,btmp,b_base)) {
+		    goto pop_next;
+		  }
+		  if (is_not_list(atmp) || is_not_list(btmp)) {
+		    a = atmp;
+		    b = btmp;
+		    goto tailrecur_ne;
+		  }
+		  aval = list_val_rel(atmp, a_base);
+		  bval = list_val_rel(btmp, b_base);
+		}
+	      }
+	      break; /* not equal */
+	    } else {
+
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
@@ -2326,6 +2326,7 @@ tailrecur_ne:
 		    }
 		    break; /* not equal */
 		}
+	    }
 	    }
 	    break;
 	}
@@ -2555,38 +2556,39 @@ tailrecur_ne:
 	    }
 	}
 	}
-    case TAG_PRIMARY_LIST:
-	if (is_not_list(b)) {
-	    a_tag = LIST_DEF;
-	    goto mixed_types;
-	}
-	aa = list_val_rel(a,a_base);
-	bb = list_val_rel(b,b_base);
-	while (1) {
-	    Eterm atmp = CAR(aa);
-	    Eterm btmp = CAR(bb);
-	    if (!is_same(atmp,a_base,btmp,b_base)) {
-		WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
-		a = atmp;
-		b = btmp;
-		goto tailrecur_ne;
-	    }
-	    atmp = CDR(aa);
-	    btmp = CDR(bb);
-	    if (is_same(atmp,a_base,btmp,b_base)) {
-		goto pop_next;
-	    }
-	    if (is_not_list(atmp) || is_not_list(btmp)) {
-		a = atmp;
-		b = btmp;
-		goto tailrecur_ne;
-	    }
-	    aa = list_val_rel(atmp,a_base);
-	    bb = list_val_rel(btmp,b_base);
-	}
     case TAG_PRIMARY_BOXED:
 	{
 	    Eterm ahdr = *boxed_val_rel(a,a_base);
+	    if (!is_header(ahdr)) {
+	      if (is_not_list(b)) {
+		a_tag = LIST_DEF;
+		goto mixed_types;
+	      }
+	      aa = list_val_rel(a,a_base);
+	      bb = list_val_rel(b,b_base);
+	      while (1) {
+		Eterm atmp = CAR(aa);
+		Eterm btmp = CAR(bb);
+		if (!is_same(atmp,a_base,btmp,b_base)) {
+		  WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
+		  a = atmp;
+		  b = btmp;
+		  goto tailrecur_ne;
+		}
+		atmp = CDR(aa);
+		btmp = CDR(bb);
+		if (is_same(atmp,a_base,btmp,b_base)) {
+		  goto pop_next;
+		}
+		if (is_not_list(atmp) || is_not_list(btmp)) {
+		  a = atmp;
+		  b = btmp;
+		  goto tailrecur_ne;
+		}
+		aa = list_val_rel(atmp,a_base);
+		bb = list_val_rel(btmp,b_base);
+	      }
+	    } else {
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
 		if (!is_tuple_rel(b,b_base)) {
@@ -2835,6 +2837,7 @@ tailrecur_ne:
 		    }
 		    ON_CMP_GOTO((Sint)(a_size - b_size));
 		}
+	    }
 	    }
 	}
     }
