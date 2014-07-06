@@ -1160,73 +1160,10 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		} else if (in_area(ptr, heap, mature_size)) {
 		    MOVE_BOXED(ptr,val,old_htop,n_hp); n_hp++;
 		} else if (in_area(ptr, heap, heap_size)) {
-                    if (is_list(gval) && is_list(CDR(ptr))) {
-                        /* if there are atleast two cells in the list */
-                        n_hp = make_cdr(n_htop);        /* redirect original
-                                                           reference */
-                        do {
-                            *n_htop = val;                /* copy car */
-                            gval = make_cdr(n_htop);      /* new location */
-                            n_htop += 1;                  /* update tospace htop */
-                            ptr[0] = THE_NON_VALUE;
-                            ptr[1] = gval;
-                            gval = CDR(ptr);
-                            if (is_not_list(gval)) {
-                                /* if cdr is not a list we break */
-                                if (is_cdr_list(gval))
-                                    goto do_cdr_coding;
-                                goto finish_cdr_coding;
-                            }
-
-                        do_list_coding:
-                            ptr = list_val(gval);         /* decode next cons ptr */
-                            if (!in_area(ptr, heap, heap_size))
-                                /* if next is not in same area we break */
-                                goto finish_cdr_coding;
-                            val = CAR(ptr);               /* fetch next car */
-                            if (IS_MOVED_BOXED(val))
-                                /* if next cell is already moved we break */
-                                goto finish_cdr_coding;
-                        } while (1);
-
-                        do {
-                            *n_htop = val;                /* copy car */
-                            gval = make_cdr(n_htop);      /* new location */
-                            n_htop += 1;                  /* update tospace htop */
-                            ptr[0] = THE_NON_VALUE;
-                            ptr[1] = gval;
-                            gval = CDR(ptr);
-                            if (is_not_cdr_list(gval)) {
-                                /* if cdr is not a list we break */
-                                if (is_cdr(gval))
-                                    goto do_cdr_coding;
-                                goto finish_cdr_coding;
-                            }
-
-                        do_cdr_coding:
-                            ptr = cdr_val(gval);         /* decode next cdr ptr */
-                            if (!in_area(ptr, heap, heap_size))
-                                /* if next is not in same area we break */
-                                goto finish_cdr_coding;
-                            val = CDR_CAR(ptr);               /* fetch next car */
-                            if (IS_MOVED_CDR(val)) {
-                                /* if next cell is already moved we break */
-                                goto finish_cdr_coding;
-                            }
-                        } while (1);
-
-                    finish_cdr_coding:
-                        /* Place end marker and copy last cdr */
-                        n_htop[0] = CDR_END_MARKER;
-                        n_htop[1] = gval;
-                        n_htop += 2;
-                        g_ptr++;
-                    } else {
-                        MOVE_BOXED(ptr,val,n_htop,n_hp); n_hp++;
-                    }
-                } else {
-                    n_hp++;
-                }
+		    MOVE_BOXED(ptr,val,n_htop,n_hp); n_hp++;
+		} else {
+		    n_hp++;
+		}
 		break;
 	    }
 	    case TAG_PRIMARY_HEADER: {

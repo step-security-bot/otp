@@ -235,22 +235,6 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CAR(x)  ((x)[0])
 #define CDR(x)  ((x)[1])
 
-/* cdr coded lists access methods */
-
-#define is_cdr_list(x)          (is_boxed(x) && primary_tag(*boxed_val(x)))
-#define is_cdr_list(x)          (!is_cdr_list(x))
-#define cdr_val(x)              boxed_val(x)
-#define make_cdr(x)             make_boxed(x)
-#define CDR_CAR(x)              CAR(x)
-#define CDR_CDR(x)              ((CDR(x) != CDR_END_MARKER) ? \
-                                 make_cdr(&CDR(x)) : ((x)[2]))
-#define CDR_END_MARKER          THE_NON_VALUE
-
-/* General list functions */
-
-#define is_generic_list(x) (is_list(x) || is_cdr_list(x))
-#define is_not_generic_list(x) (!is_generic_list(x))
-
 /* generic tagged pointer (boxed or list) access methods */
 #define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/

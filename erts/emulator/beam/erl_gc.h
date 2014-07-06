@@ -29,7 +29,6 @@
 #endif
 
 #define IS_MOVED_BOXED(x)	(is_non_value((x)))
-#define IS_MOVED_CDR(x)         ((x) == CDR_END_MARKER || is_header(x))
 
 #define BOXED_FORWARD_WORD 1
 
