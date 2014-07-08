@@ -55,13 +55,22 @@ do {                                                                    \
     case SUB_BINARY_SUBTAG: nelts++; break;                             \
     case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;               \
     case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
+    case ARITYVAL_SUBTAG:                                               \
+        if (nelts == 0) {                                               \
+              *ORIG = TUPLE0();                                         \
+              *HTOP++ = TUPLE0();                                       \
+        }                                                               \
+        break;                                                          \
+    }                                                                   \
+    if (nelts == 0) {                                                   \
+        PTR++;                                                          \
+        break;                                                          \
     }                                                                   \
     gval    = make_boxed(HTOP);                                         \
     *ORIG   = gval;                                                     \
     *HTOP++ = HDR;                                                      \
     *PTR++  = gval;                                                     \
     while (nelts--) *HTOP++ = *PTR++;                                   \
-                                                                        \
 } while(0)
 
 #define in_area(ptr,start,nbytes) \
@@ -85,6 +94,7 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
 	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+        else if (*ptr == make_arityval(0)) term = TUPLE0();
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);

@@ -1168,6 +1168,7 @@ make_hash2(Eterm term)
     UseTmpHeapNoproc(2);
     hash = 0;
     for (;;) {
+        Eterm hdr = 0;
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_LIST:
 	{
@@ -1199,10 +1200,11 @@ make_hash2(Eterm term)
 	break;
 	case TAG_PRIMARY_BOXED:
 	{
-	    Eterm hdr = *boxed_val(term);
+	    hdr = *boxed_val(term);
 	    ASSERT(is_header(hdr));
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
+            hash2_arity:
 	    {
 		int i;
 		int arity = header_arity(hdr);
@@ -1423,6 +1425,10 @@ make_hash2(Eterm term)
 		    else
 			UINT32_HASH(NIL_DEF, HCONST_2);
 		    goto hash2_common;
+                case _TAG_IMMED2_INTER:
+                    if (term == TUPLE0())
+                        hdr = make_arityval(0);
+                        goto hash2_arity;
 		default:
 		    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 		}
@@ -2075,6 +2081,10 @@ tailrecur:
 tailrecur_ne:
 
     switch (primary_tag(a)) {
+    case TAG_PRIMARY_IMMED1:
+        if (a == TUPLE0())
+            goto eq_tuple;
+        break;
     case TAG_PRIMARY_LIST:
 	if (is_list(b)) {
 	    Eterm* aval = list_val_rel(a, a_base);
@@ -2110,8 +2120,9 @@ tailrecur_ne:
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
+                eq_tuple:
 		    aa = tuple_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+		    if (!is_tuple(b) || *tuple_val_rel(b,b_base) != *aa)
 			goto not_equal;
 		    bb = tuple_val_rel(b,b_base);
 		    if ((sz = arityval(*aa)) == 0) goto pop_next;
@@ -2550,8 +2561,11 @@ tailrecur_ne:
 		a_tag = ATOM_DEF;
 		goto mixed_types;
 	    case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):
-		a_tag = NIL_DEF;
-		goto mixed_types;
+                a_tag = NIL_DEF;
+                goto mixed_types;
+            case (_TAG_IMMED2_INTER >> _TAG_IMMED1_SIZE):
+                if (a == TUPLE0())
+                    goto cmp_tuple;
 	    }
 	}
 	}
@@ -2589,6 +2603,7 @@ tailrecur_ne:
 	    Eterm ahdr = *boxed_val_rel(a,a_base);
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
+            cmp_tuple:
 		if (!is_tuple_rel(b,b_base)) {
 		    a_tag = TUPLE_DEF;
 		    goto mixed_types;
@@ -2596,7 +2611,7 @@ tailrecur_ne:
 		aa = tuple_val_rel(a,a_base);
 		bb = tuple_val_rel(b,b_base);
 		/* compare the arities */
-		i = arityval(ahdr);	/* get the arity*/
+		i = arityval(*aa);	/* get the arity*/
 		if (i != arityval(*bb)) {
 		    RETURN_NEQ((int)(i - arityval(*bb)));
 		}

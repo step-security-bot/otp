@@ -743,7 +743,9 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
-		} else if (in_area(ptr, area, area_size)) {
+		} else if (val == make_arityval(0)) {
+                    *g_ptr++ = TUPLE0();
+                } else if (in_area(ptr, area, area_size)) {
                     MOVE_BOXED(ptr,val,old_htop,g_ptr++);
 		} else {
 		    g_ptr++;
@@ -1037,6 +1039,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
+                } else if (val == make_arityval(0)) {
+                    *g_ptr++ = TUPLE0();
                 } else if (in_area(ptr, heap, mature_size)) {
                     MOVE_BOXED(ptr,val,old_htop,g_ptr++);
                 } else if (in_area(ptr, heap, heap_size)) {
@@ -1096,6 +1100,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
+                } else if (val == make_arityval(0)) {
+                    *n_hp++ = TUPLE0();
 		} else if (in_area(ptr, heap, mature_size)) {
 		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
 		} else if (in_area(ptr, heap, heap_size)) {
@@ -1287,6 +1293,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
+                } else if (val == make_arityval(0)) {
+                    *g_ptr++ = TUPLE0();
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
 		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
 		} else {
@@ -1342,7 +1350,9 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+		} else if (val == make_arityval(0)) {
+                    *n_hp++ = TUPLE0();
+                } else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
 		    n_hp++;
@@ -1734,6 +1744,8 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
                 if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
+                } else if (val == make_arityval(0)) {
+                    *g_ptr++ = TUPLE0();
                 } else if (in_area(ptr, src, src_size)) {
                     MOVE_BOXED(ptr,val,htop,g_ptr++);
                 } else {
@@ -1781,6 +1793,8 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
+            } else if (val == make_arityval(0)) {
+                *n_hp++ = TUPLE0();
 	    } else if (in_area(ptr, src, src_size)) {
 		MOVE_BOXED(ptr,val,n_htop,n_hp++);
 	    } else {
@@ -1846,6 +1860,8 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
+            } else if (val == make_arityval(0)) {
+                *heap_ptr++ = TUPLE0();
 	    } else if (in_area(ptr, src, src_size)) {
 		MOVE_BOXED(ptr,val,htop,heap_ptr++);
 	    } else {
@@ -1937,7 +1953,11 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
     /*
      * Move the heap fragments to the new heap. Note that no GC is done on
      * the heap fragments. Any garbage will thus be moved as well and survive
-     * until next GC.  
+     * until next GC.
+     *
+     * Also this pass still has boxed pointers to the heap fragments. It is
+     * the jobs of later passes to fixup these pointers as they see the
+     * move markers.
      */ 
     qb = MBUF(p);
     while (qb != NULL) {      
