@@ -2073,7 +2073,10 @@ tailrecur:
 tailrecur_ne:
 
     switch (primary_tag(a)) {
-
+    case TAG_PRIMARY_IMMED1:
+        if (a == TUPLE0())
+            goto eq_tuple;
+        break;
     case TAG_PRIMARY_BOXED:
 	{	
 	    Eterm hdr = *boxed_val_rel(a,a_base);
@@ -2110,8 +2113,9 @@ tailrecur_ne:
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
+                eq_tuple:
 		    aa = tuple_val_rel(a, a_base);
-		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
+		    if (!is_tuple(b) || *tuple_val_rel(b,b_base) != *aa)
 			goto not_equal;
 		    bb = tuple_val_rel(b,b_base);
 		    if ((sz = arityval(*aa)) == 0) goto pop_next;
@@ -2551,8 +2555,13 @@ tailrecur_ne:
 		a_tag = ATOM_DEF;
 		goto mixed_types;
 	    case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):
-		a_tag = NIL_DEF;
-		goto mixed_types;
+                ASSERT(a == NIL || a == TUPLE0());
+                if (a == NIL) {
+                    a_tag = NIL_DEF;
+                    goto mixed_types;
+                } else if (a == TUPLE0()) {
+                    goto cmp_tuple;
+                }
 	    }
 	}
 	}
@@ -2591,6 +2600,7 @@ tailrecur_ne:
 	    } else {
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
+            cmp_tuple:
 		if (!is_tuple_rel(b,b_base)) {
 		    a_tag = TUPLE_DEF;
 		    goto mixed_types;

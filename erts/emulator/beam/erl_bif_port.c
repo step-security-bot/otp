@@ -792,10 +792,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	tp = tuple_val(name);
 	arity = *tp++;
 
-	if (arity == make_arityval(0)) {
-	    goto badarg;
+        if (arity == make_arityval(0)) {
+            goto badarg;
 	}
-    
+
 	if (*tp == am_spawn || *tp == am_spawn_driver || *tp == am_spawn_executable) {	/* A process port */
 	    int encoding;
 	    if (arity != make_arityval(2)) {

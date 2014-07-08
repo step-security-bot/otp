@@ -46,6 +46,7 @@ static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
       case SUB_BINARY_SUBTAG: nelts++; break;
       case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
       case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
+      case ARITYVAL_SUBTAG: if (nelts == 0) { *ORIG = TUPLE0(); return; } break;
       }
     } else {
       /* cons cell */

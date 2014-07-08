@@ -2994,7 +2994,6 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
 			char *fbuf, int sizeof_fbuf) {
 
-    const static int arity_two = make_arityval(2);
     int decimals = SYS_DEFAULT_FLOAT_DECIMALS;
     int compact = 0;
     enum fmt_type_ {
@@ -3016,7 +3015,7 @@ static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list,
             continue;
         } else if (is_tuple(arg)) {
             Eterm* tp = tuple_val(arg);
-            if (*tp == arity_two && is_small(tp[2])) {
+            if (*tp == make_arityval(2) && is_small(tp[2])) {
                 decimals = signed_val(tp[2]);
                 switch (tp[1]) {
                     case am_decimals:

@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+Eterm TUPLE0_CONST = make_arityval(0);
+
 __decl_noreturn static void __noreturn
 et_abort(const char *expr, const char *file, unsigned line)
 {
@@ -97,7 +99,7 @@ unsigned tag_val_def(Wterm x)
 	    case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
 		switch ((x & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
 		  case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
-		  case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return NIL_DEF;
+                case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return x == NIL ? NIL_DEF : TUPLE_DEF;
 		}
 		break;
 	    }

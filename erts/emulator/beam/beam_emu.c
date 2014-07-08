@@ -693,15 +693,11 @@ extern int count_instructions;
     if (is_not_list(Src)) { Fail; }                     \
     TestHeap(Need, Alive)
 
-#define IsTuple(X, Action) if (is_not_tuple(X)) Action
+#define IsTuple(X, Action)                                      \
+    if (is_not_tuple(X)) Action            \
 
-#define IsArity(Pointer, Arity, Fail)					  \
-    if (*(Eterm *)							  \
-	EXPAND_POINTER(tmp_arg1 = (Eterm) 				  \
-		       COMPRESS_POINTER(tuple_val(Pointer))) != (Arity))  \
-    { 									  \
-        Fail; 								  \
-    }
+#define IsArity(Pointer, Arity, Fail)                                   \
+      IsTupleOfArity(Pointer, Arity, Fail)
 
 #define IsMap(Src, Fail) if (is_not_map(Src)) { Fail; }
 
@@ -730,14 +726,14 @@ extern int count_instructions;
      }							\
   } while (0)
 
-#define IsTupleOfArity(Src, Arity, Fail)				      \
-  do {									      \
-    if (is_not_tuple(Src) || 						      \
-	*(Eterm *)							      \
-	EXPAND_POINTER(tmp_arg1 = 					      \
-		       (Eterm) COMPRESS_POINTER(tuple_val(Src))) != Arity) { \
-        Fail;								      \
-    }									      \
+#define IsTupleOfArity(Src, Arity, Fail)                                \
+    do {                                                                \
+        if (is_not_tuple(Src) ||                                        \
+            *(Eterm *)                                                  \
+            EXPAND_POINTER(tmp_arg1 =                                   \
+                           (Eterm) COMPRESS_POINTER(tuple_val(Src))) != Arity) { \
+            Fail;                                                       \
+        }                                                               \
   } while (0)
 
 #define IsBoolean(X, Fail) if ((X) != am_true && (X) != am_false) { Fail; }

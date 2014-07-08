@@ -314,6 +314,14 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 #define arityval(x)		_ET_APPLY(arityval,(x))
 
+/* TUPLE0 access methos */
+#define TUPLE0()         ((~((Uint) 1) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_NIL)
+#define TUPLE0_PTR()     &TUPLE0_CONST
+#define is_tuple0(x)     ((x) == TUPLE0())
+#define is_not_tuple0(x) ((x) != TUPLE0())
+
+extern Eterm TUPLE0_CONST;
+
 /* thing access methods */
 #define is_thing(x)	(is_header((x)) && header_is_thing((x)))
 #define is_thing_ptr(t) (is_thing((t)->header))
@@ -470,18 +478,16 @@ typedef union float_def
 
 /* tuple access methods */
 #define make_tuple(x)	make_boxed((x))
-#define is_tuple(x)	(is_boxed((x)) && is_arity_value(*boxed_val((x))))
+#define is_tuple(x) \
+    ((is_boxed((x)) && is_arity_value(*boxed_val((x)))) || (x) == TUPLE0())
 #define is_not_tuple(x)	(!is_tuple((x)))
-#define is_tuple_arity(x, a) \
-   (is_boxed((x)) && *boxed_val((x)) == make_arityval((a)))
-#define is_not_tuple_arity(x, a) (!is_tuple_arity((x),(a)))
-#define _unchecked_tuple_val(x)	_unchecked_boxed_val(x)
+#define _unchecked_tuple_val(x)	((x) != TUPLE0() ? _unchecked_boxed_val(x) : TUPLE0_PTR())
 _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define tuple_val(x)	_ET_APPLY(tuple_val,(x))
+#define is_tuple_arity(x, a) \
+   (is_boxed((x)) && *tuple_val((x)) == make_arityval((a)))
+#define is_not_tuple_arity(x, a) (!is_tuple_arity((x),(a)))
 
-#define TUPLE0(t) \
-        ((t)[0] = make_arityval(0), \
-        make_tuple(t))
 #define TUPLE1(t,e1) \
         ((t)[0] = make_arityval(1), \
         (t)[1] = (e1), \
