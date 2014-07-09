@@ -1504,25 +1504,46 @@ end
 
 define etp-term-dump-header
 # Args: Header term
-  if (($arg0) & 0x3f) == 0
+  set $etp_header = (($arg0 >> 2) & 0xF)
+  if $etp_header == 0
     printf  "| H:%4d-tuple ", ($arg0) >> 6
   else
     if (((($arg0) & 0x3f) == (Eterm)0xffffffffffffffd8) || ((($arg0) & 0x3f) == (Eterm)0x18))
       printf  "| H:   TNV     "
     else
       set $etp_heapdump_skips = ($arg0) >> 6
-      if ((($arg0) & 0x3f) == 0x18)
+      if ($etp_header == 0x6)
         printf  "| H: float %3d ", ($arg0) >> 6
       else
-        if ((($arg0) & 0x3f) == 0x28)
+        if ($etp_header == 0xA)
           # sub-binary
           printf  "| H:   sub-bin "
         else
-          if ((($arg0) & 0x3f) == 0x8)
+          if ($etp_header == 0x2 || $etp_header == 0x3)
             # pos-bignum
             printf  "| H:bignum %3u ", ($arg0) >> 6
           else
-            printf  "| header %5d ", ($arg0) >> 6
+            if ($etp_header == 0x4)
+              printf "| H:       ref "
+            else
+              if ($etp_header == 0xE)
+                printf "| H:   ext-ref "
+              else
+                if ($etp_header == 0x5)
+                  printf "| H:       fun "
+                else
+                  if ($etp_header == 0x8)
+                    printf "| H:      refc "
+                  else
+                    if ($etp_header == 0x9)
+                      printf "| H:      heap "
+                    else
+                      printf  "| header %5d ", ($arg0) >> 6
+                    end
+                  end
+                end
+              end
+            end
           end
 	end
       end
