@@ -354,7 +354,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 #  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
 # endif
 #else
-#define THE_NON_VALUE	(0)
+#define THE_NON_VALUE	(((~((Uint) 2) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_NIL))
 #endif
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)
