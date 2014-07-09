@@ -93,6 +93,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_IMMED2_MASK	0x3F
 #define _TAG_IMMED2_ATOM	((0x0 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_CATCH	((0x1 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
+#define _TAG_IMMED2_INTER	((0x2 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_NIL		((0x3 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 
 /*
@@ -331,27 +332,22 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 
 /*
  * Magic non-value object.
- * Used as function return error and "absent value" indicator
- * in the original runtime system. The new runtime system also
- * uses it as forwarding marker for CONS cells.
+ * The runtime system uses it as forwarding marker for CONS cells and
+ * as return values to indicate various error conditions within the code.
  *
- * This value is 0 in the original runtime system, which unfortunately
+ * This value was 0 in the original runtime system, which unfortunately
  * promotes sloppy programming practices. It also prevents some useful
  * tag assignment schemes, e.g. using a 2-bit tag 00 for FIXNUM.
  *
- * To help find code which makes unwarranted assumptions about zero,
- * we now use a non-zero bit-pattern in debug mode.
+ * With the change of merging boxed and cons it's value had to be changed
+ * as the header of a tuple of arity 0 and tnv both were 0.
  */
-#if ET_DEBUG
-# ifdef HIPE
+#ifdef HIPE
    /* A very large (or negative) value as work-around for ugly hipe-bifs
       that return untagged integers (eg hipe_bs_put_utf8) */
-#  define THE_NON_VALUE	_make_header((Uint)~0,_TAG_HEADER_FLOAT)
-# else
-#  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
-# endif
+# define THE_NON_VALUE	_make_header((Uint)~0,_TAG_HEADER_FLOAT)
 #else
-#define THE_NON_VALUE	(0)
+# define THE_NON_VALUE	(((((Uint) 0) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_INTER))
 #endif
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)
