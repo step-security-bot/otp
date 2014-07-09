@@ -34,7 +34,7 @@
 
 #define MOVE_BOXED(PTR,HDR,HTOP,ORIG) move_boxed(&PTR,&HDR,&HTOP,&ORIG)
 
-static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
+static ERTS_INLINE void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
 
     Eterm gval, *orig_ptr;
     Sint nelts;
@@ -46,7 +46,7 @@ static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
       case SUB_BINARY_SUBTAG: nelts++; break;
       case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
       case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
-      case ARITYVAL_SUBTAG: if (nelts == 0) { *ORIG = TUPLE0(); return; } break;
+      case ARITYVAL_SUBTAG: if (nelts == 0) { *ORIG = TUPLE0(); PTR++; goto move_boxed_done; } break;
       }
     } else {
       /* cons cell */
@@ -61,7 +61,7 @@ static void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eterm **rgptr) {
     while (nelts--) *HTOP++ = *PTR++;
     orig_ptr[0] = THE_NON_VALUE;
     orig_ptr[1] = gval;
-
+move_boxed_done:
     *rptr = PTR; *rhtop = HTOP; *rgptr = ORIG; *rhdr = HDR;
 }
 
