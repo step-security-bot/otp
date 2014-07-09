@@ -84,8 +84,13 @@ static void erts_check_tnv(Process *p) {
 
     while (hp < p->htop) {
         gval = *hp;
-/*        ASSERT(gval != THE_NON_VALUE);
+        if (gval == THE_NON_VALUE) {
+            erts_printf("%p: gval == %lu\n", hp, gval);
+            abort();
+        }
         switch (primary_tag(gval)) {
+        case TAG_PRIMARY_IMMED1:
+            break;
         case TAG_PRIMARY_BOXED: {
             ptr = gval & ~((Eterm)_TAG_PRIMARY_MASK);
             ASSERT(in_area(ptr, p->head, p->htop) ||
@@ -93,17 +98,17 @@ static void erts_check_tnv(Process *p) {
 	    break;
         }
         case TAG_PRIMARY_HEADER: {
-            Eterm hdr = *boxed_val_rel(gval,base);
+            Eterm hdr = thing_subtag(gval);
             ASSERT(is_header(hdr));
-            switch (hdr & _TAG_HEADER_MASK) {
+            switch (hdr) {
             case ARITYVAL_SUBTAG:
                 break;
             case FUN_SUBTAG:
             {
                 Eterm* bptr = fun_val_rel(gval,base);
                 ErlFunThing* funp = (ErlFunThing *) bptr;
-                Uint eterms = 1 /* creator *//* + funp->num_free;
-                Uint sz = thing_arityval(hdr);
+                Uint eterms = 1 /* creator */ + funp->num_free;
+                Uint sz = thing_arityval(gval);
                 ASSERT(funp->arity == fe->arity);
                 ASSERT(is_pid(funp->creator));
                 ASSERT(funp->num_free >= 0);
@@ -112,7 +117,6 @@ static void erts_check_tnv(Process *p) {
             }
             case SUB_BINARY_SUBTAG:
             {
-                Eterm real_bin;
                 ErlSubBin *sb = (ErlSubBin *) binary_val_rel(gval,base);
 		Eterm real_bin = sb->orig;
 		Uint bitsize = sb->bitsize;
@@ -137,7 +141,7 @@ static void erts_check_tnv(Process *p) {
 	    }
 	    case HEAP_BINARY_SUBTAG:
 	    {
-	      HeapBin *hb = (HeapBin *) binary_val_rel(gval,base);
+	      ErlHeapBin *hb = (ErlHeapBin *) binary_val_rel(gval,base);
 	      ASSERT((hb->size / sizeof(Eterm) + 1) == thing_arityval(gval));
 	      hp += thing_arityval(gval);
 	      break;
@@ -148,11 +152,14 @@ static void erts_check_tnv(Process *p) {
 		break;
             }
 	    }
+            break;
 	}
 	default: {
+            erts_printf("%p: gval == %lu\n", hp, gval);
+            abort();
 	  break;
 	}
-	}*/
+	}
 	hp++;
     }
 }
