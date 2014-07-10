@@ -1200,6 +1200,7 @@ make_hash2(Eterm term)
 	    } else {
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
+            hash2_arity:
 	    {
 		int i;
 		int arity = header_arity(hdr);
@@ -1421,6 +1422,9 @@ make_hash2(Eterm term)
 		    else
 			UINT32_HASH(NIL_DEF, HCONST_2);
 		    goto hash2_common;
+                case _TAG_IMMED2_INTER:
+                    if (term == TUPLE0())
+                        goto hash2_arity;
 		default:
 		    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
 		}
@@ -2555,13 +2559,11 @@ tailrecur_ne:
 		a_tag = ATOM_DEF;
 		goto mixed_types;
 	    case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):
-                ASSERT(a == NIL || a == TUPLE0());
-                if (a == NIL) {
-                    a_tag = NIL_DEF;
-                    goto mixed_types;
-                } else if (a == TUPLE0()) {
+                a_tag = NIL_DEF;
+                goto mixed_types;
+            case (_TAG_IMMED2_INTER >> _TAG_IMMED1_SIZE):
+                if (a == TUPLE0())
                     goto cmp_tuple;
-                }
 	    }
 	}
 	}

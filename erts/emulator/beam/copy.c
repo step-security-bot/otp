@@ -618,9 +618,10 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(val));
-		*hp = ptr[1];
-	    }
+		*hp = ptr[BOXED_FORWARD_WORD];
+	    } else if (val == make_arityval(0)) {
+                *hp = TUPLE0();
+            }
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (header_is_thing(gval)) {
@@ -651,7 +652,7 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    MOVE_BOXED(ptr, val, hp, dummy_refp);	    
+	    MOVE_BOXED(ptr, val, hp, dummy_refp);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REFC_BINARY_SUBTAG:
 	    case FUN_SUBTAG:
@@ -666,7 +667,6 @@ move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
 	    MOVE_BOXED(ptr, val, hp, dummy_refp);
-	    ptr += 2;
 	}
     }
     *hpp = hp;

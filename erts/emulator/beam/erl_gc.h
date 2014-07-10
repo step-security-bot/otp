@@ -46,13 +46,28 @@ static ERTS_INLINE void move_boxed(Eterm **rptr,Eterm *rhdr, Eterm **rhtop, Eter
       case SUB_BINARY_SUBTAG: nelts++; break;
       case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;
       case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;
-      case ARITYVAL_SUBTAG: if (nelts == 0) { *ORIG = TUPLE0(); PTR++; goto move_boxed_done; } break;
+      case ARITYVAL_SUBTAG:
+          if (nelts == 0) {
+              *ORIG = TUPLE0();
+              *HTOP++ = TUPLE0();
+              PTR++;
+              goto move_boxed_done;
+          }
+      case POS_BIG_SUBTAG:
+          if (nelts == 0) {
+              *ORIG = make_boxed(HTOP);
+              *HTOP++ = HDR;
+              *PTR++;
+              goto move_boxed_done;
+          }
+          break;
       }
     } else {
       /* cons cell */
       /* TODO: Probably want to make a faster way for conses */
       nelts = 1;
     }
+    ASSERT(nelts > 0);
     gval    = make_boxed(HTOP);
     *ORIG   = gval;
     *HTOP++ = HDR;
@@ -86,6 +101,7 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
 	if (IS_MOVED_BOXED(*ptr)) term = ptr[BOXED_FORWARD_WORD];
+        else if (*ptr == make_arityval(0)) term = TUPLE0();
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");

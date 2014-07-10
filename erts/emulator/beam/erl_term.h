@@ -92,6 +92,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_IMMED2_MASK	0x3F
 #define _TAG_IMMED2_ATOM	((0x0 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_CATCH	((0x1 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
+#define _TAG_IMMED2_INTER	((0x2 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 #define _TAG_IMMED2_NIL		((0x3 << _TAG_IMMED1_SIZE) | _TAG_IMMED1_IMMED2)
 
 /*
@@ -315,7 +316,7 @@ _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 #define arityval(x)		_ET_APPLY(arityval,(x))
 
 /* TUPLE0 access methos */
-#define TUPLE0()         ((~((Uint) 1) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_NIL)
+#define TUPLE0()         ((((Uint) 0) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_INTER)
 #define TUPLE0_PTR()     &TUPLE0_CONST
 #define is_tuple0(x)     ((x) == TUPLE0())
 #define is_not_tuple0(x) ((x) != TUPLE0())
@@ -354,7 +355,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 #  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
 # endif
 #else
-#define THE_NON_VALUE	(((~((Uint) 2) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_NIL))
+#define THE_NON_VALUE	(((((Uint) 1) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_INTER))
 #endif
 #define is_non_value(x)	((x) == THE_NON_VALUE)
 #define is_value(x)	((x) != THE_NON_VALUE)

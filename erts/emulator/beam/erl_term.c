@@ -98,8 +98,15 @@ unsigned tag_val_def(Wterm x)
 	    case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):	return PORT_DEF;
 	    case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
 		switch ((x & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
-		  case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
-                case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return x == NIL ? NIL_DEF : TUPLE_DEF;
+                case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
+                case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return NIL_DEF;
+                case (_TAG_IMMED2_INTER >> _TAG_IMMED1_SIZE):
+                    switch (x) {
+                    case TUPLE0() :
+                        return TUPLE_DEF;
+                    default:
+                        break;
+                    }
 		}
 		break;
 	    }
