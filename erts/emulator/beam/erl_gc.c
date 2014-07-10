@@ -547,8 +547,6 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
      * Finish.
      */
 
-    ERTS_CHK_NON_TNV(p);
-
     ERTS_CHK_OFFHEAP(p);
 
     ErtsGcQuickSanityCheck(p);
@@ -1090,6 +1088,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Uint mature_size = (char *) HIGH_WATER(p) - heap;
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
+    Process p2;
 
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
@@ -1098,6 +1097,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
     }
 
+    p2.heap = n_heap;
+    p2.htop = n_htop;
+    MBUF(&p2) = MBUF(p);
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(&p2);
+#endif
     n = setup_rootset(p, objv, nobj, &rootset);
     roots = rootset.roots;
 
@@ -1134,6 +1139,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
             }
         }
     }
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(&p2);
+#endif
 
     cleanup_rootset(&rootset);
 
@@ -1203,6 +1211,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	}
     }
 
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(&p2);
+#endif
     /*
      * And also if we have been tenuring, references on the second generation
      * may point to the old (soon to be deleted) new_heap.
@@ -1313,6 +1324,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
     }
 
+    erts_check_tnv(n_heap,n_htop);
+
     /*
      * Copy all top-level terms directly referenced by the rootset to
      * the new new_heap.
@@ -1354,6 +1367,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    }
 	}
     }
+
+    erts_check_tnv(n_heap,n_htop);
 
     cleanup_rootset(&rootset);
 
@@ -1418,6 +1433,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    }
 	}
     }
+
+    erts_check_tnv(n_heap,n_htop);
 
     if (MSO(p).first) {
 	sweep_off_heap(p, 1);
