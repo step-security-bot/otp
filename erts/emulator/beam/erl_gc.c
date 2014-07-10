@@ -76,13 +76,13 @@ do {									\
 } while (0)
 #endif
 
-#define ERTS_CHK_NON_TNV(p) erts_check_tnv(p)
+#define ERTS_CHK_NON_TNV(p) erts_check_tnv(p->heap,p->htop)
 
-static void erts_check_tnv(Process *p) {
-    Eterm *hp = p->heap;
-    Eterm gval, val, ptr;
+static void erts_check_tnv(Eterm *heap, Eterm *htop) {
+    Eterm *hp = heap;
+    Eterm gval, val, *ptr;
 
-    while (hp < p->htop) {
+    while (hp < htop) {
         gval = *hp;
         if (gval == THE_NON_VALUE) {
             erts_printf("%p: gval == %lu\n", hp, gval);
@@ -92,24 +92,24 @@ static void erts_check_tnv(Process *p) {
         case TAG_PRIMARY_IMMED1:
             break;
         case TAG_PRIMARY_BOXED: {
-            ptr = gval & ~((Eterm)_TAG_PRIMARY_MASK);
-            ASSERT(in_area(ptr, p->head, p->htop) ||
-                   in_area(ptr, p->old_heap, p->old_htop));
+            ptr = (Eterm*)(gval & ~((Eterm)_TAG_PRIMARY_MASK));
+//            ASSERT(*ptr != make_arityval(0));
 	    break;
         }
         case TAG_PRIMARY_HEADER: {
-            Eterm hdr = thing_subtag(gval);
-            ASSERT(is_header(hdr));
+            Eterm hdr = gval & _TAG_HEADER_MASK;
+            ASSERT(is_header(gval));
             switch (hdr) {
             case ARITYVAL_SUBTAG:
+                ASSERT(gval != make_arityval(0));
                 break;
             case FUN_SUBTAG:
             {
-                Eterm* bptr = fun_val_rel(gval,base);
+                Eterm* bptr = hp;
                 ErlFunThing* funp = (ErlFunThing *) bptr;
                 Uint eterms = 1 /* creator */ + funp->num_free;
                 Uint sz = thing_arityval(gval);
-                ASSERT(funp->arity == fe->arity);
+                ASSERT(funp->arity == funp->fe->arity);
                 ASSERT(is_pid(funp->creator));
                 ASSERT(funp->num_free >= 0);
                 hp += sz;
@@ -117,47 +117,45 @@ static void erts_check_tnv(Process *p) {
             }
             case SUB_BINARY_SUBTAG:
             {
-                ErlSubBin *sb = (ErlSubBin *) binary_val_rel(gval,base);
+                ErlSubBin *sb = (ErlSubBin *) hp;
 		Eterm real_bin = sb->orig;
 		Uint bitsize = sb->bitsize;
 		Uint bitoffs = sb->bitoffs;
 		Uint offset = sb->offs;
-		Uint real_size = binary_size_rel(real_bin,base);
+/*		Uint real_size = binary_size_rel(real_bin,base);
 
 		ASSERT(bitsize >= bitoffs);
-		ASSERT(in_area(real_bin, p->head, p->htop) ||
-		       in_area(real_bin, p->old_heap, p->old_htop));
 		ASSERT(real_size >= (bitsize*8));
 		ASSERT(real_size >= offset);
-		ASSERT(sb->is_writable == 0 || sb->is_writable == 1);
+		ASSERT(sb->is_writable == 0 || sb->is_writable == 1);*/
 		hp += thing_arityval(gval);
 		break;
             }
-	    case REFC_BINARY_SUBTAG:
-	    {
-	      ProcBin *pb = (ProcBin *) binary_val_rel(gval,base);
-	      hp += thing_arityval(gval);
-	      break;
-	    }
-	    case HEAP_BINARY_SUBTAG:
-	    {
-	      ErlHeapBin *hb = (ErlHeapBin *) binary_val_rel(gval,base);
-	      ASSERT((hb->size / sizeof(Eterm) + 1) == thing_arityval(gval));
-	      hp += thing_arityval(gval);
-	      break;
-	    }
+            case REFC_BINARY_SUBTAG:
+            {
+                ProcBin *pb = (ProcBin *) hp;
+                hp += thing_arityval(gval);
+                break;
+            }
+            case HEAP_BINARY_SUBTAG:
+            {
+                ErlHeapBin *hb = (ErlHeapBin *) hp;
+//                ASSERT(heap_bin_size(hb->size) == thing_arityval(gval));
+                hp += thing_arityval(gval);
+                break;
+            }
 
             default: {
                 hp += thing_arityval(gval);
 		break;
             }
-	    }
+            }
             break;
 	}
 	default: {
             erts_printf("%p: gval == %lu\n", hp, gval);
             abort();
-	  break;
+            break;
 	}
 	}
 	hp++;
