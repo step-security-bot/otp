@@ -911,13 +911,13 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 
     for (p = start; p < end; p++) {
 	val = *p;
-	switch (primary_tag(val)) {
-	case TAG_PRIMARY_BOXED:
+        ETERM_SCAN_COMBINED_1(
+            val,
+
+            /* if term is boxed or cons */
 	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
-	    }
-	    break;
-	}
+	    });
     }
     return 0;
 }
@@ -930,19 +930,20 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 
     for (p = start; p < end; p++) {
 	val = *p;
-	switch (primary_tag(val)) {
-	case TAG_PRIMARY_BOXED:
+        ETERM_SCAN_COMBINED_2(
+            val,
+
+            /* if term is boxed or cons */
 	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
-	    }
-	    break;
-	case TAG_PRIMARY_HEADER:
+	    },
+
+            /* if term is header */
 	    if (!header_is_transparent(val)) {
 		Eterm* new_p = p + thing_arityval(val);
 		ASSERT(start <= new_p && new_p < end);
 		p = new_p;
-	    }
-	}
+	    });
     }
     return 0;
 }
