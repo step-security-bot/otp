@@ -1940,7 +1940,6 @@ load_code(LoaderState* stp)
 			    if (val >= stp->num_literals) {
 				LoadError1(stp, "bad literal index %d", val);
 			    }
-                            /* kika här för tuple0 sak */
 			    last_op->a[arg].type = TAG_q;
 			    last_op->a[arg].val = val;
 			    break;
@@ -4097,13 +4096,11 @@ freeze_code(LoaderState* stp)
 	    high = ptr + stp->literals[i].heap_size;
 	    while (ptr < high) {
 		Eterm val = *ptr;
-                ETERM_SCAN_COMBINED(
-                    val,
-
-                    /* if term is boxed or cons */
-                    *ptr++ = offset_ptr(val, offset),
-
-                    /* if term is header */
+		switch (primary_tag(val)) {
+		case TAG_PRIMARY_BOXED:
+		    *ptr++ = offset_ptr(val, offset);
+		    break;
+		case TAG_PRIMARY_HEADER:
 		    if (header_is_transparent(val)) {
 			ptr++;
 		    } else {
@@ -4117,13 +4114,12 @@ freeze_code(LoaderState* stp)
 			    }
 			}
 			ptr += 1 + thing_arityval(val);
-		    },
-
-                    /* if term is immed */
-                    ptr++,
-
-                    /* default */
-		    ptr++);
+		    }
+		    break;
+		default:
+		    ptr++;
+		    break;
+		}
 	    }
 	    ASSERT(ptr == high);
 
