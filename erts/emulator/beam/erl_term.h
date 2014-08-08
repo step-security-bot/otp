@@ -1249,5 +1249,28 @@ ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
     ETERM_SCAN_PRE(TERM,BASE,/* No pre body */,CONS_BODY,BOXED_BODY,    \
                    /* No header body */,IMMED_BODY,DEFAULT_BODY)
 
+#define ETERM_BRANCH(TERM,BASE)                                  \
+    switch (primary_tag(TERM)) {                                      \
+    case TAG_PRIMARY_IMMED1:                                          \
+    {                                                                 \
+        IMMED_BODY;                                                   \
+        break;                                                        \
+    }                                                                 \
+    case TAG_PRIMARY_BOXED:                                           \
+    {                                                                 \
+        objp = boxed_val_rel(TERM,BASE);                              \
+        hdr = *objp;                                                  \
+        if (!is_header(hdr)) {                                        \
+            CONS_BODY;                                                \
+            break;                                                    \
+        }                                                             \
+        BOXED_BODY;                                                   \
+        break;                                                        \
+    }                                                                 \
+    default:                                                          \
+        DEFAULT_BODY;                                                 \
+        break;                                                        \
+    }
+
 #endif	/* __ERL_TERM_H */
 
