@@ -931,12 +931,12 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
     for (p = start; p < end; p++) {
 	val = *p;
 	switch (primary_tag(val)) {
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    if (!header_is_transparent(val)) {
 		Eterm* new_p = p + thing_arityval(val);
 		ASSERT(start <= new_p && new_p < end);

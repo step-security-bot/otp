@@ -741,12 +741,11 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
             Eterm gval = *g_ptr;
 
             switch (primary_tag(gval)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED:
+            CASE_TAG_PRIMARY_BOXED_LIST():
 		ptr = ptr_val(gval);
 		val = *ptr;
                 if (IS_MOVED(val)) {
-		    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *g_ptr++ = GET_FORWARD_PTR(ptr);
 		} else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
@@ -1027,12 +1026,11 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
             switch (primary_tag(gval)) {
 
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED: {
+            CASE_TAG_PRIMARY_BOXED_LIST(): {
 		ptr = ptr_val(gval);
                 val = *ptr;
                 if (IS_MOVED(val)) {
-                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
@@ -1074,12 +1072,11 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	    ASSERT(n_hp < n_htop);
 	    gval = *n_hp;
 	    switch (primary_tag(gval)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED: {
+            CASE_TAG_PRIMARY_BOXED_LIST(): {
 		ptr = ptr_val(gval);
 		val = *ptr;
 		if (IS_MOVED(val)) {
-                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *n_hp++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *n_hp++ = TUPLE0();
@@ -1092,7 +1089,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		}
 		break;
 	    }
-	    case TAG_PRIMARY_HEADER: {
+	    CASE_TAG_PRIMARY_HEADER(): {
 		if (!header_is_thing(gval))
 		    n_hp++;
 		else {
@@ -1253,12 +1250,11 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    Eterm gval = *g_ptr;
 	    
 	    switch (primary_tag(gval)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED: {
+            CASE_TAG_PRIMARY_BOXED_LIST(): {
 		ptr = ptr_val(gval);
 		val = *ptr;
 		if (IS_MOVED(val)) {
-                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
@@ -1298,12 +1294,11 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    Eterm gval = *n_hp;
 
 	    switch (primary_tag(gval)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
+            CASE_TAG_PRIMARY_BOXED_LIST(): {
+		ptr = ptr_val(gval);
 		val = *ptr;
 		if (IS_MOVED(val)) {
-                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *n_hp++ = GET_FORWARD_PTR(ptr);
 		} else if (val == make_arityval(0)) {
                     *n_hp++ = TUPLE0();
@@ -1314,7 +1309,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		}
 		break;
 	    }
-	    case TAG_PRIMARY_HEADER: {
+	    CASE_TAG_PRIMARY_HEADER(): {
 		if (!header_is_thing(gval))
 		    n_hp++;
 		else {
@@ -1501,12 +1496,11 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 	gval = *objv;
 	
 	switch (primary_tag(gval)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED: {
+	CASE_TAG_PRIMARY_BOXED_LIST(): {
 	    ptr = ptr_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED(val)) {
-		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
 		objv++;
 	    } else {
  		for (qb = mbuf; qb != NULL; qb = qb->next) {
@@ -1551,8 +1545,7 @@ disallow_heap_frag_ref_in_heap(Process* p)
 
 	val = *hp++;
 	switch (primary_tag(val)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    ptr = ptr_val(val);
 	    if (!in_area(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
@@ -1562,7 +1555,7 @@ disallow_heap_frag_ref_in_heap(Process* p)
 		}
 	    }
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    if (header_is_thing(val)) {
 		hp += _unchecked_thing_arityval(val);
 	    }
@@ -1597,8 +1590,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 
 	val = *hp++;
 	switch (primary_tag(val)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    ptr = (Eterm *) EXPAND_POINTER(val);
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
 		if (in_area(ptr, new_heap, new_heap_size)) {
@@ -1611,7 +1603,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 		}
 	    }
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    if (header_is_thing(val)) {
 		hp += _unchecked_thing_arityval(val);
 		if (!in_area(hp, old_heap, old_heap_size+1)) {
@@ -1642,12 +1634,11 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
             gval = *g_ptr;
 
             switch (primary_tag(gval)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED: {
+            CASE_TAG_PRIMARY_BOXED_LIST(): {
 		ptr = ptr_val(gval);
                 val = *ptr;
                 if (IS_MOVED(val)) {
-		    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		    ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
                     *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
@@ -1680,12 +1671,11 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(n_hp < n_htop);
 	gval = *n_hp;
 	switch (primary_tag(gval)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED: {
+        CASE_TAG_PRIMARY_BOXED_LIST(): {
 	    ptr = ptr_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED(val)) {
-		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
 		*n_hp++ = GET_FORWARD_PTR(ptr);
             } else if (val == make_arityval(0)) {
                 *n_hp++ = TUPLE0();
@@ -1696,7 +1686,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	    }
 	    break;
 	}
-	case TAG_PRIMARY_HEADER: {
+	CASE_TAG_PRIMARY_HEADER(): {
 	    if (!header_is_thing(gval)) {
 		n_hp++;
 	    } else {
@@ -1736,12 +1726,11 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	Eterm gval = *heap_ptr;
 
 	switch (primary_tag(gval)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED: {
+        CASE_TAG_PRIMARY_BOXED_LIST(): {
 	    ptr = ptr_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED(val)) {
-		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		ASSERT(is_ptr(GET_FORWARD_PTR(ptr)));
 		*heap_ptr++ = GET_FORWARD_PTR(ptr);
             } else if (val == make_arityval(0)) {
                 *heap_ptr++ = TUPLE0();
@@ -1752,7 +1741,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	    }
 	    break;
 	}
-	case TAG_PRIMARY_HEADER: {
+	CASE_TAG_PRIMARY_HEADER(): {
 	    if (!header_is_thing(gval)) {
 		heap_ptr++;
 	    } else {
@@ -2306,14 +2295,13 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
     while (sz--) {
 	Eterm val = *hp;
 	switch (primary_tag(val)) {
-          CASE_TAG_PRIMARY_LIST(/* is list */);
-	  case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	      if (in_area(ptr_val(val), area, area_size)) {
 		  *hp = offset_ptr(val, offs);
 	      }
 	      hp++;
 	      break;
-	  case TAG_PRIMARY_HEADER: {
+        CASE_TAG_PRIMARY_HEADER(): {
 	      Uint tari;
 
 	      if (header_is_transparent(val)) {
@@ -2368,8 +2356,7 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
     while (sz--) {
 	Eterm val = *hp;
 	switch (primary_tag(val)) {
-        CASE_TAG_PRIMARY_LIST(/* is list */);
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    if (in_area(ptr_val(val), area, area_size)) {
 		*hp = offset_ptr(val, offs);
 	    }
@@ -2403,8 +2390,7 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
         Eterm mesg = ERL_MESSAGE_TERM(mp);
 	if (is_value(mesg)) {
 	    switch (primary_tag(mesg)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
-	    case TAG_PRIMARY_BOXED:
+            CASE_TAG_PRIMARY_BOXED_LIST():
 		if (in_area(ptr_val(mesg), area, area_size)) {
 		    ERL_MESSAGE_TERM(mp) = offset_ptr(mesg, offs);
 		}

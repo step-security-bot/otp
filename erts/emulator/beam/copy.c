@@ -81,10 +81,11 @@ Uint size_object(Eterm obj)
 	switch (primary_tag(obj)) {
 	case TAG_PRIMARY_BOXED:
 	    {
-		Eterm hdr = *boxed_val_rel(obj,base);
+                Eterm *objp = boxed_val_rel(obj,base);
+		Eterm hdr = *objp;
 		if (is_header_list(hdr)) {
                   CASE_TAG_PRIMARY_LIST_CAR(
-                      hdr,Eterm objp,obj,base,/* No post */);
+                      hdr,objp,obj,base,/* No post */);
 		  sum += 2;
 		  if (!IS_CONST(hdr)) {
 		    ESTACK_PUSH(s, hdr);
@@ -179,7 +180,7 @@ Uint size_object(Eterm obj)
 		}
 	    }
 	    break;
-	case TAG_PRIMARY_IMMED1:
+        CASE_TAG_PRIMARY_IMMED1():
 	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
@@ -250,7 +251,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	obj = *hp;
 
 	switch (primary_tag(obj)) {
-	case TAG_PRIMARY_IMMED1:
+	CASE_TAG_PRIMARY_IMMED1():
 	    hp++;
 	    break;
 
@@ -271,7 +272,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
                 CASE_TAG_PRIMARY_LIST_CAR(
                     elem, objp, obj, src_base,
 #if !HALFWORD_HEAP || defined(DEBUG)
-                    if (in_area(boxed_val_rel(obj,src_base),hstart,hsize)) {
+                    if (in_area(list_val_rel(obj,src_base),hstart,hsize)) {
                         ASSERT(!HALFWORD_HEAP);
                         hp++;
                         break;
@@ -293,7 +294,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
                         CAR(htop) = elem;
 #if HALFWORD_HEAP
                         CDR(htop) = CDR(objp);
-                        *tailp = make_boxed_rel(htop,dst_base);
+                        *tailp = make_list_rel(htop,dst_base);
                         htop += 2;
                         goto L_copy;
 #else
@@ -302,12 +303,12 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 #endif
                     }
                     ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
-                    *tp = make_boxed_rel(tailp - 1, dst_base);
+                    *tp = make_list_rel(tailp - 1, dst_base);
                     obj = CDR(objp);
 
                     if (!is_list(obj)) {
                         switch (primary_tag(obj)) {
-                        case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
+                        CASE_TAG_PRIMARY_IMMED1(): *tailp = obj; goto L_copy;
                         case TAG_PRIMARY_BOXED: argp = tailp; goto L_copy_boxed;
                         default:
                             erl_exit(ERTS_ABORT_EXIT,
@@ -487,7 +488,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
                 }
             }
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    if (header_is_thing(obj) || hp == const_tuple) {
 		hp += header_arity(obj) + 1;
 	    } else {
@@ -543,14 +544,13 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	Eterm val = *tp++;
 
 	switch (primary_tag(val)) {
-	case TAG_PRIMARY_IMMED1:
+	CASE_TAG_PRIMARY_IMMED1():
 	    *hp++ = val;
 	    break;
-        CASE_TAG_PRIMARY_LIST(/* fall through */)
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    *hp++ = byte_offset_ptr(val, offs);
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    *hp++ = val;
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case ARITYVAL_SUBTAG:
@@ -637,8 +637,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	Eterm val;
 	Eterm gval = *hp;
 	switch (primary_tag(gval)) {
-        CASE_TAG_PRIMARY_LIST(/* fallthrough */)
-	case TAG_PRIMARY_BOXED:
+        CASE_TAG_PRIMARY_BOXED_LIST():
 	    ptr = boxed_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED(val)) {
@@ -648,7 +647,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
                 *hp = TUPLE0();
             }
 	    break;
-	case TAG_PRIMARY_HEADER:
+	CASE_TAG_PRIMARY_HEADER():
 	    if (header_is_thing(gval)) {
 		hp += thing_arityval(gval);
 	    }

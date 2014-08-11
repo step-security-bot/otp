@@ -442,7 +442,7 @@ BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
  * *not* signals to/from ports.
  */
 
-#if (TAG_PRIMARY_IMMED1 & 0x3) == 0
+#if (TAG_PRIMARY_IMMED1 & _TAG_PRIMARY_MASK) == 0
 # error "erlang:port_set_data()/erlang:port_get_data() needs to be rewritten!"
 #endif
 

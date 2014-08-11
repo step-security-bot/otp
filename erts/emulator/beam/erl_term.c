@@ -70,11 +70,11 @@ unsigned tag_val_def(Wterm x)
 {
     static char msg[32];
 
-    switch (x & _TAG_PRIMARY_MASK) {
+    switch (primary_tag(x)) {
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
 	  if (is_header_list(hdr)) {
-      CASE_TAG_PRIMARY_LIST(/* is list */);
+      CASE_TAG_PRIMARY_LIST();
               ET_ASSERT(_list_precond(x),file,line);
               return LIST_DEF;
           }
@@ -96,7 +96,7 @@ unsigned tag_val_def(Wterm x)
 	  }
 	  break;
       }
-      case TAG_PRIMARY_IMMED1: {
+      CASE_TAG_PRIMARY_IMMED1(): {
 	  switch ((x & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):	return PID_DEF;
 	    case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):	return PORT_DEF;

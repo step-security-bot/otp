@@ -333,12 +333,12 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
     Sint ires;
 
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) + signed_val(arg2);
@@ -385,7 +385,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -428,8 +428,8 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -487,12 +487,12 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
     Sint ires;
 
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) - signed_val(arg2);
@@ -536,7 +536,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -580,8 +580,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -638,12 +638,12 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
     Eterm* hp;
 
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if ((arg1 == SMALL_ZERO) || (arg2 == SMALL_ZERO)) {
@@ -725,7 +725,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -778,8 +778,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -831,12 +831,12 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
     Eterm hdr;
 
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    f1.fd = signed_val(arg1);
@@ -877,7 +877,7 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -912,8 +912,8 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -1206,12 +1206,12 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
     arg1 = reg[live];
     arg2 = reg[live+1];
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) + signed_val(arg2);
@@ -1262,7 +1262,7 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -1315,8 +1315,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -1382,12 +1382,12 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
     arg1 = reg[live];
     arg2 = reg[live+1];
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) - signed_val(arg2);
@@ -1435,7 +1435,7 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -1489,8 +1489,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -1555,12 +1555,12 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
     arg1 = reg[live];
     arg2 = reg[live+1];
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if ((arg1 == SMALL_ZERO) || (arg2 == SMALL_ZERO)) {
@@ -1650,7 +1650,7 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -1713,8 +1713,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);
@@ -1774,12 +1774,12 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
     arg1 = reg[live];
     arg2 = reg[live+1];
     ERTS_FP_CHECK_INIT(p);
-    switch (arg1 & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(arg1)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	switch ((arg1 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    f1.fd = signed_val(arg1);
@@ -1820,7 +1820,7 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(arg2)) {
 	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
@@ -1855,8 +1855,8 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 		}
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case TAG_PRIMARY_IMMED1:
+	    switch (primary_tag(arg2)) {
+	    CASE_TAG_PRIMARY_IMMED1():
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    GET_DOUBLE(arg1, f1);

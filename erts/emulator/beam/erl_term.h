@@ -79,7 +79,53 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define TAG_PRIMARY_BOXED	0x2
 #define TAG_PRIMARY_IMMED1	0x3
 
-#define primary_tag(x)	((x) & _TAG_PRIMARY_MASK)
+#ifdef ARCH_64
+/*
+ * PRIMARY representation:
+ *        pppppppppppp...ppppppppppppppttt        payload:61, tag:3
+ *
+ * PRIMARY tags:
+ *        000   HEADER
+ *        100   HEADER
+ *        010   BOXED
+ *        110   CONS
+ *        101   FREE
+ *        001   FREE
+ *        011   IMMED
+ *        111   IMMED
+ *
+ * Notes:
+ *  - header and immed use two slots for a larger arity in the terms,
+ *    it might be ok for headers to only use one slot and get a smaller
+ *    arity.
+ *  - cons and boxed could be merged to get additional tags
+ *  - we can use three tags for 64 bit as all terms are word aligned and
+ *    thus the last three bits will always be 0 for pointers to terms.
+ */
+#define _TAG_PRIMARY_PTR_SIZE	3
+#define _TAG_PRIMARY_PTR_MASK	0x7
+#define TAG_PRIMARY_LIST        0x6
+#else /* arch == 32 bit */
+/*
+ * PRIMARY representation:
+ *        pppppppppppppppppppppppppppppptt        payload:30, tag:2
+ *
+ * PRIMARY tags:
+ *        00    HEADER
+ *        10    BOXED
+ *        01    FREE
+ *        11    IMMED
+ *
+ * Notes:
+ *  - boxed and cons use the same pointer, to diffirentiate we look
+ *    at the first word that the pointer points to and if it is a header
+ *    we know that it is a boxed term, otherwise it is a cons cell.
+ */
+#define _TAG_PRIMARY_PTR_SIZE	_TAG_PRIMARY_SIZE
+#define _TAG_PRIMARY_PTR_MASK	_TAG_PRIMARY_MASK
+#endif
+
+#define primary_tag(x)	((x) & _TAG_PRIMARY_PTR_MASK)
 
 #define _TAG_IMMED1_SIZE	4
 #define _TAG_IMMED1_MASK	0xF
@@ -175,7 +221,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define header_is_thing(x)	(!header_is_transparent((x)))
 #define header_is_bin_matchstate(x)	((((x) & (_HEADER_SUBTAG_MASK)) == BIN_MATCHSTATE_SUBTAG))
 
-#define _CPMASK		0x3
+#define _CPMASK		_TAG_PRIMARY_PTR_MASK
 
 /* immediate object access methods */
 #define is_immed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_IMMED1)
@@ -187,37 +233,41 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define is_both_immed(x,y)	(is_immed((x)) && is_immed((y)))
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
+#define immed_tag(x)            ((x) & _TAG_PRIMARY_MASK)
 
 
 /* boxed object access methods */
 #if HALFWORD_HEAP
-#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
+#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | _TAG_PRIMARY_PTR_MASK)) == 0)
 #define _boxed_precond(x)        (is_boxed(x))
 #else
-#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+#define _is_taggable_pointer(x)	 (((Uint)(x) & _TAG_PRIMARY_PTR_MASK) == 0)
 #define  _boxed_precond(x)       (is_boxed(x))
 #endif
-#define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
+#define _is_aligned(x)		(((Uint)(x) & _TAG_PRIMARY_PTR_MASK) == 0)
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
-#if 1
-#define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
+#define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_PTR_MASK - TAG_PRIMARY_BOXED))
 #define _unchecked_is_boxed(x)	(!_is_not_boxed((x)))
 _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #define is_boxed(x)		_ET_APPLY(is_boxed,(x))
-#else
-#define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
-#endif
 #define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	_unchecked_make_boxed(x)
+#ifdef TAG_PRIMARY_LIST
+#define _unchecked_make_list(x)   ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+#define _unchecked_is_not_list(x) (((x) & _TAG_PRIMARY_PTR_MASK) != TAG_PRIMARY_LIST)
+#define _unchecked_list_val(x)    ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
+#else
+#define _unchecked_is_not_list(x) (_is_not_boxed(x) || is_header(*_unchecked_boxed_val(x)))
+#define _unchecked_make_list(x)   _unchecked_make_boxed(x)
+#define _unchecked_list_val(x)    _unchecked_boxed_val(x)
+#endif
 _ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
-#define _unchecked_is_not_list(x) (_is_not_boxed(x) || is_header(*_unchecked_boxed_val(x)))
 _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		_ET_APPLY(is_not_list,(x))
 #define is_list(x)		(!is_not_list((x)))
@@ -226,7 +276,6 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #else
 #define _list_precond(x)       (is_list(x))
 #endif
-#define _unchecked_list_val(x) _unchecked_boxed_val(x)
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -237,10 +286,11 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) _TAG_PRIMARY_PTR_MASK)))
 _ET_DECLARE_CHECKED(Eterm*,ptr_val,Wterm)
 #define ptr_val(x)		_ET_APPLY(ptr_val,(x))
-#define _ptr_precond(x)         (is_list(x) || is_boxed(x))
+#define is_ptr(x)               (is_list(x) || is_boxed(x))
+#define _ptr_precond(x)         is_ptr(x)
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
@@ -1198,18 +1248,27 @@ ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
 
 #ifdef TAG_PRIMARY_LIST
 #define is_header_list(HDR) 0
-#define CASE_TAG_PRIMARY_LIST(BODY)                             \
-    case TAG_PRIMARY_LIST:                                      \
+#define CASE_TAG_PRIMARY_LIST()                 \
+    case TAG_PRIMARY_LIST:
+#define CASE_TAG_PRIMARY_LIST_BODY(BODY)                             \
+    CASE_TAG_PRIMARY_LIST()                                          \
     BODY
 #define CASE_TAG_PRIMARY_LIST_CAR(VAL,VALP,OBJ,BASE,POST_BODY)  \
-    CASE_TAG_PRIMARY_LIST(                                      \
+    CASE_TAG_PRIMARY_LIST_BODY(                                 \
         VALP = list_val_rel(OBJ,BASE);                          \
         VAL = CAR(VALP);                                        \
         POST_BODY)
+#define CASE_TAG_PRIMARY_IMMED1() case TAG_PRIMARY_IMMED1+0x4: case TAG_PRIMARY_IMMED1
+#define CASE_TAG_PRIMARY_HEADER() case TAG_PRIMARY_HEADER+0x4: case TAG_PRIMARY_HEADER
+#define CASE_TAG_PRIMARY_BOXED_LIST() case TAG_PRIMARY_LIST: case TAG_PRIMARY_BOXED
 #else
 #define is_header_list(HDR) (!is_header(HDR))
 #define CASE_TAG_PRIMARY_LIST(BODY)
+#define CASE_TAG_PRIMARY_LIST_BODY(BODY)
 #define CASE_TAG_PRIMARY_LIST_CAR(VAL,VALP,OBJ,BASE,POST_BODY)
+#define CASE_TAG_PRIMARY_IMMED1() case TAG_PRIMARY_IMMED1
+#define CASE_TAG_PRIMARY_HEADER() case TAG_PRIMARY_HEADER
+#define CASE_TAG_PRIMARY_BOXED_LIST() case TAG_PRIMARY_BOXED
 #endif
 
 #endif	/* __ERL_TERM_H */

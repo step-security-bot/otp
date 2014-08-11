@@ -4097,10 +4097,10 @@ freeze_code(LoaderState* stp)
 	    while (ptr < high) {
 		Eterm val = *ptr;
 		switch (primary_tag(val)) {
-		case TAG_PRIMARY_BOXED:
+                CASE_TAG_PRIMARY_BOXED_LIST():
 		    *ptr++ = offset_ptr(val, offset);
 		    break;
-		case TAG_PRIMARY_HEADER:
+		CASE_TAG_PRIMARY_HEADER():
 		    if (header_is_transparent(val)) {
 			ptr++;
 		    } else {

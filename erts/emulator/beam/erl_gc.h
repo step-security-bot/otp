@@ -100,7 +100,7 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 {
     Eterm* ptr;
     switch (primary_tag(term)) {
-    case TAG_PRIMARY_IMMED1:
+    CASE_TAG_PRIMARY_IMMED1():
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);

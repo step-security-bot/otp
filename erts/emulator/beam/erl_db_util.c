@@ -1362,10 +1362,10 @@ restart:
 	clause_start = DMC_STACK_NUM(text); /* the "special" test needs it */
 	DMC_PUSH(stack,NIL);
 	for (;;) {
-	    switch (t & _TAG_PRIMARY_MASK) {
+	    switch (primary_tag(t)) {
 	    case TAG_PRIMARY_BOXED:
 	      if (is_list(t)) {
-            CASE_TAG_PRIMARY_LIST(/* is list */);
+            CASE_TAG_PRIMARY_LIST();
 		if (!structure_checked) {
 		  DMC_PUSH(text, matchList);
 		}
@@ -2657,19 +2657,19 @@ void db_do_update_element(DbUpdateHandle* handle,
 	#endif
 	    if (is_boxed(newval)) {
 		newp = boxed_val(newval);
-		switch (*newp & _TAG_HEADER_MASK) {
-		case _TAG_HEADER_POS_BIG:
-		case _TAG_HEADER_NEG_BIG:
-		case _TAG_HEADER_FLOAT:
-		case _TAG_HEADER_HEAP_BIN:
+		switch (*newp & _HEADER_SUBTAG_MASK) {
+		case POS_BIG_SUBTAG:
+		case NEG_BIG_SUBTAG:
+		case FLOAT_SUBTAG:
+		case HEAP_BINARY_SUBTAG:
 		    newval_sz = header_arity(*newp) + 1;
 		    if (is_boxed(oldval)) {
 			oldp = boxed_val_rel(oldval,old_base);
-			switch (*oldp & _TAG_HEADER_MASK) {
-			case _TAG_HEADER_POS_BIG:
-			case _TAG_HEADER_NEG_BIG:
-			case _TAG_HEADER_FLOAT:
-			case _TAG_HEADER_HEAP_BIN:
+			switch (*oldp & _HEADER_SUBTAG_MASK) {
+			case POS_BIG_SUBTAG:
+			case NEG_BIG_SUBTAG:
+			case FLOAT_SUBTAG:
+			case HEAP_BINARY_SUBTAG:
 			    oldval_sz = header_arity(*oldp) + 1;
 			    if (oldval_sz == newval_sz) {
 				/* "self contained" terms of same size, do memcpy */
@@ -3161,10 +3161,10 @@ int db_is_variable(Eterm obj)
 
 int db_has_variable(Eterm obj)
 {
-    switch(obj & _TAG_PRIMARY_MASK) {
+    switch(primary_tag(obj)) {
     case TAG_PRIMARY_BOXED:
       if (is_list(obj)) {
-    CASE_TAG_PRIMARY_LIST(/* is list */);
+    CASE_TAG_PRIMARY_LIST();
 	while (is_list(obj)) {
 	    if (db_has_variable(CAR(list_val(obj))))
 		return 1;
@@ -3183,7 +3183,7 @@ int db_has_variable(Eterm obj)
 	    }
 	    return(0);
 	}
-    case TAG_PRIMARY_IMMED1:
+    CASE_TAG_PRIMARY_IMMED1():
 	if (obj == am_Underscore || db_is_variable(obj) >= 0)
 	    return 1;
     }
@@ -3251,8 +3251,8 @@ static DMCRet dmc_one_term(DMCContext *context,
     Uint i, j;
 
 
-    switch (c & _TAG_PRIMARY_MASK) {
-    case TAG_PRIMARY_IMMED1:
+    switch (primary_tag(c)) {
+    CASE_TAG_PRIMARY_IMMED1():
 	if ((n = db_is_variable(c)) >= 0) { /* variable */
 	    if (n >= heap->size) {
 		/*
@@ -3325,7 +3325,7 @@ static DMCRet dmc_one_term(DMCContext *context,
     case TAG_PRIMARY_BOXED: {
 	Eterm hdr = *boxed_val(c);
 	if (is_header_list(hdr)) {
-    CASE_TAG_PRIMARY_LIST(/* is list */);
+    CASE_TAG_PRIMARY_LIST();
 	  DMC_PUSH(*text, matchPushL);
 	  ++(context->stack_used);
 	  DMC_PUSH(*stack, c);
@@ -4579,10 +4579,10 @@ static DMCRet dmc_expr(DMCContext *context,
     Eterm *p;
 
 
-    switch (t & _TAG_PRIMARY_MASK) {
+    switch (primary_tag(t)) {
     case TAG_PRIMARY_BOXED:
         if (is_list(t)) {
-    CASE_TAG_PRIMARY_LIST(/* is list */);
+    CASE_TAG_PRIMARY_LIST();
 	    if ((ret = dmc_list(context, heap, text, t, constant)) != retOk)
 	        return ret;
 	    break;
@@ -4607,7 +4607,7 @@ static DMCRet dmc_expr(DMCContext *context,
 			      "(tuples are written {{ ... }}).", t,
 			      context, *constant);
 	break;
-    case TAG_PRIMARY_IMMED1:
+    CASE_TAG_PRIMARY_IMMED1():
 	if (db_is_variable(t) >= 0) {
 	    if ((ret = dmc_variable(context, heap, text, t, constant)) 
 		!= retOk)
@@ -4813,10 +4813,10 @@ static Uint my_size_object(Eterm t)
     Uint sum = 0;
     Eterm tmp;
     Eterm *p;
-    switch (t & _TAG_PRIMARY_MASK) {
+    switch (primary_tag(t)) {
     case TAG_PRIMARY_BOXED:
         if (is_list(t)) {
-    CASE_TAG_PRIMARY_LIST(/* is list */);
+    CASE_TAG_PRIMARY_LIST();
 	    sum += 2 + my_size_object(CAR(list_val(t))) +
 	        my_size_object(CDR(list_val(t)));
 	    break;
@@ -4856,10 +4856,10 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
     Eterm ret = NIL, a, b;
     Eterm *p;
     Uint sz;
-    switch (t & _TAG_PRIMARY_MASK) {
+    switch (primary_tag(t)) {
     case TAG_PRIMARY_BOXED:
         if (is_list(t)) {
-    CASE_TAG_PRIMARY_LIST(/* is list */);
+    CASE_TAG_PRIMARY_LIST();
 	    a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
 	    b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
 	    ret = CONS(*hp, a, b);
