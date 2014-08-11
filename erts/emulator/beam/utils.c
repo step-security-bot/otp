@@ -1172,33 +1172,35 @@ make_hash2(Eterm term)
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_BOXED:
 	{
-	    hdr = *boxed_val(term);
-	    if (!is_header(hdr)) {
-	      int c = 0;
-	      Uint32 sh = 0;
-	      Eterm* ptr = list_val(term);
-	      while (is_byte(*ptr)) {
-		/* Optimization for strings. */
-		sh = (sh << 8) + unsigned_val(*ptr);
-		if (c == 3) {
-		  UINT32_HASH(sh, HCONST_4);
-		  c = sh = 0;
-		} else {
-		  c++;
-		}
-		term = CDR(ptr);
-		if (is_not_list(term))
-		  break;
-		ptr = list_val(term);
-	      }
-	      if (c > 0)
-		UINT32_HASH(sh, HCONST_4);
-	      if (is_list(term)) {
-		term = *ptr;
-		tmp = *++ptr;
-		ESTACK_PUSH(s, tmp);	    
-	      }
-	    } else {
+            hdr = *boxed_val(term);
+            if (is_header_list(hdr)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */)
+                int c = 0;
+                Uint32 sh = 0;
+                Eterm* ptr = list_val(term);
+                while (is_byte(CAR(ptr))) {
+                    /* Optimization for strings. */
+                    sh = (sh << 8) + unsigned_val(CAR(ptr));
+                    if (c == 3) {
+                        UINT32_HASH(sh, HCONST_4);
+                        c = sh = 0;
+                    } else {
+                        c++;
+                    }
+                    term = CDR(ptr);
+                    if (is_not_list(term))
+                        break;
+                    ptr = list_val(term);
+                }
+                if (c > 0)
+                    UINT32_HASH(sh, HCONST_4);
+                if (is_list(term)) {
+                    term = CAR(ptr);
+                    tmp = CDR(ptr);
+                    ptr++;
+                    ESTACK_PUSH(s, tmp);
+                }
+            } else {
                 switch (hdr & _TAG_HEADER_MASK) {
                 case ARITYVAL_SUBTAG:
                 hash2_arity:
@@ -2086,7 +2088,8 @@ tailrecur_ne:
     case TAG_PRIMARY_BOXED:
 	{
 	    Eterm hdr = *boxed_val_rel(a,a_base);
-	    if (!is_header(hdr)) {
+	    if (is_header_list(hdr)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	      if (is_list(b)) {
 		Eterm* aval = list_val_rel(a, a_base);
 		Eterm* bval = list_val_rel(b, b_base);
@@ -2573,7 +2576,8 @@ tailrecur_ne:
     case TAG_PRIMARY_BOXED:
 	{
 	    Eterm ahdr = *boxed_val_rel(a,a_base);
-	    if (!is_header(ahdr)) {
+	    if (is_header_list(ahdr)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	      if (is_not_list(b)) {
 		a_tag = LIST_DEF;
 		goto mixed_types;

@@ -201,7 +201,6 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
 
 /* Type checking... */
 
-#define BOXED_IS_LIST(Boxed)  !is_header(*boxed_val((Boxed)))
 #define BOXED_IS_TUPLE(Boxed) is_arity_value(*boxed_val((Boxed)))
 
 /*
@@ -1365,7 +1364,8 @@ restart:
 	for (;;) {
 	    switch (t & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_BOXED:
-	      if (BOXED_IS_LIST(t)) {
+	      if (is_list(t)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 		if (!structure_checked) {
 		  DMC_PUSH(text, matchList);
 		}
@@ -3163,7 +3163,8 @@ int db_has_variable(Eterm obj)
 {
     switch(obj & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_BOXED:
-      if (BOXED_IS_LIST(obj)) {
+      if (is_list(obj)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	while (is_list(obj)) {
 	    if (db_has_variable(CAR(list_val(obj))))
 		return 1;
@@ -3323,7 +3324,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 	break;
     case TAG_PRIMARY_BOXED: {
 	Eterm hdr = *boxed_val(c);
-	if (!is_header(hdr)) {
+	if (is_header_list(hdr)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	  DMC_PUSH(*text, matchPushL);
 	  ++(context->stack_used);
 	  DMC_PUSH(*stack, c);
@@ -4579,7 +4581,8 @@ static DMCRet dmc_expr(DMCContext *context,
 
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_BOXED:
-        if (BOXED_IS_LIST(t)) {
+        if (is_list(t)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	    if ((ret = dmc_list(context, heap, text, t, constant)) != retOk)
 	        return ret;
 	    break;
@@ -4812,7 +4815,8 @@ static Uint my_size_object(Eterm t)
     Eterm *p;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_BOXED:
-        if (BOXED_IS_LIST(t)) {
+        if (is_list(t)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	    sum += 2 + my_size_object(CAR(list_val(t))) +
 	        my_size_object(CDR(list_val(t)));
 	    break;
@@ -4854,7 +4858,8 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap)
     Uint sz;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_BOXED:
-        if (BOXED_IS_LIST(t)) {
+        if (is_list(t)) {
+    CASE_TAG_PRIMARY_LIST(/* is list */);
 	    a = my_copy_struct(CAR(list_val(t)), hp, off_heap);
 	    b = my_copy_struct(CDR(list_val(t)), hp, off_heap);
 	    ret = CONS(*hp, a, b);

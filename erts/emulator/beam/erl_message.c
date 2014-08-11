@@ -680,6 +680,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 	case TAG_PRIMARY_IMMED1:
 	    *hp++ = val;
 	    break;
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED:
 	    ASSERT(in_heapfrag(ptr_val(val), bp));
 	    *hp++ = offset_ptr(val, offs);

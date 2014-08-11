@@ -73,7 +73,11 @@ unsigned tag_val_def(Wterm x)
     switch (x & _TAG_PRIMARY_MASK) {
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
-	  if (!is_header(hdr)) return LIST_DEF;
+	  if (is_header_list(hdr)) {
+      CASE_TAG_PRIMARY_LIST(/* is list */);
+              ET_ASSERT(_list_precond(x),file,line);
+              return LIST_DEF;
+          }
 	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
@@ -134,6 +138,7 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
 }
 
 ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_taggable_pointer);
+ET_DEFINE_CHECKED(Eterm*,ptr_val,Wterm,_ptr_precond);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
 ET_DEFINE_CHECKED(Eterm*,boxed_val,Wterm,_boxed_precond);
 ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_taggable_pointer);

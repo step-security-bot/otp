@@ -238,7 +238,9 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 
 /* generic tagged pointer (boxed or list) access methods */
 #define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
-#define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
+_ET_DECLARE_CHECKED(Eterm*,ptr_val,Wterm)
+#define ptr_val(x)		_ET_APPLY(ptr_val,(x))
+#define _ptr_precond(x)         (is_list(x) || is_boxed(x))
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
@@ -1192,6 +1194,22 @@ ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
 
 #else /* !HALFWORD_HEAP */
 #define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
+#endif
+
+#ifdef TAG_PRIMARY_LIST
+#define is_header_list(HDR) 0
+#define CASE_TAG_PRIMARY_LIST(BODY)                             \
+    case TAG_PRIMARY_LIST:                                      \
+    BODY
+#define CASE_TAG_PRIMARY_LIST_CAR(VAL,VALP,OBJ,BASE,POST_BODY)  \
+    CASE_TAG_PRIMARY_LIST(                                      \
+        VALP = list_val_rel(OBJ,BASE);                          \
+        VAL = CAR(VALP);                                        \
+        POST_BODY)
+#else
+#define is_header_list(HDR) (!is_header(HDR))
+#define CASE_TAG_PRIMARY_LIST(BODY)
+#define CASE_TAG_PRIMARY_LIST_CAR(VAL,VALP,OBJ,BASE,POST_BODY)
 #endif
 
 #endif	/* __ERL_TERM_H */

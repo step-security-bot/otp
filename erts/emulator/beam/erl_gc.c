@@ -76,89 +76,6 @@ do {									\
 } while (0)
 #endif
 
-#define ERTS_CHK_NON_TNV(p) erts_check_tnv(p->heap,p->htop)
-
-static void erts_check_tnv(Eterm *heap, Eterm *htop) {
-    Eterm *hp = heap;
-    Eterm gval, val, *ptr;
-
-    while (hp < htop) {
-        gval = *hp;
-        ASSERT(gval != THE_NON_VALUE);
-        switch (primary_tag(gval)) {
-        case TAG_PRIMARY_IMMED1:
-            break;
-        case TAG_PRIMARY_BOXED: {
-            ptr = (Eterm*)(gval & ~((Eterm)_TAG_PRIMARY_MASK));
-//            ASSERT(*ptr != make_arityval(0));
-	    break;
-        }
-        case TAG_PRIMARY_HEADER: {
-            Eterm hdr = gval & _TAG_HEADER_MASK;
-            ASSERT(is_header(gval));
-            switch (hdr) {
-            case ARITYVAL_SUBTAG:
-                ASSERT(gval != make_arityval(0));
-                break;
-            case FUN_SUBTAG:
-            {
-                Eterm* bptr = hp;
-                ErlFunThing* funp = (ErlFunThing *) bptr;
-                Uint eterms = 1 /* creator */ + funp->num_free;
-                Uint sz = thing_arityval(gval);
-                ASSERT(funp->arity == funp->fe->arity);
-                ASSERT(is_pid(funp->creator));
-                ASSERT(funp->num_free >= 0);
-                hp += sz;
-                break;
-            }
-            case SUB_BINARY_SUBTAG:
-            {
-                ErlSubBin *sb = (ErlSubBin *) hp;
-		Eterm real_bin = sb->orig;
-		Uint bitsize = sb->bitsize;
-		Uint bitoffs = sb->bitoffs;
-		Uint offset = sb->offs;
-/*		Uint real_size = binary_size_rel(real_bin,base);
-
-		ASSERT(bitsize >= bitoffs);
-		ASSERT(real_size >= (bitsize*8));
-		ASSERT(real_size >= offset);
-		ASSERT(sb->is_writable == 0 || sb->is_writable == 1);*/
-		hp += thing_arityval(gval);
-		break;
-            }
-            case REFC_BINARY_SUBTAG:
-            {
-                ProcBin *pb = (ProcBin *) hp;
-                hp += thing_arityval(gval);
-                break;
-            }
-            case HEAP_BINARY_SUBTAG:
-            {
-                ErlHeapBin *hb = (ErlHeapBin *) hp;
-//                ASSERT(heap_bin_size(hb->size) == thing_arityval(gval));
-                hp += thing_arityval(gval);
-                break;
-            }
-
-            default: {
-                hp += thing_arityval(gval);
-		break;
-            }
-            }
-            break;
-	}
-	default: {
-            erts_printf("%p: gval == %lu\n", hp, gval);
-            abort();
-            break;
-	}
-	}
-	hp++;
-    }
-}
-
 /*
  * This structure describes the rootset for the GC.
  */
@@ -824,12 +741,13 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
             Eterm gval = *g_ptr;
 
             switch (primary_tag(gval)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED:
-		ptr = boxed_val(gval);
+		ptr = ptr_val(gval);
 		val = *ptr;
-                if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
+                if (IS_MOVED(val)) {
+		    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *g_ptr++ = GET_FORWARD_PTR(ptr);
 		} else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
                 } else if (in_area(ptr, area, area_size)) {
@@ -875,7 +793,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
      */
 
     while (oh) {
-	if (IS_MOVED_BOXED(oh->thing_word)) {
+	if (IS_MOVED(oh->thing_word)) {
 	    Binary* bptr;
 	    struct erl_off_heap_header* ptr;
 
@@ -1109,12 +1027,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
             switch (primary_tag(gval)) {
 
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
+		ptr = ptr_val(gval);
                 val = *ptr;
-                if (IS_MOVED_BOXED(val)) {
-                    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
+                if (IS_MOVED(val)) {
+                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
                 } else if (in_area(ptr, heap, mature_size)) {
@@ -1155,12 +1074,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	    ASSERT(n_hp < n_htop);
 	    gval = *n_hp;
 	    switch (primary_tag(gval)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
+		ptr = ptr_val(gval);
 		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-                    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *n_hp++ = ptr[BOXED_FORWARD_WORD];
+		if (IS_MOVED(val)) {
+                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *n_hp++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *n_hp++ = TUPLE0();
 		} else if (in_area(ptr, heap, mature_size)) {
@@ -1182,8 +1102,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 			Eterm* origptr = &(mb->orig);
 			ptr = boxed_val(*origptr);
 			val = *ptr;
-			if (IS_MOVED_BOXED(val)) {
-			    *origptr = ptr[BOXED_FORWARD_WORD];
+			if (IS_MOVED(val)) {
+			    *origptr = GET_FORWARD_PTR(ptr);
 			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, heap, mature_size)) {
 			    MOVE_BOXED(ptr,val,old_htop,origptr);
@@ -1333,13 +1253,13 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    Eterm gval = *g_ptr;
 	    
 	    switch (primary_tag(gval)) {
-
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
+		ptr = ptr_val(gval);
 		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-                    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
+		if (IS_MOVED(val)) {
+                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
@@ -1378,12 +1298,13 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    Eterm gval = *n_hp;
 
 	    switch (primary_tag(gval)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
 		val = *ptr;
-		if (IS_MOVED_BOXED(val)) {
-                    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *n_hp++ = ptr[BOXED_FORWARD_WORD];
+		if (IS_MOVED(val)) {
+                    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *n_hp++ = GET_FORWARD_PTR(ptr);
 		} else if (val == make_arityval(0)) {
                     *n_hp++ = TUPLE0();
                 } else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
@@ -1404,8 +1325,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 			origptr = &(mb->orig);
 			ptr = boxed_val(*origptr);
 			val = *ptr;
-			if (IS_MOVED_BOXED(val)) {
-			    *origptr = ptr[BOXED_FORWARD_WORD];
+			if (IS_MOVED(val)) {
+			    *origptr = GET_FORWARD_PTR(ptr);
 			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, src, src_size) ||
 				   in_area(ptr, oh, oh_size)) {
@@ -1580,12 +1501,12 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 	gval = *objv;
 	
 	switch (primary_tag(gval)) {
-
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED: {
-	    ptr = _unchecked_boxed_val(gval);
+	    ptr = ptr_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
+	    if (IS_MOVED(val)) {
+		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
 		objv++;
 	    } else {
  		for (qb = mbuf; qb != NULL; qb = qb->next) {
@@ -1630,8 +1551,9 @@ disallow_heap_frag_ref_in_heap(Process* p)
 
 	val = *hp++;
 	switch (primary_tag(val)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED:
-	    ptr = _unchecked_boxed_val(val);
+	    ptr = ptr_val(val);
 	    if (!in_area(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
 		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
@@ -1675,6 +1597,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 
 	val = *hp++;
 	switch (primary_tag(val)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED:
 	    ptr = (Eterm *) EXPAND_POINTER(val);
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
@@ -1719,12 +1642,13 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
             gval = *g_ptr;
 
             switch (primary_tag(gval)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED: {
-		ptr = boxed_val(gval);
+		ptr = ptr_val(gval);
                 val = *ptr;
-                if (IS_MOVED_BOXED(val)) {
-		    ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                    *g_ptr++ = ptr[BOXED_FORWARD_WORD];
+                if (IS_MOVED(val)) {
+		    ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                    *g_ptr++ = GET_FORWARD_PTR(ptr);
                 } else if (val == make_arityval(0)) {
                     *g_ptr++ = TUPLE0();
                 } else if (in_area(ptr, src, src_size)) {
@@ -1756,12 +1680,13 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(n_hp < n_htop);
 	gval = *n_hp;
 	switch (primary_tag(gval)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED: {
-	    ptr = boxed_val(gval);
+	    ptr = ptr_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-		*n_hp++ = ptr[BOXED_FORWARD_WORD];
+	    if (IS_MOVED(val)) {
+		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		*n_hp++ = GET_FORWARD_PTR(ptr);
             } else if (val == make_arityval(0)) {
                 *n_hp++ = TUPLE0();
 	    } else if (in_area(ptr, src, src_size)) {
@@ -1782,8 +1707,8 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 		    origptr = &(mb->orig);
 		    ptr = boxed_val(*origptr);
 		    val = *ptr;
-		    if (IS_MOVED_BOXED(val)) {
-			*origptr = ptr[BOXED_FORWARD_WORD];
+		    if (IS_MOVED(val)) {
+			*origptr = GET_FORWARD_PTR(ptr);
 			mb->base = binary_bytes(*origptr);
 		    } else if (in_area(ptr, src, src_size)) {
 			MOVE_BOXED(ptr,val,n_htop,origptr);
@@ -1811,12 +1736,13 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	Eterm gval = *heap_ptr;
 
 	switch (primary_tag(gval)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED: {
-	    ptr = boxed_val(gval);
+	    ptr = ptr_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED_BOXED(val)) {
-		ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-		*heap_ptr++ = ptr[BOXED_FORWARD_WORD];
+	    if (IS_MOVED(val)) {
+		ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+		*heap_ptr++ = GET_FORWARD_PTR(ptr);
             } else if (val == make_arityval(0)) {
                 *heap_ptr++ = TUPLE0();
 	    } else if (in_area(ptr, src, src_size)) {
@@ -2240,10 +2166,10 @@ sweep_off_heap(Process *p, int fullsweep)
      * Keep if moved, otherwise deref.
      */
     while (ptr) {
-	if (IS_MOVED_BOXED(ptr->thing_word)) {
+	if (IS_MOVED(ptr->thing_word)) {
 	    ASSERT(!in_area(ptr, oheap, oheap_sz));
 	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->u.forward);
-	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
+	    ASSERT(!IS_MOVED(ptr->thing_word));
 	    if (ptr->thing_word == HEADER_PROC_BIN) {
 		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
@@ -2292,7 +2218,7 @@ sweep_off_heap(Process *p, int fullsweep)
      */
     while (ptr) {
 	ASSERT(in_area(ptr, oheap, oheap_sz));
-	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
+	ASSERT(!IS_MOVED(ptr->thing_word));       
 	if (ptr->thing_word == HEADER_PROC_BIN) {
 	    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
@@ -2380,6 +2306,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
     while (sz--) {
 	Eterm val = *hp;
 	switch (primary_tag(val)) {
+          CASE_TAG_PRIMARY_LIST(/* is list */);
 	  case TAG_PRIMARY_BOXED:
 	      if (in_area(ptr_val(val), area, area_size)) {
 		  *hp = offset_ptr(val, offs);
@@ -2441,6 +2368,7 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
     while (sz--) {
 	Eterm val = *hp;
 	switch (primary_tag(val)) {
+        CASE_TAG_PRIMARY_LIST(/* is list */);
 	case TAG_PRIMARY_BOXED:
 	    if (in_area(ptr_val(val), area, area_size)) {
 		*hp = offset_ptr(val, offs);
@@ -2475,6 +2403,7 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
         Eterm mesg = ERL_MESSAGE_TERM(mp);
 	if (is_value(mesg)) {
 	    switch (primary_tag(mesg)) {
+            CASE_TAG_PRIMARY_LIST(/* is list */);
 	    case TAG_PRIMARY_BOXED:
 		if (in_area(ptr_val(mesg), area, area_size)) {
 		    ERL_MESSAGE_TERM(mp) = offset_ptr(mesg, offs);

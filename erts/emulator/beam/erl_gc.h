@@ -28,9 +28,10 @@
 #  define HARDDEBUG 1
 #endif
 
-#define IS_MOVED_BOXED(x)	(is_non_value((x)))
+#define FORWARD_OFFSET 1
 
-#define BOXED_FORWARD_WORD 1
+#define IS_MOVED(x)        (is_non_value((x)))
+#define GET_FORWARD_PTR(x) ((x)[FORWARD_OFFSET])
 
 #define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
 do {                                                                    \
@@ -58,8 +59,15 @@ do {                                                                    \
         }                                                               \
     } else {                                                            \
         /* cons cell */                                                 \
-        /* TODO: Probably want to make a faster way for conses */       \
-        nelts = 1;                                                      \
+        HTOP[0] = CAR(PTR);	/* copy car */                          \
+        HTOP[1] = CDR(PTR);	/* copy cdr */                          \
+        gval = make_list(HTOP);	/* new location */			\
+        *ORIG = gval;		/* redirect original reference */	\
+        PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
+        PTR[1] = gval;		/* store forwarding address */		\
+        HTOP += 2;		/* update tospace htop */               \
+        PTR += 2;               /* update fromspace htop */             \
+        break;                                                          \
     }                                                                   \
     if (nelts == 0) {                                                   \
         PTR++;                                                          \
@@ -96,7 +104,7 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = ptr[BOXED_FORWARD_WORD];
+	if (IS_MOVED(*ptr)) term = GET_FORWARD_PTR(ptr);
         else if (*ptr == make_arityval(0)) term = TUPLE0();
 	break;
     default:

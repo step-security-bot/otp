@@ -82,12 +82,14 @@ Uint size_object(Eterm obj)
 	case TAG_PRIMARY_BOXED:
 	    {
 		Eterm hdr = *boxed_val_rel(obj,base);
-		if (!is_header(hdr)) {
+		if (is_header_list(hdr)) {
+                  CASE_TAG_PRIMARY_LIST_CAR(
+                      hdr,Eterm objp,obj,base,/* No post */);
 		  sum += 2;
 		  if (!IS_CONST(hdr)) {
 		    ESTACK_PUSH(s, hdr);
 		  }
-		  obj = CDR(boxed_val_rel(obj,base));
+		  obj = CDR(list_val_rel(obj,base));
 		  break;
 		}
 		switch (hdr & _TAG_HEADER_MASK) {
@@ -232,9 +234,16 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     const_tuple = 0;
 
     /* Copy the object onto the heap */
-    ASSERT(is_boxed(obj));
-    argp = &res;
-    goto L_copy_boxed;
+    switch (primary_tag(obj)) {
+        CASE_TAG_PRIMARY_LIST_CAR(elem,objp,obj,src_base,
+                                  argp = &res;
+                                  goto L_copy_list);
+    case TAG_PRIMARY_BOXED: argp = &res; goto L_copy_boxed;
+    default:
+	erl_exit(ERTS_ABORT_EXIT,
+		 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
+		 __FILE__, __LINE__,obj);
+    }
 
  L_copy:
     while (hp != htop) {
@@ -258,7 +267,20 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
         L_copy_boxed:
 	    objp = boxed_val_rel(obj, src_base);
 	    hdr = elem = *objp;
-	    if (!is_header(hdr)) {
+	    if (is_header_list(hdr)) {
+                CASE_TAG_PRIMARY_LIST_CAR(
+                    elem, objp, obj, src_base,
+#if !HALFWORD_HEAP || defined(DEBUG)
+                    if (in_area(boxed_val_rel(obj,src_base),hstart,hsize)) {
+                        ASSERT(!HALFWORD_HEAP);
+                        hp++;
+                        break;
+                    }
+#endif
+                    argp = hp++;
+
+                L_copy_list:
+                    ) /* !defined TAG_PRIMARY_LIST */
                 tailp = argp;
                 for (;;) {
                     tp = tailp;
@@ -293,7 +315,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
                                      __FILE__, __LINE__,obj);
                         }
                     }
-                    objp = boxed_val_rel(obj,src_base);
+                    objp = list_val_rel(obj,src_base);
                     elem = CAR(objp);
                 }
             } else {
@@ -524,6 +546,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	case TAG_PRIMARY_IMMED1:
 	    *hp++ = val;
 	    break;
+        CASE_TAG_PRIMARY_LIST(/* fall through */)
 	case TAG_PRIMARY_BOXED:
 	    *hp++ = byte_offset_ptr(val, offs);
 	    break;
@@ -614,12 +637,13 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	Eterm val;
 	Eterm gval = *hp;
 	switch (primary_tag(gval)) {
+        CASE_TAG_PRIMARY_LIST(/* fallthrough */)
 	case TAG_PRIMARY_BOXED:
 	    ptr = boxed_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED_BOXED(val)) {
-                ASSERT(is_boxed(ptr[BOXED_FORWARD_WORD]));
-                *hp = ptr[BOXED_FORWARD_WORD];
+	    if (IS_MOVED(val)) {
+                ASSERT(is_boxed(GET_FORWARD_PTR(ptr)));
+                *hp = GET_FORWARD_PTR(ptr);
             } else if (val == make_arityval(0)) {
                 *hp = TUPLE0();
             }

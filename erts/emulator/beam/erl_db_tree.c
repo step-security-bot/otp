@@ -2681,14 +2681,15 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
     if (is_same(a,NULL,b,b_base))
 	return 0;
     
-    switch (a & _TAG_PRIMARY_MASK) {
+    if (primary_tag(b) != primary_tag(a))
+        return cmp_rel(a, NULL, b, b_base);
+
+    switch (primary_tag(a)) {
     case TAG_PRIMARY_BOXED:
-	if ((b & _TAG_PRIMARY_MASK) != TAG_PRIMARY_BOXED) {
-	    return cmp_rel(a,NULL,b,b_base);
-	}
 	a_hdr = (*boxed_val(a)) & _TAG_HEADER_MASK;
 	b_hdr = (*boxed_val_rel(b,b_base)) & _TAG_HEADER_MASK;
-	if (!is_header(a_hdr) && !is_header(b_hdr)) {
+	if (is_header_list(a_hdr) && is_header_list(b_hdr)) {
+    CASE_TAG_PRIMARY_LIST(/* here we know that a and b are lists */);
 	  aa = list_val(a);
 	  bb = list_val_rel(b,b_base);
 	  while (1) {
