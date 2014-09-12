@@ -837,8 +837,11 @@ void
 erts_move_msg_attached_data_to_heap(ErtsHeapFactory* factory,
 				    ErlMessage *msg)
 {
-    if (is_value(ERL_MESSAGE_TERM(msg)))
+    if (is_value(ERL_MESSAGE_TERM(msg))) {
+        ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_SEND);
 	erts_move_msg_mbuf_to_heap(&factory->hp, factory->off_heap, msg);
+        ERTS_MSACC_POP_STATE_M_X();
+    }
     else if (msg->data.dist_ext) {
 	ASSERT(msg->data.dist_ext->heap_size >= 0);
 	if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {

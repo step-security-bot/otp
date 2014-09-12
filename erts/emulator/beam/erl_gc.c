@@ -386,6 +386,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     int done = 0;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
+    ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
@@ -394,6 +395,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 	ASSERT(need == 0);
 	return 1;
     }
+
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_GC);
 
     esdp = erts_get_scheduler_data();
 
@@ -425,9 +428,11 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
      */
     while (!done) {
 	if ((FLAGS(p) & F_NEED_FULLSWEEP) != 0) {
+            ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC_FULL);
 	    DTRACE2(gc_major_start, pidbuf, need);
 	    done = major_collection(p, need, objv, nobj, &reclaimed_now);
 	    DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+            ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC);
 	} else {
 	    DTRACE2(gc_minor_start, pidbuf, need);
 	    done = minor_collection(p, need, objv, nobj, &reclaimed_now);
@@ -472,6 +477,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     esdp->gc_info.reclaimed += reclaimed_now;
     
     FLAGS(p) &= ~F_FORCE_GC;
+
+    ERTS_MSACC_POP_STATE_M();
 
 #ifdef CHECK_FOR_HOLES
     /*

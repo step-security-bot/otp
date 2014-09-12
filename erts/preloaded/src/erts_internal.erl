@@ -47,6 +47,9 @@
 
 -export([is_system_process/1]).
 
+-export([await_microstate_accounting_modifications/3,
+	 gather_microstate_accounting_result/2]).
+
 %%
 %% Await result of send to port
 %%
@@ -268,3 +271,28 @@ perf_counter_unit() ->
 
 is_system_process(_Pid) ->
     erlang:nif_error(undefined).
+
+-spec await_microstate_accounting_modifications(Ref, Result, Threads) -> boolean() when
+      Ref :: reference(),
+      Result :: boolean(),
+      Threads :: pos_integer().
+
+await_microstate_accounting_modifications(Ref, Result, Threads) ->
+    _ = microstate_accounting(Ref,Threads),
+    Result.
+
+-spec gather_microstate_accounting_result(Ref, Threads) -> [#{}] when
+      Ref :: reference(),
+      Threads :: pos_integer().
+
+gather_microstate_accounting_result(Ref, Threads) ->
+    microstate_accounting(Ref, Threads).
+
+microstate_accounting(_Ref, 0) ->
+    [];
+microstate_accounting(Ref, Threads) ->
+    receive
+        Ref -> microstate_accounting(Ref, Threads - 1);
+        {Ref, Res} ->
+	    [Res | microstate_accounting(Ref, Threads - 1)]
+    end.

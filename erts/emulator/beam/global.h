@@ -1274,6 +1274,8 @@ int erts_print_system_version(int to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 
+Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
+
 /*
 ** Call_trace uses this API for the parameter matching functions
 */

@@ -950,6 +950,12 @@ sched_wall_time_change(ErtsSchedulerData *esdp, int working)
 	    }
 	}
     }
+    if (!working) {
+        ERTS_MSACC_SET_STATE_M_X(ERTS_MSACC_STATE_BUSY_WAIT);
+    } else {
+        ERTS_MSACC_SET_STATE_M_X(ERTS_MSACC_STATE_OTHER);
+    }
+
 }
 
 typedef struct {
@@ -1705,15 +1711,17 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
     int need_thr_progress = 0;
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     int more_work = 0;
-
+    ERTS_MSACC_PUSH_STATE_M_X();
 #ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 #endif
     unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD);
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ALLOC);
     erts_alloc_scheduler_handle_delayed_dealloc((void *) awdp->esdp,
 						&need_thr_progress,
 						&wakeup,
 						&more_work);
+    ERTS_MSACC_POP_STATE_M_X();
     if (more_work) {
 	if (set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD)
 	    & ERTS_SSI_AUX_WORK_DD_THR_PRGR) {
@@ -2213,12 +2221,15 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
 	if (!(aux_work & ~ignore)) { \
 	    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
+            ERTS_MSACC_UPDATE_CACHE();       \
+            ERTS_MSACC_POP_STATE_M();              \
 	    return aux_work; \
 	} \
     }
 
     erts_aint32_t aux_work = orig_aux_work;
     erts_aint32_t ignore = 0;
+    ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_AUX);
 
 #ifdef ERTS_SMP
     haw_thr_prgr_current_reset(awdp);
@@ -2312,6 +2323,8 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 	haw_thr_prgr_current_check_progress(awdp);
 #endif
 
+    ERTS_MSACC_UPDATE_CACHE();
+    ERTS_MSACC_POP_STATE_M();
     return aux_work;
 
 #undef HANDLE_AUX_WORK
@@ -2819,6 +2832,8 @@ aux_thread(void *unused)
 
     ssi->event = erts_tse_fetch();
 
+    erts_msacc_init_thread("aux", 1, 1);
+
     callbacks.arg = (void *) ssi;
     callbacks.wakeup = thr_prgr_wakeup;
     callbacks.prepare_wait = thr_prgr_prep_wait;
@@ -2828,6 +2843,7 @@ aux_thread(void *unused)
     erts_thr_progress_register_managed_thread(NULL, &callbacks, 1);
     init_aux_work_data(awdp, NULL, NULL);
     awdp->ssi = ssi;
+
 
     sched_prep_spin_wait(ssi);
 
@@ -2882,6 +2898,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #ifdef ERTS_SMP
     int thr_prgr_active = 1;
     erts_aint32_t flgs;
+#endif
+    ERTS_MSACC_PUSH_STATE_M();
+#ifdef ERTS_SMP
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
@@ -2938,6 +2957,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		    sched_wall_time_change(esdp, 1);
 		}
 		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
+                ERTS_MSACC_UPDATE_CACHE();
 		if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)
 		    && erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
@@ -3000,7 +3020,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 								     - 1) + 1;
 				} else
 				    timeout = -1;
+                                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
 				res = erts_tse_twait(ssi->event, timeout);
+                                ERTS_MSACC_POP_STATE_M();
 				current_time = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0 :
 				    erts_get_monotonic_time(esdp);
 			    } while (res == EINTR);
@@ -3069,8 +3091,12 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    if (working)
 		sched_wall_time_change(esdp, working = 0);
 
+	    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 	    erl_sys_schedule(1); /* Might give us something to do */
+
+	    ERTS_MSACC_POP_STATE_M();
 
 	    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 		current_time = erts_get_monotonic_time(esdp);
@@ -3094,6 +3120,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #endif
 		}
 		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
+                ERTS_MSACC_UPDATE_CACHE();
 #ifdef ERTS_SMP
 		if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && aux_work &&
 		    erts_thr_progress_update(esdp))
@@ -3192,7 +3219,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
+	ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+
 	erl_sys_schedule(0);
+
+	ERTS_MSACC_POP_STATE_M();
 
 	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	    ErtsMonotonicTime current_time = erts_get_monotonic_time(esdp);
@@ -7886,6 +7917,8 @@ sched_thread_func(void *vesdp)
     callbacks.wait = thr_prgr_wait;
     callbacks.finalize_wait = thr_prgr_fin_wait;
 
+    erts_msacc_init_thread("scheduler", no, 1);
+
     erts_thr_progress_register_managed_thread(esdp, &callbacks, 0);
     erts_alloc_register_scheduler(vesdp);
 #endif
@@ -9149,6 +9182,8 @@ Process *schedule(Process *p, int calls)
     Uint32 flags;
     erts_aint32_t state = 0; /* Supress warning... */
 
+    ERTS_MSACC_DECLARE_CACHE();
+
 #ifdef USE_VM_PROBES
     if (p != NULL && DTRACE_ENABLED(process_unscheduled)) {
         DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
@@ -9250,6 +9285,8 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 
 	if (state & ERTS_PSFLG_FREE) {
 #ifdef ERTS_SMP
@@ -9408,7 +9445,7 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	    scheduler_wait(&fcalls, esdp, rq);
-
+            ERTS_MSACC_UPDATE_CACHE();
 #ifdef ERTS_SMP
 	    non_empty_runq(rq);
 #endif
@@ -9423,6 +9460,8 @@ Process *schedule(Process *p, int calls)
 	     * Schedule system-level activities.
 	     */
 
+	    ERTS_MSACC_PUSH_STATE_CACHED_M();
+
 	    erts_smp_atomic32_set_relb(&function_calls, 0);
 	    fcalls = 0;
 
@@ -9430,7 +9469,9 @@ Process *schedule(Process *p, int calls)
 	    erts_sys_schedule_interrupt(0);
 #endif
 	    erts_smp_runq_unlock(rq);
+	    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
 	    erl_sys_schedule(1);
+	    ERTS_MSACC_POP_STATE_M();
 
 	    current_time = erts_get_monotonic_time(esdp);
 	    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
@@ -9508,8 +9549,11 @@ Process *schedule(Process *p, int calls)
 	    case 0:			/* No process at all */
 	    default:
 		ASSERT(qmask == 0);
+                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 		goto check_activities_to_run;
 	    }
+
+            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
 
 	    BM_START_TIMER(system);
 
