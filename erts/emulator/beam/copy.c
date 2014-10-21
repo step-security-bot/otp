@@ -193,6 +193,7 @@ Uint size_object(Eterm obj)
     }
 }
 
+
 /*
  *  Copy a structure to a heap.
  */
@@ -272,29 +273,40 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		tp = tailp;
 		elem = CAR(objp);
 		if (is_immed(elem)) {
-		    hbot -= 2;
-		    CAR(hbot) = elem;
-		    tailp = &CDR(hbot);
+                    *tp = make_list_rel(hbot-2, dst_base);
+        L_copy_const_list:
+                    hbot -= 2;
+                    CAR(hbot) = elem;
+                    obj = CDR(objp);
+                    if (is_list(obj)) {
+                        objp = list_val_rel(obj, src_base);
+                        if (is_immed(elem = CAR(objp))) {
+                            CDR(hbot) = make_list_rel(hbot-2, dst_base);
+                            goto L_copy_const_list;
+                        } else {
+                            tp = &CDR(hbot);
+                        }
+                    } else {
+                        tailp = &CDR(hbot);
+                        break;
+                    }
 		}
-		else {
-		    CAR(htop) = elem;
-		#if HALFWORD_HEAP
-		    CDR(htop) = CDR(objp);
-		    *tailp = make_list_rel(htop,dst_base);
-		    htop += 2;
-		    goto L_copy;
-		#else
-		    tailp = &CDR(htop);
-		    htop += 2;
-		#endif
-		}
-		ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
-		*tp = make_list_rel(tailp - 1, dst_base);
-		obj = CDR(objp);
-		if (!is_list(obj)) {
-		    break;
-		}
-		objp = list_val_rel(obj,src_base);
+                CAR(htop) = elem;
+#if HALFWORD_HEAP
+                CDR(htop) = CDR(objp);
+                *tailp = make_list_rel(htop, dst_base);
+                htop += 2;
+                goto L_copy;
+#else
+                tailp = &CDR(htop);
+                htop += 2;
+                ASSERT(!HALFWORD_HEAP || tp < hp || tp >= hbot);
+                *tp = make_list_rel(tailp - 1, dst_base);
+                obj = CDR(objp);
+                if (!is_list(obj))
+                    break;
+                objp = list_val_rel(obj,src_base);
+#endif
 	    }
 	    switch (primary_tag(obj)) {
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
@@ -507,6 +519,9 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     }
 #endif
     *hpp = (Eterm *) (hstart+hsize);
+    if (cmp(org_obj, res))
+        erl_exit(ERTS_ABORT_EXIT,
+		 "Internal error in copy_struct(): old and new not the same\n");
     return res;
 }
 
