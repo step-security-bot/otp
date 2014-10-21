@@ -189,8 +189,8 @@ bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 static void do_calc_mon_size(ErtsMonitor *mon, void *vpsz)
 {
     Uint *psz = vpsz;
-    *psz += IS_CONST(mon->ref) ? 0 : NC_HEAP_SIZE(mon->ref);
-    *psz += IS_CONST(mon->pid) ? 0 : NC_HEAP_SIZE(mon->pid);
+    *psz += is_immed(mon->ref) ? 0 : NC_HEAP_SIZE(mon->ref);
+    *psz += is_immed(mon->pid) ? 0 : NC_HEAP_SIZE(mon->pid);
     *psz += 8; /* CONS + 5-tuple */ 
 }
 
@@ -205,10 +205,10 @@ static void do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc)
 {
     MonListContext *pmlc = vpmlc;
     Eterm tup;
-    Eterm r = (IS_CONST(mon->ref)
+    Eterm r = (is_immed(mon->ref)
 	       ? mon->ref
 	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->ref));
-    Eterm p = (IS_CONST(mon->pid)
+    Eterm p = (is_immed(mon->pid)
 	       ? mon->pid
 	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->pid));
     tup = TUPLE5(pmlc->hp, pmlc->tag, make_small(mon->type), r, p, mon->name);
@@ -249,7 +249,7 @@ make_monitor_list(Process *p, ErtsMonitor *root)
 static void do_calc_lnk_size(ErtsLink *lnk, void *vpsz)
 {
     Uint *psz = vpsz;
-    *psz += IS_CONST(lnk->pid) ? 0 : NC_HEAP_SIZE(lnk->pid);
+    *psz += is_immed(lnk->pid) ? 0 : NC_HEAP_SIZE(lnk->pid);
     if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) { 
 	/* Node links use this pointer as ref counter... */
 	erts_doforall_links(ERTS_LINK_ROOT(lnk),&do_calc_lnk_size,vpsz);
@@ -269,7 +269,7 @@ static void do_make_one_lnk_element(ErtsLink *lnk, void * vpllc)
     LnkListContext *pllc = vpllc;
     Eterm tup;
     Eterm old_res, targets = NIL;
-    Eterm p = (IS_CONST(lnk->pid)
+    Eterm p = (is_immed(lnk->pid)
 	       ? lnk->pid
 	       : STORE_NC(&(pllc->hp), &MSO(pllc->p), lnk->pid));
     if (lnk->type == LINK_NODE) {

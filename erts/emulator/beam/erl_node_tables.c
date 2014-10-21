@@ -1037,7 +1037,7 @@ insert_node_referrer(ReferredNode *referred_node, int type, Eterm id)
 					  sizeof(NodeReferrer));
 	nrp->next = referred_node->referrers;
 	referred_node->referrers = nrp;
-	if(IS_CONST(id))
+	if(is_immed(id))
 	    nrp->id = id;
 	else {
 	    Uint *hp = &nrp->id_heap[0];
@@ -1549,7 +1549,7 @@ reference_table_term(Uint **hpp, Uint *szp)
 	    }
 
 	    nrid = nrp->id;
-	    if (!IS_CONST(nrp->id)) {
+	    if (!is_immed(nrp->id)) {
 
 		Uint nrid_sz = size_object(nrp->id);
 		if (szp)

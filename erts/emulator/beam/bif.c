@@ -566,8 +566,8 @@ erts_queue_monitor_message(Process *p,
     ErlOffHeap *ohp;
     ErlHeapFragment *bp;
 
-    reason_size = IS_CONST(reason) ? 0 : size_object(reason);
-    item_size   = IS_CONST(item) ? 0 : size_object(item);
+    reason_size = is_immed(reason) ? 0 : size_object(reason);
+    item_size   = is_immed(item) ? 0 : size_object(item);
     ref_size    = size_object(ref);
 
     heap_size = 6+reason_size+ref_size+item_size;
@@ -578,10 +578,10 @@ erts_queue_monitor_message(Process *p,
 				 p,
 				 p_locksp);
 
-    reason_copy = (IS_CONST(reason)
+    reason_copy = (is_immed(reason)
 		   ? reason
 		   : copy_struct(reason, reason_size, &hp, ohp));
-    item_copy   = (IS_CONST(item)
+    item_copy   = (is_immed(item)
 		   ? item
 		   : copy_struct(item, item_size, &hp, ohp));
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);

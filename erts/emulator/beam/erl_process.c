@@ -10574,7 +10574,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->off_heap.overhead = 0;
 
     heap_need +=
-	IS_CONST(parent->group_leader) ? 0 : NC_HEAP_SIZE(parent->group_leader);
+	is_immed(parent->group_leader) ? 0 : NC_HEAP_SIZE(parent->group_leader);
 
     if (heap_need < p->min_heap_size) {
 	sz = heap_need = p->min_heap_size;
@@ -10648,7 +10648,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     else {
 	/* Needs to be done after the heap has been set up */
 	p->group_leader =
-	    IS_CONST(parent->group_leader)
+	    is_immed(parent->group_leader)
 	    ? parent->group_leader
 	    : STORE_NC(&p->htop, &p->off_heap, parent->group_leader);
     }

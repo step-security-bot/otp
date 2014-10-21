@@ -3448,7 +3448,7 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 	Eterm *hp;
 	Eterm tmp;
 
-	if (IS_CONST(t)) {
+	if (is_immed(t)) {
 	    tmp = t;
 	} else {
 	    sz = my_size_object(t);

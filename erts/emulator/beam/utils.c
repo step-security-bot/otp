@@ -1802,7 +1802,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
     }
     /* So we have an error logger, lets build the message */
 #endif
-    gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
+    gl_sz = is_immed(gleader) ? 0 : size_object(gleader);
     sz = len * 2 /* message list */+ 2 /* cons surrounding message list */
 	+ gl_sz + 
 	3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */ +
@@ -1823,7 +1823,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 #endif
     gl = (is_nil(gleader)
 	  ? am_noproc
-	  : (IS_CONST(gleader)
+	  : (is_immed(gleader)
 	     ? gleader
 	     : copy_struct(gleader,gl_sz,&hp,ohp)));
     list = buf_to_intlist(&hp, buf, len, NIL);

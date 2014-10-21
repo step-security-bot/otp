@@ -90,7 +90,7 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
 	    
 #define CP_LINK_VAL(To, Hp, From)				\
 do {								\
-    if (IS_CONST(From))						\
+    if (is_immed(From))						\
 	(To) = (From);						\
     else {							\
 	Uint i__;						\
@@ -115,7 +115,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      Eterm *hp;
 
      mon_size += NC_HEAP_SIZE(ref);
-     if (!IS_CONST(pid)) {
+     if (!is_immed(pid)) {
 	 mon_size += NC_HEAP_SIZE(pid);
      }
 
@@ -146,7 +146,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
      ErtsLink *n;
      Eterm *hp;
 
-     if (!IS_CONST(pid)) {
+     if (!is_immed(pid)) {
 	 lnk_size += NC_HEAP_SIZE(pid);
      }
 
@@ -205,13 +205,13 @@ void erts_destroy_monitor(ErtsMonitor *mon)
     Uint mon_size = ERTS_MONITOR_SIZE;
     ErlNode *node;
 
-    ASSERT(!IS_CONST(mon->ref));
+    ASSERT(!is_immed(mon->ref));
     mon_size +=  NC_HEAP_SIZE(mon->ref);
     if (is_external(mon->ref)) {
 	node = external_thing_ptr(mon->ref)->node;
 	erts_deref_node_entry(node);
     }
-    if (!IS_CONST(mon->pid)) {
+    if (!is_immed(mon->pid)) {
 	mon_size += NC_HEAP_SIZE(mon->pid);
 	if (is_external(mon->pid)) {
 	    node = external_thing_ptr(mon->pid)->node;
@@ -233,7 +233,7 @@ void erts_destroy_link(ErtsLink *lnk)
 
     ASSERT(lnk->type == LINK_NODE || ERTS_LINK_ROOT(lnk) == NULL);
 
-    if (!IS_CONST(lnk->pid)) {
+    if (!is_immed(lnk->pid)) {
 	lnk_size += NC_HEAP_SIZE(lnk->pid);
 	if (is_external(lnk->pid)) {
 	    node = external_thing_ptr(lnk->pid)->node;
@@ -1029,7 +1029,7 @@ void erts_one_link_size(ErtsLink *lnk, void *vpu)
 {
     Uint *pu = vpu;
     *pu += ERTS_LINK_SIZE*sizeof(Uint);
-    if(!IS_CONST(lnk->pid))
+    if(!is_immed(lnk->pid))
 	*pu += NC_HEAP_SIZE(lnk->pid)*sizeof(Uint);
     if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) {
 	erts_doforall_links(ERTS_LINK_ROOT(lnk),&erts_one_link_size,vpu);
@@ -1039,8 +1039,8 @@ void erts_one_mon_size(ErtsMonitor *mon, void *vpu)
 {
     Uint *pu = vpu;
     *pu += ERTS_MONITOR_SIZE*sizeof(Uint);
-    if(!IS_CONST(mon->pid))
+    if(!is_immed(mon->pid))
 	*pu += NC_HEAP_SIZE(mon->pid)*sizeof(Uint);
-    if(!IS_CONST(mon->ref))
+    if(!is_immed(mon->ref))
 	*pu += NC_HEAP_SIZE(mon->ref)*sizeof(Uint);
 }

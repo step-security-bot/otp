@@ -179,7 +179,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 /* immediate object access methods */
 #define is_immed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_IMMED1)
 #define is_not_immed(x)		(!is_immed((x)))
-#define IS_CONST(x)		is_immed((x))
 #if TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK
 #define is_both_immed(x,y)	is_immed(((x)&(y)))
 #else

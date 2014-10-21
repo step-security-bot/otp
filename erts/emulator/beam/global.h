@@ -878,13 +878,13 @@ Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 
 #define NC_HEAP_SIZE(NC) \
  (ASSERT(is_node_container((NC))), \
-  IS_CONST((NC)) ? 0 : (thing_arityval(*boxed_val((NC))) + 1))
+  is_immed((NC)) ? 0 : (thing_arityval(*boxed_val((NC))) + 1))
 #define STORE_NC(Hpp, ETpp, NC) \
  (ASSERT(is_node_container((NC))), \
-  IS_CONST((NC)) ? (NC) : store_external_or_ref_((Hpp), (ETpp), (NC)))
+  is_immed((NC)) ? (NC) : store_external_or_ref_((Hpp), (ETpp), (NC)))
 #define STORE_NC_IN_PROC(Pp, NC) \
  (ASSERT(is_node_container((NC))), \
-  IS_CONST((NC)) ? (NC) : store_external_or_ref_in_proc_((Pp), (NC)))
+  is_immed((NC)) ? (NC) : store_external_or_ref_in_proc_((Pp), (NC)))
 
 /* duplicates from big.h */
 int term_to_Uint(Eterm term, Uint *up);

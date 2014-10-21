@@ -1125,7 +1125,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     } else {
 	ErlOffHeap *ohp;
 	sz_reason = size_object(reason);
-	sz_from = IS_CONST(from) ? 0 : size_object(from);
+	sz_from = is_immed(from) ? 0 : size_object(from);
 
 	hp = erts_alloc_message_heap(sz_reason+sz_from+4,
 				     &bp,
@@ -1134,7 +1134,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 				     to_locksp);
 
 	mess = copy_struct(reason, sz_reason, &hp, ohp);
-	from_copy = (IS_CONST(from)
+	from_copy = (is_immed(from)
 		     ? from
 		     : copy_struct(from, sz_from, &hp, ohp));
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);

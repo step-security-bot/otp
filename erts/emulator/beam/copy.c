@@ -83,7 +83,7 @@ Uint size_object(Eterm obj)
 	    sum += 2;
 	    ptr = list_val_rel(obj,base);
 	    obj = *ptr++;
-	    if (!IS_CONST(obj)) {
+	    if (!is_immed(obj)) {
 		ESTACK_PUSH(s, obj);
 	    }	    
 	    obj = *ptr;
@@ -102,7 +102,7 @@ Uint size_object(Eterm obj)
 		    }
 		    while (arity-- > 1) {
 			obj = *++ptr;
-			if (!IS_CONST(obj)) {
+			if (!is_immed(obj)) {
 			    ESTACK_PUSH(s, obj);
 			}
 		    }
@@ -118,7 +118,7 @@ Uint size_object(Eterm obj)
 			bptr += 1 /* header */ + sz;
 			while (eterms-- > 1) {
 			  obj = *bptr++;
-			  if (!IS_CONST(obj)) {
+			  if (!is_immed(obj)) {
 			    ESTACK_PUSH(s, obj);
 			  }
 			}
@@ -163,7 +163,7 @@ Uint size_object(Eterm obj)
 			ptr += 2; /* hdr + size words */
 			while (n--) {
 			    obj = *ptr++;
-			    if (!IS_CONST(obj)) {
+			    if (!is_immed(obj)) {
 				ESTACK_PUSH(s, obj);
 			    }
 			}
@@ -222,7 +222,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     Uint org_sz = sz;
 #endif
 
-    if (IS_CONST(obj))
+    if (is_immed(obj))
 	return obj;
 
     DTRACE1(copy_struct, (int32_t)sz);
@@ -271,7 +271,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    for (;;) {
 		tp = tailp;
 		elem = CAR(objp);
-		if (IS_CONST(elem)) {
+		if (is_immed(elem)) {
 		    hbot -= 2;
 		    CAR(hbot) = elem;
 		    tailp = &CDR(hbot);
@@ -328,7 +328,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    *htop++ = *objp++; /* copy arity value */
 		    while (i--) {
 			elem = *objp++;
-			if (!IS_CONST(elem)) {
+			if (!is_immed(elem)) {
 			    const_flag = 0;
 			}
 			*htop++ = elem;
