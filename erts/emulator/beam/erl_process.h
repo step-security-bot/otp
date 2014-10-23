@@ -596,6 +596,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedAllocData alloc_data;
 
     Uint64 reductions;
+    Uint64 process_reductions;
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;

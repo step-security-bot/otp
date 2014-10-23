@@ -8979,7 +8979,6 @@ Process *schedule(Process *p, int calls)
 	    reds = ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
 	esdp->virtual_reds = 0;
 
-	fcalls = (int) erts_smp_atomic32_add_read_acqb(&function_calls, reds);
 	ASSERT(esdp && esdp == erts_get_scheduler_data());
 
 	rq = erts_get_runq_current(esdp);
@@ -9017,6 +9016,7 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	esdp->reductions += reds;
+	esdp->process_reductions += actual_reds + ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
 
 	schedule_out_process(rq, state, p, proxy_p); /* Returns with rq locked! */
 	proxy_p = NULL;
@@ -9043,6 +9043,20 @@ Process *schedule(Process *p, int calls)
 		erts_free_proc(p);
 #endif
 	}
+
+        if (esdp->process_reductions < (CONTEXT_REDS - ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
+            && !rq->halt_in_progress) {
+            fcalls = 0;
+            context_reds = esdp->process_reductions;
+            flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
+            if ((flags & ERTS_RUNQ_FLGS_PROCS_QMASK) != 0) {
+                goto pick_next_process;
+            }
+        }
+
+    cleanup_process_schedule:
+        fcalls = (int) erts_smp_atomic32_add_read_acqb(&function_calls, esdp->process_reductions);
+        esdp->process_reductions = 0;
 
 #ifdef ERTS_SMP
 	ASSERT(!esdp->free_process);
@@ -9288,7 +9302,13 @@ Process *schedule(Process *p, int calls)
 	    case 0:			/* No process at all */
 	    default:
 		ASSERT(qmask == 0);
-		goto check_activities_to_run;
+                if (esdp->process_reductions)
+                /* We have not yet done the appropriate
+                   process cleanup since we took the fast path to
+                   pick_next_process */
+                    goto cleanup_process_schedule;
+                else
+                    goto check_activities_to_run;
 	    }
 
 	    BM_START_TIMER(system);
@@ -12286,6 +12306,10 @@ void erl_halt(int code)
     if (-1 == erts_smp_atomic32_cmpxchg_acqb(&erts_halt_progress,
 					     erts_no_schedulers,
 					     -1)) {
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        ErtsRunQueue *rq = erts_get_runq_current(esdp);
+        rq->halt_in_progress = 1;
+
 #ifdef ERTS_DIRTY_SCHEDULERS
 	ERTS_DIRTY_CPU_RUNQ->halt_in_progress = 1;
 	ERTS_DIRTY_IO_RUNQ->halt_in_progress = 1;
