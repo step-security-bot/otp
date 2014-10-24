@@ -9048,9 +9048,15 @@ Process *schedule(Process *p, int calls)
             && !rq->halt_in_progress) {
             fcalls = 0;
             context_reds = esdp->process_reductions;
-            flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
-            if ((flags & ERTS_RUNQ_FLGS_PROCS_QMASK) != 0) {
-                goto pick_next_process;
+            /* If we have a port we execute it */
+            if (RUNQ_READ_LEN(&rq->ports.info.len))
+                erts_port_task_execute(rq, &esdp->current_port, &context_reds);
+            /* If we still have reductions we execute another process */
+            if (context_reds > 0) {
+                flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
+                if ((flags & ERTS_RUNQ_FLGS_PROCS_QMASK) != 0) {
+                    goto pick_next_process;
+                }
             }
         }
 
@@ -9254,7 +9260,7 @@ Process *schedule(Process *p, int calls)
 
 	if (RUNQ_READ_LEN(&rq->ports.info.len)) {
 	    int have_outstanding_io;
-	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port);
+	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port, NULL);
 	    if ((have_outstanding_io && fcalls > 2*input_reductions)
 		|| rq->halt_in_progress) {
 		/*

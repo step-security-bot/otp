@@ -1625,7 +1625,7 @@ erts_port_task_free_port(Port *pp)
  */
 
 int
-erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
+erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp, int *context_reds)
 {
     Port *pp;
     ErtsPortTask *execq;
@@ -1863,6 +1863,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
  done:
     res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
 	   != (erts_aint_t) 0);
+
+    if (context_reds)
+        *context_reds -= reds;
 
     runq->scheduler->reductions += reds;
 
