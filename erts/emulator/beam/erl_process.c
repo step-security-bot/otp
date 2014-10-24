@@ -8940,15 +8940,6 @@ Process *schedule(Process *p, int calls)
     }
 #endif
 
-    if (ERTS_USE_MODIFIED_TIMING()) {
-	context_reds = ERTS_MODIFIED_TIMING_CONTEXT_REDS;
-	input_reductions = ERTS_MODIFIED_TIMING_INPUT_REDS;
-    }
-    else {
-	context_reds = CONTEXT_REDS;
-	input_reductions = INPUT_REDUCTIONS;
-    }
-
     ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data())
 		       || !erts_thr_progress_is_blocking());
 
@@ -8978,6 +8969,8 @@ Process *schedule(Process *p, int calls)
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
 	    reds = ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
 	esdp->virtual_reds = 0;
+
+        erts_smp_atomic32_add_acqb(&function_calls, reds);
 
 	ASSERT(esdp && esdp == erts_get_scheduler_data());
 
@@ -9047,6 +9040,7 @@ Process *schedule(Process *p, int calls)
         if (esdp->process_reductions < (CONTEXT_REDS - ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
             && !rq->halt_in_progress) {
             fcalls = 0;
+            input_reductions = INPUT_REDUCTIONS; /* to fix warning */
             context_reds = esdp->process_reductions;
             /* If we have a port we execute it */
             if (RUNQ_READ_LEN(&rq->ports.info.len))
@@ -9061,7 +9055,7 @@ Process *schedule(Process *p, int calls)
         }
 
     cleanup_process_schedule:
-        fcalls = (int) erts_smp_atomic32_add_read_acqb(&function_calls, esdp->process_reductions);
+        fcalls = (int) erts_smp_atomic32_read_nob(&function_calls);
         esdp->process_reductions = 0;
 
 #ifdef ERTS_SMP
@@ -9079,6 +9073,15 @@ Process *schedule(Process *p, int calls)
 	}
 	BM_STOP_TIMER(system);
 
+    }
+
+    if (ERTS_USE_MODIFIED_TIMING()) {
+	context_reds = ERTS_MODIFIED_TIMING_CONTEXT_REDS;
+	input_reductions = ERTS_MODIFIED_TIMING_INPUT_REDS;
+    }
+    else {
+	context_reds = CONTEXT_REDS;
+	input_reductions = INPUT_REDUCTIONS;
     }
 
     ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp)
