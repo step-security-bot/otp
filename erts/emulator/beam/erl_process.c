@@ -10539,6 +10539,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
     p->gen_gcs = 0;
+    p->full_gcs = 0;
     p->stop = p->hend = p->heap + sz;
     p->htop = p->heap;
     p->heap_sz = sz;
@@ -10749,6 +10750,7 @@ void erts_init_empty_process(Process *p)
     p->hend = NULL;
     p->heap = NULL;
     p->gen_gcs = 0;
+    p->full_gcs = 0;
     p->max_gen_gcs = 0;
     p->min_heap_size = 0;
     p->min_vheap_size = 0;

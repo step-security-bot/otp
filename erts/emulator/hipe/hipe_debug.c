@@ -184,6 +184,7 @@ void hipe_print_pcb(Process *p)
     U("stop       ", stop);
     U("gen_gcs    ", gen_gcs);
     U("max_gen_gcs", max_gen_gcs);
+    U("full_gcs   ", full_gcs);
     U("high_water ", high_water);
     U("old_hend   ", old_hend);
     U("old_htop   ", old_htop);

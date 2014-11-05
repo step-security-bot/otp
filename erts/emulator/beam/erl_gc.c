@@ -1435,6 +1435,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
     GEN_GCS(p) = 0;
+    FULL_GCS(p)++;
 
     HIGH_WATER(p) = HEAP_TOP(p);
 

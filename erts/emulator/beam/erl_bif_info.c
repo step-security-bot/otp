@@ -1445,11 +1445,14 @@ process_info_aux(Process *BIF_P,
 
     case am_garbage_collection: {
         DECL_AM(minor_gcs);
+        DECL_AM(major_gcs);
         Eterm t;
 
-	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2 + 3+2 + 3); /* last "3" is for outside tuple */
+	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2 + 3+2 + 3+2 + 3); /* last "3" is for outside tuple */
 
 	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp))); hp += 3;
+	res = CONS(hp, t, NIL); hp += 2;
+	t = TUPLE2(hp, AM_major_gcs, make_small(FULL_GCS(rp))); hp += 3;
 	res = CONS(hp, t, NIL); hp += 2;
 	t = TUPLE2(hp, am_fullsweep_after, make_small(MAX_GEN_GCS(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
