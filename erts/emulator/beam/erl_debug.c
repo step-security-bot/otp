@@ -219,11 +219,27 @@ pps(Process* p, Eterm* stop)
 
 #endif /* DEBUG */
 
+static Eterm* debug_const_heaps = NULL;
+
+void* erts_alloc_const_heap(ErtsAlcType_t type, Uint size)
+{
+    Eterm* hp = erts_alloc(type, 2*sizeof(Eterm) + size);
+
+    hp[0] = COMPRESS_POINTER(debug_const_heaps);
+    hp[1] = COMPRESS_POINTER(hp + 2 + size/sizeof(Eterm));
+    debug_const_heaps = hp;
+    return hp + 2;
+}
+
 static int verify_eterm(Process *p,Eterm element);
 static int verify_eterm(Process *p,Eterm element)
 {
     Eterm *ptr;
+    Eterm *start;
+    Eterm *end;
     ErlHeapFragment* mbuf;
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    int i;
 
     switch (primary_tag(element)) {
         case TAG_PRIMARY_LIST: ptr = list_val(element); break;
@@ -241,6 +257,30 @@ static int verify_eterm(Process *p,Eterm element)
             }
         }
     }
+
+    for (i = module_code_size(code_ix)-1; i >= 0; i--) {
+	Module* modp = module_code(i, code_ix);
+	if (modp && modp->curr.code) {
+	    start = (Eterm*)modp->curr.code;
+	    end = (Eterm*) ((char*)modp->curr.code + modp->curr.code_length);
+	    if (WITHIN(ptr, start, end))
+		return 1;
+	}
+	if (modp && modp->old.code) {
+	    start = (Eterm*)modp->old.code;
+	    end = (Eterm*) ((char*)modp->old.code + modp->old.code_length);
+	    if (WITHIN(ptr, start, end))
+		return 1;
+	}
+    }
+
+    for (start = debug_const_heaps; start; start = (Eterm*) EXPAND_POINTER(start[0]))
+    {
+	end = (Eterm*) EXPAND_POINTER(start[1]);
+	if (WITHIN(ptr, start+2, end))
+	    return 1;
+    }
+
     return 0;
 }
 
