@@ -1670,8 +1670,8 @@ BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is
 	binary = reg[live-extra_args];
     }
 
-    hp = p->htop;
-    p->htop += ERL_SUB_BIN_SIZE;
+    hp = HEAP_TOP(p);
+    HEAP_TOP(p) += ERL_SUB_BIN_SIZE;
 
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
 

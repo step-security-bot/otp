@@ -753,7 +753,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
     /*
      * Check all continuation pointers stored on the stack.
      */
-    for (sp = rp->stop; sp < STACK_START(rp); sp++) {
+    for (sp = STACK_TOP(rp); sp < STACK_START(rp); sp++) {
 	if (is_CP(*sp) && INSIDE(cp_val(*sp))) {
 	    return am_true;
 	}
@@ -840,14 +840,21 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    rp->fvalue = NIL;
 	    rp->ftrace = NIL;
 	}
-	if (any_heap_ref_ptrs(rp->stop, rp->hend, mod_start, mod_size)) {
+	if (any_heap_ref_ptrs(STACK_TOP(rp), STACK_END(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
-	if (any_heap_refs(rp->heap, rp->htop, mod_start, mod_size)) {
+	if (any_heap_refs(HEAP_START(rp), HEAP_TOP(rp), mod_start, mod_size)) {
+	    goto need_gc;
+	}
+	if (any_heap_refs(STACK_START(rp), HEAP_END(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
 
-	if (any_heap_refs(rp->old_heap, rp->old_htop, mod_start, mod_size)) {
+	if (any_heap_refs(OLD_HEAP(rp), OLD_HTOP(rp), mod_start, mod_size)) {
+	    goto need_gc;
+	}
+
+        if (any_heap_refs(OLD_STACK(rp), OLD_HEND(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
 

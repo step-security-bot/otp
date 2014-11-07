@@ -3757,13 +3757,14 @@ set_memory_fence(void *ptr, Uint sz, ErtsAlcType_t n)
     return (void *) ui_ptr;
 }
 
-static void *
+void *
 check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 {
     Uint sz;
     Uint found_type;
     UWord pre_pattern;
     UWord post_pattern;
+    UWord pattern = MK_PATTERN(n);
     UWord *ui_ptr;
 #ifdef HARD_DEBUG
     hdbg_mblk *mblk;
@@ -3774,7 +3775,9 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 
     ui_ptr = (UWord *) ptr;
     pre_pattern = *(--ui_ptr);
-    *size = sz = *(--ui_ptr);
+    sz = *(--ui_ptr);
+    if (size)
+        *size = sz;
 #ifdef HARD_DEBUG
     mblk = (hdbg_mblk *) *(--ui_ptr);
 #endif

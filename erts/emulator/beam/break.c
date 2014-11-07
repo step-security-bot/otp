@@ -79,7 +79,7 @@ process_info(int to, void *to_arg)
 	    /* Do not include processes with no heap,
 	     * they are most likely just created and has invalid data
 	     */
-	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
+	    if (!ERTS_PROC_IS_EXITING(p) && HEAP_START(p) != NULL)
 		print_process_info(to, to_arg, p);
 	}
     }
@@ -331,12 +331,12 @@ print_process_info(int to, void *to_arg, Process *p)
     /* print the number of reductions etc */
     erts_print(to, to_arg, "Reductions: %beu\n", p->reds);
 
-    erts_print(to, to_arg, "Stack+heap: %beu\n", p->heap_sz);
+    erts_print(to, to_arg, "Stack+heap: %beu\n", HEAP_SIZE(p));
     erts_print(to, to_arg, "OldHeap: %bpu\n",
                (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
-    erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
+    erts_print(to, to_arg, "Heap unused: %bpu\n", (STACK_START(p) - HEAP_TOP(p)));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
-	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
+	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_STACK(p) - OLD_HTOP(p)) );
     erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
 
     if (garbing) {
@@ -359,12 +359,13 @@ print_garb_info(int to, void *to_arg, Process* p)
 {
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
 #ifndef ERTS_SMP
-    erts_print(to, to_arg, "New heap start: %bpX\n", p->heap);
-    erts_print(to, to_arg, "New heap top: %bpX\n", p->htop);
-    erts_print(to, to_arg, "Stack top: %bpX\n", p->stop);
-    erts_print(to, to_arg, "Stack end: %bpX\n", p->hend);
+    erts_print(to, to_arg, "New heap start: %bpX\n", HEAP_START(p));
+    erts_print(to, to_arg, "New heap top: %bpX\n", HEAP_TOP(p));
+    erts_print(to, to_arg, "Stack top: %bpX\n", STACK_TOP(p));
+    erts_print(to, to_arg, "Stack end: %bpX\n", STACK_START(p));
     erts_print(to, to_arg, "Old heap start: %bpX\n", OLD_HEAP(p));
     erts_print(to, to_arg, "Old heap top: %bpX\n", OLD_HTOP(p));
+    erts_print(to, to_arg, "Old heap stack: %bpX\n", OLD_STACK(p));
     erts_print(to, to_arg, "Old heap end: %bpX\n", OLD_HEND(p));
 #endif
 }

@@ -10474,7 +10474,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
     
     p->approx_started = erts_get_approx_time();
     p->rcount = 0;
-    p->heap = NULL;
+    HEAP_START(p) = NULL;
 
 
     ASSERT(p == (Process *) (erts_ptab_pix2intptr_nob(
@@ -10588,13 +10588,15 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     hipe_init_process_smp(&p->hipe_smp);
 #endif
 #endif
-    p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
-    p->old_hend = p->old_htop = p->old_heap = NULL;
-    p->high_water = p->heap;
+
+    HEAP_START(p) = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
+    OLD_HEND(p) = OLD_HTOP(p) = OLD_HEAP(p) = OLD_STACK(p) = NULL;
+    HIGH_WATER(p) = HEAP_START(p);
     p->gen_gcs = 0;
-    p->stop = p->hend = p->heap + sz;
-    p->htop = p->heap;
-    p->heap_sz = sz;
+    STACK_TOP(p) = STACK_START(p) = HEAP_START(p) + sz;
+    HEAP_END(p) = STACK_START(p);
+    HEAP_TOP(p) = HEAP_START(p);
+    HEAP_SIZE(p) = sz;
     p->catches = 0;
 
     p->bin_vheap_sz     = p->min_vheap_size;
@@ -10619,7 +10621,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_MESSAGE(args,p,parent);
     BM_START_TIMER(system);
     BM_SWAP_TIMER(system,copy);
-    p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
+    p->arg_reg[2] = copy_struct(args, arg_size, &HEAP_TOP(p), &p->off_heap);
     BM_MESSAGE_COPIED(arg_size);
     BM_SWAP_TIMER(copy,system);
     p->arity = 3;
@@ -10650,7 +10652,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	p->group_leader =
 	    IS_CONST(parent->group_leader)
 	    ? parent->group_leader
-	    : STORE_NC(&p->htop, &p->off_heap, parent->group_leader);
+	    : STORE_NC(&HEAP_TOP(p), &p->off_heap, parent->group_leader);
     }
 
     erts_get_default_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER_PROC(p));
@@ -10797,10 +10799,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
 void erts_init_empty_process(Process *p)
 {
-    p->htop = NULL;
-    p->stop = NULL;
-    p->hend = NULL;
-    p->heap = NULL;
+    HEAP_TOP(p) = NULL;
+    STACK_TOP(p) = NULL;
+    HEAP_END(p) = NULL;
+    STACK_START(p) = NULL;
+    HEAP_START(p) = NULL;
     p->gen_gcs = 0;
     p->max_gen_gcs = 0;
     p->min_heap_size = 0;
@@ -10831,11 +10834,11 @@ void erts_init_empty_process(Process *p)
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
     p->common.u.alive.reg = NULL;
-    p->heap_sz = 0;
-    p->high_water = NULL;
-    p->old_hend = NULL;
-    p->old_htop = NULL;
-    p->old_heap = NULL;
+    HEAP_SIZE(p) = 0;
+    HIGH_WATER(p) = NULL;
+    OLD_HEND(p) = NULL;
+    OLD_HTOP(p) = NULL;
+    OLD_HEAP(p) = NULL;
     p->mbuf = NULL;
     p->mbuf_sz = 0;
     p->psd = NULL;
@@ -10917,21 +10920,22 @@ void
 erts_debug_verify_clean_empty_process(Process* p)
 {
     /* Things that erts_cleanup_empty_process() will *not* cleanup... */
-    ASSERT(p->htop == NULL);
-    ASSERT(p->stop == NULL);
-    ASSERT(p->hend == NULL);
-    ASSERT(p->heap == NULL);
+    ASSERT(HEAP_TOP(p) == NULL);
+    ASSERT(STACK_TOP(p) == NULL);
+    ASSERT(HEAP_END(p) == NULL);
+    ASSERT(STACK_START(p) == NULL);
+    ASSERT(HEAP_START(p) == NULL);
     ASSERT(p->common.id == ERTS_INVALID_PID);
     ASSERT(ERTS_TRACER_PROC(p) == NIL);
     ASSERT(ERTS_TRACE_FLAGS(p) == F_INITIAL_TRACE_FLAGS);
     ASSERT(p->group_leader == ERTS_INVALID_PID);
     ASSERT(p->next == NULL);
     ASSERT(p->common.u.alive.reg == NULL);
-    ASSERT(p->heap_sz == 0);
-    ASSERT(p->high_water == NULL);
-    ASSERT(p->old_hend == NULL);
-    ASSERT(p->old_htop == NULL);
-    ASSERT(p->old_heap == NULL);
+    ASSERT(HEAP_SIZE(p) == 0);
+    ASSERT(HIGH_WATER(p) == NULL);
+    ASSERT(OLD_HEND(p) == NULL);
+    ASSERT(OLD_HTOP(p) == NULL);
+    ASSERT(OLD_HEAP(p) == NULL);
 
     ASSERT(ERTS_P_MONITORS(p) == NULL);
     ASSERT(ERTS_P_LINKS(p) == NULL);
@@ -11022,23 +11026,23 @@ delete_process(Process* p)
 
 
 #ifdef DEBUG
-    sys_memset(p->heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
+    sys_memset(HEAP_START(p), DEBUG_BAD_BYTE, HEAP_SIZE(p)*sizeof(Eterm));
 #endif
 
 #ifdef HIPE
     hipe_delete_process(&p->hipe);
 #endif
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) p->heap, p->heap_sz*sizeof(Eterm));
-    if (p->old_heap != NULL) {
+    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP, (void*) HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
+    if (OLD_HEAP(p) != NULL) {
 
 #ifdef DEBUG
-	sys_memset(p->old_heap, DEBUG_BAD_BYTE,
-                   (p->old_hend-p->old_heap)*sizeof(Eterm));
+	sys_memset(OLD_HEAP(p), DEBUG_BAD_BYTE,
+                   (OLD_HEND(p)-OLD_HEAP(p))*sizeof(Eterm));
 #endif
-	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
-		       p->old_heap,
-		       (p->old_hend-p->old_heap)*sizeof(Eterm));
+	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+		       OLD_HEAP(p),
+		       (OLD_HEND(p)-OLD_HEAP(p))*sizeof(Eterm));
     }
 
     /*
@@ -12178,7 +12182,7 @@ erts_stack_dump(int to, void *to_arg, Process *p)
 	return;
     }
     erts_program_counter_info(to, to_arg, p);
-    for (sp = p->stop; sp < STACK_START(p); sp++) {
+    for (sp = STACK_TOP(p); sp < STACK_START(p); sp++) {
         yreg = stack_element_dump(to, to_arg, p, sp, yreg);
     }
 }

@@ -44,6 +44,21 @@ do {									\
     HTOP += 2;			/* update tospace htop */		\
 } while(0)
 
+#define MOVE_IMMED_CONS(PTR,CAR,HTOP,ORIG)                              \
+do {									\
+    Eterm gval;								\
+									\
+    HTOP -= 2;			/* update tospace htop */		\
+    HTOP[0] = CAR;		/* copy car */				\
+    HTOP[1] = PTR[1];		/* copy cdr */				\
+    ASSERT(is_immed(HTOP[0]) && (is_list(HTOP[0]) || is_immed(HTOP[0]))); \
+    gval = make_list(HTOP);	/* new location */			\
+    *ORIG = gval;		/* redirect original reference */	\
+    PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
+    PTR[1] = gval;		/* store forwarding address */		\
+} while(0)
+
+
 #define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
 do {                                                                    \
     Eterm gval;                                                         \

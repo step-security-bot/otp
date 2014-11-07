@@ -426,7 +426,8 @@ BIF_RETTYPE hipe_bifs_gc_info_0(BIF_ALIST_0)
 #endif
     Eterm *hp;
     Uint used_heap = (BIF_P->htop - BIF_P->heap) +
-		     (OLD_HTOP(BIF_P) - OLD_HEAP(BIF_P)) +
+        (OLD_HTOP(BIF_P) - OLD_HEAP(BIF_P) +
+         OLD_HEND(p) - OLD_STACK(p)) +
 		     MBUF_SIZE(BIF_P);
 
     Uint alloc_heap = (BIF_P->hend - BIF_P->heap) +
