@@ -404,12 +404,12 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	hp = HeapOnlyAlloc(p, words_needed);
 	res = bytes_to_big(LSB, bytes, sgn, hp); 
 	if (is_nil(res)) {
-	    p->htop = hp;
+	    HEAP_TOP(p) = hp;
 	    res = THE_NON_VALUE;
 	} else if (is_small(res)) {
-	    p->htop = hp;
+	    HEAP_TOP(p) = hp;
 	} else if ((actual = bignum_header_arity(*hp)+1) < words_needed) {
-	    p->htop = hp + actual;
+	    HEAP_TOP(p) = hp + actual;
 	}
 	break;
     }
@@ -1312,11 +1312,11 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
      */
     reg[live] = sb->orig;
     heap_need = ERL_SUB_BIN_SIZE + extra_words;
-    if (c_p->stop - c_p->htop < heap_need) {
+    if (STACK_TOP(c_p) - HEAP_TOP(c_p) < heap_need) {
 	(void) erts_garbage_collect(c_p, heap_need, reg, live+1);
     }
-    sb = (ErlSubBin *) c_p->htop;
-    c_p->htop += ERL_SUB_BIN_SIZE;
+    sb = (ErlSubBin *) HEAP_TOP(c_p);
+    HEAP_TOP(c_p) += ERL_SUB_BIN_SIZE;
     sb->thing_word = HEADER_SUB_BIN;
     sb->size = BYTE_OFFSET(used_size_in_bits);
     sb->bitsize = BIT_OFFSET(used_size_in_bits);
@@ -1345,11 +1345,11 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Allocate heap space.
 	 */
 	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
-	if (c_p->stop - c_p->htop < heap_need) {
+	if (STACK_TOP(c_p) - HEAP_TOP(c_p) < heap_need) {
 	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
 	    bin = reg[live];
 	}
-	hp = c_p->htop;
+	hp = HEAP_TOP(c_p);
 
 	/*
 	 * Calculate sizes. The size of the new binary, is the sum of the
@@ -1404,7 +1404,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	sb->is_writable = 1;
 	sb->orig = make_binary(pb);
 
-	c_p->htop = hp;
+	HEAP_TOP(c_p) = hp;
 	
 	/*
 	 * Now copy the data into the binary.
@@ -1525,10 +1525,10 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate heap space.
      */
     heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
-    if (p->stop - p->htop < heap_need) {
+    if (STACK_TOP(p) - HEAP_TOP(p) < heap_need) {
 	(void) erts_garbage_collect(p, heap_need, NULL, 0);
     }
-    hp = p->htop;
+    hp = HEAP_TOP(p);
     
     /*
      * Allocate the binary data struct itself.
@@ -1563,7 +1563,7 @@ erts_bs_init_writable(Process* p, Eterm sz)
     sb->is_writable = 1;
     sb->orig = make_binary(pb);
 
-    p->htop = hp;
+    HEAP_TOP(p) = hp;
     return make_binary(sb);
 }
 

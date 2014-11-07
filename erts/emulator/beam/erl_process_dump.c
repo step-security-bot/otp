@@ -87,9 +87,9 @@ Uint erts_process_memory(Process *p) {
 
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
-  size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
-  if (p->old_hend && p->old_heap)
-    size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+  size += (HEAP_SIZE(p) + p->mbuf_sz) * sizeof(Eterm);
+  if (OLD_HEND(p) && OLD_HEAP(p))
+    size += (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm);
 
   size += p->msg.len * sizeof(ErlMessage);
 
@@ -148,12 +148,12 @@ dump_process_info(int to, void *to_arg, Process *p)
 
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
 	erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
-	for (sp = p->stop; sp < STACK_START(p); sp++) {
+	for (sp = STACK_TOP(p); sp < STACK_START(p); sp++) {
 	    yreg = stack_element_dump(to, to_arg, sp, yreg);
 	}
 
 	erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
-	for (sp = p->stop; sp < STACK_START(p); sp++) {
+	for (sp = STACK_TOP(p); sp < STACK_START(p); sp++) {
 	    Eterm term = *sp;
 	    
 	    if (!is_catch(term) && !is_CP(term)) {

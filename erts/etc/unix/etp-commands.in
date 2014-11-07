@@ -1308,7 +1308,7 @@ define etp-stacktrace
 # Non-reentrant
 #
   set $etp_stacktrace_p = ($arg0)->stop
-  set $etp_stacktrace_end = ($arg0)->hend
+  set $etp_stacktrace_end = ($arg0)->stack
   printf "%% Stacktrace (%u): ", $etp_stacktrace_end-$etp_stacktrace_p
   etp ($arg0)->cp
   while $etp_stacktrace_p < $etp_stacktrace_end
@@ -1336,7 +1336,7 @@ define etp-stackdump
 # Non-reentrant
 #
   set $etp_stackdump_p = ($arg0)->stop
-  set $etp_stackdump_end = ($arg0)->hend
+  set $etp_stackdump_end = ($arg0)->stack
   printf "%% Stackdump (%u): ", $etp_stackdump_end-$etp_stackdump_p
   etp ($arg0)->cp
   while $etp_stackdump_p < $etp_stackdump_end

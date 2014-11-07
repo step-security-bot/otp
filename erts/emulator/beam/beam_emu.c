@@ -243,11 +243,11 @@ void** beam_ops;
 
 #define SWAPIN             \
     HTOP = HEAP_TOP(c_p);  \
-    E = c_p->stop
+    E = STACK_TOP(c_p)
 
 #define SWAPOUT            \
     HEAP_TOP(c_p) = HTOP;  \
-    c_p->stop = E
+    STACK_TOP(c_p) = E
 
 /*
  * Use LIGHT_SWAPOUT when the called function
@@ -261,7 +261,7 @@ void** beam_ops;
 #endif
 
 /*
- * Use LIGHT_SWAPIN when we know that c_p->stop cannot
+ * Use LIGHT_SWAPIN when we know that STACK_TOP(c_p) cannot
  * have been updated (i.e. if there cannot have been
  * a garbage-collection).
  */
@@ -279,7 +279,7 @@ void** beam_ops;
 
 #define PRE_BIF_SWAPOUT(P)						\
      HEAP_TOP((P)) = HTOP;  						\
-     (P)->stop = E;  							\
+     STACK_TOP(P) = E;                                                  \
      PROCESS_MAIN_CHK_LOCKS((P));					\
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
 
@@ -1634,7 +1634,7 @@ void process_main(void)
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
 	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
 	 r(0) = reg[0];
-	 E = c_p->stop;
+	 E = STACK_TOP(c_p);
      }
      HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
@@ -2778,7 +2778,7 @@ do {								\
 	if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
 	    Uint arity = ((Export *)Arg(0))->code[2];
 	    result = erts_gc_after_bif_call(c_p, result, reg, arity);
-	    E = c_p->stop;
+	    E = STACK_TOP(c_p);
 	}
 	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
@@ -2797,7 +2797,7 @@ do {								\
 	/*
 	 * Error handling.  SWAPOUT is not needed because it was done above.
 	 */
-	ASSERT(c_p->stop == E);
+	ASSERT(STACK_TOP(c_p) == E);
 	I = handle_error(c_p, I, reg, bf);
 	goto post_error_handling;
     }
@@ -4222,7 +4222,7 @@ do {								\
 	     TestHeapPreserve(wordsneeded, live, context);
 	     HEAP_TOP(c_p) = HTOP;
 #ifdef DEBUG
-	     c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
+	     STACK_TOP(c_p) = E;	/* Needed for checking in HeapOnlyAlloc(). */
 #endif
 	     result = erts_bs_start_match_2(c_p, context, slots);
 	     HTOP = HEAP_TOP(c_p);
@@ -5375,7 +5375,7 @@ next_catch(Process* c_p, Eterm *reg) {
     BeamInstr i_return_to_trace   = beam_return_to_trace[0];
     BeamInstr i_return_time_trace = beam_return_time_trace[0];
 
-    ptr = prev = c_p->stop;
+    ptr = prev = STACK_TOP(c_p);
     ASSERT(is_CP(*ptr));
     ASSERT(ptr <= STACK_START(c_p));
     if (ptr == STACK_START(c_p)) return NULL;
@@ -5446,7 +5446,7 @@ next_catch(Process* c_p, Eterm *reg) {
     
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
-    c_p->stop = prev;
+    STACK_TOP(c_p) = prev;
     if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_ptr) {
 	/* The stackframe closest to the catch contained an
 	 * return_to_trace entry, so since the execution now
@@ -5684,7 +5684,7 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
 	 * 
 	 * Skip trace stack frames.
 	 */
-	ptr = p->stop;
+	ptr = STACK_TOP(p);
 	if (ptr < STACK_START(p) &&
 	    (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
 				*cp_val(*ptr) != i_return_to_trace)) &&
@@ -6145,7 +6145,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
     c_p->arg_reg[0] = module;
     c_p->arg_reg[1] = function;
     c_p->arg_reg[2] = args;
-    c_p->stop = STACK_START(c_p);
+    STACK_TOP(c_p) = STACK_START(c_p);
     c_p->catches = 0;
     c_p->i = beam_apply;
     c_p->cp = (BeamInstr *) beam_apply+1;
@@ -6379,8 +6379,8 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 	PROCESS_MAIN_CHK_LOCKS(p);
     }
-    hp = p->htop;
-    p->htop = hp + needed;
+    hp = HEAP_TOP(p);
+    HEAP_TOP(p) = hp + needed;
     funp = (ErlFunThing *) hp;
     hp = funp->env;
     erts_refc_inc(&fe->refc, 2);
@@ -6512,16 +6512,16 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	    erts_garbage_collect(p, n, reg, Arg(2));
 	}
 
-	mhp = p->htop;
-	thp = p->htop;
-	E   = p->stop;
+	mhp = HEAP_TOP(p);
+	thp = HEAP_TOP(p);
+	E   = STACK_TOP(p);
 
 	for (i = 0; i < n/2; i++) {
 	    GET_TERM(*ptr++, *mhp++);
 	    GET_TERM(*ptr++, *mhp++);
 	}
 
-	p->htop = mhp;
+	HEAP_TOP(p) = mhp;
 
         factory.p = p;
         res = erts_hashmap_from_array(&factory, thp, n/2, 0);
@@ -6530,7 +6530,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
             reg[live] = res;
             erts_garbage_collect(p, 0, reg, live+1);
             res       = reg[live];
-            E = p->stop;
+            E = STACK_TOP(p);
         }
         return res;
     }
@@ -6539,9 +6539,9 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	erts_garbage_collect(p, need, reg, Arg(2));
     }
 
-    thp    = p->htop;
+    thp    = HEAP_TOP(p);
     mhp    = thp + 1 + n/2;
-    E      = p->stop;
+    E      = STACK_TOP(p);
     keys   = make_tuple(thp);
     *thp++ = make_arityval(n/2);
 
@@ -6554,7 +6554,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 	GET_TERM(*ptr++, *thp++);
 	GET_TERM(*ptr++, *mhp++);
     }
-    p->htop = mhp;
+    HEAP_TOP(p) = mhp;
     return make_flatmap(mp);
 }
 
@@ -6589,7 +6589,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	    return THE_NON_VALUE;
 
 	res = map;
-	E = p->stop;
+	E = STACK_TOP(p);
 	while(num_updates--) {
 	    /* assoc can't fail */
 	    GET_TERM(new_p[0], new_key);
@@ -6602,7 +6602,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		reg[live] = res;
 		erts_garbage_collect(p, 0, reg, live+1);
 		res       = reg[live];
-		E = p->stop;
+		E = STACK_TOP(p);
 	    }
 
 	    new_p += 2;
@@ -6659,8 +6659,8 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * +-----------------------------------+
      */
 
-    E = p->stop;
-    kp = p->htop + 1;		/* Point to first key */
+    E = STACK_TOP(p);
+    kp = HEAP_TOP(p) + 1;		/* Point to first key */
     hp = kp + num_old + num_updates;
 
     res = make_flatmap(hp);
@@ -6755,9 +6755,9 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Fill in the size of the map in both the key tuple and in the map.
      */
 
-    n = kp - p->htop - 1;	/* Actual number of keys/values */
-    *p->htop = make_arityval(n);
-    p->htop  = hp;
+    n = kp - HEAP_TOP(p) - 1;	/* Actual number of keys/values */
+    *HEAP_TOP(p) = make_arityval(n);
+    HEAP_TOP(p) = hp;
     mp->size = n;
 
     /* The expensive case, need to build a hashmap */
@@ -6811,7 +6811,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	}
 
 	res = map;
-	E = p->stop;
+	E = STACK_TOP(p);
 	while(n--) {
 	    GET_TERM(new_p[0], new_key);
 	    GET_TERM(new_p[1], val);
@@ -6829,7 +6829,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		reg[live] = res;
 		erts_garbage_collect(p, 0, reg, live+1);
 		res       = reg[live];
-		E = p->stop;
+		E = STACK_TOP(p);
 	    }
 
 	    new_p += 2;
@@ -6845,7 +6845,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	E = p->stop;
+	E = STACK_TOP(p);
 	p->freason = BADKEY;
 	GET_TERM(new_p[0], p->fvalue);
 	return THE_NON_VALUE;
@@ -6868,8 +6868,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Update map, keeping the old key tuple.
      */
 
-    hp = p->htop;
-    E = p->stop;
+    hp = HEAP_TOP(p);
+    E = STACK_TOP(p);
 
     old_vals = flatmap_get_values(old_mp);
     old_keys = flatmap_get_keys(old_mp);
@@ -6901,8 +6901,8 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		for (i++, old_vals++; i < num_old; i++) {
 		    *hp++ = *old_vals++;
 		}
-		ASSERT(hp == p->htop + need);
-		p->htop = hp;
+		ASSERT(hp == HEAP_TOP(p) + need);
+		HEAP_TOP(p) = hp;
 		return res;
 	    } else {
 		new_p += 2;
@@ -6916,7 +6916,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      * Updates left. That means that at least one the keys in the
      * update list did not previously exist.
      */
-    ASSERT(hp == p->htop + need);
+    ASSERT(hp == HEAP_TOP(p) + need);
     p->freason = BADKEY;
     p->fvalue = new_key;
     return THE_NON_VALUE;

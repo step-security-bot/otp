@@ -384,8 +384,8 @@ Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live)
 	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
 		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
 	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += BIG_UINT_HEAP_SIZE;
 	    return uint_to_big(sz, hp);
 	}
     }
@@ -410,8 +410,8 @@ Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
 		if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
 		    erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
 		}
-		hp = p->htop;
-		p->htop += BIG_UINT_HEAP_SIZE;
+		hp = HEAP_TOP(p);
+		HEAP_TOP(p) += BIG_UINT_HEAP_SIZE;
 		return uint_to_big(low_bits, hp);
 	    }
 	} else {
@@ -420,8 +420,8 @@ Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
 	    if (ERTS_NEED_GC(p, sz)) {
 		erts_garbage_collect(p, sz, reg, live);
 	    }
-	    hp = p->htop;
-	    p->htop += sz;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += sz;
 	    hp[0] = make_pos_bignum_header(sz-1);
 	    BIG_DIGIT(hp,0) = low_bits;
 	    BIG_DIGIT(hp,1) = high_bits;
@@ -447,8 +447,8 @@ Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
 	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
 		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
 	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += BIG_UINT_HEAP_SIZE;
 	    return uint_to_big(bytesize, hp);
 	}
     } else {
@@ -472,8 +472,8 @@ Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
         if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
             erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
         }
-        hp = p->htop;
-        p->htop += BIG_UINT_HEAP_SIZE;
+        hp = HEAP_TOP(p);
+        HEAP_TOP(p) += BIG_UINT_HEAP_SIZE;
         return uint_to_big(size, hp);
     }
     p->fvalue = arg;
@@ -498,8 +498,8 @@ Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
 		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live+1);
 		arg = reg[live];
 	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += BIG_UINT_HEAP_SIZE;
 	    return uint_to_big(i, hp);
 	} else {
 	    return make_small(i);
@@ -515,8 +515,8 @@ Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
 		erts_garbage_collect(p, sz, reg, live+1);
 		arg = reg[live];
 	    }
-	    hp = p->htop;
-	    p->htop += sz;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += sz;
 	    sz--;
 	    res = make_big(hp);
 	    x = big_val(arg);
@@ -535,8 +535,8 @@ Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
 		erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live+1);
 		arg = reg[live];
 	    }
-	    hp = p->htop;
-	    p->htop += FLOAT_SIZE_OBJECT;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
 	    f.fd = fabs(f.fd);
 	    res = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -575,8 +575,8 @@ Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live)
 	erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live+1);
 	arg = reg[live];
     }
-    hp = p->htop;
-    p->htop += FLOAT_SIZE_OBJECT;
+    hp = HEAP_TOP(p);
+    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
     res = make_float(hp);
     PUT_DOUBLE(f, hp);
     return res;
@@ -655,8 +655,8 @@ gc_double_to_integer(Process* p, double x, Eterm* reg, Uint live)
     if (ERTS_NEED_GC(p, sz)) {
 	erts_garbage_collect(p, sz, reg, live);
     }
-    hp = p->htop;
-    p->htop += sz;
+    hp = HEAP_TOP(p);
+    HEAP_TOP(p) += sz;
     res = make_big(hp);
     xp = (ErtsDigit*) (hp + 1);
 

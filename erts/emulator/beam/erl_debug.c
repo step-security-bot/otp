@@ -34,7 +34,7 @@
 #define WITHIN(ptr, x, y) ((x) <= (ptr) && (ptr) < (y))
 
 #define IN_HEAP(p, ptr)                                                 \
-    (WITHIN((ptr), p->heap, p->hend) ||                                 \
+    (WITHIN((ptr), HEAP_START(p), HEAP_END(p)) ||                       \
      (OLD_HEAP(p) && WITHIN((ptr), OLD_HEAP(p), OLD_HEND(p))))
 
 
@@ -58,6 +58,7 @@ static const char dashes[PTR_SIZE+3] = {
  */
 
 void pps(Process*, Eterm*);
+
 void ptd(Process*, Eterm);
 void paranoid_display(int, void*, Process*, Eterm);
 static int dcount;
@@ -247,24 +248,24 @@ static int verify_eterm(Process *p,Eterm element)
 void erts_check_stack(Process *p)
 {
     Eterm *elemp;
-    Eterm *stack_start = p->heap + p->heap_sz;
-    Eterm *stack_end = p->htop;
+    Eterm *stack_start = HEAP_START(p) + HEAP_SIZE(p);
+    Eterm *stack_end = HEAP_TOP(p);
 
-    if (p->stop > stack_start)
+    if (STACK_TOP(p) > stack_start)
 	erl_exit(1,
 		 "<%lu.%lu.%lu>: Stack underflow\n",
 		 internal_pid_channel_no(p->common.id),
 		 internal_pid_number(p->common.id),
 		 internal_pid_serial(p->common.id));
 
-    if (p->stop < stack_end)
+    if (STACK_TOP(p) < stack_end)
 	erl_exit(1,
 		 "<%lu.%lu.%lu>: Stack overflow\n",
 		 internal_pid_channel_no(p->common.id),
 		 internal_pid_number(p->common.id),
 		 internal_pid_serial(p->common.id));
 
-    for (elemp = p->stop; elemp < stack_start; elemp++) {
+    for (elemp = STACK_TOP(p); elemp < stack_start; elemp++) {
 	int in_mbuf = 0;
 	Eterm *ptr;
 	ErlHeapFragment* mbuf;
@@ -348,6 +349,7 @@ void erts_check_heap(Process *p)
     ErlHeapFragment* bp = MBUF(p);
 
     erts_check_memory(p,HEAP_START(p),HEAP_TOP(p));
+    erts_check_memory(p,STACK_START(p),HEAP_END(p));
     if (OLD_HEAP(p) != NULL) {
         erts_check_memory(p,OLD_HEAP(p),OLD_HTOP(p));
     }
@@ -572,6 +574,7 @@ static void print_process_memory(Process *p)
                 PTR_SIZE, (unsigned long)HEAP_TOP(p),
                 PTR_SIZE, (unsigned long)HEAP_END(p));
     print_untagged_memory(HEAP_START(p),HEAP_TOP(p));
+    print_untagged_memory(STACK_START(p),HEAP_END(p));
 
     if (OLD_HEAP(p)) {
         erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx 0x%0*lx %s-+\n",

@@ -588,7 +588,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	old = root[2];
     }
 #ifdef DEBUG
-    hp_limit = p->htop + needed;
+    hp_limit = HEAP_TOP(p) + needed;
 #endif
 
     /*
@@ -719,7 +719,7 @@ static void shrink(Process *p, Eterm* ret)
 		    lo = pd->data[pd->splitPosition];
 		}
 #ifdef DEBUG
-		hp_limit = p->htop + needed;
+		hp_limit = HEAP_TOP(p) + needed;
 #endif
 		if (is_tuple(lo)) {
 		    if (is_tuple(hi)) {
@@ -813,7 +813,7 @@ static void grow(Process *p)
 	BUMP_REDS(p, erts_garbage_collect(p, needed, 0, 0));
     }
 #ifdef DEBUG
-    hp_limit = p->htop + needed;
+    hp_limit = HEAP_TOP(p) + needed;
 #endif
 
     /*

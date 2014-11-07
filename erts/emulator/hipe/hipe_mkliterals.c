@@ -479,8 +479,8 @@ static const struct rts_param rts_params[] = {
     },
 
     /* Field offsets in a process struct */
-    { 22, "P_HP", 1, offsetof(struct process, htop) },
-    { 23, "P_HP_LIMIT", 1, offsetof(struct process, stop) },
+    { 22, "P_HP", 1, offsetof(struct process, PREFIX(htop)) },
+    { 23, "P_HP_LIMIT", 1, offsetof(struct process, PREFIX(stop)) },
     { 24, "P_OFF_HEAP_FIRST", 1, offsetof(struct process, off_heap.first) },
     { 25, "P_MBUF", 1, offsetof(struct process, mbuf) },
     { 26, "P_ID", 1, offsetof(struct process, common.id) },

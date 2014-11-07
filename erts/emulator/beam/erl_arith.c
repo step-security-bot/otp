@@ -58,15 +58,15 @@ static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint allo
     Uint actual;
 
     if (is_immed(res)) {
-	if (p->heap <= hp && hp < p->htop) {
-	    p->htop = hp;
+	if (HEAP_START(p) <= hp && hp < HEAP_TOP(p)) {
+	    HEAP_TOP(p) = hp;
 	}
 	else {
 	    erts_heap_frag_shrink(p, hp);
 	}
     } else if ((actual = bignum_header_arity(*hp)+1) < alloc) {
-	if (p->heap <= hp && hp < p->htop) {
-	    p->htop = hp+actual;
+	if (HEAP_START(p) <= hp && hp < HEAP_TOP(p)) {
+	    HEAP_TOP(p) = hp+actual;
 	}
 	else {
 	    erts_heap_frag_shrink(p, hp+actual);
@@ -1135,16 +1135,16 @@ static ERTS_INLINE void
 trim_heap(Process* p, Eterm* hp, Eterm res)
 {
     if (is_immed(res)) {
-	ASSERT(p->heap <= hp && hp <= p->htop);
-	p->htop = hp;
+	ASSERT(HEAP_START(p) <= hp && hp <= HEAP_TOP(p));
+	HEAP_TOP(p) = hp;
     } else {
 	Eterm* new_htop;
 	ASSERT(is_big(res));
 	new_htop = hp + bignum_header_arity(*hp) + 1;
-	ASSERT(p->heap <= new_htop && new_htop <= p->htop);
-	p->htop = new_htop;
+	ASSERT(HEAP_START(p) <= new_htop && new_htop <= HEAP_TOP(p));
+	HEAP_TOP(p) = new_htop;
     }
-    ASSERT(p->heap <= p->htop && p->htop <= p->stop);
+    ASSERT(HEAP_START(p) <= HEAP_TOP(p) && HEAP_TOP(p) <= STACK_TOP(p));
 }
 
 /*
@@ -1190,8 +1190,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 			if (ERTS_NEED_GC(p, 2)) {
 			    erts_garbage_collect(p, 2, reg, live);
 			}
-			hp = p->htop;
-			p->htop += 2;
+			hp = HEAP_TOP(p);
+			HEAP_TOP(p) += 2;
 			res = small_to_big(ires, hp);
 			return res;
 		    }
@@ -1257,8 +1257,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 			    arg2 = reg[live+1];
 			}
 		    }
-		    hp = p->htop;
-		    p->htop += need_heap;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += need_heap;
 		    res = big_plus(arg1, arg2, hp);
 		    trim_heap(p, hp, res);
 		    if (is_nil(res)) {
@@ -1307,8 +1307,8 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
 			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
 		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
 		    res = make_float(hp);
 		    PUT_DOUBLE(f1, hp);
 		    return res;
@@ -1358,8 +1358,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 			if (ERTS_NEED_GC(p, 2)) {
 			    erts_garbage_collect(p, 2, reg, live);
 			}
-			hp = p->htop;
-			p->htop += 2;
+			hp = HEAP_TOP(p);
+			HEAP_TOP(p) += 2;
 			res = small_to_big(ires, hp);
 			return res;
 		    }
@@ -1414,8 +1414,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 			    arg2 = reg[live+1];
 			}
 		    }
-		    hp = p->htop;
-		    p->htop += need_heap;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += need_heap;
 		    res = big_minus(arg1, arg2, hp);
                     trim_heap(p, hp, res);
 		    if (is_nil(res)) {
@@ -1473,8 +1473,8 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
 			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
 		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
 		    res = make_float(hp);
 		    PUT_DOUBLE(f1, hp);
 		    return res;
@@ -1553,8 +1553,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 			    if (ERTS_NEED_GC(p, need)) {
 				erts_garbage_collect(p, need, reg, live);
 			    }
-			    hp = p->htop;
-			    p->htop += need;
+			    hp = HEAP_TOP(p);
+			    HEAP_TOP(p) += need;
 			    res = make_big(hp);
 			    *hp++ = hdr;
 			    *hp++ = big_res[1];
@@ -1632,8 +1632,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 			    arg2 = reg[live+1];
 			}
 		    }
-		    hp = p->htop;
-		    p->htop += need_heap;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += need_heap;
 		    res = big_times(arg1, arg2, hp);
 		    trim_heap(p, hp, res);
 
@@ -1689,8 +1689,8 @@ erts_gc_mixed_times(Process* p, Eterm* reg, Uint live)
 		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
 			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
 		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
 		    res = make_float(hp);
 		    PUT_DOUBLE(f1, hp);
 		    return res;
@@ -1823,8 +1823,8 @@ erts_gc_mixed_div(Process* p, Eterm* reg, Uint live)
 		    if (ERTS_NEED_GC(p, FLOAT_SIZE_OBJECT)) {
 			erts_garbage_collect(p, FLOAT_SIZE_OBJECT, reg, live);
 		    }
-		    hp = p->htop;
-		    p->htop += FLOAT_SIZE_OBJECT;
+		    hp = HEAP_TOP(p);
+		    HEAP_TOP(p) += FLOAT_SIZE_OBJECT;
 		    PUT_DOUBLE(f1, hp);
 		    return make_float(hp);
 		default:
@@ -1889,8 +1889,8 @@ erts_gc_int_div(Process* p, Eterm* reg, Uint live)
 		    arg2 = reg[live+1];
 		}
 	    }
-	    hp = p->htop;
-	    p->htop += need;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += need;
 	    arg1 = big_div(arg1, arg2, hp);
 	    trim_heap(p, hp, arg1);
 	    if (is_nil(arg1)) {
@@ -1952,8 +1952,8 @@ erts_gc_int_rem(Process* p, Eterm* reg, Uint live)
 		    arg2 = reg[live+1];
 		}
 	    }
-	    hp = p->htop;
-	    p->htop += need;
+	    hp = HEAP_TOP(p);
+	    HEAP_TOP(p) += need;
 	    arg1 = big_rem(arg1, arg2, hp);
 	    trim_heap(p, hp, arg1);
 	    if (is_nil(arg1)) {
@@ -2009,8 +2009,8 @@ Eterm erts_gc_##func(Process* p, Eterm* reg, Uint live)				\
 	p->freason = BADARITH;							\
 	return THE_NON_VALUE;							\
     }										\
-    hp = p->htop;								\
-    p->htop += need;								\
+    hp = HEAP_TOP(p);								\
+    HEAP_TOP(p) += need;								\
     arg1 = big_##func(arg1, arg2, hp);						\
     trim_heap(p, hp, arg1);							\
     return arg1;								\
@@ -2037,8 +2037,8 @@ Eterm erts_gc_bnot(Process* p, Eterm* reg, Uint live)
 	    erts_garbage_collect(p, need, reg, live+1);
 	    arg = reg[live];
 	}
-	bigp = p->htop;
-	p->htop += need;
+	bigp = HEAP_TOP(p);
+	HEAP_TOP(p) += need;
 	result = big_bnot(arg, bigp);
 	trim_heap(p, bigp, result);
 	if (is_nil(result)) {

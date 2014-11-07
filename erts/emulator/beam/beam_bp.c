@@ -649,21 +649,21 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 	if (! (w == (BeamInstr) BeamOp(op_i_return_time_trace) ||
 	       w == (BeamInstr) BeamOp(op_return_trace) ||
 	       w == (BeamInstr) BeamOp(op_i_return_to_trace)) ) {
-	    Eterm* E = c_p->stop;
-	    ASSERT(c_p->htop <= E && E <= c_p->hend);
-	    if (E - 2 < c_p->htop) {
+	    Eterm* E = STACK_TOP(c_p);
+	    ASSERT(STACK_END(c_p) <= E && E <= STACK_START(c_p));
+	    if (E - 2 < HEAP_TOP(c_p)) {
 		(void) erts_garbage_collect(c_p, 2, reg, I[-1]);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    }
-	    E = c_p->stop;
+	    E = STACK_TOP(c_p);
 
-	    ASSERT(c_p->htop <= E && E <= c_p->hend);
+	    ASSERT(STACK_END(c_p) <= E && E <= STACK_START(c_p));
 
 	    E -= 2;
 	    E[0] = make_cp(I);
 	    E[1] = make_cp(c_p->cp);     /* original return address */
 	    c_p->cp = beam_return_time_trace;
-	    c_p->stop = E;
+	    STACK_TOP(c_p) = E;
 	}
     }
 
@@ -749,7 +749,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	BeamInstr i_return_time_trace = beam_return_time_trace[0];
 	Eterm *cpp;
 	/* Maybe advance cp to skip trace stack frames */
-	for (cpp = p->stop;  ;  cp = cp_val(*cpp++)) {
+	for (cpp = STACK_TOP(p);  ;  cp = cp_val(*cpp++)) {
 	    if (*cp == i_return_trace) {
 		/* Skip stack frame variables */
 		while (is_not_CP(*cpp)) cpp++;
@@ -806,7 +806,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	    }
 	    if ((flags & MATCH_SET_RETURN_TO_TRACE) && p->catches > 0) {
 		/* can only happen if(local)*/
-		Eterm *ptr = p->stop;
+		Eterm *ptr = STACK_TOP(p);
 		ASSERT(is_CP(*ptr));
 		ASSERT(ptr <= STACK_START(p));
 		/* Search the nearest stack frame for a catch */
@@ -864,7 +864,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
     BeamInstr *cp_save;
     Uint32 flags;
     Uint need = 0;
-    Eterm* E = c_p->stop;
+    Eterm* E = STACK_TOP(c_p);
 
     w = *c_p->cp;
     if (w == (BeamInstr) BeamOp(op_return_trace)) {
@@ -910,22 +910,22 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	need += 3;
     }
     if (need) {
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	if (E - need < c_p->htop) {
+	ASSERT(STACK_END(c_p) <= E && E <= STACK_START(c_p));
+	if (E - need < HEAP_TOP(c_p)) {
 	    (void) erts_garbage_collect(c_p, need, reg, I[-1]);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    E = c_p->stop;
+	    E = STACK_TOP(c_p);
 	}
     }
     if (flags & MATCH_SET_RETURN_TO_TRACE && !return_to_trace) {
 	E -= 1;
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
+	ASSERT(STACK_END(c_p) <= E && E <= STACK_START(c_p));
 	E[0] = make_cp(c_p->cp);
 	c_p->cp = beam_return_to_trace;
     }
     if (flags & MATCH_SET_RX_TRACE) {
 	E -= 3;
-	ASSERT(c_p->htop <= E && E <= c_p->hend);
+	ASSERT(STACK_END(c_p) <= E && E <= STACK_START(c_p));
 	ASSERT(is_CP((Eterm) (UWord) (I - 3)));
 	ASSERT(am_true == tracer_pid ||
 	       is_internal_pid(tracer_pid) || is_internal_port(tracer_pid));
@@ -940,7 +940,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     }
-    c_p->stop = E;
+    STACK_TOP(c_p) = E;
     return tracer_pid;
 }
 

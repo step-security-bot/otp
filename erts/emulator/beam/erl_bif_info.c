@@ -1413,9 +1413,9 @@ process_info_aux(Process *BIF_P,
 	Uint total_heap_size;
 	Uint hsz = 3;
 
-	total_heap_size = rp->heap_sz;
-	if (rp->old_hend && rp->old_heap)
-	    total_heap_size += rp->old_hend - rp->old_heap;
+	total_heap_size = HEAP_SIZE(rp);
+	if (OLD_HEND(rp) && OLD_HEAP(rp))
+	    total_heap_size += OLD_HEND(rp) - OLD_HEAP(rp);
 
 	total_heap_size += rp->mbuf_sz;
 
@@ -1432,7 +1432,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_stack_size: {
-	Uint stack_size = STACK_START(rp) - rp->stop;
+	Uint stack_size = STACK_START(rp) - STACK_TOP(rp);
 	Uint hsz = 3;
 	(void) erts_bld_uint(NULL, &hsz, stack_size);
 	hp = HAlloc(BIF_P, hsz);
