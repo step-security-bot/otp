@@ -79,6 +79,28 @@ do {                                                                    \
                                                                         \
 } while(0)
 
+#define MOVE_IMMED_BOXED(PTR,HDR,HTOP,ORIG)                             \
+do {                                                                    \
+    Eterm gval;                                                         \
+    Sint nelts;                                                         \
+    int i;                                                              \
+                                                                        \
+    ASSERT(is_header(HDR));                                             \
+    nelts = header_arity(HDR);                                          \
+    switch ((HDR) & _HEADER_SUBTAG_MASK) {                              \
+    case SUB_BINARY_SUBTAG: nelts++; break;                             \
+    case MAP_SUBTAG: nelts+=map_get_size(PTR) + 1; break;               \
+    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
+    }                                                                   \
+    HTOP   -= nelts + 1;                                                \
+    gval    = make_boxed(HTOP);                                         \
+    *ORIG   = gval;                                                     \
+    HTOP[0] = HDR;                                                      \
+    *PTR++  = gval;                                                     \
+    for (i = 1; i <= nelts; i++)                                        \
+        HTOP[i] = *PTR++;                                               \
+} while(0)
+
 #define in_area(ptr,start,nbytes) \
  ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 

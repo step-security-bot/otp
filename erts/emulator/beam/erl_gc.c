@@ -1219,9 +1219,27 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (in_area(ptr, heap, mature_size)) {
-		    MOVE_BOXED(ptr,val,old_htop,n_hp++);
+                    switch (val & _HEADER_SUBTAG_MASK) {
+                    case POS_BIG_SUBTAG:
+                    case NEG_BIG_SUBTAG:
+                    case REF_SUBTAG:
+                    case FLOAT_SUBTAG:
+                    case HEAP_BINARY_SUBTAG:
+                        MOVE_IMMED_BOXED(ptr,val,old_stack,n_hp++);
+                        continue;
+                    }
+                    MOVE_BOXED(ptr,val,old_htop,n_hp++);
 		} else if (in_area(ptr, heap, heap_size)) {
-		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
+                    switch (val & _HEADER_SUBTAG_MASK) {
+                    case POS_BIG_SUBTAG:
+                    case NEG_BIG_SUBTAG:
+                    case REF_SUBTAG:
+                    case FLOAT_SUBTAG:
+                    case HEAP_BINARY_SUBTAG:
+                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        continue;
+                    }
+                    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
                     n_hp++;
                 }
@@ -1542,6 +1560,15 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+                    switch (val & _HEADER_SUBTAG_MASK) {
+                    case POS_BIG_SUBTAG:
+                    case NEG_BIG_SUBTAG:
+                    case REF_SUBTAG:
+                    case FLOAT_SUBTAG:
+                    case HEAP_BINARY_SUBTAG:
+                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        continue;
+                    }
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
 		    n_hp++;
@@ -1881,6 +1908,11 @@ disallow_pointers_to_heap(Eterm *heap, Eterm *hend, char *area, Uint area_sz)
 {
     Eterm* htop;
 
+    /* Sometimes we realloc into different place in same segment so we have to
+       allow pointers to where the heap to be checked is */
+    char *heap_area = (char*)heap;
+    Uint heap_sz = (char*)hend - heap_area;
+
     htop = heap;
 
     while (htop < hend) {
@@ -1893,7 +1925,8 @@ disallow_pointers_to_heap(Eterm *heap, Eterm *hend, char *area, Uint area_sz)
 	    break;
 	case TAG_PRIMARY_LIST:
 	    ptr = _unchecked_list_val(val);
-	    if (in_area(ptr, area, area_sz)) {
+	    if (in_area(ptr, area, area_sz)
+                && !in_area(ptr, heap_area, heap_sz)) {
                 abort();
 	    }
 	    break;
@@ -2047,7 +2080,18 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_stackp, char* src, Uint src
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (in_area(ptr, src, src_size)) {
-		MOVE_BOXED(ptr,val,n_htop,n_hp++);
+                if (n_stack) {
+                    switch (val & _HEADER_SUBTAG_MASK) {
+                    case POS_BIG_SUBTAG:
+                    case NEG_BIG_SUBTAG:
+                    case REF_SUBTAG:
+                    case FLOAT_SUBTAG:
+                    case HEAP_BINARY_SUBTAG:
+                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        continue;
+                    }
+                }
+                MOVE_BOXED(ptr,val,n_htop,n_hp++);
 	    } else {
 		n_hp++;
 	    }
@@ -2403,6 +2447,17 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
         char *immed_area = NULL;
         Uint immed_area_size = 0;
 
+        HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
+
+        HEAP_END(p) = new_heap + new_sz;
+        STACK_START(p) = HEAP_END(p) - immed_size;
+
+        prev_stop = new_heap + (STACK_TOP(p) - HEAP_START(p));
+        STACK_TOP(p) = STACK_START(p) - stack_size;
+
+        sys_memmove(STACK_TOP(p), prev_stop,
+                    (stack_size + immed_size) * sizeof(Eterm));
+
         if (immed_size) {
             immed_offs = STACK_TOP(p) - old_stop;
             immed_area = (char *) old_stack;
@@ -2411,23 +2466,14 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
         offset_heap(new_heap, heap_size, offs, area, area_size,
                     immed_offs, immed_area, immed_area_size);
 
-        HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
-
-        HEAP_END(p) = new_heap + new_sz;
-        STACK_START(p) = HEAP_END(p) - immed_size;
-
         if (immed_size)
             offset_heap(STACK_START(p), immed_size, offs, area, area_size,
                         immed_offs, immed_area, immed_area_size);
 
-        prev_stop = new_heap + (STACK_TOP(p) - HEAP_START(p));
-        STACK_TOP(p) = STACK_START(p) - stack_size;
-        sys_memmove(STACK_TOP(p), prev_stop,
-                    (stack_size + immed_size) * sizeof(Eterm));
-
         offset_rootset(p, offs, area, area_size, objv, nobj);
         if (immed_size)
             offset_rootset(p, offs, immed_area, immed_area_size, objv, nobj);
+
         HEAP_TOP(p) = new_heap + heap_size;
         HEAP_START(p) = new_heap;
     }
