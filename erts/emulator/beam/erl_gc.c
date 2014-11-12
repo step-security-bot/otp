@@ -1112,8 +1112,10 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Uint immed_size = (char *) HEAP_END(p) - stack;
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* old_stack = OLD_STACK(p);
+#ifdef DEBUG
     char *old_heap = (char*)OLD_HEAP(p);
     Uint old_heap_sz = (char*)OLD_HEND(p) - old_heap;
+#endif
 
     Eterm* n_heap, *n_hend, *n_stack, *n_htop;
 
@@ -1205,7 +1207,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
         ASSERT(n_stack == n_hend);
 
 	while (n_hp != n_htop) {
-	    /*ASSERT(n_hp < n_htop);*/
+	    ASSERT(n_hp < n_htop);
             ASSERT(saved_n_hp == NULL);
             gval = *n_hp;
 	    switch (primary_tag(gval)) {

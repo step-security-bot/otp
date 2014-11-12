@@ -2178,6 +2178,8 @@ trace_gc(Process *p, Eterm what)
     ERTS_DECL_AM(bin_vheap_block_size);
     ERTS_DECL_AM(bin_old_vheap_size);
     ERTS_DECL_AM(bin_old_vheap_block_size);
+    ERTS_DECL_AM(immed_area_size);
+    ERTS_DECL_AM(old_immed_area_size);
 
     ErlHeapFragment *bp = NULL;
     ErlOffHeap *off_heap;
@@ -2200,7 +2202,9 @@ trace_gc(Process *p, Eterm what)
 	AM_bin_vheap_size,
 	AM_bin_vheap_block_size,
 	AM_bin_old_vheap_size,
-	AM_bin_old_vheap_block_size
+	AM_bin_old_vheap_block_size,
+        AM_immed_area_size,
+        AM_old_immed_area_size
     };
 
     UWord values[] = {
@@ -2214,7 +2218,9 @@ trace_gc(Process *p, Eterm what)
 	MSO(p).overhead,
 	BIN_VHEAP_SZ(p),
 	BIN_OLD_VHEAP(p),
-	BIN_OLD_VHEAP_SZ(p)
+	BIN_OLD_VHEAP_SZ(p),
+        HEAP_END(p) - STACK_START(p),
+        OLD_HEND(p) - OLD_STACK(p)
     };
 #define LOCAL_HEAP_SIZE						\
     (sizeof(values)/sizeof(*values)) *				\
