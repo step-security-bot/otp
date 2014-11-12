@@ -350,10 +350,10 @@ void erts_check_heap(Process *p)
     ErlHeapFragment* bp = MBUF(p);
 
     erts_check_memory(p,HEAP_START(p),HEAP_TOP(p));
-    erts_check_memory(p,STACK_START(p),HEAP_END(p));
+    erts_check_memory(p,IMMED_TOP(p),IMMED_END(p));
     if (OLD_HEAP(p) != NULL) {
         erts_check_memory(p,OLD_HEAP(p),OLD_HTOP(p));
-        erts_check_memory(p,OLD_STACK(p),OLD_HEND(p));
+        erts_check_memory(p,OLD_ITOP(p),OLD_IEND(p));
     }
 
     while (bp) {
@@ -569,25 +569,26 @@ static void print_process_memory(Process *p)
                 dashes, dashes);
     print_untagged_memory(STACK_TOP(p),STACK_START(p));
 
-    erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx 0x%0*lx 0x%0*lx +\n",
+    erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx 0x%0*lx 0x%0*lx 0x%0*lx +\n",
                 PTR_SIZE, "Heap",
                 PTR_SIZE, (unsigned long)HEAP_START(p),
                 PTR_SIZE, (unsigned long)HIGH_WATER(p),
                 PTR_SIZE, (unsigned long)HEAP_TOP(p),
+                PTR_SIZE, (unsigned long)IMMED_TOP(p),
                 PTR_SIZE, (unsigned long)HEAP_END(p));
     print_untagged_memory(HEAP_START(p),HEAP_TOP(p));
-    print_untagged_memory(STACK_START(p),HEAP_END(p));
+    print_untagged_memory(IMMED_TOP(p),IMMED_END(p));
 
     if (OLD_HEAP(p)) {
         erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx 0x%0*lx 0x%0*lx %s-+\n",
                     PTR_SIZE, "Old Heap",
                     PTR_SIZE, (unsigned long)OLD_HEAP(p),
                     PTR_SIZE, (unsigned long)OLD_HTOP(p),
-                    PTR_SIZE, (unsigned long)OLD_STACK(p),
-                    PTR_SIZE, (unsigned long)OLD_HEND(p),
+                    PTR_SIZE, (unsigned long)OLD_ITOP(p),
+                    PTR_SIZE, (unsigned long)OLD_IEND(p),
                     dashes);
         print_untagged_memory(OLD_HEAP(p),OLD_HTOP(p));
-        print_untagged_memory(OLD_STACK(p),OLD_HEND(p));
+        print_untagged_memory(OLD_ITOP(p),OLD_IEND(p));
     }
 
     if (bp)
@@ -616,17 +617,18 @@ void print_memory_info(Process *p)
         erts_printf("======================================\n");
         erts_printf("+- local heap ----%s-%s-%s-%s-+\n",
                     dashes,dashes,dashes,dashes);
-        erts_printf("| Young | 0x%0*lx - (0x%0*lx) - 0x%0*lx - 0x%0*lx |\n",
+        erts_printf("| Young | 0x%0*lx - (0x%0*lx) - 0x%0*lx - 0x%0*lx - 0x%0*lx |\n",
                     PTR_SIZE, (unsigned long)HEAP_START(p),
                     PTR_SIZE, (unsigned long)HIGH_WATER(p),
                     PTR_SIZE, (unsigned long)HEAP_TOP(p),
+                    PTR_SIZE, (unsigned long)IMMED_TOP(p),
                     PTR_SIZE, (unsigned long)HEAP_END(p));
         if (OLD_HEAP(p) != NULL)
             erts_printf("| Old   | 0x%0*lx - 0x%0*lx - 0x%0*lx - 0x%0*lx   %*s     |\n",
                         PTR_SIZE, (unsigned long)OLD_HEAP(p),
                         PTR_SIZE, (unsigned long)OLD_HTOP(p),
-                        PTR_SIZE, (unsigned long)OLD_STACK(p),
-                        PTR_SIZE, (unsigned long)OLD_HEND(p),
+                        PTR_SIZE, (unsigned long)OLD_ITOP(p),
+                        PTR_SIZE, (unsigned long)OLD_IEND(p),
                         PTR_SIZE, "");
     } else {
         erts_printf("=================\n");

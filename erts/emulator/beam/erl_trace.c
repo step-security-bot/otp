@@ -2211,16 +2211,16 @@ trace_gc(Process *p, Eterm what)
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
-	HIGH_WATER(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p),
+	HIGH_WATER_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
-	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_HEND(p) - OLD_STACK(p): 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p),
+	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_IEND(p) - OLD_ITOP(p): 0,
+	HEAP_USED_SIZE(p),
 	MSO(p).overhead,
 	BIN_VHEAP_SZ(p),
 	BIN_OLD_VHEAP(p),
 	BIN_OLD_VHEAP_SZ(p),
-        HEAP_END(p) - STACK_START(p),
-        OLD_HEND(p) - OLD_STACK(p)
+        IMMED_END(p) - IMMED_TOP(p),
+        OLD_IEND(p) - OLD_ITOP(p)
     };
 #define LOCAL_HEAP_SIZE						\
     (sizeof(values)/sizeof(*values)) *				\
@@ -2446,8 +2446,8 @@ monitor_long_gc(Process *p, Uint time) {
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
-	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_HEND(p) - OLD_STACK(p): 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p)
+	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_IEND(p) - OLD_ITOP(p): 0,
+	HEAP_USED_SIZE(p)
     };
 #ifdef DEBUG
     Eterm *hp_end;
@@ -2519,8 +2519,8 @@ monitor_large_heap(Process *p) {
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
-	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_HEND(p) - OLD_STACK(p): 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p)
+	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) + OLD_IEND(p) - OLD_ITOP(p): 0,
+	HEAP_USED_SIZE(p)
     };
 #ifdef DEBUG
     Eterm *hp_end;

@@ -846,7 +846,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	if (any_heap_refs(HEAP_START(rp), HEAP_TOP(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
-	if (any_heap_refs(STACK_START(rp), HEAP_END(rp), mod_start, mod_size)) {
+	if (any_heap_refs(IMMED_TOP(rp), IMMED_END(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
 
@@ -854,7 +854,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    goto need_gc;
 	}
 
-        if (any_heap_refs(OLD_STACK(rp), OLD_HEND(rp), mod_start, mod_size)) {
+        if (any_heap_refs(OLD_ITOP(rp), OLD_IEND(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
 

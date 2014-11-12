@@ -336,7 +336,7 @@ print_process_info(int to, void *to_arg, Process *p)
                (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
     erts_print(to, to_arg, "Heap unused: %bpu\n", (STACK_START(p) - HEAP_TOP(p)));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
-	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_STACK(p) - OLD_HTOP(p)) );
+	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_ITOP(p) - OLD_HTOP(p)) );
     erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
 
     if (garbing) {
@@ -363,9 +363,12 @@ print_garb_info(int to, void *to_arg, Process* p)
     erts_print(to, to_arg, "New heap top: %bpX\n", HEAP_TOP(p));
     erts_print(to, to_arg, "Stack top: %bpX\n", STACK_TOP(p));
     erts_print(to, to_arg, "Stack end: %bpX\n", STACK_START(p));
+    erts_print(to, to_arg, "Immed top: %bpX\n", IMMED_TOP(p));
+    erts_print(to, to_arg, "Immed end: %bpX\n", IMMED_END(p));
     erts_print(to, to_arg, "Old heap start: %bpX\n", OLD_HEAP(p));
     erts_print(to, to_arg, "Old heap top: %bpX\n", OLD_HTOP(p));
-    erts_print(to, to_arg, "Old heap stack: %bpX\n", OLD_STACK(p));
+    erts_print(to, to_arg, "Old heap immed top: %bpX\n", OLD_ITOP(p));
+    erts_print(to, to_arg, "Old heap immed end: %bpX\n", OLD_IEND(p));
     erts_print(to, to_arg, "Old heap end: %bpX\n", OLD_HEND(p));
 #endif
 }

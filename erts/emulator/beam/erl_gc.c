@@ -646,8 +646,8 @@ erts_garbage_collect_hibernate(Process* p)
 
 
     heap_size = HEAP_SIZE(p) + (OLD_HTOP(p) - OLD_HEAP(p)
-                                + OLD_HEND(p) - OLD_STACK(p));
-    heap = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_TMP_HEAP,
+                                + OLD_IEND(p) - OLD_ITOP(p));
+    heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
 				    sizeof(Eterm)*heap_size);
     htop = heap;
 
@@ -677,11 +677,11 @@ erts_garbage_collect_hibernate(Process* p)
     /*
      *  Update all pointers.
      */
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
     if (OLD_HEAP(p)) {
-	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       (void*)OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
 	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = 0;
@@ -691,8 +691,7 @@ erts_garbage_collect_hibernate(Process* p)
     HIGH_WATER(p) = htop;
     HEAP_TOP(p) = htop;
     HEAP_END(p) = HEAP_START(p) + heap_size;
-    STACK_TOP(p) = STACK_START(p) = HEAP_END(p);
-    HEAP_SIZE(p) = heap_size;
+    IMMED_END(p) = IMMED_TOP(p) = STACK_TOP(p) = STACK_START(p) = HEAP_END(p);
 
     heap_size = actual_size = HEAP_TOP(p) - HEAP_START(p);
     if (heap_size == 0) {
@@ -715,9 +714,9 @@ erts_garbage_collect_hibernate(Process* p)
     ASSERT(HEAP_END(p) - STACK_TOP(p) == 0); /* Empty stack */
     ASSERT(actual_size < HEAP_SIZE(p));
 
-    heap = ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
+    heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
     sys_memcpy((void *) heap, (void *) HEAP_START(p), actual_size*sizeof(Eterm));
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_TMP_HEAP, HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
+    ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
 
     STACK_TOP(p) = HEAP_END(p) = heap + heap_size;
     STACK_START(p) = HEAP_END(p);
@@ -730,8 +729,6 @@ erts_garbage_collect_hibernate(Process* p)
     offset_rootset(p, offs, area, area_size, p->arg_reg, p->arity);
     HEAP_TOP(p) = heap + actual_size;
     HEAP_START(p) = heap;
-    HEAP_SIZE(p) = heap_size;
-
 
 #ifdef CHECK_FOR_HOLES
     p->last_htop = HEAP_TOP(p);
@@ -784,9 +781,9 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     
     ASSERT(OLD_HEAP(p) == 0);	/* Must NOT have an old heap yet. */
     old_heap_size = erts_next_heap_size(lit_size, 0);
-    OLD_HEAP(p) = OLD_HTOP(p) = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_OLD_HEAP,
+    OLD_HEAP(p) = OLD_HTOP(p) = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
 							 sizeof(Eterm)*old_heap_size);
-    OLD_STACK(p) = OLD_HEND(p) = OLD_HEAP(p) + old_heap_size;
+    OLD_ITOP(p) = OLD_IEND(p) = OLD_HEND(p) = OLD_HEAP(p) + old_heap_size;
 
     /*
      * We soon want to garbage collect the literals. But since a GC is
@@ -922,8 +919,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 static int
 minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 {
-    Uint mature = (HIGH_WATER(p) - HEAP_START(p))
-        + (HEAP_END(p) - STACK_START(p));
+    Uint mature = HIGH_WATER_SIZE(p);
 
     /*
      * Allocate an old heap if we don't have one and if we'll need one.
@@ -937,13 +933,14 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        Uint new_sz = erts_next_heap_size(HEAP_TOP(p) - HEAP_START(p), 1);
+        Uint new_sz = erts_next_heap_size(HEAP_USED_SIZE(p), 1);
 
         /* Create new, empty old_heap */
-        n_old = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_OLD_HEAP,
+        n_old = (Eterm *) ERTS_HEAP_ALLOC(
+                                          ERTS_ALC_T_OLD_HEAP,
 					  sizeof(Eterm)*new_sz);
 
-        OLD_STACK(p) = OLD_HEND(p) = n_old + new_sz;
+        OLD_IEND(p) = OLD_ITOP(p) = OLD_HEND(p) = n_old + new_sz;
         OLD_HEAP(p) = OLD_HTOP(p) = n_old;
     }
 
@@ -953,7 +950,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      */
 
     if (OLD_HEAP(p) &&
-            ((mature <= (OLD_STACK(p) - OLD_HTOP(p))) &&
+            ((mature <= (OLD_ITOP(p) - OLD_HTOP(p))) &&
 	    ((BIN_VHEAP_MATURE(p) < ( BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p)))) &&
 	    ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
 	ErlMessage *msgp;
@@ -961,7 +958,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	Uint need_after;
 	Uint stack_size = STACK_SZ_ON_HEAP(p);
 	Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
-	Uint size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+	Uint size_before = fragments + HEAP_USED_SIZE(p);
 	Uint new_sz = next_heap_size(p, HEAP_SIZE(p) + fragments, 0);
 
         do_minor(p, new_sz, objv, nobj);
@@ -979,7 +976,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	ErtsGcQuickSanityCheck(p);
 
         GEN_GCS(p)++;
-        size_after = HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p);
+        size_after = HEAP_USED_SIZE(p);
         need_after = size_after + need + stack_size;
         *recl += (size_before - size_after);
 	
@@ -1017,9 +1014,9 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 #ifdef DEBUG
             {
                 Eterm *areas[] = {HEAP_START(p), HEAP_TOP(p),
-                                  STACK_START(p), HEAP_END(p),
+                                  IMMED_TOP(p), IMMED_END(p),
                                   OLD_HEAP(p), OLD_HTOP(p),
-                                  OLD_STACK(p), OLD_HEND(p),
+                                  OLD_ITOP(p), OLD_IEND(p),
                                   NULL};
                 verify_heap(p, objv, nobj, areas);
             }
@@ -1105,25 +1102,25 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Eterm val;
     Eterm gval;
     char* heap = (char *) HEAP_START(p);
-    Uint heap_size = (char *) HEAP_TOP(p) - heap;
     Uint mature_size = (char *) HIGH_WATER(p) - heap;
-    Uint heap_stack_size = (char *) HEAP_END(p) - heap;
-    char* stack = (char *) STACK_START(p);
-    Uint immed_size = (char *) HEAP_END(p) - stack;
+    Uint heap_size = (char *) HEAP_TOP(p) - heap;
+    Uint heap_block_size = (char *) HEAP_END(p) - heap;
+    char* immed = (char *) IMMED_TOP(p);
+    Uint immed_size = (char *) IMMED_END(p) - immed;
     Eterm* old_htop = OLD_HTOP(p);
-    Eterm* old_stack = OLD_STACK(p);
+    Eterm* old_immed = OLD_ITOP(p);
 #ifdef DEBUG
     char *old_heap = (char*)OLD_HEAP(p);
-    Uint old_heap_sz = (char*)OLD_HEND(p) - old_heap;
+    Uint old_heap_block_sz = (char*)OLD_HEND(p) - old_heap;
 #endif
 
-    Eterm* n_heap, *n_hend, *n_stack, *n_htop;
+    Eterm* n_heap, *n_hend, *n_immed, *n_htop;
 
-    n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
 
     n_hend = n_heap + new_sz;
-    n_stack = n_hend;
+    n_immed = n_hend;
 
     if (MBUF(p) != NULL) {
 	n_htop = collect_heap_frags(p, n_heap, n_htop, objv, nobj);
@@ -1166,7 +1163,7 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
                 } else if (in_area(ptr, heap, mature_size)
-                           || in_area(ptr, stack, immed_size)) {
+                           || in_area(ptr, immed, immed_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
                 } else if (in_area(ptr, heap, heap_size)) {
                     MOVE_CONS(ptr,val,n_htop,g_ptr++);
@@ -1180,12 +1177,16 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                 g_ptr++;
 		break;
             }
-            ASSERT(verify_term(g_ptr[-1],(char*)n_heap,new_sz*sizeof(Eterm),old_heap,old_heap_sz));
+            ASSERT(verify_term(g_ptr[-1],(char*)n_heap,new_sz*sizeof(Eterm),
+                               old_heap,old_heap_block_sz));
         }
     }
 
     cleanup_rootset(&rootset);
     ASSERT(check_memory_fence(n_heap, NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
+
+    ASSERT(OLD_ITOP(p) == old_immed);
+    ASSERT(n_immed == n_hend);
 
     /*
      * Now all references in the rootset point to the new heap. However,
@@ -1194,8 +1195,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      * until all is changed.
      */
 
-    if (mature_size == 0 && STACK_START(p) == HEAP_END(p)) {
-	n_htop = sweep_one_area(n_heap, n_htop, &n_stack, heap, heap_size);
+    if (mature_size == 0 && immed_size == 0) {
+	n_htop = sweep_one_area(n_heap, n_htop, &n_immed, heap, heap_size);
     } else {
 	Eterm* saved_n_hp = NULL;
 	Eterm* n_hp = n_heap;
@@ -1203,29 +1204,27 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 	Eterm val;
 	Eterm gval;
 
-        ASSERT(OLD_STACK(p) == old_stack);
-        ASSERT(n_stack == n_hend);
-
 	while (n_hp != n_htop) {
 	    ASSERT(n_hp < n_htop);
-            ASSERT(saved_n_hp == NULL);
+	    ASSERT(n_htop < n_immed);
+            ASSERT(!saved_n_hp);
             gval = *n_hp;
 	    switch (primary_tag(gval)) {
 	    case TAG_PRIMARY_BOXED: {
-		ASSERT(!saved_n_hp);
 		ptr = boxed_val(gval);
 		val = *ptr;
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
-		} else if (in_area(ptr, heap, mature_size)) {
+		} else if (in_area(ptr, heap, mature_size)
+                           || in_area(ptr, immed, immed_size)) {
                     switch (val & _HEADER_SUBTAG_MASK) {
                     case POS_BIG_SUBTAG:
                     case NEG_BIG_SUBTAG:
                     case REF_SUBTAG:
                     case FLOAT_SUBTAG:
                     case HEAP_BINARY_SUBTAG:
-                        MOVE_IMMED_BOXED(ptr,val,old_stack,n_hp++);
+                        MOVE_IMMED_BOXED(ptr,val,old_immed,n_hp++);
                         continue;
                     }
                     MOVE_BOXED(ptr,val,old_htop,n_hp++);
@@ -1236,14 +1235,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
                     case REF_SUBTAG:
                     case FLOAT_SUBTAG:
                     case HEAP_BINARY_SUBTAG:
-                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        MOVE_IMMED_BOXED(ptr,val,n_immed,n_hp++);
                         continue;
                     }
                     MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
                     n_hp++;
                 }
-                ASSERT(verify_term(n_hp[-1],(char*)n_heap,new_sz*sizeof(Eterm),old_heap,old_heap_sz));
 		break;
 	    }
 	    case TAG_PRIMARY_LIST: {
@@ -1253,14 +1251,14 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp = ptr[1];
 		} else if (in_area(ptr, heap, mature_size)
-                           || in_area(ptr, stack, immed_size)) {
+                           || in_area(ptr, immed, immed_size)) {
                     gval = CDR(ptr);
                     if ((!is_boxed(gval)) && is_immed(val)) {
-                        MOVE_IMMED_CONS(ptr, val, old_stack, n_hp);
+                        MOVE_IMMED_CONS(ptr, val, old_immed, n_hp);
                         if (is_list(gval)) {
                             if (!saved_n_hp)
                                 saved_n_hp = n_hp;
-                            n_hp = old_stack + 1;
+                            n_hp = old_immed + 1;
                             goto gc_list;
                         }
                     } else {
@@ -1275,11 +1273,11 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		} else if (in_area(ptr, heap, heap_size)) {
                     gval = CDR(ptr);
                     if (!is_boxed(gval) && is_immed(val)) {
-                        MOVE_IMMED_CONS(ptr, val, n_stack, n_hp);
+                        MOVE_IMMED_CONS(ptr, val, n_immed, n_hp);
                         if (is_list(gval)) {
                             if (!saved_n_hp)
                                 saved_n_hp = n_hp;
-                            n_hp = n_stack+1;
+                            n_hp = n_immed+1;
                             goto gc_list;
                         }
                     } else {
@@ -1300,7 +1298,6 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 		break;
 	    }
 	    case TAG_PRIMARY_HEADER: {
-		ASSERT(!saved_n_hp);
 		if (!header_is_thing(gval))
 		    n_hp++;
 		else {
@@ -1334,11 +1331,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     }
 
 #ifdef HARDDEBUG
-    disallow_pointers_to_heap(n_heap, n_htop, heap, heap_stack_size);
-    disallow_pointers_to_heap(n_stack, n_hend, heap, heap_stack_size);
-    disallow_pointers_to_heap(old_stack, OLD_HEND(p), (char*)n_heap, heap_stack_size);
-    disallow_pointers_to_heap(OLD_HEAP(p), old_htop, (char*)n_heap, heap_stack_size);
+    disallow_pointers_to_heap(n_heap, n_htop, heap, heap_block_size);
+    disallow_pointers_to_heap(n_immed, n_hend, heap, heap_block_size);
+    disallow_pointers_to_heap(old_immed, OLD_IEND(p), (char*)n_heap, heap_block_size);
+    disallow_pointers_to_heap(OLD_HEAP(p), old_htop, (char*)n_heap, heap_block_size);
     ASSERT(check_memory_fence(n_heap, NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
+    ASSERT(OLD_HEAP(p) && check_memory_fence(OLD_HEAP(p), NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
 #endif
 
     /*
@@ -1347,17 +1345,17 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
      */
 
     if (OLD_HTOP(p) < old_htop) {
-	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, &old_stack, heap, heap_stack_size);
+	old_htop = sweep_one_area(OLD_HTOP(p), old_htop, &old_immed, heap, heap_block_size);
     }
     OLD_HTOP(p) = old_htop;
-    OLD_STACK(p) = old_stack;
+    OLD_ITOP(p) = old_immed;
     HIGH_WATER(p) = n_htop;
 
 #ifdef HARDDEBUG
-    disallow_pointers_to_heap(OLD_HEAP(p), old_htop, heap, heap_stack_size);
-    disallow_pointers_to_heap(old_stack, OLD_HEND(p), heap, heap_stack_size);
+    disallow_pointers_to_heap(OLD_HEAP(p), old_htop, heap, heap_block_size);
+    disallow_pointers_to_heap(old_immed, OLD_IEND(p), heap, heap_block_size);
     ASSERT(check_memory_fence(n_heap, NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
-    ASSERT(check_memory_fence(OLD_HEAP(p), NULL, ERTS_ALC_T2N(ERTS_ALC_T_OLD_HEAP), 3));
+    ASSERT(OLD_HEAP(p) && check_memory_fence(OLD_HEAP(p), NULL, ERTS_ALC_T2N(ERTS_ALC_T_OLD_HEAP), 3));
 #endif
 
     if (MSO(p).first) {
@@ -1375,8 +1373,8 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
     /* Copy stack to end of new heap */
     n = STACK_START(p) - STACK_TOP(p);
-    sys_memcpy(n_stack - n, STACK_TOP(p), n * sizeof(Eterm));
-    STACK_TOP(p) = n_stack - n;
+    sys_memcpy(n_immed - n, STACK_TOP(p), n * sizeof(Eterm));
+    STACK_TOP(p) = n_immed - n;
 
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
@@ -1387,14 +1385,13 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     }
 #endif
 
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
-    HEAP_END(p) = n_heap + new_sz;
-    STACK_START(p) = n_stack;
+    IMMED_END(p) = HEAP_END(p) = n_heap + new_sz;
+    IMMED_TOP(p) = STACK_START(p) = n_immed;
 
     ASSERT(check_memory_fence(HEAP_START(p), NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
 
@@ -1405,9 +1402,9 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
 #ifdef DEBUG
     {
-        Eterm *areas[] = {n_heap, n_htop, n_stack, n_hend,
+        Eterm *areas[] = {n_heap, n_htop, n_immed, n_hend,
                           OLD_HEAP(p), OLD_HTOP(p),
-                          OLD_STACK(p), OLD_HEND(p),
+                          OLD_ITOP(p), OLD_IEND(p),
                           NULL};
         verify_heap(p, objv, nobj, areas);
     }
@@ -1427,7 +1424,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint size_before;
     Eterm* n_heap;
     Eterm* n_htop;
-    Eterm* n_stack;
+    Eterm* n_immed;
     char* src = (char *) HEAP_START(p);
     Uint src_size = (char *) HEAP_END(p) - src;
     char* oh = (char *) OLD_HEAP(p);
@@ -1445,7 +1442,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      */
 
     new_sz = HEAP_SIZE(p) + fragments + (OLD_HTOP(p) - OLD_HEAP(p)
-                                         + OLD_HEND(p) - OLD_STACK(p));
+                                         + OLD_IEND(p) - OLD_ITOP(p));
     /*
      * We used to do
      *
@@ -1464,9 +1461,9 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
         new_sz = next_heap_size(p, HEAP_SIZE(p), 1);
     }
     FLAGS(p) &= ~(F_HEAP_GROW|F_NEED_FULLSWEEP);
-    n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
-    n_stack = n_heap + new_sz;
+    n_immed = n_heap + new_sz;
 
     /*
      * Get rid of heap fragments.
@@ -1541,7 +1538,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      */
 
     if (oh_size == 0) {
-	n_htop = sweep_one_area(n_heap, n_htop, &n_stack, src, src_size);
+	n_htop = sweep_one_area(n_heap, n_htop, &n_immed, src, src_size);
     } else {
 	Eterm* saved_n_hp = NULL;
 	Eterm* n_hp = n_heap;
@@ -1566,7 +1563,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
                     case REF_SUBTAG:
                     case FLOAT_SUBTAG:
                     case HEAP_BINARY_SUBTAG:
-                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        MOVE_IMMED_BOXED(ptr,val,n_immed,n_hp++);
                         continue;
                     }
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
@@ -1584,11 +1581,11 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
                     gval = CDR(ptr);
                     if (!is_boxed(gval) && is_immed(val)) {
-                        MOVE_IMMED_CONS(ptr, val, n_stack, n_hp);
+                        MOVE_IMMED_CONS(ptr, val, n_immed, n_hp);
                         if (is_list(gval)) {
                             if (!saved_n_hp)
                                 saved_n_hp = n_hp;
-                            n_hp = n_stack+1;
+                            n_hp = n_immed+1;
                             goto gc_list;
                         }
                     } else {
@@ -1648,16 +1645,16 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     }
 
     if (OLD_HEAP(p) != NULL) {       
-	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
-	OLD_STACK(p) = OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
+	OLD_IEND(p) = OLD_ITOP(p) = OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
     }
 
     /* Move the stack to the end of the heap */
     n = STACK_START(p) - STACK_TOP(p);
-    sys_memcpy(n_stack - n, STACK_TOP(p), n * sizeof(Eterm));
-    STACK_TOP(p) = n_stack - n;
+    sys_memcpy(n_immed - n, STACK_TOP(p), n * sizeof(Eterm));
+    STACK_TOP(p) = n_immed - n;
 
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
@@ -1668,15 +1665,14 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     }
 #endif
 
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void *) HEAP_START(p),
 		   (HEAP_END(p) - HEAP_START(p)) * sizeof(Eterm));
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
     GEN_GCS(p) = 0;
-    STACK_START(p) = n_stack;
+    STACK_START(p) = n_immed;
 
     HIGH_WATER(p) = HEAP_TOP(p);
 
@@ -1702,7 +1698,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 #ifdef DEBUG
     {
         Eterm *areas[] = {HEAP_START(p), HEAP_TOP(p),
-                          STACK_START(p), HEAP_END(p), NULL};
+                          IMMED_TOP(p), IMMED_END(p),
+                          NULL};
         verify_heap(p, objv, nobj, areas);
     }
 #endif
@@ -1718,7 +1715,7 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
     Uint stack_size = STACK_SZ_ON_HEAP(p);
     Uint reclaimed_now;
 
-    size_after = (HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p));
+    size_after = HEAP_USED_SIZE(p);
     reclaimed_now = (size_before - size_after);
     
     /*
@@ -2059,17 +2056,17 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 
 
 static Eterm*
-sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_stackp, char* src, Uint src_size)
+sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_immedp, char* src, Uint src_size)
 {
     Eterm* saved_n_hp = NULL;
-    Eterm* n_stack = n_stackp ? *n_stackp : NULL;
+    Eterm* n_immed = n_immedp ? *n_immedp : NULL;
     Eterm* ptr;
     Eterm val;
     Eterm gval;
 
     while (n_hp != n_htop) {
 	ASSERT(n_hp < n_htop);
-	ASSERT(n_htop < n_stack);
+	ASSERT(n_htop < n_immed);
 	gval = *n_hp;
 	switch (primary_tag(gval)) {
 	case TAG_PRIMARY_BOXED: {
@@ -2080,14 +2077,14 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_stackp, char* src, Uint src
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (in_area(ptr, src, src_size)) {
-                if (n_stack) {
+                if (n_immed) {
                     switch (val & _HEADER_SUBTAG_MASK) {
                     case POS_BIG_SUBTAG:
                     case NEG_BIG_SUBTAG:
                     case REF_SUBTAG:
                     case FLOAT_SUBTAG:
                     case HEAP_BINARY_SUBTAG:
-                        MOVE_IMMED_BOXED(ptr,val,n_stack,n_hp++);
+                        MOVE_IMMED_BOXED(ptr,val,n_immed,n_hp++);
                         continue;
                     }
                 }
@@ -2105,12 +2102,12 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_stackp, char* src, Uint src
 		*n_hp = ptr[1];
 	    } else if (in_area(ptr, src, src_size)) {
                 gval = CDR(ptr);
-                if (n_stack && !is_boxed(gval) && is_immed(val)) {
-                    MOVE_IMMED_CONS(ptr, val, n_stack, n_hp);
+                if (n_immed && !is_boxed(gval) && is_immed(val)) {
+                    MOVE_IMMED_CONS(ptr, val, n_immed, n_hp);
                     if (is_list(gval)) {
                         if (!saved_n_hp)
                             saved_n_hp = n_hp;
-                        n_hp = n_stack+1;
+                        n_hp = n_immed+1;
                         goto gc_list;
                     }
                 } else {
@@ -2160,8 +2157,8 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, Eterm** n_stackp, char* src, Uint src
 	    break;
 	}
     }
-    if (n_stack)
-        *n_stackp = n_stack;
+    if (n_immed)
+        *n_immedp = n_immed;
     return n_htop;
 }
 
@@ -2412,57 +2409,61 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Eterm* new_heap;
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
     Uint stack_size = STACK_START(p) - STACK_TOP(p);
-    Uint immed_size = HEAP_END(p) - STACK_START(p);
+    Uint immed_size = IMMED_END(p) - IMMED_TOP(p);
     Sint offs;
-    Eterm *old_stop = STACK_TOP(p);
-    Eterm *old_stack = STACK_START(p);
-    Eterm *old_hend = HEAP_END(p);
+    Eterm *prev_stop = STACK_TOP(p);
+    Eterm *prev_immed = IMMED_TOP(p);
+    Eterm *prev_immed_end = IMMED_END(p);
 
     ASSERT(HEAP_SIZE(p) < new_sz);
-    new_heap = (Eterm *) ERTS_HEAP_REALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void *) HEAP_START(p),
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
 
     if ((offs = new_heap - HEAP_START(p)) == 0) { /* No move. */
-        HEAP_END(p) = new_heap + new_sz;
-        sys_memmove(HEAP_END(p) - stack_size - immed_size, STACK_TOP(p),
-                    (stack_size + immed_size) * sizeof(Eterm));
-        STACK_START(p) = HEAP_END(p) - immed_size;
+        IMMED_END(p) = HEAP_END(p) = new_heap + new_sz;
+        IMMED_TOP(p) = STACK_START(p) = HEAP_END(p) - immed_size;
         STACK_TOP(p) = STACK_START(p) - stack_size;
+        sys_memmove(STACK_TOP(p), prev_stop,
+                    (stack_size + immed_size) * sizeof(Eterm));
         if (immed_size) {
-            Sint immed_offs = STACK_TOP(p) - old_stop;
-            char *area = (char *) old_stack;
-            Uint area_size = (char *) old_hend - area;
-            offset_heap(new_heap, heap_size, immed_offs, area, area_size, 0, NULL, 0);
-            offset_heap(STACK_START(p), immed_size, immed_offs, area, area_size, 0, NULL, 0);
-            offset_rootset(p, immed_offs, area, area_size, objv, nobj);
+            Sint immed_offs = IMMED_TOP(p) - prev_immed;
+            char *immed_area = (char *) prev_immed;
+            Uint immed_area_size = (char *) prev_immed_end - immed_area;
+            offset_heap(new_heap, heap_size,
+                        immed_offs, immed_area, immed_area_size,
+                        0, NULL, 0);
+            offset_heap(STACK_START(p), immed_size,
+                        immed_offs, immed_area, immed_area_size,
+                        0, NULL, 0);
+            offset_rootset(p, immed_offs, immed_area, immed_area_size,
+                           objv, nobj);
         }
-
     } else {
 	char* area = (char *) HEAP_START(p);
 	Uint area_size = (char *) HEAP_TOP(p) - area;
-        Eterm* prev_stop;
         Sint immed_offs = 0;
         char *immed_area = NULL;
         Uint immed_area_size = 0;
 
         HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
 
-        HEAP_END(p) = new_heap + new_sz;
-        STACK_START(p) = HEAP_END(p) - immed_size;
-
-        prev_stop = new_heap + (STACK_TOP(p) - HEAP_START(p));
+        IMMED_END(p) = HEAP_END(p) = new_heap + new_sz;
+        IMMED_TOP(p) = STACK_START(p) = HEAP_END(p) - immed_size;
         STACK_TOP(p) = STACK_START(p) - stack_size;
+        HEAP_TOP(p) = new_heap + heap_size;
+        HEAP_START(p) = new_heap;
 
         sys_memmove(STACK_TOP(p), prev_stop,
                     (stack_size + immed_size) * sizeof(Eterm));
 
         if (immed_size) {
-            immed_offs = STACK_TOP(p) - old_stop;
-            immed_area = (char *) old_stack;
-            immed_area_size = (char *) old_hend - immed_area;
+            immed_offs = IMMED_TOP(p) - prev_immed;
+            immed_area = (char *) prev_immed;
+            immed_area_size = (char *) prev_immed_end - immed_area;
         }
+
         offset_heap(new_heap, heap_size, offs, area, area_size,
                     immed_offs, immed_area, immed_area_size);
 
@@ -2474,8 +2475,6 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
         if (immed_size)
             offset_rootset(p, offs, immed_area, immed_area_size, objv, nobj);
 
-        HEAP_TOP(p) = new_heap + heap_size;
-        HEAP_START(p) = new_heap;
     }
 
 #ifdef USE_VM_PROBES
@@ -2488,29 +2487,31 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 #endif
     ASSERT(check_memory_fence(HEAP_START(p), NULL, ERTS_ALC_T2N(ERTS_ALC_T_HEAP), 3));
 
-    HEAP_SIZE(p) = new_sz;
 }
 
 static void
 shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 {
-    Eterm* new_heap, *prev_stack = STACK_START(p), *prev_hend = HEAP_END(p);
+    Eterm* new_heap;
+    Eterm* prev_immed = IMMED_TOP(p);
+    Eterm* prev_immed_end = IMMED_END(p);
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
-    Sint offs;
     Uint stack_size = STACK_START(p) - STACK_TOP(p);
-    Uint immed_size = HEAP_END(p) - STACK_START(p);
+    Uint immed_size = prev_immed_end - prev_immed;
+    Sint offs;
 
     ASSERT(new_sz < HEAP_SIZE(p));
-    sys_memmove(HEAP_START(p) + new_sz - stack_size - immed_size, STACK_TOP(p),
+    sys_memmove(HEAP_START(p) + new_sz - stack_size - immed_size,
+                STACK_TOP(p),
                 (stack_size+immed_size) * sizeof(Eterm));
 
-    new_heap = (Eterm *) ERTS_HEAP_REALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void*)HEAP_START(p),
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
 
-    HEAP_END(p) = new_heap + new_sz;
-    STACK_START(p) = HEAP_END(p) - immed_size;
+    IMMED_END(p) = HEAP_END(p) = new_heap + new_sz;
+    IMMED_TOP(p) = STACK_START(p) = HEAP_END(p) - immed_size;
     STACK_TOP(p) = STACK_START(p) - stack_size;
 
     if ((offs = new_heap - HEAP_START(p)) != 0) {
@@ -2525,10 +2526,14 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
          * know on some strange embedded systems...  Or when using purify.
          */
 
+        HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
+        HEAP_TOP(p) = new_heap + heap_size;
+        HEAP_START(p) = new_heap;
+
         if (immed_size) {
-            immed_offs = STACK_START(p) - prev_stack;
-            immed_area = (char *) prev_stack;
-            immed_area_size = (char *) prev_hend - immed_area;
+            immed_offs = IMMED_TOP(p) - prev_immed;
+            immed_area = (char *) prev_immed;
+            immed_area_size = (char *) prev_immed_end - immed_area;
         }
 
         offset_heap(new_heap, heap_size, offs, area, area_size,
@@ -2536,30 +2541,29 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
         if (immed_size)
             offset_heap(STACK_START(p), immed_size, offs, area, area_size,
                         immed_offs, immed_area, immed_area_size);
-#ifdef HARDDEBUG
-        disallow_pointers_to_heap(new_heap, new_heap + heap_size, area, area_size);
-        disallow_pointers_to_heap(STACK_START(p), STACK_START(p) + immed_size, area, area_size);
-#endif
-        HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
+
         offset_rootset(p, offs, area, area_size, objv, nobj);
         if (immed_size)
             offset_rootset(p, immed_offs, immed_area, immed_area_size, objv, nobj);
 #ifdef HARDDEBUG
         disallow_pointers_to_heap(STACK_TOP(p), STACK_START(p), area, area_size);
-#endif
-        HEAP_TOP(p) = new_heap + heap_size;
-        HEAP_START(p) = new_heap;
-    } else if (immed_size) {
-        Sint immed_offs = STACK_START(p) - prev_stack;
-        char *area = (char *) prev_stack;
-        Uint area_size = (char *) prev_hend - area;
-        offset_heap(new_heap, heap_size, immed_offs, area, area_size, 0, NULL, 0);
-        offset_heap(STACK_START(p), immed_size, immed_offs, area, area_size, 0, NULL, 0);
-        offset_rootset(p, immed_offs, area, area_size, objv, nobj);
-#ifdef HARDDEBUG
         disallow_pointers_to_heap(new_heap, new_heap + heap_size, area, area_size);
         disallow_pointers_to_heap(STACK_START(p), STACK_START(p) + immed_size, area, area_size);
-        disallow_pointers_to_heap(STACK_TOP(p), STACK_START(p), area, area_size);
+#endif
+    } else if (immed_size) {
+        Sint immed_offs = IMMED_TOP(p) - prev_immed;
+        char *immed_area = (char *) prev_immed;
+        Uint immed_area_size = (char *) prev_immed_end - immed_area;
+        offset_heap(new_heap, heap_size, immed_offs, immed_area, immed_area_size, 0, NULL, 0);
+        offset_heap(STACK_START(p), immed_size, immed_offs, immed_area, immed_area_size, 0, NULL, 0);
+        offset_rootset(p, immed_offs, immed_area, immed_area_size, objv, nobj);
+#ifdef HARDDEBUG
+        disallow_pointers_to_heap(new_heap, new_heap + heap_size,
+                                  immed_area, immed_area_size);
+        disallow_pointers_to_heap(STACK_START(p), STACK_START(p) + immed_size,
+                                  immed_area, immed_area_size);
+        disallow_pointers_to_heap(STACK_TOP(p), STACK_START(p),
+                                  immed_area, immed_area_size);
 #endif
     }
 
@@ -2571,8 +2575,6 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 	DTRACE3(process_heap_shrink, pidbuf, HEAP_SIZE(p), new_sz);
     }
 #endif
-
-    HEAP_SIZE(p) = new_sz;
 }
 
 static Uint64
@@ -3117,16 +3119,20 @@ erts_gc_info_request(Process *c_p)
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 
 static int
-within2(Eterm *ptr, Process *p, Eterm *real_htop)
+within2(Eterm *ptr, Process *p, Eterm *real_htop, Eterm *real_immed)
 {
     ErlHeapFragment* bp = MBUF(p);
     ErlMessage* mp = p->msg.first;
     Eterm *htop = real_htop ? real_htop : HEAP_TOP(p);
+    Eterm *immed = real_immed ? real_immed : IMMED_TOP(p);
 
     if (OLD_HEAP(p) && (OLD_HEAP(p) <= ptr && ptr < OLD_HEND(p))) {
         return 1;
     }
     if (HEAP_START(p) <= ptr && ptr < htop) {
+        return 1;
+    }
+    if (immed <= ptr && ptr < IMMED_END(p)) {
         return 1;
     }
     while (bp != NULL) {
@@ -3155,7 +3161,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
 int
 within(Eterm *ptr, Process *p)
 {
-    return within2(ptr, p, NULL);
+    return within2(ptr, p, NULL, NULL);
 }
 
 #endif
@@ -3212,7 +3218,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	else if (oheap <= u.ep && u.ep < ohtop)
 	    old = 1;
 	else {
-	    ERTS_CHK_OFFHEAP_ASSERT(within2(u.ep, p, htop));
+	    ERTS_CHK_OFFHEAP_ASSERT(within2(u.ep, p, htop, NULL));
 	}
     }
 
