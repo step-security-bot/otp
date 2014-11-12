@@ -349,7 +349,6 @@ void erts_check_heap(Process *p)
     ErlHeapFragment* bp = MBUF(p);
 
     erts_check_memory(p,HEAP_START(p),HEAP_TOP(p));
-    erts_check_memory(p,STACK_START(p),HEAP_END(p));
     if (OLD_HEAP(p) != NULL) {
         erts_check_memory(p,OLD_HEAP(p),OLD_HTOP(p));
     }
@@ -574,7 +573,6 @@ static void print_process_memory(Process *p)
                 PTR_SIZE, (unsigned long)HEAP_TOP(p),
                 PTR_SIZE, (unsigned long)HEAP_END(p));
     print_untagged_memory(HEAP_START(p),HEAP_TOP(p));
-    print_untagged_memory(STACK_START(p),HEAP_END(p));
 
     if (OLD_HEAP(p)) {
         erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx 0x%0*lx %s-+\n",

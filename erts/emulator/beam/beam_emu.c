@@ -1634,9 +1634,10 @@ void process_main(void)
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
 	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
 	 r(0) = reg[0];
-	 E = STACK_TOP(c_p);
+	 SWAPIN;
+     } else {
+       HTOP = HEAP_TOP(c_p);
      }
-     HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
      if (is_value(result)) {
 	 r(0) = result;
@@ -2778,9 +2779,10 @@ do {								\
 	if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
 	    Uint arity = ((Export *)Arg(0))->code[2];
 	    result = erts_gc_after_bif_call(c_p, result, reg, arity);
-	    E = STACK_TOP(c_p);
+	    SWAPIN;
+	} else {
+	  HTOP = HEAP_TOP(c_p);
 	}
-	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
 	    r(0) = result;

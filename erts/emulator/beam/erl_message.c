@@ -71,7 +71,7 @@ ErlHeapFragment*
 new_message_buffer(Uint size)
 {
     ErlHeapFragment* bp;
-    bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(NIL,ERTS_ALC_T_HEAP_FRAG,
+    bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP_FRAG,
 					    ERTS_HEAP_FRAG_SIZE(size));
     ERTS_INIT_HEAP_FRAG(bp, size);
     return bp;
@@ -127,8 +127,7 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
     ASSERT(dbg_tot_size == (size < bp->used_size ? size : bp->used_size));
 #endif
 
-    nbp = (ErlHeapFragment*) ERTS_HEAP_REALLOC(NIL,
-                                               ERTS_ALC_T_HEAP_FRAG,
+    nbp = (ErlHeapFragment*) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP_FRAG,
 					       (void *) bp,
 					       ERTS_HEAP_FRAG_SIZE(bp->alloc_size),
 					       ERTS_HEAP_FRAG_SIZE(size));
@@ -198,7 +197,7 @@ free_message_buffer(ErlHeapFragment* bp)
 	ErlHeapFragment* next_bp = bp->next;
 
 	erts_cleanup_offheap(&bp->off_heap);
-	ERTS_HEAP_FREE(NIL,ERTS_ALC_T_HEAP_FRAG, (void *) bp,
+	ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG, (void *) bp,
 		       ERTS_HEAP_FRAG_SIZE(bp->alloc_size));
 	bp = next_bp;
     }while (bp != NULL);

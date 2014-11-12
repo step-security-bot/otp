@@ -571,7 +571,7 @@ erts_garbage_collect_hibernate(Process* p)
 
 
     heap_size = HEAP_SIZE(p) + (OLD_HTOP(p) - OLD_HEAP(p));
-    heap = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_TMP_HEAP,
+    heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
 				    sizeof(Eterm)*heap_size);
     htop = heap;
 
@@ -601,11 +601,11 @@ erts_garbage_collect_hibernate(Process* p)
     /*
      *  Update all pointers.
      */
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
     if (OLD_HEAP(p)) {
-	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       (void*)OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
 	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = 0;
@@ -616,7 +616,6 @@ erts_garbage_collect_hibernate(Process* p)
     HEAP_TOP(p) = htop;
     HEAP_END(p) = HEAP_START(p) + heap_size;
     STACK_TOP(p) = STACK_START(p) = HEAP_END(p);
-    HEAP_SIZE(p) = heap_size;
 
     heap_size = actual_size = HEAP_TOP(p) - HEAP_START(p);
     if (heap_size == 0) {
@@ -639,9 +638,9 @@ erts_garbage_collect_hibernate(Process* p)
     ASSERT(HEAP_END(p) - STACK_TOP(p) == 0); /* Empty stack */
     ASSERT(actual_size < HEAP_SIZE(p));
 
-    heap = ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
+    heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
     sys_memcpy((void *) heap, (void *) HEAP_START(p), actual_size*sizeof(Eterm));
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_TMP_HEAP, HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
+    ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
 
     STACK_TOP(p) = HEAP_END(p) = heap + heap_size;
     STACK_START(p) = HEAP_END(p);
@@ -654,8 +653,6 @@ erts_garbage_collect_hibernate(Process* p)
     offset_rootset(p, offs, area, area_size, p->arg_reg, p->arity);
     HEAP_TOP(p) = heap + actual_size;
     HEAP_START(p) = heap;
-    HEAP_SIZE(p) = heap_size;
-
 
 #ifdef CHECK_FOR_HOLES
     p->last_htop = HEAP_TOP(p);
@@ -708,7 +705,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     
     ASSERT(OLD_HEAP(p) == 0);	/* Must NOT have an old heap yet. */
     old_heap_size = erts_next_heap_size(lit_size, 0);
-    OLD_HEAP(p) = OLD_HTOP(p) = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_OLD_HEAP,
+    OLD_HEAP(p) = OLD_HTOP(p) = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
 							 sizeof(Eterm)*old_heap_size);
     OLD_HEND(p) = OLD_HEAP(p) + old_heap_size;
 
@@ -845,7 +842,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 static int
 minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int off_heap_msgs)
 {
-    Uint mature = HIGH_WATER(p) - HEAP_START(p);
+    Uint mature = HIGH_WATER_SIZE(p);
 
     /*
      * Allocate an old heap if we don't have one and if we'll need one.
@@ -859,10 +856,10 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        Uint new_sz = erts_next_heap_size(HEAP_TOP(p) - HEAP_START(p), 1);
+        Uint new_sz = erts_next_heap_size(HEAP_USED_SIZE(p), 1);
 
         /* Create new, empty old_heap */
-        n_old = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_OLD_HEAP,
+        n_old = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
 					  sizeof(Eterm)*new_sz);
 
         OLD_HEND(p) = n_old + new_sz;
@@ -883,7 +880,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
 	Uint need_after;
 	Uint stack_size = STACK_SZ_ON_HEAP(p);
 	Uint fragments = MBUF_SIZE(p) + combined_message_size(p, off_heap_msgs);
-	Uint size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+	Uint size_before = fragments + HEAP_USED_SIZE(p);
 	Uint new_sz = next_heap_size(p, HEAP_SIZE(p) + fragments, 0);
 
         do_minor(p, new_sz, objv, nobj);
@@ -904,7 +901,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
 	ErtsGcQuickSanityCheck(p);
 
         GEN_GCS(p)++;
-        size_after = HEAP_TOP(p) - HEAP_START(p);
+        size_after = HEAP_USED_SIZE(p);
         need_after = size_after + need + stack_size;
         *recl += (size_before - size_after);
 	
@@ -1021,12 +1018,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Eterm val;
     Eterm gval;
     char* heap = (char *) HEAP_START(p);
-    Uint heap_size = (char *) HEAP_TOP(p) - heap;
-    Uint mature_size = (char *) HIGH_WATER(p) - heap;
+    Uint mature_size = HIGH_WATER_SIZE_BYTES(p);
+    Uint heap_size = HEAP_SIZE_BYTES(p);
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
 
-    n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
 
     if (MBUF(p) != NULL) {
@@ -1206,13 +1203,12 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     }
 #endif
 
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
-    HEAP_END(p) = n_heap + new_sz;
+    STACK_START(p) = HEAP_END(p) = n_heap + new_sz;
 
 #ifdef HARDDEBUG
     disallow_heap_frag_ref_in_heap(p);
@@ -1233,7 +1229,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
     Eterm* n_heap;
     Eterm* n_htop;
     char* src = (char *) HEAP_START(p);
-    Uint src_size = (char *) HEAP_END(p) - src;
+    Uint src_size = HEAP_SIZE_BYTES(p);
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HEND(p) - oh;
     Uint n;
@@ -1266,7 +1262,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
         new_sz = next_heap_size(p, HEAP_SIZE(p), 1);
     }
     FLAGS(p) &= ~(F_HEAP_GROW|F_NEED_FULLSWEEP);
-    n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP,
+    n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
 
     /*
@@ -1415,7 +1411,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
     }
 
     if (OLD_HEAP(p) != NULL) {       
-	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
         OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
@@ -1436,12 +1432,11 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
     }
 #endif
 
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP,
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void *) HEAP_START(p),
 		   (HEAP_END(p) - HEAP_START(p)) * sizeof(Eterm));
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
-    HEAP_SIZE(p) = new_sz;
     HEAP_END(p) = n_heap + new_sz;
     GEN_GCS(p) = 0;
 
@@ -1481,7 +1476,7 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
     Uint stack_size = STACK_SZ_ON_HEAP(p);
     Uint reclaimed_now;
 
-    size_after = (HEAP_TOP(p) - HEAP_START(p));
+    size_after = HEAP_USED_SIZE(p);
     reclaimed_now = (size_before - size_after);
     
     /*
@@ -2100,12 +2095,11 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 {
     Eterm* new_heap;
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
-    Uint stack_size = HEAP_END(p) - STACK_TOP(p);
+    Uint stack_size = STACK_START(p) - STACK_TOP(p);
     Sint offs;
 
     ASSERT(HEAP_SIZE(p) < new_sz);
-    new_heap = (Eterm *) ERTS_HEAP_REALLOC(p->common.id,
-					   ERTS_ALC_T_HEAP,
+    new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void *) HEAP_START(p),
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
@@ -2142,7 +2136,6 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
     }
 #endif
 
-    HEAP_SIZE(p) = new_sz;
 }
 
 static void
@@ -2156,8 +2149,7 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     ASSERT(new_sz < HEAP_SIZE(p));
     sys_memmove(HEAP_START(p) + new_sz - stack_size, STACK_TOP(p), stack_size *
                                                         sizeof(Eterm));
-    new_heap = (Eterm *) ERTS_HEAP_REALLOC(p->common.id,
-					   ERTS_ALC_T_HEAP,
+    new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void*)HEAP_START(p),
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
@@ -2189,8 +2181,6 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 	DTRACE3(process_heap_shrink, pidbuf, HEAP_SIZE(p), new_sz);
     }
 #endif
-
-    HEAP_SIZE(p) = new_sz;
 }
 
 static Uint64

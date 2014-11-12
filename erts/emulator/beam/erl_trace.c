@@ -2195,10 +2195,10 @@ trace_gc(Process *p, Eterm what)
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
 	MBUF_SIZE(p),
-	HIGH_WATER(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p),
+	HIGH_WATER_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
 	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p),
+	HEAP_USED_SIZE(p),
 	MSO(p).overhead,
 	BIN_VHEAP_SZ(p),
 	BIN_OLD_VHEAP(p),
@@ -2421,7 +2421,7 @@ monitor_long_gc(Process *p, Uint time) {
 	MBUF_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
 	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p)
+	HEAP_USED_SIZE(p)
     };
 #ifdef DEBUG
     Eterm *hp_end;
@@ -2490,7 +2490,7 @@ monitor_large_heap(Process *p) {
 	MBUF_SIZE(p),
 	STACK_START(p) - STACK_TOP(p),
 	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
-	HEAP_TOP(p) - HEAP_START(p) + HEAP_END(p) - STACK_START(p)
+	HEAP_USED_SIZE(p)
     };
 #ifdef DEBUG
     Eterm *hp_end;

@@ -846,10 +846,6 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	if (any_heap_refs(HEAP_START(rp), HEAP_TOP(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}
-	if (any_heap_refs(STACK_START(rp), HEAP_END(rp), mod_start, mod_size)) {
-	    goto need_gc;
-	}
-
 	if (any_heap_refs(OLD_HEAP(rp), OLD_HTOP(rp), mod_start, mod_size)) {
 	    goto need_gc;
 	}

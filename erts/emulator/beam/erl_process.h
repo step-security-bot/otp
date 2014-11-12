@@ -82,43 +82,14 @@ struct ErtsNodesMonitor_;
 
 #define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
 
-#if 0
-#define ERTS_HEAP_ALLOC(Pid, Type, Size)                                \
-    ({ Uint __sz = (Size);                                              \
-        void *__res = erts_alloc((Type), __sz);                         \
-        erts_fprintf(stderr,"%T %s:%d Allo heap %p:%p\r\n",             \
-                     (Pid),__FILE__,__LINE__,__res,__res+__sz);        \
-        __res;})                                                        \
-     
+#define ERTS_HEAP_ALLOC(Type, Size)             \
+    erts_alloc((Type), (Size))
 
-#define ERTS_HEAP_REALLOC(Pid, Type, Ptr, OldSize, NewSize)             \
-    ({ Uint __old_sz = (OldSize);                                       \
-    Uint __new_sz = (NewSize);                                          \
-    void *__ptr = (Ptr);                                                \
-    void *__res = erts_realloc((Type), __ptr, __new_sz);                \
-    erts_fprintf(stderr,"%T %s:%d Real heap %p:%p -> %p:%p\r\n",        \
-                 Pid, __FILE__,__LINE__,                                \
-                 __ptr,__ptr+__old_sz,__res,__res+__new_sz);            \
-    __res;})
-
-#define ERTS_HEAP_FREE(Pid, Type, Ptr, Size)                           \
-    ({ Uint __sz = (Size);                                              \
-        void *__ptr = (Ptr);                                            \
-        erts_fprintf(stderr,"%T %s:%d Free heap %p:%p\r\n",                \
-                     Pid,__FILE__,__LINE__,                    \
-                     __ptr,__ptr+__sz);                                 \
-        erts_free((Type), (Ptr));})
-#else
-#define ERTS_HEAP_ALLOC(Pid, Type, Size)                               \
-    erts_alloc((Type), (Size))                                          \
-    
-
-#define ERTS_HEAP_REALLOC(Pid, Type, Ptr, OldSize, NewSize)  \
+#define ERTS_HEAP_REALLOC(Type, Ptr, OldSize, NewSize)  \
     erts_realloc((Type), (Ptr), (NewSize))
 
-#define ERTS_HEAP_FREE(Pid, Type, Ptr, Size)					\
-        erts_free((Type), (Ptr))
-#endif
+#define ERTS_HEAP_FREE(Type, Ptr, Size)         \
+    erts_free((Type), (Ptr))
 
 
 #define INITIAL_MOD 0
@@ -850,38 +821,49 @@ struct ErtsPendingSuspend_ {
 #endif
 
 #if 0
-#  define PREFIX(VAR) pre_ ## VAR
+#  define P(VAR) pre_ ## VAR
 #else
-#  define PREFIX(VAR) VAR
+#  define P(VAR) VAR
 #endif
 
 /* Defines to ease the change of memory architecture */
-#  define HEAP_START(p)     (p)->PREFIX(heap)
-#  define HEAP_TOP(p)       (p)->PREFIX(htop)
-#  define HEAP_LIMIT(p)     (p)->PREFIX(stop)
-#  define HEAP_END(p)       (p)->PREFIX(hend)
-#  define HEAP_SIZE(p)      (p)->PREFIX(heap_sz)
-#  define STACK_START(p)    (p)->PREFIX(hend)
-#  define STACK_TOP(p)      (p)->PREFIX(stop)
-#  define STACK_END(p)      (p)->PREFIX(htop)
-#  define HIGH_WATER(p)     (p)->PREFIX(high_water)
-#  define OLD_HEND(p)       (p)->PREFIX(old_hend)
-#  define OLD_HTOP(p)       (p)->PREFIX(old_htop)
-#  define OLD_HEAP(p)       (p)->PREFIX(old_heap)
-#  define GEN_GCS(p)        (p)->gen_gcs
-#  define MAX_GEN_GCS(p)    (p)->max_gen_gcs
-#  define FLAGS(p)          (p)->flags
-#  define MBUF(p)           (p)->mbuf
-#  define HALLOC_MBUF(p)    (p)->halloc_mbuf
-#  define MBUF_SIZE(p)      (p)->mbuf_sz
-#  define MSO(p)            (p)->off_heap
-#  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
+#  define HEAP_START(p)      (p)->P(heap)
+#  define HEAP_TOP(p)        (p)->P(htop)
+#  define HEAP_LIMIT(p)      (p)->P(stop)
+#  define HEAP_END(p)        (p)->P(hend)
+#  define HIGH_WATER(p)      (p)->P(high_water)
+#  define HEAP_SIZE(p)       (HEAP_END(p) - HEAP_START(p))
+#  define HEAP_USED_SIZE(p)  (HEAP_TOP(p) - HEAP_START(p))
+#  define HIGH_WATER_SIZE(p) (HIGH_WATER(p) - HEAP_START(p))
 
-#  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
-#  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
-#  define BIN_VHEAP_MATURE(p) (p)->bin_vheap_mature
-#  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
-#  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
+#  define STACK_START(p)     (p)->P(hend)
+#  define STACK_TOP(p)       (p)->P(stop)
+#  define STACK_END(p)       (p)->P(htop)
+
+#  define OLD_HEND(p)        (p)->P(old_hend)
+#  define OLD_HTOP(p)        (p)->P(old_htop)
+#  define OLD_HEAP(p)        (p)->P(old_heap)
+#  define GEN_GCS(p)         (p)->P(gen_gcs)
+#  define MAX_GEN_GCS(p)     (p)->P(max_gen_gcs)
+
+#  define FLAGS(p)           (p)->flags
+
+#  define MBUF(p)            (p)->mbuf
+#  define HALLOC_MBUF(p)     (p)->halloc_mbuf
+#  define MBUF_SIZE(p)       (p)->mbuf_sz
+
+#  define MSO(p)             (p)->P(off_heap)
+#  define MIN_HEAP_SIZE(p)   (p)->P(min_heap_size)
+#  define MIN_VHEAP_SIZE(p)   (p)->P(min_vheap_size)
+#  define BIN_VHEAP_SZ(p)     (p)->P(bin_vheap_sz)
+#  define BIN_VHEAP_MATURE(p) (p)->P(bin_vheap_mature)
+#  define BIN_OLD_VHEAP_SZ(p) (p)->P(bin_old_vheap_sz)
+#  define BIN_OLD_VHEAP(p)    (p)->P(bin_old_vheap)
+
+#  define HEAP_SIZE_BYTES(p)       ((char*)HEAP_END(p) - (char*)HEAP_START(p))
+#  define HEAP_USED_SIZE_BYTES(p)  ((char*)HEAP_TOP(p) - (char*)HEAP_START(p))
+#  define HIGH_WATER_SIZE_BYTES(p) ((char*)HIGH_WATER(p) - (char*)HEAP_START(p))
+
 
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
@@ -893,13 +875,12 @@ struct process {
      * native code have to use functions instead of constants.
      */
     
-    Eterm* PREFIX(htop);		/* Heap top */
-    Eterm* PREFIX(stop);		/* Stack top */
-    Eterm* PREFIX(heap);		/* Heap start */
-    Eterm* PREFIX(hend);		/* Heap end */
-    Uint PREFIX(heap_sz);		/* Size of heap in words */
-    Uint min_heap_size;         /* Minimum size of heap (in words). */
-    Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
+    Eterm* P(htop);		/* Heap top */
+    Eterm* P(stop);		/* Stack top */
+    Eterm* P(heap);		/* Heap start */
+    Eterm* P(hend);		/* Heap end */
+    Uint P(min_heap_size);         /* Minimum size of heap (in words). */
+    Uint P(min_vheap_size);        /* Minimum size of virtual heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -983,21 +964,21 @@ struct process {
      * architectures, have gone to.
      */
 
-    Eterm *PREFIX(high_water);
-    Eterm *PREFIX(old_hend);            /* Heap pointers for generational GC. */
-    Eterm *PREFIX(old_htop);
-    Eterm *PREFIX(old_heap);
-    Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
-    Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
-    ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
+    Eterm *P(high_water);
+    Eterm *P(old_hend);            /* Heap pointers for generational GC. */
+    Eterm *P(old_htop);
+    Eterm *P(old_heap);
+    Uint16 P(gen_gcs);		/* Number of (minor) generational GCs. */
+    Uint16 P(max_gen_gcs);		/* Max minor gen GCs before fullsweep. */
+    ErlOffHeap P(off_heap);	/* Off-heap data updated by copy_struct(). */
     ErlHeapFragment* mbuf;	/* Pointer to message buffer list */
     Uint mbuf_sz;		/* Size of all message buffers */
     ErtsPSD *psd;		/* Rarely used process specific data */
 
-    Uint64 bin_vheap_sz;	/* Virtual heap block size for binaries */
-    Uint64 bin_vheap_mature;	/* Virtual heap block size for binaries */
-    Uint64 bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
-    Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
+    Uint64 P(bin_vheap_sz);	/* Virtual heap block size for binaries */
+    Uint64 P(bin_vheap_mature);	/* Virtual heap block size for binaries */
+    Uint64 P(bin_old_vheap_sz);	/* Virtual old heap block size for binaries */
+    Uint64 P(bin_old_vheap);	/* Virtual old heap size for binaries */
 
     ErtsProcSysTaskQs *sys_task_qs;
 

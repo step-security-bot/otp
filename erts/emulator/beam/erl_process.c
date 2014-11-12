@@ -10694,14 +10694,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #endif
 #endif
 
-    HEAP_START(p) = (Eterm *) ERTS_HEAP_ALLOC(p->common.id,ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
+    HEAP_START(p) = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     OLD_HEND(p) = OLD_HTOP(p) = OLD_HEAP(p) = NULL;
     HIGH_WATER(p) = HEAP_START(p);
     p->gen_gcs = 0;
     STACK_TOP(p) = STACK_START(p) = HEAP_START(p) + sz;
     HEAP_END(p) = STACK_START(p);
     HEAP_TOP(p) = HEAP_START(p);
-    HEAP_SIZE(p) = sz;
     p->catches = 0;
 
     p->bin_vheap_sz     = p->min_vheap_size;
@@ -10939,7 +10938,6 @@ void erts_init_empty_process(Process *p)
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
     p->common.u.alive.reg = NULL;
-    HEAP_SIZE(p) = 0;
     HIGH_WATER(p) = NULL;
     OLD_HEND(p) = NULL;
     OLD_HTOP(p) = NULL;
@@ -11141,14 +11139,14 @@ delete_process(Process* p)
     hipe_delete_process(&p->hipe);
 #endif
 
-    ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_HEAP, (void*) HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
     if (OLD_HEAP(p) != NULL) {
 
 #ifdef DEBUG
 	sys_memset(OLD_HEAP(p), DEBUG_BAD_BYTE,
                    (OLD_HEND(p)-OLD_HEAP(p))*sizeof(Eterm));
 #endif
-	ERTS_HEAP_FREE(p->common.id,ERTS_ALC_T_OLD_HEAP,
+	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       OLD_HEAP(p),
 		       (OLD_HEND(p)-OLD_HEAP(p))*sizeof(Eterm));
     }
