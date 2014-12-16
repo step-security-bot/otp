@@ -149,7 +149,7 @@ define etp-1
         if (($arg0) == 0x0)
           printf "<the non-value>"
         else
-          if (($arg0) == 0x4)
+          if (($arg0) == 0x4 || ($arg0) == 0xffffffffffffffd8)
             printf "<the non-value debug>"
           else
             etp-cp-1 ($arg0)

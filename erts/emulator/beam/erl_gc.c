@@ -101,6 +101,8 @@ static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *r
 static void do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop, char* src, Uint src_size);
 static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size);
+static Eterm* sweep_two_areas(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size,
+                              char* src2, Uint src2_size);
 static Eterm* sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 			     char* src, Uint src_size);
 static Eterm* collect_heap_frags(Process* p, Eterm* heap,
@@ -1223,12 +1225,16 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint size_before;
     Eterm* n_heap;
     Eterm* n_htop;
+    Eterm* o_heap = NULL;
+    Eterm* o_htop = NULL;
+    Eterm* prev_o_heap = NULL;
     char* src = (char *) HEAP_START(p);
     Uint src_size = (char *) HEAP_TOP(p) - src;
+    Uint mature_size = (char *) HIGH_WATER(p) - src;
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
     Uint n;
-    Uint new_sz;
+    Uint new_sz, new_old_sz;
     Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
     ErlMessage *msgp;
 
@@ -1236,7 +1242,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
-     * to receive all live data.
+     * to receive all live data. We have the size of the data
+     * on the old heap in order to be backwards compatible.
      */
 
     new_sz = HEAP_SIZE(p) + fragments + (OLD_HTOP(p) - OLD_HEAP(p));
@@ -1261,6 +1268,17 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
 
+    /* We create an old heap that is one step larger than the
+       young heap. We know that this is large enough to receive
+       everything as the size of the data on the old heap is part
+       of new_sz. */
+    new_old_sz = next_heap_size(p, new_sz, 1);
+    ASSERT(new_old_sz >= OLD_HTOP(p) - OLD_HEAP(p));
+
+    o_htop = o_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
+						sizeof(Eterm)*new_old_sz);
+    prev_o_heap = OLD_HEAP(p);
+
     /*
      * Get rid of heap fragments.
      */
@@ -1275,7 +1293,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      */
 
     n = setup_rootset(p, objv, nobj, &rootset);
-    n_htop = fullsweep_nstack(p, n_htop);
+    n_htop = fullsweep_nstack(p, n_htop); /* fixme, update to work with old heap */
     roots = rootset.roots;
     while (n--) {
 	Eterm* g_ptr = roots->v;
@@ -1295,7 +1313,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+                } else if (in_area(ptr, src, mature_size) ||
+                           in_area(ptr, oh, oh_size)) {
+                    MOVE_BOXED(ptr,val,o_htop,g_ptr++);
+		} else if (in_area(ptr, src, src_size)) {
 		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
@@ -1308,7 +1329,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+                } else if (in_area(ptr, src, mature_size) ||
+                           in_area(ptr, oh, oh_size)) {
+                    MOVE_CONS(ptr,val,o_htop,g_ptr++);
+		} else if (in_area(ptr, src, src_size)) {
 		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
@@ -1333,9 +1357,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      * until all is copied.
      */
 
-    if (oh_size == 0) {
-	n_htop = sweep_one_area(n_heap, n_htop, src, src_size);
-    } else {
+    {
 	Eterm* n_hp = n_heap;
 
 	while (n_hp != n_htop) {
@@ -1350,7 +1372,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+                } else if (in_area(ptr, src, mature_size) ||
+                           in_area(ptr, oh, oh_size)) {
+                    MOVE_BOXED(ptr,val,o_htop,n_hp++);
+		} else if (in_area(ptr, src, src_size)) {
 		    MOVE_BOXED(ptr,val,n_htop,n_hp++);
 		} else {
 		    n_hp++;
@@ -1362,7 +1387,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 		val = *ptr;
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
-		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
+                } else if (in_area(ptr, src, mature_size) ||
+                           in_area(ptr, oh, oh_size)) {
+                    MOVE_CONS(ptr,val,o_htop,n_hp++);
+		} else if (in_area(ptr, src, src_size)) {
 		    MOVE_CONS(ptr,val,n_htop,n_hp++);
 		} else {
 		    n_hp++;
@@ -1383,9 +1411,14 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 			if (IS_MOVED_BOXED(val)) {
 			    *origptr = val;
 			    mb->base = binary_bytes(*origptr);
-			} else if (in_area(ptr, src, src_size) ||
-				   in_area(ptr, oh, oh_size)) {
-			    MOVE_BOXED(ptr,val,n_htop,origptr); 
+                        } else if (in_area(ptr, src, mature_size) ||
+                                   in_area(ptr, oh, oh_size)) {
+			    MOVE_BOXED(ptr,val,o_htop,origptr);
+			    mb->base = binary_bytes(*origptr);
+			    ptr = boxed_val(*origptr);
+			    val = *ptr;
+			} else if (in_area(ptr, src, src_size)) {
+			    MOVE_BOXED(ptr,val,n_htop,origptr);
 			    mb->base = binary_bytes(*origptr);
 			    ptr = boxed_val(*origptr);
 			    val = *ptr;
@@ -1402,15 +1435,24 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	}
     }
 
-    if (MSO(p).first) {
-	sweep_off_heap(p, 1);
+    if (o_heap < o_htop) {
+        o_htop = sweep_two_areas(o_heap, o_htop, src, src_size, oh, oh_size);
+        OLD_HEAP(p) = o_heap;
+        OLD_HEND(p) = o_heap + new_old_sz;
+        OLD_HTOP(p) = o_htop;
+    } else {
+        ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP, o_heap, new_old_sz * sizeof(Eterm));
+	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
     }
 
-    if (OLD_HEAP(p) != NULL) {       
+    if (MSO(p).first) {
+	sweep_off_heap(p, 0);
+    }
+
+    if (prev_o_heap != NULL) {
 	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
-		       OLD_HEAP(p),
+		       prev_o_heap,
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
-	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
     }
 
     /* Move the stack to the end of the heap */
@@ -1825,6 +1867,77 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 			mb->base = binary_bytes(*origptr);
 		    } else if (in_area(ptr, src, src_size)) {
 			MOVE_BOXED(ptr,val,n_htop,origptr); 
+			mb->base = binary_bytes(*origptr);
+		    }
+		}
+		n_hp += (thing_arityval(gval)+1);
+	    }
+	    break;
+	}
+	default:
+	    n_hp++;
+	    break;
+	}
+    }
+    return n_htop;
+}
+
+static Eterm*
+sweep_two_areas(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size,
+                char* src2, Uint src2_size)
+{
+    Eterm* ptr;
+    Eterm val;
+    Eterm gval;
+
+    while (n_hp != n_htop) {
+	ASSERT(n_hp < n_htop);
+	gval = *n_hp;
+	switch (primary_tag(gval)) {
+	case TAG_PRIMARY_BOXED: {
+	    ptr = boxed_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_BOXED(val)) {
+		ASSERT(is_boxed(val));
+		*n_hp++ = val;
+	    } else if (in_area(ptr, src, src_size) ||
+                       in_area(ptr, src2,src2_size)) {
+		MOVE_BOXED(ptr,val,n_htop,n_hp++);
+	    } else {
+		n_hp++;
+	    }
+	    break;
+	}
+	case TAG_PRIMARY_LIST: {
+	    ptr = list_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_CONS(val)) {
+		*n_hp++ = ptr[1];
+	    } else if (in_area(ptr, src, src_size) ||
+                       in_area(ptr, src2,src2_size)) {
+		MOVE_CONS(ptr,val,n_htop,n_hp++);
+	    } else {
+		n_hp++;
+	    }
+	    break;
+	}
+	case TAG_PRIMARY_HEADER: {
+	    if (!header_is_thing(gval)) {
+		n_hp++;
+	    } else {
+		if (header_is_bin_matchstate(gval)) {
+		    ErlBinMatchState *ms = (ErlBinMatchState*) n_hp;
+		    ErlBinMatchBuffer *mb = &(ms->mb);
+		    Eterm* origptr;	
+		    origptr = &(mb->orig);
+		    ptr = boxed_val(*origptr);
+		    val = *ptr;
+		    if (IS_MOVED_BOXED(val)) {
+			*origptr = val;
+			mb->base = binary_bytes(*origptr);
+		    } else if (in_area(ptr, src, src_size) ||
+                               in_area(ptr, src2,src2_size)) {
+			MOVE_BOXED(ptr,val,n_htop,origptr);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
