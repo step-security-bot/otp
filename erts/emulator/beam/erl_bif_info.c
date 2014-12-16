@@ -1453,7 +1453,7 @@ process_info_aux(Process *BIF_P,
 	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp))); hp += 3;
 	res = CONS(hp, t, NIL); hp += 2;
 	t = TUPLE2(hp, AM_major_gcs, make_small(FULL_GCS(rp))); hp += 3;
-	res = CONS(hp, t, NIL); hp += 2;
+	res = CONS(hp, t, res); hp += 2;
 	t = TUPLE2(hp, am_fullsweep_after, make_small(MAX_GEN_GCS(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
