@@ -46,7 +46,7 @@ static void dump_element_nl(int to, void *to_arg, Eterm x);
 static int stack_element_dump(int to, void *to_arg, Eterm* sp,
 			      int yreg);
 static void stack_trace_dump(int to, void *to_arg, Eterm* sp);
-static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
+void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
 static void heap_dump(int to, void *to_arg, Eterm x);
 static void dump_binaries(int to, void *to_arg, Binary* root);
 static void dump_externally(int to, void *to_arg, Eterm term);
@@ -329,7 +329,7 @@ stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
     return yreg;
 }
 
-static void
+void
 print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 {
     BeamInstr* addr = find_function_from_pc(x);

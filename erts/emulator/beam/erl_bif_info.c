@@ -43,6 +43,7 @@
 #include "erl_async.h"
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
+#include "beam_catches.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
 #ifdef HIPE
@@ -594,6 +595,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
+    am_memory_dump,
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -641,6 +643,7 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
+    case am_memory_dump:                        return 31;
     default:					return -1;
     }
 }
@@ -1217,6 +1220,84 @@ process_info_aux(Process *BIF_P,
 	    }
 	}
 	break;
+    }
+
+    case am_memory_dump: {
+      Eterm t, stack, new, young, old,
+	heaps = NIL, roots = NIL, addr2line = NIL, catch2line = NIL,
+	*s;
+
+      new = new_binary(BIF_P, (byte*)HIGH_WATER(rp),
+		       (byte*)(HEAP_TOP(rp)) - (byte*)(HIGH_WATER(rp)));
+      young = new_binary(BIF_P, (byte*)HEAP_START(rp),
+			 (byte*)(HIGH_WATER(rp)) - (byte*)(HEAP_START(rp)));
+      old = new_binary(BIF_P, (byte*)OLD_HEAP(rp),
+		       (byte*)(OLD_HTOP(rp)) - (byte*)(OLD_HEAP(rp)));
+      stack = new_binary(BIF_P, (byte*)STACK_TOP(rp),
+			 (byte*)(STACK_START(rp)) - (byte*)(STACK_TOP(rp)));
+
+      for (s = STACK_TOP(rp); s < STACK_START(rp); s++)
+	if (is_CP(*s) || is_catch(*s)) {
+	  erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
+	  BeamInstr *b = is_CP(*s) ? cp_val(*s) : catch_pc(*s);
+	  print_function_from_pc(ERTS_PRINT_DSBUF, (void *) dsbufp, b);
+
+	  hp = HAlloc(BIF_P, 3 + 2);
+	  t = TUPLE2(hp,
+		     erts_make_integer_from_uword((UWord)(is_CP(*s) ? cp_val(*s): catch_val(*s)), BIF_P),
+		     new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len));
+	  hp += 3;
+	  erts_destroy_tmp_dsbuf(dsbufp);		     
+	  if (is_CP(*s))
+	    addr2line = CONS(hp, t, addr2line);
+	  else
+	    catch2line = CONS(hp, t, catch2line);
+	}
+
+      /* 6 two tuple + 6 cons cells */
+      hp = HAlloc(BIF_P, 5 * 3 + 4 * 4 + 8 * 2);
+
+      old = TUPLE3(hp,
+		   am_old_heap,
+		   erts_make_integer_from_uword((UWord)(OLD_HEAP(rp)), BIF_P),
+		   old);
+      hp += 4;
+      heaps = CONS(hp, old, heaps); hp += 2;
+
+      young = TUPLE3(hp,
+		     am_young_heap,
+		     erts_make_integer_from_uword((UWord)(HEAP_START(rp)), BIF_P),
+		     young);
+      hp += 4;
+      heaps = CONS(hp, young, heaps); hp += 2;
+
+      new = TUPLE3(hp,
+		   am_new_heap,
+		   erts_make_integer_from_uword((UWord)(HIGH_WATER(rp)), BIF_P),
+		   new);
+      hp += 4;
+      heaps = CONS(hp, new, heaps); hp += 2;
+
+      stack = TUPLE3(hp,
+		     am_stack,
+		     erts_make_integer_from_uword((UWord)(STACK_TOP(rp)), BIF_P),
+		     stack);
+      hp += 4;
+      roots = CONS(hp, stack, roots); hp += 2;
+
+      t = TUPLE2(hp, am_heaps, heaps); hp += 3;
+      res = CONS(hp, t, res); hp += 2;
+
+      t = TUPLE2(hp, am_roots, roots); hp += 3;
+      res = CONS(hp, t, res); hp += 2;
+
+      t = TUPLE2(hp, am_addr2line, addr2line); hp += 3;
+      res = CONS(hp, t, res); hp += 2;
+
+      t = TUPLE2(hp, am_catch2line, catch2line); hp += 3;
+      res = CONS(hp, t, res); hp += 2;
+
+      break;
     }
 
     case am_message_queue_len:

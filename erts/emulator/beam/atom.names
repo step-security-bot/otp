@@ -69,6 +69,7 @@ atom abs_path
 atom absoluteURI
 atom ac
 atom active
+atom addr2line
 atom all
 atom all_but_first
 atom all_names
@@ -141,6 +142,7 @@ atom caller
 atom capture
 atom case_clause
 atom caseless
+atom catch2line
 atom catchlevel
 atom cd
 atom cdr
@@ -274,6 +276,7 @@ atom heap_block_size
 atom heap_size
 atom heap_sizes
 atom heap_type
+atom heaps
 atom heart_port
 atom heir
 atom hidden
@@ -341,6 +344,7 @@ atom max_tables max_processes
 atom mbuf_size
 atom md5
 atom memory
+atom memory_dump
 atom memory_internal
 atom memory_types
 atom message
@@ -377,6 +381,7 @@ atom net_kernel
 atom net_kernel_terminated
 atom never_utf
 atom new
+atom new_heap
 atom new_index
 atom new_uniq
 atom newline
@@ -419,6 +424,7 @@ atom nouse_stdio
 atom objects
 atom offset
 atom ok
+atom old_heap
 atom old_heap_block_size
 atom old_heap_size
 atom on_load
@@ -504,6 +510,7 @@ atom restart
 atom return_from
 atom return_to
 atom return_trace
+atom roots
 atom run_queue
 atom runnable
 atom runnable_ports
@@ -543,6 +550,7 @@ atom sl_alloc
 atom spawn_executable
 atom spawn_driver
 atom ssl_tls
+atom stack
 atom stack_size
 atom start
 atom status
@@ -614,3 +622,4 @@ atom xor
 atom x86
 atom yes
 atom yield
+atom young_heap
