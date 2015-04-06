@@ -1,28 +1,83 @@
 -module(heap_analyzer).
 
--export([analyze/1]).
+%% Description
+%%
+%% This module converts a raw erlang:process_info(Pid, memory_dump)
+%% to a digraph representing the heap. Each vertex in the digraph
+%% represents one memory location, except:
+%%   * the 0 vertex which is used as a the root for all roots.
+%%     i.e. digraph:out_neighbours(G, 0) gives all roots
+%%   * constants, we do not have access to the values to constants
+%%     so the only thing we know is the type.
+%%
+%% As an example lets say we have a small process with only one
+%% conscell pointer to by a pointer on the stack.
+%%
+%%     0  ------> 4000 ------> 4100
+%%                  \--------> 4108
+%%
+%% In the example above 0 points to the stack element which is on
+%% address 4000. The stack element points to both the head and the
+%% tail of the conscell.
+%%
+%% So if we wanted to get all roots, it is possible to do:
+%%   digraph:out_neighbours(G, 0).
+%% or if we want to get all live data:
+%%   digraph_utils:reachable_neighbours([0], G).
+%%
+%% Each vertex also has some meta data attached to it as the label.
+%% The data depends on the type of the data. For the example above the
+%% stack vertex could look like this.
+%%
+%%   1> digraph:vertex(G, 4000).
+%%   {4000,#{container => stack,label => stack,type => boxed}}
+%% The container describes what type of term this term is part of,
+%% the label is the memory area and the type if the term.
+%%
+%%   2> [digraph:vertex(G, V) || V <- digraph:out_neighbours(G,4000)].
+%%   [{4100,#{container => cons,label => new_heap,payload => 1,type => small}},
+%%    {4108,#{container => cons,label => new_heap,type => nil}}]
+%%
+%% In the example above we take the out neighbours of the cons ptr
+%% (i.e. the cons cell) and get their meta data. Here we can see that
+%% the container is cons, and the label is the new_heap. We can also see that
+%% the type of the head is small and the value is 1. The tail of the list
+%% is nil, i.e. the empty list.
+%%
+%% This module also contains some helpful analytics functions.
+%%    heap_analyzer:analyze(G) returns overview stats of the allocated data
+%%    heap_analyzer:addr_to_term(G, Addr) converts a given memory address
+%%       to it's original erlang terms. If a constant is found, the atom
+%%       '$CONST' will be used instead.
+
+-export([parse/1,analyze/1]).
 
 -export([test/0]).
 
 test() ->
     P = self(),
-    spawn(fun() ->
-		  M = maps:from_list([{I,I} || I <- lists:seq(1,32)]),
+    spawn_opt(fun() ->
+		  M = maps:from_list([{I,I} || I <- lists:seq(1,64)]),
+		  try
 		  Terms = {0.0, make_ref(), self(),
+			   #{ foo => bar },
 			   fun(A) -> {A, M} end,
 			   file:open("/tmp/test",[raw]),
 			   1 bsl 80, lists:seq(1,100), M},
 		  P ! erlang:process_info(self(),memory_dump),
 		  receive inf -> Terms end
-	  end),
+		  catch _E:_R ->
+			  P ! M
+		  end
+	  end,[{min_heap_size,1000}]),
     receive
 	M ->
-	    {M,P}
+	    M
     end.
 
-analyze(Pid) when is_pid(Pid) ->
-    analyze(erlang:process_info(Pid, memory_dump));
-analyze({memory_dump, Dump}) ->
+parse(Pid) when is_pid(Pid) ->
+    parse(erlang:process_info(Pid, memory_dump));
+parse({memory_dump, Dump}) ->
     G = digraph:new([acyclic]),
     try
         add_vertex(G, 0, #{ type => root, label => root }),
@@ -62,22 +117,10 @@ analyze({memory_dump, Dump}) ->
 	    {G, {E,R,erlang:get_stacktrace()}}
     end.
 
-%    {StackStats, StackRoots} = analyze(Stack, []),
-%    {NewStats,   NewRoots  } = analyze(New, StackRoots),
-    
-%    {YoungStats, YoungRoots} = analyze(Young, NewRoots),
-%    {OldStats,   OldRoots  } = analyze(Old, YoungRoots),
-%    {{StackStats, StackRoots},
-%     {NewStats, NewRoots},
-%     {YoungStats, YoungRoots},
-%     {OldStats, OldRoots}}.
-
 parse_root(G, <<I:64/integer-native,R/binary>>, Addr, Label,
 	    #{addr2line := A2L } = Meta) 
   when (I band 16#3) == 0 ->
-    Addr = add_vertex(G, Addr,
-			      #{ type => cp,
-				 label => Label,
+    Addr = add_vertex(G, Addr,#{ type => cp, label => Label,
 				 payload => proplists:get_value(I, A2L) }),
     add_edge(G, 0, Addr, Label),
     parse_root(G, R, Addr + 8, Label, Meta);
@@ -93,22 +136,20 @@ parse_heap(G, <<I:64/integer-native, R/binary>>, Addr, Label, Meta)
     %% Tuples
     Arity = (I bsr 6),
     add_vertex(G, Addr, #{ type => tuple, arity => Arity,
-				   label => Label }),
-    [add_edge(G, Addr, Addr + I2 * 8, tuple) || I2 <- lists:seq(1, Arity)],
+			   label => Label, container => tuple }),
+    add_edges(G, Addr, Addr, Arity, tuple),
     parse_heap(G, R, Addr + 8, Label, Meta);
 parse_heap(G, <<I:64/integer-native, Size:64/integer-native, R/binary>>,
 	   Addr, Label, Meta)
   when (I band 16#FF) == 16#3C ->
     %% Flat maps
-    add_vertex(G, Addr, #{ type => flat_map,
-			   size => Size,
-			   label => Label }),
+    add_vertex(G, Addr, #{ type => flat_map, size => Size,
+			   label => Label, container => flat_map }),
 
-    add_vertex(G, Addr + 8, #{ type => payload }),
+    add_vertex(G, Addr + 8, #{ type => payload, label => Label }),
     add_edge(G, Addr, Addr + 8, flat_map),
 
-    [add_edge(G, Addr, Addr + I2 * 8, flat_map)
-     || I2 <- lists:seq(1, Size + 1)],
+    add_edges(G, Addr, Addr, Size + 1, flat_map),
 
     parse_heap(G, R, Addr + 16, Label, Meta);
 parse_heap(G, <<I:64/integer-native, R/binary>>,
@@ -120,8 +161,9 @@ parse_heap(G, <<I:64/integer-native, R/binary>>,
     add_vertex(G, Addr, #{ type => hashmap_node,
 			   node_size => Size,
 			   bitmap => BitMap,
-			   label => Label}),
-    [add_edge(G, Addr, Addr + I2 * 8, hashmap_node) || I2 <- lists:seq(1, Size)],
+			   label => Label,
+			   container => hashmap_node}),
+    add_edges(G, Addr, Addr, Size, hashmap_node),
     parse_heap(G, R, Addr + 8, Label, Meta);
 parse_heap(G, <<I:64/integer-native, Size:64/integer-native, R/binary>>,
 	   Addr, Label, Meta)
@@ -133,9 +175,9 @@ parse_heap(G, <<I:64/integer-native, Size:64/integer-native, R/binary>>,
 			   node_size => NodeSize,
 			   size => Size,
 			   bitmap => BitMap,
-			   label => Label }),
-    [add_edge(G, Addr, Addr + I2 * 8, hashmap_head)
-     || I2 <- lists:seq(1, NodeSize + 1)],
+			   label => Label,
+			   container => hashmap_head}),
+    add_edges(G, Addr, Addr, NodeSize + 1, hashmap_head),
     add_vertex(G, Addr + 8, #{ type => payload, label => Label }),
     parse_heap(G, R, Addr + 16, Label, Meta);
 parse_heap(G, <<I:64/integer-native, R/binary>>, Addr, Label, Meta)
@@ -191,13 +233,12 @@ parse_heap(G, <<>>, _Addr, _Label, _Meta) ->
     G.
 
 parse_term(G, I, Addr, Label, _Meta) when (I band 16#3) == 1 ->
-    add_edge(G, Addr, I - 1, cons),
-    add_edge(G, Addr, I - 1 + 8, cons),
+    add_edges(G, Addr, I - 1 - 8, 2, cons),
     #{ type => cons, label => Label };
 parse_term(G, I, Addr, Label, _Meta) when (I band 16#3) == 2 ->
     add_edge(G, Addr, I - 2, boxed),
     #{ type => boxed, label => Label };
-parse_term(G, I, Addr, Label, #{ catch2line := C2L } = Meta) 
+parse_term(_G, I, _Addr, Label, #{ catch2line := C2L })
   when (I band 16#3) == 3 ->
     T = case (I bsr 2) band 16#3 of
 	    0 -> #{ type => pid, payload => I bsr 4};
@@ -249,7 +290,7 @@ verify_graph(G) ->
       fun(Curr) ->
 	      try
 		  case digraph:vertex(G, Curr) of
-		      {_, #{ type := cons, label := Label } = Cons } ->
+		      {_, #{ type := cons } } ->
 			  [CAR,CDR] = digraph:out_neighbours(G, Curr),
 			  {_, #{ container := cons, type := CART,
 				 label := CARLabel } }
@@ -259,9 +300,9 @@ verify_graph(G) ->
 			  {_, #{ container := cons, type := CDRT,
 				 label := CDRLabel } }
 			      = digraph:vertex(G, CDR),
-			  true = lists:member(CART, non_boxed_terms())
+			  true = lists:member(CDRT, non_boxed_terms())
 			      orelse CDRLabel =:= constant;
-		      {_, #{ type := boxed, label := Label } } ->
+		      {_, #{ type := boxed } } ->
 			  [Box] = digraph:out_neighbours(G, Curr),
 		      {_, #{ type := BoxT, label := BoxLabel } }
 			  = digraph:vertex(G, Box),
@@ -276,44 +317,58 @@ verify_graph(G) ->
 			  ok
 		  end
 	      catch E:R ->
-		      erlang:raise(error,{faulty_ptr, Curr},
+		      erlang:raise(error,{E,R,{faulty_ptr, Curr}},
 				   erlang:get_stacktrace())
 	      end
       end, Vs).
 
 
-%% analyze(Terms, Roots) ->
-%%     analyze(Terms, Roots, [], #{}).
-%% analyze([{-1, Type, Ptr}|T], InRoots, OutRoots, Stats)
-%%   when (Type =:= cons orelse Type =:= boxed) ->
-%%     analyze(T, InRoots, [Ptr|OutRoots], incr(Type, Stats));
-%% analyze([{-1,Type,_}|T], InRoots, OutRoots, Stats) ->
-%%     analyze(T, InRoots, OutRoots, incr(Type, Stats));
-%% analyze(Terms, [Root| Roots], OutRoots, Stats) ->
-%%     case lists:keyfind(Root, 1, Terms) of
-%% 	{Root, Type, Val} when Type =:= cons; Type =:= boxed ->
-%% 	    analyze(Terms, [Val | Roots], OutRoots, incr(Type, Stats));
-%% 	{Root, Type, Val} when is_list(Val) ->
-%% 	    {NewStats, NewRoots} = analyze(Val, [Addr || {Addr,_,_} <- Val],
-%% 					   [], Stats),
-%% 	    analyze(Terms, NewRoots ++ Roots, OutRoots, incr(Type, NewStats));
-%% 	{Root, Type, Val} ->
-%% 	    analyze(Terms, Roots, OutRoots, incr(Type, Stats));
-%% 	false ->
-%% 	    analyze(Terms, Roots, [Root|OutRoots], Stats)
-%%     end;
-%% analyze([], [], OutRoots, Stats)->
-%%     {Stats, OutRoots};
-%% analyze([{_,Type,Val}|T], [], OutRoots, Stats) when is_list(Val) ->
-%%     {NewStats, _NewRoots} = analyze(Val, [Addr || {Addr,_,_} <- Val],
-%% 				   [], Stats),
-%%     analyze(T, [], OutRoots, incr({tot,Type}, NewStats));
-%% analyze([{_,Type,_Val}|T], [], OutRoots, Stats) ->
-%%     analyze(T, [], OutRoots, incr({tot,Type}, Stats)).
-       
-%% incr(Type, Stats) ->
-%%     Stats#{ Type => maps:get(Type, Stats, 0) + 1 }.
+analyze(G) ->
 
+    #{ new => analyze_heap(G, new_heap),
+       stack => analyze_heap(G, stack),
+       young => analyze_heap(G, young_heap),
+       old => analyze_heap(G, old_heap)
+     }.
+
+analyze_heap(G, Label) ->
+
+    NonConstG = digraph_utils:subgraph(G,digraph:vertices(G)),
+    %% NonConstG = filtergraph(#{ label => constant }, G),
+
+    LiveVs = digraph_utils:reachable_neighbours([0], NonConstG),
+    LiveG = digraph_utils:subgraph(NonConstG, LiveVs),
+
+    R = #{ live => analyze_heap_details(LiveG, #{ label => Label }),
+	   all => analyze_heap_details(NonConstG, #{ label => Label }) },
+    digraph:delete(NonConstG),
+    digraph:delete(LiveG),
+    R.
+
+
+analyze_heap_details(G, Filtermap) ->
+    #{ cons => length(filtervertices(Filtermap#{ container => cons }, G)),
+       tuple => length(filtervertices(Filtermap#{ container => tuple }, G)),
+       map => length(filtervertices(Filtermap#{ container => flat_map }, G)),
+       hashmap => length(filtervertices(Filtermap#{ container => hashmap_node }, G))
+       + length(filtervertices(Filtermap#{ container => hashmap_head }, G))
+     }.
+
+filtergraph(Filtermap, G) ->
+    digraph_utils:subgraph(G, filtervertices(Filtermap, G)).
+
+filtervertices(Filtermap, G) ->    
+    lists:filter(fun(V) ->
+			 {_, Label} = digraph:vertex(G, V),
+			 lists:all(fun({Key, Value}) ->
+					   case maps:find(Key, Label) of
+					       {ok, Value} ->
+						   true;
+					       _ ->
+						   false
+					   end
+				   end, maps:to_list(Filtermap))
+		 end, digraph:vertices(G)).
 
 popcount(0) ->
     0;
@@ -325,6 +380,11 @@ popcount(I) ->
 	    popcount(I bsr 1)
     end.
 
+add_edges(_G, _From, _To, 0, _Container) ->
+    ok;
+add_edges(G, From, To, ToSteps, Container) ->
+    add_edge(G, From, To + ToSteps * 8, Container),
+    add_edges(G, From, To, ToSteps-1, Container).
 add_edge(G, From, To, Container) ->
     case digraph:vertex(G, To) of
 	false ->
@@ -406,8 +466,8 @@ print_vertex(G, Vertex) ->
 
 debug(Fmt) ->
     debug(Fmt,[]).
-debug(Fmt,Args) ->
-%    io:format(Fmt,Args),
+debug(_Fmt,_Args) ->
+%    io:format(_Fmt,_Args),
     ok.
 
 non_boxed_terms() ->
@@ -416,8 +476,8 @@ non_boxed_terms() ->
 boxed_terms() ->
     [tuple,
      flat_map,
-     hashmap_head,
      hashmap_node,
+     hashmap_head,
      binary_aggregate,
      pos_bignum,
      neg_bignum,
