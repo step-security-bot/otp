@@ -2,6 +2,8 @@
 
 %% Description
 %%
+%% Note! At the moment this only works for analyzing 64 bit memory dumps
+%%
 %% This module converts a raw erlang:process_info(Pid, memory_dump)
 %% to a digraph representing the heap. Each vertex in the digraph
 %% represents one memory location, except:
@@ -44,26 +46,36 @@
 %% the type of the head is small and the value is 1. The tail of the list
 %% is nil, i.e. the empty list.
 %%
+%% Some things to keep in mind: atoms and constants are not part of the dump,
+%% so it is impossible to get the values of these. For atoms the atom id is
+%% printed instead, which is not very useful, but maybe a little bit.
+%% Constants have the label 'constant' and the type 'unknown'.
+%%
 %% This module also contains some helpful analytics functions.
 %%    heap_analyzer:analyze(G) returns overview stats of the allocated data
 %%    heap_analyzer:addr_to_term(G, Addr) converts a given memory address
-%%       to it's original erlang terms. If a constant is found, the atom
-%%       '$CONST' will be used instead.
+%%       to it's original erlang terms. If a type is found that there is no
+%%       conversion implemented for yet, the atom '$type' is shown instead.
+%%
+%% An example usage of addr_to_term could be to print all live terms: ie.
+%%   3> [heap_analyzer:addr_to_term(G, V) || V <- digraph:out_neighbours(G,0)].
+%%   [[1]].
 
--export([parse/1,analyze/1]).
+-export([parse/1,analyze/1,addr_to_term/2]).
 
 -export([test/0]).
 
 test() ->
     P = self(),
+    D = length(lists:seq(1,2)),
     spawn_opt(fun() ->
 		  M = maps:from_list([{I,I} || I <- lists:seq(1,64)]),
 		  try
-		  Terms = {0.0, make_ref(), self(),
-			   #{ foo => bar },
+		  Terms = {2.0 * D, make_ref(), self(),
+			   maps:from_list([{foo,bar}]),
 			   fun(A) -> {A, M} end,
-			   file:open("/tmp/test",[raw]),
-			   1 bsl 80, lists:seq(1,100), M},
+			   file:open("/tmp/test",[read,raw,write]),
+			   (1 bsl 80) * D, lists:seq(1,100), M},
 		  P ! erlang:process_info(self(),memory_dump),
 		  receive inf -> Terms end
 		  catch _E:_R ->
@@ -146,10 +158,11 @@ parse_heap(G, <<I:64/integer-native, Size:64/integer-native, R/binary>>,
     add_vertex(G, Addr, #{ type => flat_map, size => Size,
 			   label => Label, container => flat_map }),
 
-    add_vertex(G, Addr + 8, #{ type => payload, label => Label }),
+    add_vertex(G, Addr + 8, #{ type => payload, label => Label,
+			       value => Size }),
     add_edge(G, Addr, Addr + 8, flat_map),
 
-    add_edges(G, Addr, Addr, Size + 1, flat_map),
+    add_edges(G, Addr, Addr + 8, Size + 1, flat_map),
 
     parse_heap(G, R, Addr + 16, Label, Meta);
 parse_heap(G, <<I:64/integer-native, R/binary>>,
@@ -178,7 +191,8 @@ parse_heap(G, <<I:64/integer-native, Size:64/integer-native, R/binary>>,
 			   label => Label,
 			   container => hashmap_head}),
     add_edges(G, Addr, Addr, NodeSize + 1, hashmap_head),
-    add_vertex(G, Addr + 8, #{ type => payload, label => Label }),
+    add_vertex(G, Addr + 8, #{ type => payload, label => Label,
+			       value => Size }),
     parse_heap(G, R, Addr + 16, Label, Meta);
 parse_heap(G, <<I:64/integer-native, R/binary>>, Addr, Label, Meta)
   when (I band 16#3) == 0 ->
@@ -369,6 +383,61 @@ filtervertices(Filtermap, G) ->
 					   end
 				   end, maps:to_list(Filtermap))
 		 end, digraph:vertices(G)).
+
+addr_to_term(G, Addr) ->
+    erlang:display({checking, Addr}),
+    case digraph:vertex(G, Addr) of
+	{_, #{ type := cons } } ->
+	    erlang:display({found,cons}),
+	    [H,T] = lists:sort(digraph:out_neighbours(G, Addr)),
+	    [addr_to_term(G, H) | addr_to_term(G, T)];
+	{_, #{ type := boxed } } ->
+	    erlang:display({found,boxed}),
+	    [Header] = digraph:out_neighbours(G, Addr),
+	    erlang:display({checking, Header}),
+	    case digraph:vertex(G, Header) of
+		{_, #{ type := tuple }} ->
+		    erlang:display({found,tuple}),
+		    Elements = lists:sort(digraph:out_neighbours(G, Header)),
+		    list_to_tuple([addr_to_term(G, E) || E <- Elements]);
+		{_, #{ type := flat_map }} ->
+		    [_Size, KeyV | ValueVs] = lists:sort(digraph:out_neighbours(G, Header)),
+		    Keys = tuple_to_list(addr_to_term(G, KeyV)),
+		    Values = [addr_to_term(G, V) || V <- ValueVs],
+		    
+		    maps:from_list(lists:zip(Keys, Values));
+		{_, #{ type := hashmap_head }} ->
+		    [_Size | Vs] = lists:sort(digraph:out_neighbours(G, Header)),
+		    merge_hashmap([addr_to_term(G, V) || V <- Vs]);
+		{_, #{ type := hashmap_node }} ->
+		    Vs = digraph:out_neighbours(G, Header),
+		    merge_hashmap([addr_to_term(G, V) || V <- Vs]);
+		{_, #{ type := Type, payload := Value }} ->
+		    erlang:display({found,Type}),
+		    {list_to_atom("$"++atom_to_list(Type)), Value};
+		{_, #{ type := Type}} ->
+		    erlang:display({found,Type}),
+		    {list_to_atom("$"++atom_to_list(Type))}
+	    end;
+	{_, #{ type := small, payload := Value }} ->
+	    erlang:display({found,small}),
+	    Value;
+	{_, #{ type := nil }} ->
+	    erlang:display({found,nil}),
+	    [];
+	{_, #{ type := Type, payload := Value }} ->
+	    erlang:display({found,Type}),
+	    {list_to_atom("$"++atom_to_list(Type)), Value}
+    end.
+
+merge_hashmap(List) ->
+    merge_hashmap(List, #{}).
+merge_hashmap([[K|V]|T], Acc) ->
+    merge_hashmap(T,Acc#{ K => V});
+merge_hashmap([#{} = M | T], Acc) ->
+    merge_hashmap(T, maps:merge(Acc, M));
+merge_hashmap([],Acc) ->
+    Acc.
 
 popcount(0) ->
     0;
