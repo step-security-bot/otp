@@ -57,7 +57,7 @@
 
 # define STACK_SZ_ON_HEAP(p) (STACK_START(p) - STACK_TOP(p))
 # define OverRunCheck(P) \
-    if (STACK_TOP(P) < HEAP_TOP(P)) { \
+  if (STACK_TOP(P) < STACK_END(P) || HEAP_TOP(p) > HEAP_END(p) ) {	\
         erts_fprintf(stderr, "hend=%p\n", HEAP_END(p)); \
         erts_fprintf(stderr, "stack=%p\n", STACK_START(p)); \
         erts_fprintf(stderr, "stop=%p\n", STACK_TOP(p)); \
@@ -67,23 +67,16 @@
 		 __FILE__,__LINE__,(P)->common.id); \
     }
 
-#ifdef DEBUG
 #define ErtsGcQuickSanityCheck(P)					\
 do {									\
     ASSERT(HEAP_START(P) < HEAP_END(P));                                \
     ASSERT(HEAP_SIZE(P) == HEAP_END(P) - HEAP_START(P));                \
     ASSERT(HEAP_START(P) <= HEAP_TOP(P) && HEAP_TOP(P) <= HEAP_END(P)); \
-    ASSERT(HEAP_START(P) <= STACK_TOP(P) && STACK_TOP(P) <= HEAP_END(P)); \
+    ASSERT(STACK_END(P) <= STACK_TOP(P) && STACK_TOP(P) <= STACK_START(P)); \
     ASSERT(HEAP_START(P) <= HIGH_WATER(P) && HIGH_WATER(P) <= HEAP_END(P)); \
-    ASSERT(STACK_START(P) <= HEAP_END(P) && STACK_TOP(P) <= STACK_START(P)); \
     OverRunCheck((P));							\
 } while (0)
-#else
-#define ErtsGcQuickSanityCheck(P)					\
-do {									\
-    OverRunCheck((P));							\
-} while (0)
-#endif
+
 /*
  * This structure describes the rootset for the GC.
  */
@@ -635,15 +628,17 @@ erts_garbage_collect_hibernate(Process* p)
      * hibernated.
      */
 
-    ASSERT(HEAP_END(p) - STACK_TOP(p) == 0); /* Empty stack */
     ASSERT(actual_size < HEAP_SIZE(p));
+
+    /* Deallocate stack */
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, STACK_END(p), STACK_SIZE(p)*sizeof(Eterm));
+    STACK_END(p) = STACK_START(p) = STACK_TOP(p) = NULL;
 
     heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
     sys_memcpy((void *) heap, (void *) HEAP_START(p), actual_size*sizeof(Eterm));
     ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, HEAP_START(p), HEAP_SIZE(p)*sizeof(Eterm));
 
-    STACK_TOP(p) = HEAP_END(p) = heap + heap_size;
-    STACK_START(p) = HEAP_END(p);
+    HEAP_END(p) = heap + heap_size;
 
     offs = heap - HEAP_START(p);
     area = (char *) HEAP_START(p);
@@ -878,7 +873,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
 	ErlMessage *msgp;
 	Uint size_after;
 	Uint need_after;
-	Uint stack_size = STACK_SZ_ON_HEAP(p);
+	Uint stack_size = STACK_SIZE(p);
 	Uint fragments = MBUF_SIZE(p) + combined_message_size(p, off_heap_msgs);
 	Uint size_before = fragments + HEAP_USED_SIZE(p);
 	Uint new_sz = next_heap_size(p, HEAP_SIZE(p) + fragments, 0);
@@ -1188,12 +1183,6 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     disallow_heap_frag_ref_in_old_heap(p);
 #endif
 
-    /* Copy stack to end of new heap */
-    n = STACK_START(p) - STACK_TOP(p);
-    sys_memcpy(n_heap + new_sz - n, STACK_TOP(p), n * sizeof(Eterm));
-    STACK_TOP(p) = n_heap + new_sz - n;
-    STACK_START(p) = n_heap;
-
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
         DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -1244,14 +1233,6 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
      */
 
     new_sz = HEAP_SIZE(p) + fragments + (OLD_HTOP(p) - OLD_HEAP(p));
-    /*
-     * We used to do
-     *
-     * new_sz += STACK_SZ_ON_HEAP(p);
-     *
-     * here for no obvious reason. (The stack size is already counted once
-     * in HEAP_SIZE(p).)
-     */
     new_sz = next_heap_size(p, new_sz, 0);
 
     /*
@@ -1417,12 +1398,6 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl, int of
         OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
     }
 
-    /* Move the stack to the end of the heap */
-    n = STACK_START(p) - STACK_TOP(p);
-    sys_memcpy(n_heap + new_sz - n, STACK_TOP(p), n * sizeof(Eterm));
-    STACK_TOP(p) = n_heap + new_sz - n;
-    STACK_START(p) = n_heap;
-
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
         DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -1473,7 +1448,6 @@ static Uint
 adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int nobj)
 {
     Uint wanted, sz, size_after, need_after;
-    Uint stack_size = STACK_SZ_ON_HEAP(p);
     Uint reclaimed_now;
 
     size_after = HEAP_USED_SIZE(p);
@@ -1483,7 +1457,7 @@ adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int 
      * Resize the heap if needed.
      */
     
-    need_after = size_after + need + stack_size;
+    need_after = size_after + need;
     if (HEAP_SIZE(p) < need_after) {
         /* Too small - grow to match requested need */
         sz = next_heap_size(p, need_after, 0);
@@ -2095,7 +2069,6 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 {
     Eterm* new_heap;
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
-    Uint stack_size = STACK_START(p) - STACK_TOP(p);
     Sint offs;
 
     ASSERT(HEAP_SIZE(p) < new_sz);
@@ -2106,21 +2079,15 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 
     if ((offs = new_heap - HEAP_START(p)) == 0) { /* No move. */
         HEAP_END(p) = new_heap + new_sz;
-        sys_memmove(HEAP_END(p) - stack_size, STACK_TOP(p), stack_size * sizeof(Eterm));
-        STACK_TOP(p) = HEAP_END(p) - stack_size;
     } else {
 	char* area = (char *) HEAP_START(p);
 	Uint area_size = (char *) HEAP_TOP(p) - area;
-        Eterm* prev_stop = STACK_TOP(p);
 
         offset_heap(new_heap, heap_size, offs, area, area_size);
 
         HIGH_WATER(p) = new_heap + (HIGH_WATER(p) - HEAP_START(p));
 
         HEAP_END(p) = new_heap + new_sz;
-        prev_stop = new_heap + (STACK_TOP(p) - HEAP_START(p));
-        STACK_TOP(p) = HEAP_END(p) - stack_size;
-        sys_memmove(STACK_TOP(p), prev_stop, stack_size * sizeof(Eterm));
 
         offset_rootset(p, offs, area, area_size, objv, nobj);
         HEAP_TOP(p) = new_heap + heap_size;
@@ -2144,17 +2111,13 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     Eterm* new_heap;
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
     Sint offs;
-    Uint stack_size = HEAP_END(p) - STACK_TOP(p);
 
     ASSERT(new_sz < HEAP_SIZE(p));
-    sys_memmove(HEAP_START(p) + new_sz - stack_size, STACK_TOP(p), stack_size *
-                                                        sizeof(Eterm));
     new_heap = (Eterm *) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,
 					   (void*)HEAP_START(p),
 					   sizeof(Eterm)*(HEAP_SIZE(p)),
 					   sizeof(Eterm)*new_sz);
     HEAP_END(p) = new_heap + new_sz;
-    STACK_TOP(p) = HEAP_END(p) - stack_size;
 
     if ((offs = new_heap - HEAP_START(p)) != 0) {
 	char* area = (char *) HEAP_START(p);

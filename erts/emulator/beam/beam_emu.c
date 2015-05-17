@@ -241,9 +241,17 @@ BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 void** beam_ops;
 #endif
 
+#if ERTS_SEPERATE_STACK
+#define SWAPIN             \
+    HTOP = HEAP_TOP(c_p);  \
+    E = STACK_TOP(c_p);	   \
+    EEND = STACK_END(c_p); \
+    HEND = HEAP_END(c_p)
+#else
 #define SWAPIN             \
     HTOP = HEAP_TOP(c_p);  \
     E = STACK_TOP(c_p)
+#endif
 
 #define SWAPOUT            \
     HEAP_TOP(c_p) = HTOP;  \
@@ -294,6 +302,20 @@ void** beam_ops;
 #define y(N) E[N]
 #define r(N) x##N
 
+#if ERTS_SEPERATE_STACK
+#define CHECK_HEAP(HeapNeed) ((HTOP + (HeapNeed)) > HEND)
+
+#define CHECK_STACK(StackNeed) ((E - (StackNeed)) < EEND)
+
+#define CHECK_STACK_HEAP(StackNeed, HeapNeed) \
+  (CHECK_STACK(StackNeed) || CHECK_HEAP(HeapNeed))
+#else
+#define CHECK_HEAP(HeapNeed) (E - HTOP < (HeapNeed))
+
+#define CHECK_STACK_HEAP(StackNeed, HeapNeed) \
+  (E - HTOP < (StackNeed + HeapNeed))
+#endif
+
 /*
  * Makes sure that there are StackNeed + HeapNeed + 1 words available
  * on the combined heap/stack segment, then allocates StackNeed + 1
@@ -304,13 +326,29 @@ void** beam_ops;
 
 #define AH(StackNeed, HeapNeed, M) \
   do { \
-     int needed; \
+    int needed, stack, heap;	       \
      needed = (StackNeed) + 1; \
-     if (E - HTOP < (needed + (HeapNeed))) { \
+     stack = CHECK_STACK(needed);	       \
+     heap = CHECK_HEAP(HeapNeed);	       \
+     if (stack || heap) {		       \
            SWAPOUT; \
            reg[0] = r(0); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
-           FCALLS -= erts_garbage_collect(c_p, needed + (HeapNeed), reg, (M)); \
+	   if (stack) {							\
+	     int old_stack_sz = STACK_SIZE(c_p);			\
+	     Eterm *new_stack =						\
+	       ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP,			\
+				 STACK_END(c_p),			\
+				 old_stack_sz * sizeof(Eterm),		\
+				 old_stack_sz * 2 * sizeof(Eterm));	\
+	     STACK_END(c_p) = new_stack;				\
+	     STACK_TOP(c_p) = new_stack + old_stack_sz * 2 -		\
+	       (STACK_USED_SIZE(c_p));					\
+	     STACK_START(c_p) = new_stack + old_stack_sz;		\
+	     FCALLS += 10;						\
+	   }								\
+	   if (heap)							\
+	     FCALLS -= erts_garbage_collect(c_p, HeapNeed, reg, (M));	\
            ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            r(0) = reg[0]; \
@@ -360,7 +398,7 @@ void** beam_ops;
 #define TestBinVHeap(VNh, Nh, Live)                             		\
   do {                                                          		\
     unsigned need = (Nh);                                       		\
-    if ((E - HTOP < need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) {\
+    if (CHECK_HEAP(need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) { \
        SWAPOUT;                                                 		\
        reg[0] = r(0);                                           		\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
@@ -383,7 +421,7 @@ void** beam_ops;
 #define TestHeap(Nh, Live)                                      \
   do {                                                          \
     unsigned need = (Nh);                                       \
-    if (E - HTOP < need) {                                      \
+    if (CHECK_HEAP(need)) {					\
        SWAPOUT;                                                 \
        reg[0] = r(0);                                           \
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
@@ -405,7 +443,7 @@ void** beam_ops;
 #define TestHeapPreserve(Nh, Live, Extra)				\
   do {									\
     unsigned need = (Nh);						\
-    if (E - HTOP < need) {						\
+    if (CHECK_HEAP(need)) {						\
        SWAPOUT;								\
        reg[0] = r(0);							\
        reg[Live] = Extra;						\
@@ -1175,6 +1213,18 @@ void process_main(void)
      */
     register FloatDef *freg;
 
+#if ERTS_SEPERATE_STACK
+    /*
+     * The end of the stack
+     */
+    Eterm *EEND = NULL;
+
+    /*
+     * The end of the heap
+     */
+    Eterm *HEND = NULL;
+#endif
+
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
      */
@@ -1298,6 +1348,7 @@ void process_main(void)
 
 	next = (BeamInstr *) *I;
 	r(0) = c_p->arg_reg[0];
+
 #ifdef HARDDEBUG
 	if (c_p->arity > 0) {
 	    CHECK_TERM(r(0));
@@ -1736,7 +1787,7 @@ void process_main(void)
 		 SWAPIN;
 	     }
 	     /* only x(2) is included in the rootset here */
-	     if (E - HTOP < 3 || c_p->mbuf) {	/* Force GC in case add_stacktrace()
+	     if (CHECK_HEAP(3) || c_p->mbuf) {	/* Force GC in case add_stacktrace()
 						 * created heap fragments */
 		 SWAPOUT;
 		 PROCESS_MAIN_CHK_LOCKS(c_p);

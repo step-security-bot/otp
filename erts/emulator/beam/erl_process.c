@@ -10698,9 +10698,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     OLD_HEND(p) = OLD_HTOP(p) = OLD_HEAP(p) = NULL;
     HIGH_WATER(p) = HEAP_START(p);
     p->gen_gcs = 0;
-    STACK_TOP(p) = STACK_START(p) = HEAP_START(p) + sz;
-    HEAP_END(p) = STACK_START(p);
+    HEAP_END(p) = HEAP_START(p) + sz;
     HEAP_TOP(p) = HEAP_START(p);
+
+    STACK_END(p) = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*33);
+    STACK_START(p) = STACK_TOP(p) = STACK_END(p) + 33;
+    
     p->catches = 0;
 
     p->bin_vheap_sz     = p->min_vheap_size;

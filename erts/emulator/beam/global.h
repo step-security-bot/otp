@@ -43,6 +43,8 @@
 #include "erl_port.h"
 #include "erl_gc.h"
 
+#define ERTS_SEPERATE_STACK 1
+
 struct enif_environment_t /* ErlNifEnv */
 {
     struct erl_module_nif* mod_nif;

@@ -836,9 +836,11 @@ struct ErtsPendingSuspend_ {
 #  define HEAP_USED_SIZE(p)  (HEAP_TOP(p) - HEAP_START(p))
 #  define HIGH_WATER_SIZE(p) (HIGH_WATER(p) - HEAP_START(p))
 
-#  define STACK_START(p)     (p)->P(hend)
+#  define STACK_START(p)     (p)->P(stack)
 #  define STACK_TOP(p)       (p)->P(stop)
-#  define STACK_END(p)       (p)->P(htop)
+#  define STACK_END(p)       (p)->P(send)
+#  define STACK_SIZE(p)      (STACK_END(p) - STACK_START(p))
+#  define STACK_USED_SIZE(p) (STACK_TOP(p) - STACK_START(p))
 
 #  define OLD_HEND(p)        (p)->P(old_hend)
 #  define OLD_HTOP(p)        (p)->P(old_htop)
@@ -877,10 +879,10 @@ struct process {
     
     Eterm* P(htop);		/* Heap top */
     Eterm* P(stop);		/* Stack top */
-    Eterm* P(heap);		/* Heap start */
     Eterm* P(hend);		/* Heap end */
-    Uint P(min_heap_size);         /* Minimum size of heap (in words). */
-    Uint P(min_vheap_size);        /* Minimum size of virtual heap (in words). */
+    Eterm* P(send);		/* Stack end */
+    Eterm* P(stack);            /* Stack start */
+    Eterm* P(heap);		/* Heap start */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -963,7 +965,8 @@ struct process {
     /* This is the place, where all fields that differs between memory
      * architectures, have gone to.
      */
-
+    Uint P(min_heap_size);         /* Minimum size of heap (in words). */
+    Uint P(min_vheap_size);        /* Minimum size of virtual heap (in words). */
     Eterm *P(high_water);
     Eterm *P(old_hend);            /* Heap pointers for generational GC. */
     Eterm *P(old_htop);
