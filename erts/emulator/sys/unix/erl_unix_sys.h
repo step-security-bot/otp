@@ -167,9 +167,11 @@ typedef struct tms SysTimes;
 #if SIZEOF_LONG == 8
 typedef long ErtsMonotonicTime;
 typedef long ErtsSysHrTime;
+typedef unsigned long ErtsSysPerfCounter;
 #elif SIZEOF_LONG_LONG == 8
 typedef long long ErtsMonotonicTime;
 typedef long long ErtsSysHrTime;
+typedef unsigned long long ErtsSysPerfCounter;
 #else
 #error No signed 64-bit type found...
 #endif
@@ -223,6 +225,7 @@ ErtsSystemTime erts_os_system_time(void);
  * It may or may not be monotonic.
  */
 ErtsSysHrTime erts_sys_hrtime(void);
+#define ERTS_HRTIME_UNIT (1000*1000*1000)
 
 struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
@@ -231,6 +234,8 @@ struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
     void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
+    void (*perf_counter)(ErtsSysPerfCounter *);
+    ErtsSysPerfCounter perf_counter_unit;
     int ticks_per_sec;
 };
 
@@ -286,26 +291,18 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 /*
  * Functions for getting the performance counter
  */
+ERTS_GLB_INLINE void erts_sys_perf_counter(ErtsSysPerfCounter *);
+#define erts_sys_perf_counter_unit() erts_sys_time_data__.r.o.perf_counter_unit
 
-#if defined(__x86_64__)
- /*  available on all x86_64. Best if used when we have constant_tsc and
-     nonstop_tsc cpu features. It may have been a good idea to put the
-     cpuid instruction before the rdtsc, but I decided against it
-     because it is not really needed for msacc, and it slows it down by
-     quite a bit. As a result though, this timestamp becomes much less
-     accurate as it might be re-ordered to be executed way before this
-     function is called.
- */
-#define sys_perf_counter(ts) do {                                       \
-        __asm__ __volatile__ ("rdtsc\n\t"                               \
-                              "shl $32, %%rdx\n\t"                      \
-                              "or %%rdx, %0" : "=a" (*ts) : : "rdx");   \
-    } while(0)
-#define SYS_PERF_COUNTER_UNIT erts_perf_counter_unit()
-#else
-#define sys_perf_counter(ts) *(ts) = erts_sys_hrtime()
-#define SYS_PERF_COUNTER_UNIT 1000000000LL
-#endif
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_sys_perf_counter(ErtsSysPerfCounter *cnt)
+{
+    (*erts_sys_time_data__.r.o.perf_counter)(cnt);
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 /*
  * Functions for measuring CPU time
