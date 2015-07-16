@@ -2273,9 +2273,7 @@ BIF_RETTYPE os_system_time_1(BIF_ALIST_1)
 BIF_RETTYPE
 os_perf_counter_0(BIF_ALIST_0)
 {
-    ErtsSysPerfCounter pcounter;
-    erts_sys_perf_counter(&pcounter);
-    BIF_RET(make_time_val(BIF_P, pcounter));
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter()));
 }
 
 BIF_RETTYPE erts_internal_perf_counter_unit_0(BIF_ALIST_0)

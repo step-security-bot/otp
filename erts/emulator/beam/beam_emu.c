@@ -4912,7 +4912,7 @@ do {						\
     ErtsSysPerfCounter ts;
     PreFetch(0, next);
 
-    erts_sys_perf_counter(&ts);
+    ts = erts_sys_perf_counter();
 
     if (IS_SSMALL(ts)) {
         r(0) = make_small((Sint)ts);

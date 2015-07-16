@@ -167,16 +167,15 @@ typedef struct tms SysTimes;
 #if SIZEOF_LONG == 8
 typedef long ErtsMonotonicTime;
 typedef long ErtsSysHrTime;
-typedef unsigned long ErtsSysPerfCounter;
 #elif SIZEOF_LONG_LONG == 8
 typedef long long ErtsMonotonicTime;
 typedef long long ErtsSysHrTime;
-typedef unsigned long long ErtsSysPerfCounter;
 #else
 #error No signed 64-bit type found...
 #endif
 
 typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsSysHrTime ErtsSysPerfCounter;
 
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
@@ -234,7 +233,7 @@ struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
     void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
-    void (*perf_counter)(ErtsSysPerfCounter *);
+    ErtsSysPerfCounter (*perf_counter)(void);
     ErtsSysPerfCounter perf_counter_unit;
     int ticks_per_sec;
 };
@@ -291,15 +290,16 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 /*
  * Functions for getting the performance counter
  */
-ERTS_GLB_INLINE void erts_sys_perf_counter(ErtsSysPerfCounter *);
+
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 #define erts_sys_perf_counter_unit() erts_sys_time_data__.r.o.perf_counter_unit
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE void
-erts_sys_perf_counter(ErtsSysPerfCounter *cnt)
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter()
 {
-    (*erts_sys_time_data__.r.o.perf_counter)(cnt);
+    return (*erts_sys_time_data__.r.o.perf_counter)();
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

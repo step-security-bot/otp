@@ -214,7 +214,7 @@ ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
 ERTS_GLB_INLINE void erts_os_times(ErtsMonotonicTime *,
 				   ErtsSystemTime *);
 ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
-ERTS_GLB_INLINE void erts_sys_perf_counter(ErtsSysPerfCounter *);
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -236,14 +236,14 @@ erts_sys_hrtime(void)
     return (*erts_sys_time_data__.r.o.sys_hrtime)();
 }
 
-ERTS_GLB_INLINE void
-erts_sys_perf_counter(ErtsSysPerfCounter *cnt)
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter(void)
 {
-    *cnt = (*erts_sys_time_data__.r.o.sys_hrtime)();
+    return (*erts_sys_time_data__.r.o.sys_hrtime)();
 }
 
 ERTS_GLB_INLINE ErtsSysPerfCounter
-erts_sys_perf_counter_unit()
+erts_sys_perf_counter_unit(void)
 {
     return 1000 * 1000 * 1000;
 }

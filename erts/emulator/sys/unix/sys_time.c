@@ -946,14 +946,14 @@ static ErtsSysPerfCounter calculate_perf_counter_unit(void) {
             __GETTIME(&comparetime);
         } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
 
-        erts_sys_perf_counter(&pre);
+        pre = erts_sys_perf_counter();
 
         __GETTIME(&basetime);
         do {
             __GETTIME(&comparetime);
         } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
 
-        erts_sys_perf_counter(&post);
+        post = erts_sys_perf_counter();
 
         value += post - pre;
     }
@@ -988,7 +988,7 @@ static int have_rdtscp(void)
 #endif
 }
 
-static void rdtsc(ErtsSysPerfCounter *ts)
+static ErtsSysPerfCounter rdtsc(void)
 {
  /*  It may have been a good idea to put the cpuid instruction before
      the rdtsc, but I decided against it because it is not really
@@ -997,18 +997,16 @@ static void rdtsc(ErtsSysPerfCounter *ts)
      accurate as it might be re-ordered to be executed way before or after this
      function is called.
  */
+    ErtsSysPerfCounter ts;
 #if defined(__x86_64__)
     __asm__ __volatile__ ("rdtsc\n\t"
                           "shl $32, %%rdx\n\t"
-                          "or %%rdx, %0" : "=a" (*ts) : : "rdx");
+                          "or %%rdx, %0" : "=a" (ts) : : "rdx");
 #elif defined(__i386__)
     __asm__ __volatile__ ("rdtsc\n\t"
-                           : "=A" (*ts) );
+                           : "=A" (ts) );
 #endif
-
-static void erts_sys_perf(ErtsSysPerfCounter *ts)
-{
-    *ts = erts_sys_hrtime();
+    return ts;
 }
 
 static void init_perf_counter(void)
@@ -1017,7 +1015,7 @@ static void init_perf_counter(void)
         erts_sys_time_data__.r.o.perf_counter = rdtsc;
         erts_sys_time_data__.r.o.perf_counter_unit = calculate_perf_counter_unit();
     } else {
-        erts_sys_time_data__.r.o.perf_counter = erts_sys_perf;
+        erts_sys_time_data__.r.o.perf_counter = erts_sys_hrtime;
         erts_sys_time_data__.r.o.perf_counter_unit = ERTS_HRTIME_UNIT;
     }
 }

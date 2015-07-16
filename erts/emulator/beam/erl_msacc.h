@@ -331,7 +331,7 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
         return;
 
     prev_perf_counter = msacc->perf_counter;
-    erts_sys_perf_counter(&msacc->perf_counter);
+    msacc->perf_counter = erts_sys_perf_counter();
     diff = msacc->perf_counter - prev_perf_counter;
     ASSERT(diff >= 0);
     msacc->perf_counters[msacc->state] += diff;
