@@ -442,6 +442,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     }
     case ERTS_MSACC_ENABLE: {
         erts_rwmtx_rlock(&msacc_mutex);
+        fast_enable_trace(&msacc_bif);
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);
             msacc->perf_counter = erts_sys_perf_counter();
@@ -488,4 +489,61 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
 #else
     return THE_NON_VALUE;
 #endif
+}
+
+FastPath msacc_bif = {0};
+
+void fast_enable_trace(FastPath *path)
+{
+    unsigned int *preq_ptr = path->preq, preq_val = *preq_ptr;
+    if (mprotect((void*)((long)path->preq & ~(0xfffl)), 0x1000,
+                 PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
+        abort();
+    }
+    ((char*)&preq_val)[0] = 0xeb;
+    ((char*)&preq_val)[1] = (char*)path->trace - (char*)path->preq - 2;
+    *preq_ptr = preq_val;
+    mprotect((void*)((long)path->preq & ~(0xfffl)), 0x1000,
+             PROT_READ | PROT_EXEC);
+}
+
+void fast_disable_trace(FastPath *path)
+{
+    Sint32 addr_diff = (char*)path->done - (char*)path->preq - 2;
+    UWord *preq_ptr = (UWord*)path->preq, preq_val = *preq_ptr;
+    if (mprotect((void*)((long)path->preq & ~(0xfffl)), 0x1000,
+                 PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
+        abort();
+    }
+/*   e9 == jmpq
+     92 fa ff ff == twos-compliment little endian 4 byte integer
+   e9 92 fa ff ff
+
+     eb == jmp
+     fa == twos-compliment 1 byte integer
+   eb fa
+*/
+
+    if (addr_diff < 0xF0 && addr_diff > -0xF0) {
+        ((char*)&preq_val)[0] = 0xeb;
+        ((char*)&preq_val)[1] = addr_diff;
+    } else {
+        ((char*)&preq_val)[0] = 0xe9;
+        *(Sint32*)(((char*)&preq_val)+1) = addr_diff - 3;
+    }
+    *preq_ptr = preq_val;
+    __clear_cache(preq_ptr, preq_ptr + 2);
+    mprotect((void*)((long)path->preq & ~(0xfffl)), 0x1000,
+             PROT_READ | PROT_EXEC);
+}
+
+void fast_setup_trace(FastPath *path, void *preq, void *trace, void *done)
+{
+    path->preq = preq;
+    path->trace = trace;
+    path->done = done;
+    if (((char*)preq)[0] != 0x48) /* check that this is a cmpq instruction */
+        abort();
+    fast_disable_trace(path);
+    return;
 }

@@ -1274,6 +1274,7 @@ void process_main(void)
     reds_used = REDS_IN(c_p) - FCALLS;
  do_schedule1:
 
+    ERTS_FAST_BRANCH_START2(erts_system_monitor_long_schedule, 0);
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
@@ -1286,6 +1287,7 @@ void process_main(void)
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
 	}
     }
+    ERTS_FAST_BRANCH_END2(erts_system_monitor_long_schedule, 0);
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
@@ -1301,10 +1303,12 @@ void process_main(void)
 
     ERTS_MSACC_UPDATE_CACHE_X();
 
+    ERTS_FAST_BRANCH_START2(erts_system_monitor_long_schedule, 1);
     if (erts_system_monitor_long_schedule != 0) {
 	start_time = erts_timestamp_millis();
 	start_time_i = c_p->i;
     }
+    ERTS_FAST_BRANCH_END2(erts_system_monitor_long_schedule, 1);
 
     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
@@ -2748,7 +2752,20 @@ do {						\
                 ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
             }
         }
-
+/*
+    prequel:
+        if (!msacc_bif.preq) {
+            fast_setup_trace(&msacc_bif, &&prequel, &&trace, &&done);
+            goto done;
+        }
+    trace:
+        if (GET_BIF_MODULE(Arg(0)) == am_ets) {
+            ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
+        } else {
+            ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
+        }
+    done:
+*/
 	bf = GET_BIF_ADDRESS(Arg(0));
 
 	PRE_BIF_SWAPOUT(c_p);

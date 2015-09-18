@@ -774,7 +774,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
-	$(OBJDIR)/erl_msacc.o
+	$(OBJDIR)/erl_msacc.o           $(OBJDIR)/erl_fast_branch.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

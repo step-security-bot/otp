@@ -2173,6 +2173,11 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	erts_system_monitor_flags.busy_port = !!busy_port;
 	erts_system_monitor_flags.busy_dist_port = !!busy_dist_port;
 
+        if (erts_system_monitor_long_schedule)
+            ERTS_FAST_BRANCH_ENABLE(erts_system_monitor_long_schedule);
+        else
+            ERTS_FAST_BRANCH_DISABLE(erts_system_monitor_long_schedule);
+
 	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 	BIF_RET(prev);

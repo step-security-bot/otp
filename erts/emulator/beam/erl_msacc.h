@@ -116,6 +116,18 @@ static char *erts_msacc_states[] = {
 
 #endif
 
+typedef struct FastPath_ {
+    void *preq;
+    void *trace;
+    void *done;
+} FastPath;
+
+extern FastPath msacc_bif;
+
+void fast_enable_trace(FastPath *);
+void fast_disable_trace(FastPath *);
+void fast_setup_trace(FastPath *, void *, void *, void*);
+
 typedef struct erl_msacc_t_ ErtsMsAcc;
 
 struct erl_msacc_t_ {

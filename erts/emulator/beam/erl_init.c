@@ -772,6 +772,7 @@ early_init(int *argc, char **argv) /*
 			       (erts_aint32_t) ((Uint16) -1));
 
     erts_pre_init_process();
+    erts_pre_init_fast_branch();
 #if defined(USE_THREADS) && !defined(ERTS_SMP)
     main_thread = erts_thr_self();
 #endif
