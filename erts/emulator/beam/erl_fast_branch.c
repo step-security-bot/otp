@@ -72,21 +72,15 @@ static void update_jump_target(ErtsFastBranch *fb,
         /* We insert a bunch of nops to overwrite the
            movq or compq that we area replacing in order
            for gdb disassemble to look nicer */
-        ((byte *)&preq_val)[2] = 0x90;
-        ((byte *)&preq_val)[3] = 0x90;
-        ((byte *)&preq_val)[4] = 0x90;
-        ((byte *)&preq_val)[5] = 0x90;
-        ((byte *)&preq_val)[6] = 0x90;
-        if (fb->orig[5] == 0x83)
-            ((byte *)&preq_val)[7] = 0x90;
+        if (fb->orig[5] == 0xe9) {
+            ((byte *)&preq_val)[2] = 0x90;
+            ((byte *)&preq_val)[3] = 0x90;
+            ((byte *)&preq_val)[4] = 0x90;
+        }
     } else {
         ((byte *)&preq_val)[0] = 0xe9;
         /* subtract 3 extra as jmpq is 3 bytes larger than jmp */
         *(Sint32*)(((byte *)&preq_val)+1) = addr_diff - 3;
-        ((byte *)&preq_val)[5] = 0x90;
-        ((byte *)&preq_val)[6] = 0x90;
-        if (fb->orig[5] == 0x83)
-            ((byte *)&preq_val)[7] = 0x90;
     }
     *preq_ptr = preq_val;
     protect(start);
@@ -106,9 +100,15 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
     for (i = 0; i < number; i++) {
         ErtsFastBranch *cfb = fb+i;
         void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
+        UWord *preq_ptr = (UWord*)start, preq_val = *preq_ptr;
         unprotect(start);
         /* Set all intructions to nob, i.e. fall through */
-        *((UWord *)start) = 0x9090909090909090ul;
+        ((byte *)&preq_val)[0] = 0x90;
+        ((byte *)&preq_val)[1] = 0x90;
+        ((byte *)&preq_val)[2] = 0x90;
+        ((byte *)&preq_val)[3] = 0x90;
+        ((byte *)&preq_val)[4] = 0x90;
+        *preq_ptr = preq_val;
         protect(start);
     }
 }
@@ -119,7 +119,7 @@ void erts_fast_branch_setup(ErtsFastBranch *fb, void *start,
     if ((void*)prev == NULL) {
         fb->trace = trace;
         fb->end = end;
-        if (((byte *)start)[0] == 0xe9) {
+        if (((byte *)start)[0] == 0xe9 /* || ((byte *)start)[0] == 0xeb*/) {
             /* save original code layout for debugging */
             sys_memcpy(fb->orig, (char*)start - 4, sizeof(fb->orig));
             /* check that this is a cmpq or movq instruction */

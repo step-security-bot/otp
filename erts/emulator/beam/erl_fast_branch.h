@@ -59,8 +59,9 @@
 */
 #define ERTS_FAST_BRANCH_START2(name, num)                              \
     __asm__ __volatile__ goto(".L" #num "_" #name"_start:\n\t"          \
-                              "jmp %l0"                                 \
-                              "\n\tnop\n\tnop\n\tnop\n\t\n\t" : : : :   \
+                              "jmp %l0\n\t"                             \
+                              /*"nop\n\tnop\n\tnop\n\t" */              \
+                              /*"nop\n\tnop\n\tnop\n\t" */: : : :       \
                               __##num##_##name##_setup,                 \
                               __##num##_##name##_trace);                \
     goto __##num##_##name##_end;                                        \
