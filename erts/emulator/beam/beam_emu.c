@@ -43,6 +43,8 @@
 #include "hipe_bif1.h"
 #endif
 #include "dtrace-wrapper.h"
+#include "erl_fast_branch.h"
+
 
 /* #define HARDDEBUG 1 */
 

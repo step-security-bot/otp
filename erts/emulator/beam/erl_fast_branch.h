@@ -23,17 +23,59 @@
 
 #include "global.h"
 
+/* This define with assembly and goto is here in order to attempt to
+   influence gcc to layout code so that no branches are needed to be
+   made when not branching. When the branch is disabled, the jmp in
+   the asm below is replaced with just 8 nops, and since we then have
+   a unconditional hot jump to _end, gcc will move the body of the _setup
+   and _trace out of the way so that execution just falls through. e.g.
+
+   0x000000000043d41b <process_main+59>:	jmpq   0x43d650 <_setup>
+   0x000000000043d420 <process_main+64>:	nop
+   0x000000000043d421 <process_main+65>:	nop
+   0x000000000043d422 <process_main+66>:	nop
+   0x000000000043d423 <process_main+67>:	_end code
+
+   gets transformed to this when branch is disabled:
+
+   0x000000000043d41b <process_main+59>:	nop
+   0x000000000043d41c <process_main+60>:	nop
+   0x000000000043d41d <process_main+61>:	nop
+   0x000000000043d41e <process_main+62>:	nop
+   0x000000000043d41f <process_main+63>:	nop
+   0x000000000043d420 <process_main+64>:	nop
+   0x000000000043d421 <process_main+65>:	nop
+   0x000000000043d422 <process_main+66>:	nop
+   0x000000000043d423 <process_main+67>:	_end code
+
+   or this when branch is enabled:
+
+   0x000000000043d41b <process_main+59>:	jmpq   0x43d650 <_trace>
+   0x000000000043d420 <process_main+64>:	nop
+   0x000000000043d421 <process_main+65>:	nop
+   0x000000000043d422 <process_main+66>:	nop
+   0x000000000043d423 <process_main+67>:	_end code
+
+*/
 #define ERTS_FAST_BRANCH_START2(name, num)                              \
-    __##num##_##name##_start:                                           \
-    if (ERTS_UNLIKELY(!__##name##_variable[num].end)) {                 \
-        erts_fast_branch_setup(__##name##_variable + num,               \
-                                   &&__##num##_##name##_start,          \
-                                   &&__##num##_##name##_trace,          \
-                                   &&__##num##_##name##_end);           \
-        goto __##num##_##name##_end;                                    \
+    __asm__ __volatile__ goto(".L" #num "_" #name"_start:\n\t"          \
+                              "jmp %l0"                                 \
+                              "\n\tnop\n\tnop\n\tnop\n\t\n\t" : : : :   \
+                              __##num##_##name##_setup,                 \
+                              __##num##_##name##_trace);                \
+    goto __##num##_##name##_end;                                        \
+    {                                                                   \
+     void *start;                                                       \
+    __##num##_##name##_setup:__attribute__((cold));                     \
+     __asm__ __volatile__("movq $.L" #num "_" #name"_start, %0" : : "m"(start)); \
+    erts_fast_branch_setup(__##name##_variable + num,                   \
+                           start,                                       \
+                           &&__##num##_##name##_trace,                  \
+                           &&__##num##_##name##_end);                   \
     }                                                                   \
+    goto __##num##_##name##_end;                                        \
 __##num##_##name##_trace:                                               \
-    __attribute__((cold))
+__attribute__((cold))
 
 #define ERTS_FAST_BRANCH_START(name) ERTS_FAST_BRANCH_START2(name, 0)
 

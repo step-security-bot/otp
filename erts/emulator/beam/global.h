@@ -43,7 +43,6 @@
 #include "erl_utils.h"
 #include "erl_port.h"
 #include "erl_gc.h"
-#include "erl_fast_branch.h"
 
 struct enif_environment_t /* ErlNifEnv */
 {

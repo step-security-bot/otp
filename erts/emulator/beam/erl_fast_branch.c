@@ -31,17 +31,32 @@
 
 ERTS_FAST_BRANCHES
 
-#include "sys.h"
+static void protect(void *ptr)
+{
+    if (mprotect((void*)((long)ptr & ~(0xfffl)), 0x1000,
+                 PROT_READ | PROT_EXEC) < 0) {
+        abort();
+    }
+    /* Clear the instruction cache */
+    __clear_cache(ptr, ptr + 2);
+}
+
+static void unprotect(void *ptr)
+{
+    if (mprotect((void*)((long)ptr & ~(0xfffl)), 0x1000,
+                 PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
+        abort();
+    }
+}
 
 static void update_jump_target(ErtsFastBranch *fb,
                                void *start, void *new_target)
 {
     Sint32 addr_diff = (char *)new_target - (char *)start - 2;
     UWord *preq_ptr = (UWord*)start, preq_val = *preq_ptr;
-    if (mprotect((void*)((long)start & ~(0xfffl)), 0x1000,
-                 PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
-        abort();
-    }
+
+    unprotect(start);
+
 /*   e9 == jmpq
      92 fa ff ff == twos-compliment little endian 4 byte integer
    e9 92 fa ff ff
@@ -74,10 +89,7 @@ static void update_jump_target(ErtsFastBranch *fb,
             ((byte *)&preq_val)[7] = 0x90;
     }
     *preq_ptr = preq_val;
-    /* Clear the instruction cache */
-    __clear_cache(preq_ptr, preq_ptr + 2);
-    mprotect((void*)((long)start & ~(0xfffl)), 0x1000,
-             PROT_READ | PROT_EXEC);
+    protect(start);
 }
 
 void erts_fast_branch_enable(ErtsFastBranch *fb, int number) {
@@ -94,7 +106,10 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
     for (i = 0; i < number; i++) {
         ErtsFastBranch *cfb = fb+i;
         void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
-        update_jump_target(cfb, start, cfb->end);
+        unprotect(start);
+        /* Set all intructions to nob, i.e. fallthrough */
+        *((UWord *)start) = 0x9090909090909090ul;
+        protect(start);
     }
 }
 
@@ -104,8 +119,7 @@ void erts_fast_branch_setup(ErtsFastBranch *fb, void *start,
     if ((void*)prev == NULL) {
         fb->trace = trace;
         fb->end = end;
-        if (((byte *)start)[0] == 0x48 &&
-            (((byte *)start)[1] == 0x8b || ((byte *)start)[1] == 0x83)) {
+        if (((byte *)start)[0] == 0xe9) {
             /* save original code layout for debugging */
             sys_memcpy(fb->orig, (char*)start - 4, sizeof(fb->orig));
             /* check that this is a cmpq or movq instruction */
@@ -128,7 +142,7 @@ void erts_pre_init_fast_branch()
         erts_smp_atomic_init_nob(&__##name##_variable[i].start,         \
                                  (ethr_sint_t)NULL);                    \
         __##name##_variable[i].trace = NULL;                            \
-            __##name##_variable[i].end = NULL;                          \
+        __##name##_variable[i].end = NULL;                              \
     } while(++i < num)
 
 ERTS_FAST_BRANCHES
