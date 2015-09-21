@@ -107,7 +107,7 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
         ErtsFastBranch *cfb = fb+i;
         void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
         unprotect(start);
-        /* Set all intructions to nob, i.e. fallthrough */
+        /* Set all intructions to nob, i.e. fall through */
         *((UWord *)start) = 0x9090909090909090ul;
         protect(start);
     }

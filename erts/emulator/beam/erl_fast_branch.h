@@ -105,7 +105,8 @@ void erts_fast_branch_disable(ErtsFastBranch *, int);
 
 /* Declaration */
 #define ERTS_FAST_BRANCHES \
-    ERTS_FAST_BRANCH_DECLARE2(erts_system_monitor_long_schedule, 2);
+    ERTS_FAST_BRANCH_DECLARE2(erts_system_monitor_long_schedule, 2); \
+    ERTS_FAST_BRANCH_DECLARE(msacc_bif);
 
 /* Declare externs, variable defined in erl_fast_branch.c */
 ERTS_FAST_BRANCHES
