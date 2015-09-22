@@ -102,12 +102,12 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
         void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
         UWord *preq_ptr = (UWord*)start, preq_val = *preq_ptr;
         unprotect(start);
-        /* Set all intructions to nob, i.e. fall through */
-        ((byte *)&preq_val)[0] = 0x90;
-        ((byte *)&preq_val)[1] = 0x90;
-        ((byte *)&preq_val)[2] = 0x90;
-        ((byte *)&preq_val)[3] = 0x90;
-        ((byte *)&preq_val)[4] = 0x90;
+        /* Set all instruction to 5 byte nop, i.e. fall through */
+        ((byte *)&preq_val)[0] = 0x0F;
+        ((byte *)&preq_val)[1] = 0x1F;
+        ((byte *)&preq_val)[2] = 0x44;
+        ((byte *)&preq_val)[3] = 0x00;
+        ((byte *)&preq_val)[4] = 0x00;
         *preq_ptr = preq_val;
         protect(start);
     }
