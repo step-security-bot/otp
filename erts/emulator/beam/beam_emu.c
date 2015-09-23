@@ -1303,8 +1303,6 @@ void process_main(void)
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
-    ERTS_MSACC_UPDATE_CACHE_X();
-
     ERTS_FAST_BRANCH_START2(erts_system_monitor_long_schedule, 1);
     if (erts_system_monitor_long_schedule != 0) {
 	start_time = erts_timestamp_millis();
@@ -2747,27 +2745,15 @@ do {						\
 	Eterm result;
 	BeamInstr *next;
 
-        if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
-            if (GET_BIF_MODULE(Arg(0)) == am_ets) {
-                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
-            } else {
-                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
-            }
-        }
-/*
-    prequel:
-        if (!msacc_bif.preq) {
-            fast_setup_trace(&msacc_bif, &&prequel, &&trace, &&done);
-            goto done;
-        }
-    trace:
+        ERTS_FAST_BRANCH_START2(msacc_bif, 1);
+        ERTS_MSACC_UPDATE_CACHE_X();
         if (GET_BIF_MODULE(Arg(0)) == am_ets) {
             ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
         } else {
             ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
         }
-    done:
-*/
+        ERTS_FAST_BRANCH_END2(msacc_bif, 1);
+
 	bf = GET_BIF_ADDRESS(Arg(0));
 
 	PRE_BIF_SWAPOUT(c_p);
@@ -2794,9 +2780,10 @@ do {						\
         /* We have to update the cache if we are enabled in order
            to make sure no book keeping is done after we disabled
            msacc. We don't always do this as it is quite expensive. */
-        if (ERTS_MSACC_IS_ENABLED_CACHED_X())
-            ERTS_MSACC_UPDATE_CACHE_X();
+        ERTS_FAST_BRANCH_START2(msacc_bif, 2);
+        ERTS_MSACC_UPDATE_CACHE_X();
 	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+        ERTS_FAST_BRANCH_END2(msacc_bif, 2);
 	if (is_value(result)) {
 	    r(0) = result;
 	    CHECK_TERM(r(0));
@@ -3480,7 +3467,10 @@ do {						\
 	     */
 	    BifFunction vbf;
 
+            ERTS_FAST_BRANCH_START2(msacc_bif, 3);
+            ERTS_MSACC_UPDATE_CACHE_X();
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+            ERTS_FAST_BRANCH_END2(msacc_bif, 3);
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
@@ -3505,7 +3495,10 @@ do {						\
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
+            ERTS_FAST_BRANCH_START2(msacc_bif, 4);
+            ERTS_MSACC_UPDATE_CACHE_X();
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+            ERTS_FAST_BRANCH_END2(msacc_bif, 4);
 
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
@@ -3521,13 +3514,14 @@ do {						\
 	     * code[3]: &&apply_bif
 	     * code[4]: Function pointer to BIF function
 	     */
-            if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
-                if ((Eterm)I[-3] == am_ets) {
-                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
-                } else {
-                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
-                }
+            ERTS_FAST_BRANCH_START2(msacc_bif, 5);
+            ERTS_MSACC_UPDATE_CACHE_X();
+            if ((Eterm)I[-3] == am_ets) {
+                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
+            } else {
+                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
             }
+            ERTS_FAST_BRANCH_END2(msacc_bif, 5);
 
 	    c_p->current = I-3;	/* In case we apply process_info/1,2 or load_nif/1 */
 	    c_p->i = I;		/* In case we apply check_process_code/2. */
@@ -3556,9 +3550,10 @@ do {						\
             /* We have to update the cache if we are enabled in order
                to make sure no book keeping is done after we disabled
                msacc. We don't always do this as it is quite expensive. */
-            if (ERTS_MSACC_IS_ENABLED_CACHED_X())
-                ERTS_MSACC_UPDATE_CACHE_X();
+            ERTS_FAST_BRANCH_START2(msacc_bif, 0);
+            ERTS_MSACC_UPDATE_CACHE_X();
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+            ERTS_FAST_BRANCH_END2(msacc_bif, 0);
 	    DTRACE_BIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 
 	apply_bif_or_nif_epilogue:

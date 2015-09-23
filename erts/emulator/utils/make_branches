@@ -1,0 +1,26 @@
+#!/bin/bash
+
+SYMBOLS=`grep "^.L" $1 | grep "_start:\|_trace:\|_end:$" | sed -e 's/\.L//g' -e 's/://g' `
+
+DECLARATIONS=""
+for SYMBOL in $SYMBOLS
+do
+    read -d '' DECLARATION <<EOF
+.L${SYMBOL}_symbol:
+        .globl	__${SYMBOL}
+	.data
+	.align 8
+	.type	__${SYMBOL}, @object
+	.size	__${SYMBOL}, 8
+__${SYMBOL}:
+	.quad	.L${SYMBOL}
+EOF
+    read -d '' DECLARATIONS <<EOF
+${DECLARATIONS}
+${DECLARATION}
+EOF
+done
+
+DECLARATIONS=`echo "${DECLARATIONS}" | sed 's/$/\\\\n/g' | tr '\n' ' '`
+
+sed "s/\\.Letext0:/${DECLARATIONS}\t.text\n.Letext0:/g" $1

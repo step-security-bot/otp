@@ -28,6 +28,7 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
+#include "erl_fast_branch.h"
 
 #define ERTS_MAX_ASYNC_READY_CALLS_IN_SEQ 20
 
@@ -401,9 +402,13 @@ static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 #endif
     if (!p) {
 	if (a->async_free) {
+            ERTS_FAST_BRANCH_START2(msacc_port, 0);
             ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_PORT);
+            ERTS_FAST_BRANCH_END2(msacc_port, 0);
 	    a->async_free(a->async_data);
+            ERTS_FAST_BRANCH_START2(msacc_port, 1);
             ERTS_MSACC_POP_STATE();
+            ERTS_FAST_BRANCH_END2(msacc_port,1);
         }
     }
     else {

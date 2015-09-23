@@ -646,6 +646,12 @@ COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
 INCLUDES  =  -I$(TTF_DIR) $(COMMON_INCLUDES)
 
+$(OBJDIR)/%.s: $(OBJDIR)/%.s.src
+	utils/make_branches $< > $@
+
+$(OBJDIR)/%.o:$(OBJDIR)/%.s
+	as -64 -o $@ $<
+
 ifeq ($(TARGET),win32)
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
 	$(V_CC) $(CFLAGS) -DERL_RUN_SHARED_LIB=1 $(INCLUDES) -c $< -o $@
@@ -656,36 +662,36 @@ $(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
 endif
 
 ifneq ($(filter tile-%,$(TARGET)),)
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
+$(OBJDIR)/beam_emu.s.src: beam/beam_emu.c
+	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
          $(INCLUDES) -c $< -o $@
 else
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(V_EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/beam_emu.s.src: beam/beam_emu.c
+	$(V_EMU_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
 
-$(OBJDIR)/%.o: beam/%.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.s.src: beam/%.c
+	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.o: $(TARGET)/%.c
-	$(V_CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
+$(OBJDIR)/%.s.src: $(TARGET)/%.c
+	$(V_CC) -S $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
 
-$(OBJDIR)/%.o: $(TTF_DIR)/%.c
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.s.src: $(TTF_DIR)/%.c
+	$(V_CC) -S $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.o: sys/$(ERLANG_OSTYPE)/%.c
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.s.src: sys/$(ERLANG_OSTYPE)/%.c
+	$(V_CC) -S $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.o: sys/common/%.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.s.src: sys/common/%.c
+	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.o: drivers/common/%.c
-	$(V_CC) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -c $< -o $@
+$(OBJDIR)/%.s.src: drivers/common/%.c
+	$(V_CC) -S $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -c $< -o $@
 
-$(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
-	$(V_CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
+$(OBJDIR)/%.s.src: drivers/$(ERLANG_OSTYPE)/%.c
+	$(V_CC) -S $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
 # ----------------------------------------------------------------------
 # Specials

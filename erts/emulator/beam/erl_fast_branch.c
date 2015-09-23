@@ -73,9 +73,9 @@ static void update_jump_target(ErtsFastBranch *fb,
            movq or compq that we area replacing in order
            for gdb disassemble to look nicer */
         if (fb->orig[5] == 0xe9) {
-            ((byte *)&preq_val)[2] = 0x90;
-            ((byte *)&preq_val)[3] = 0x90;
-            ((byte *)&preq_val)[4] = 0x90;
+            ((byte *)&preq_val)[2] = 0x0F;
+            ((byte *)&preq_val)[3] = 0x1F;
+            ((byte *)&preq_val)[4] = 0x00;
         }
     } else {
         ((byte *)&preq_val)[0] = 0xe9;
@@ -90,8 +90,7 @@ void erts_fast_branch_enable(ErtsFastBranch *fb, int number) {
     int i;
     for (i = 0; i < number; i++) {
         ErtsFastBranch *cfb = fb+i;
-        void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
-        update_jump_target(cfb, start, cfb->trace);
+        update_jump_target(cfb, cfb->start, cfb->trace);
     }
 }
 
@@ -99,10 +98,12 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
     int i;
     for (i = 0; i < number; i++) {
         ErtsFastBranch *cfb = fb+i;
-        void *start = (void*)erts_smp_atomic_read_dirty(&cfb->start);
+        void *start = cfb->start;
         UWord *preq_ptr = (UWord*)start, preq_val = *preq_ptr;
         unprotect(start);
-        /* Set all instruction to 5 byte nop, i.e. fall through */
+        /* Set all instruction to 5 byte nop, i.e. fall through,
+           see http://www.felixcloutier.com/x86/NOP.html
+           for recommended multi byte nops */
         ((byte *)&preq_val)[0] = 0x0F;
         ((byte *)&preq_val)[1] = 0x1F;
         ((byte *)&preq_val)[2] = 0x44;
@@ -113,38 +114,62 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
     }
 }
 
-void erts_fast_branch_setup(ErtsFastBranch *fb, void *start,
-                            void *trace, void *end) {
-    ethr_sint_t prev = erts_smp_atomic_xchg_mb(&fb->start, (ethr_sint_t)start);
-    if ((void*)prev == NULL) {
-        fb->trace = trace;
-        fb->end = end;
-        if (((byte *)start)[0] == 0xe9 /* || ((byte *)start)[0] == 0xeb*/) {
-            /* save original code layout for debugging */
-            sys_memcpy(fb->orig, (char*)start - 4, sizeof(fb->orig));
-            /* check that this is a cmpq or movq instruction */
-            erts_fast_branch_disable(fb, 1);
-            return;
-        }
-    } else {
-        return;
-    }
-    abort();
-}
+#ifdef ERTS_FAST_BRANCH_SYMBOLS
+
+#define ERTS_FAST_BRANCH_EXPAND_1_(name) ERTS_FAST_BRANCH_EXPAND(name, 0)
+#define ERTS_FAST_BRANCH_EXPAND_2_(name) ERTS_FAST_BRANCH_EXPAND_1_(name) ERTS_FAST_BRANCH_EXPAND(name, 1)
+#define ERTS_FAST_BRANCH_EXPAND_3_(name) ERTS_FAST_BRANCH_EXPAND_2_(name) ERTS_FAST_BRANCH_EXPAND(name, 2)
+#define ERTS_FAST_BRANCH_EXPAND_4_(name) ERTS_FAST_BRANCH_EXPAND_3_(name) ERTS_FAST_BRANCH_EXPAND(name, 3)
+#define ERTS_FAST_BRANCH_EXPAND_5_(name) ERTS_FAST_BRANCH_EXPAND_4_(name) ERTS_FAST_BRANCH_EXPAND(name, 4)
+#define ERTS_FAST_BRANCH_EXPAND_6_(name) ERTS_FAST_BRANCH_EXPAND_5_(name) ERTS_FAST_BRANCH_EXPAND(name, 5)
+#define ERTS_FAST_BRANCH_EXPAND_7_(name) ERTS_FAST_BRANCH_EXPAND_6_(name) ERTS_FAST_BRANCH_EXPAND(name, 6)
+#define ERTS_FAST_BRANCH_EXPAND_8_(name) ERTS_FAST_BRANCH_EXPAND_7_(name) ERTS_FAST_BRANCH_EXPAND(name, 7)
+#define ERTS_FAST_BRANCH_EXPAND_9_(name) ERTS_FAST_BRANCH_EXPAND_8_(name) ERTS_FAST_BRANCH_EXPAND(name, 8)
+
+#undef ERTS_FAST_BRANCH_DECLARE2
+#define ERTS_FAST_BRANCH_DECLARE2(name, num)    \
+    ERTS_FAST_BRANCH_EXPAND_##num##_(name)
+
+#define ERTS_FAST_BRANCH_EXPAND(name, num)      \
+    extern void * __##num##_##name##_start;     \
+    extern void * __##num##_##name##_trace;     \
+    extern void * __##num##_##name##_end;
+
+ERTS_FAST_BRANCHES
+
+#undef ERTS_FAST_BRANCH_EXPAND
+
+#endif
 
 void erts_pre_init_fast_branch()
 {
+#ifdef ERTS_FAST_BRANCH_SYMBOLS
+
     int i;
-#undef ERTS_FAST_BRANCH_DECLARE2
-#define ERTS_FAST_BRANCH_DECLARE2(name, num)                            \
-    i = 0;                                                              \
-    do {                                                                \
-        erts_smp_atomic_init_nob(&__##name##_variable[i].start,         \
-                                 (ethr_sint_t)NULL);                    \
-        __##name##_variable[i].trace = NULL;                            \
-        __##name##_variable[i].end = NULL;                              \
-    } while(++i < num)
+
+#define ERTS_FAST_BRANCH_EXPAND(name, num)                      \
+    __##name##_variable[num].start = __##num##_##name##_start;  \
+    __##name##_variable[num].trace = __##num##_##name##_trace;  \
+    __##name##_variable[num].end = __##num##_##name##_end;
 
 ERTS_FAST_BRANCHES
+
+/*
+  Check that the start label is pointing to a 5 byte nop
+ */
+#undef ERTS_FAST_BRANCH_DECLARE2
+#define ERTS_FAST_BRANCH_DECLARE2(name, num)                            \
+    for (i = 0; i < num; i++) {                                         \
+        byte *start = (byte*)__##name##_variable[i].start;              \
+        if (start[0] == 0x0F && start[1] == 0x1F &&                     \
+            start[2] == 0x44 && start[3] == 0x00 &&                     \
+            start[4] == 0x00)                                           \
+            continue;                                                   \
+        abort();                                                        \
+}
+
+ERTS_FAST_BRANCHES
+
+#endif
 
 }

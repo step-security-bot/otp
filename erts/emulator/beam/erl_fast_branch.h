@@ -56,39 +56,64 @@
    0x000000000043d422 <process_main+66>:	nop
    0x000000000043d423 <process_main+67>:	_end code
 
+   to post process the .S file, the following section has to be added
+   just before .Letext0
+
+.LC1089y98yh:
+        .globl	__0_erts_system_monitor_long_schedule
+	.data
+	.align 4
+	.type	__0_erts_system_monitor_long_schedule, @object
+	.size	__0_erts_system_monitor_long_schedule, 4
+__0_erts_system_monitor_long_schedule:
+	.long	.L0_erts_system_monitor_long_schedule_start
+
+
 */
+
+#define FIVE_BYTE_NOP ".byte 0x0F\n\t.byte 0x1F\n\t.byte 0x44"  \
+    "\n\t.byte 0x00\n\t.byte 0x00"
+
+#if 0
+
+#define ERTS_FAST_BRANCH_SYMBOLS 1
+
 #define ERTS_FAST_BRANCH_START2(name, num)                              \
-    __asm__ __volatile__ goto(".L" #num "_" #name"_start:\n\t"          \
-                              "jmp %l0\n\t"                             \
-                              /*"nop\n\tnop\n\tnop\n\t" */              \
-                              /*"nop\n\tnop\n\tnop\n\t" */: : : :       \
-                              __##num##_##name##_setup,                 \
-                              __##num##_##name##_trace);                \
-    goto __##num##_##name##_end;                                        \
-    {                                                                   \
-     void *start;                                                       \
-    __##num##_##name##_setup:__attribute__((cold));                     \
-     __asm__ __volatile__("movq $.L" #num "_" #name"_start, %0" : : "m"(start)); \
-    erts_fast_branch_setup(__##name##_variable + num,                   \
-                           start,                                       \
-                           &&__##num##_##name##_trace,                  \
-                           &&__##num##_##name##_end);                   \
-    }                                                                   \
+    __asm__ __volatile__ goto ("\n.L" #num "_" #name"_start:\n\t"       \
+                               FIVE_BYTE_NOP                            \
+                               :::: __##num##_##name##_trace);          \
     goto __##num##_##name##_end;                                        \
 __##num##_##name##_trace:                                               \
-__attribute__((cold))
+    __asm__ __volatile__("\n.L" #num "_" #name"_trace:")
+
+#define ERTS_FAST_BRANCH_END2(name, num)                                \
+__##num##_##name##_end:                                                 \
+    __asm__ __volatile__ ("\n.L" #num "_" #name"_end:")
+
+#elif 1
+
+#define ERTS_FAST_BRANCH_START2(name, num)      \
+    goto __##num##_##name##_end
+#define ERTS_FAST_BRANCH_END2(name, num) __##num##_##name##_end:
+
+#else
+
+#define ERTS_FAST_BRANCH_START2(name, num)                      \
+    if (!__##name##_variable[num].end)                          \
+        goto __##num##_##name##_end
+#define ERTS_FAST_BRANCH_END2(name, num) __##num##_##name##_end:
+
+
+#endif
 
 #define ERTS_FAST_BRANCH_START(name) ERTS_FAST_BRANCH_START2(name, 0)
-
-#define ERTS_FAST_BRANCH_END2(name, num) __##num##_##name##_end: __attribute__((hot))
-
 #define ERTS_FAST_BRANCH_END(name) ERTS_FAST_BRANCH_END2(name, 0)
 
 #define ERTS_FAST_BRANCH_ENABLE(name) erts_fast_branch_enable(__##name##_variable, __##name##_variable_cnt)
 #define ERTS_FAST_BRANCH_DISABLE(name) erts_fast_branch_disable(__##name##_variable, __##name##_variable_cnt)
 
 typedef struct erts_fast_branch_ {
-    erts_smp_atomic_t start;
+    void *start;
     void *trace;
     void *end;
     byte orig[12];
@@ -107,7 +132,9 @@ void erts_fast_branch_disable(ErtsFastBranch *, int);
 /* Declaration */
 #define ERTS_FAST_BRANCHES \
     ERTS_FAST_BRANCH_DECLARE2(erts_system_monitor_long_schedule, 2); \
-    ERTS_FAST_BRANCH_DECLARE(msacc_bif);
+    ERTS_FAST_BRANCH_DECLARE2(msacc_bif, 6); \
+    ERTS_FAST_BRANCH_DECLARE2(msacc_port, 1);
+
 
 /* Declare externs, variable defined in erl_fast_branch.c */
 ERTS_FAST_BRANCHES
