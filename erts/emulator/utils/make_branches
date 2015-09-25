@@ -1,26 +1,164 @@
-#!/bin/bash
+#!/usr/bin/env escript
+%%! -noinput -noshell
 
-SYMBOLS=`grep "^.L" $1 | grep "_start:\|_trace:\|_end:$" | sed -e 's/\.L//g' -e 's/://g' `
+-mode(compile).
 
-DECLARATIONS=""
-for SYMBOL in $SYMBOLS
-do
-    read -d '' DECLARATION <<EOF
-.L${SYMBOL}_symbol:
-        .globl	__${SYMBOL}
-	.data
-	.align 8
-	.type	__${SYMBOL}, @object
-	.size	__${SYMBOL}, 8
-__${SYMBOL}:
-	.quad	.L${SYMBOL}
-EOF
-    read -d '' DECLARATIONS <<EOF
-${DECLARATIONS}
-${DECLARATION}
-EOF
-done
+main(["header", ToFile | AllSFiles ]) ->
+    AllSymbols = lists:flatmap(
+                fun(Filename) ->
+                        {ok, Bin} = file:read_file(Filename),
+                        get_symbols(Bin)
+                end, AllSFiles),
+    SymbolGroups = group_symbols(AllSymbols),
 
-DECLARATIONS=`echo "${DECLARATIONS}" | sed 's/$/\\\\n/g' | tr '\n' ' '`
+    Branches = [io_lib:format("\tERTS_FAST_BRANCH_DECLARE(~s, ~p);\\~n",
+                              [Name, length(Syms)])
+                || {Name, Syms} <- SymbolGroups],
+    Symbols = all_symbols(SymbolGroups),
 
-sed "s/\\.Letext0:/${DECLARATIONS}\t.text\n.Letext0:/g" $1
+    %%
+    %% #define ERTS_FAST_BRANCHES \
+    %%    ERTS_FAST_BRANCH_DECLARE(name, num);
+    %%
+    %% #define ERTS_FAST_BRACHES_SYMBOLS \
+    %%    ERTS_FAST_BRANCH_SYMBOL(name, num, type, symbol);
+    %%
+    Str = io_lib:format("#ifndef ERL_FAST_BRANCH_SYMBOLS_H~n"
+                        "#define ERL_FAST_BRANCH_SYMBOLS_H~n"
+                        "/* ~p -> ~p */~n"
+                        "#define ERTS_FAST_BRANCHES \\~n"
+                        "~s~n~n"
+                        "#define ERTS_FAST_BRANCHES_SYMBOLS \\~n"
+                        "~s~n~n"
+                        "#endif", [AllSymbols, SymbolGroups, Branches, Symbols]),
+    file:write_file(ToFile, Str),
+    erlang:halt();
+main(["asm", ToFile, Filename]) ->
+    {ok, Bin} = file:read_file(Filename),
+    Basename = label_to_basename(Filename, Bin),
+
+    %% This re replaces all trace jmp's with 5 byte nops
+    ReplacedJmp = re:replace(Basename,
+                             "(.Lerts_fb_[^:]+:\n)([^j\n]+.*)$","\\1#\\2"
+                             "\n\t.byte 0x0F\n\t.byte 0x1F\n\t.byte 0x44"
+                             "\n\t.byte 0x00\n\t.byte 0x00",
+                             [global, multiline]),
+    Symbols = get_symbols(ReplacedJmp),
+
+    Format = fun(Symbol, Label) ->
+                     io_lib:format(
+                       ".L~s_symbol_lbl:\n"
+                       "\t.globl\t~s\n"
+                       "\t.data\n"
+                       "\t.align 8\n"
+                       "\t.type	~s, @object\n"
+                       "\t.size	~s, 8\n"
+                       "~s:\n"
+                       "\t.quad	.L~s\n",
+                       [Symbol, Symbol, Symbol, Symbol, Symbol, Label])
+             end,
+    Gas = [[Format(["__", StartLbl,"_start"], StartLbl),
+            Format(["__", StartLbl,"_trace"], TraceLbl)]
+           || #{ start := StartLbl, trace := TraceLbl } <- Symbols],
+    Str = re:replace(ReplacedJmp, "(\\.text\n\\.Letext0:)",
+                     "\n" ++ Gas ++ "\n\t\\1", [global]),
+    file:write_file(ToFile, Str),
+    erlang:halt().
+
+label_to_basename(Filename, Bin) ->
+    label_to_basename(Filename, Bin,0).
+
+label_to_basename(Filename, Bin,N) ->
+    case re:run(Bin, "^\\.Lerts_fb_(.+/.+\\.[ch])", [{capture, all_but_first}, multiline, global]) of
+        {match, [Match | _]} ->
+            label_to_basename(Filename, match_to_basename(Filename, Bin, Match, N), N + 1);
+        _ ->
+            Bin
+    end.
+
+match_to_basename(Filename, Bin, [{Pos,Len} = PosLen], _N) ->
+    Basename = filename:rootname(filename:basename(binary_to_list(binary:part(Bin, PosLen)))),
+    NoDotName = re:replace(Basename, "\\.", "_", [global]),
+    File = re:replace(filename:rootname(filename:basename(Filename)),
+                      "\\.", "_", [global]),
+    Before = binary:part(Bin, 0, Pos),
+    After = binary:part(Bin, Pos + Len, byte_size(Bin) - (Pos + Len)),
+    NewBin = [Before, File, "_", NoDotName, "_", integer_to_list(_N), After],
+    iolist_to_binary(NewBin).
+
+
+get_symbols(Bin) ->
+    case re:run(Bin,".L([^\n]+):\n#\tjmp \\.L([^\n]+)\n",[{capture, all_but_first, list}, multiline, global]) of
+        {match, Matches} ->
+            [analyze_symbol(StartSymbol, JmpLbl) || [StartSymbol, JmpLbl] <- Matches];
+        nomatch ->
+            []
+    end.
+
+analyze_symbol(SymbolStr, Jmp) ->
+    Tokens = string:tokens(SymbolStr,"_"),
+    {_, [_Ident | Name]}
+        = lists:splitwith(
+            fun(Str) ->
+                    try list_to_integer(Str) of
+                        _ ->
+                            false
+                    catch _:_ ->
+                            true
+                    end
+            end, Tokens),
+    #{
+       name => string:join(Name,"_"),
+       start => SymbolStr,
+       trace => Jmp
+     }.
+
+group_symbols(S) ->
+    group_symbols(lists:sort(S),[]).
+group_symbols([], Acc) ->
+    Acc;
+group_symbols([#{ name := Name } = Symbol | T], Acc) ->
+    Vars = proplists:get_value(Name, Acc, []),
+    group_symbols(T,lists:keystore(Name, 1, Acc, {Name, [Symbol | Vars]})).
+
+all_symbols([{_Name, Symbols}|T]) ->
+    [all_symbols(Symbols, 0), all_symbols(T)];
+all_symbols([]) ->
+    [].
+
+all_symbols([], _) ->
+    [];
+all_symbols([#{ start := StartLbl, name := Name } | T],Cnt) ->
+
+    [io_lib:format("\tERTS_FAST_BRANCH_SYMBOL(~s, ~p, ~s, ~s); \\~n",
+                   [Name, Cnt, start, ["__",StartLbl,"_start"]]),
+     io_lib:format("\tERTS_FAST_BRANCH_SYMBOL(~s, ~p, ~s, ~s); \\~n",
+                   [Name, Cnt, trace, ["__",StartLbl,"_trace"]]),
+     all_symbols(T,Cnt+1)].
+
+%% BASENAME=`sed 's:.Lbeam/\\([^\\.]*\\)\.c:.L\1:g' $1`
+
+%% SYMBOLS=`echo "${BASENAME}" | grep "^.L" | grep "_start:\|_trace:\|_end:$" | sed -e 's/\.L//g' -e 's/://g' `
+
+%% DECLARATIONS=""
+%% for SYMBOL in $SYMBOLS
+%% do
+%%     read -d '' DECLARATION <<EOF
+%% .L${SYMBOL}_symbol:
+%%         .globl	__${SYMBOL}
+%% 	.data
+%% 	.align 8
+%% 	.type	__${SYMBOL}, @object
+%% 	.size	__${SYMBOL}, 8
+%% __${SYMBOL}:
+%% 	.quad	.L${SYMBOL}
+%% EOF
+%%     read -d '' DECLARATIONS <<EOF
+%% ${DECLARATIONS}
+%% ${DECLARATION}
+%% EOF
+%% done
+
+%% DECLARATIONS=`echo "${DECLARATIONS}" | sed 's/$/\\\\n/g' | tr '\n' ' '`
+
+%% echo "${BASENAME}" | sed "s/\\.Letext0:/${DECLARATIONS}\t.text\n.Letext0:/g"

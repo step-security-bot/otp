@@ -523,6 +523,8 @@ ifdef HIPE_ENABLED
 OPCODE_TABLES += hipe/hipe_ops.tab
 endif
 
+.SECONDARY:
+
 $(TTF_DIR)/beam_cold.h \
 $(TTF_DIR)/beam_hot.h \
 $(TTF_DIR)/beam_opcodes.c \
@@ -646,11 +648,10 @@ COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
 INCLUDES  =  -I$(TTF_DIR) $(COMMON_INCLUDES)
 
-$(OBJDIR)/%.s: $(OBJDIR)/%.s.src
-	utils/make_branches $< > $@
+%.o: %.S
 
-$(OBJDIR)/%.o:$(OBJDIR)/%.s
-	as -64 -o $@ $<
+%.s: %.S
+	utils/make_branches asm $@ $<
 
 ifeq ($(TARGET),win32)
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
@@ -662,35 +663,35 @@ $(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
 endif
 
 ifneq ($(filter tile-%,$(TARGET)),)
-$(OBJDIR)/beam_emu.s.src: beam/beam_emu.c
+$(OBJDIR)/beam_emu.S: beam/beam_emu.c
 	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
          $(INCLUDES) -c $< -o $@
 else
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
-$(OBJDIR)/beam_emu.s.src: beam/beam_emu.c
+$(OBJDIR)/beam_emu.S: beam/beam_emu.c
 	$(V_EMU_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
 
-$(OBJDIR)/%.s.src: beam/%.c
+$(OBJDIR)/%.S: beam/%.c
 	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.s.src: $(TARGET)/%.c
+$(OBJDIR)/%.S: $(TARGET)/%.c
 	$(V_CC) -S $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
 
-$(OBJDIR)/%.s.src: $(TTF_DIR)/%.c
+$(OBJDIR)/%.S: $(TTF_DIR)/%.c
 	$(V_CC) -S $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.s.src: sys/$(ERLANG_OSTYPE)/%.c
+$(OBJDIR)/%.S: sys/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) -S $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.s.src: sys/common/%.c
+$(OBJDIR)/%.S: sys/common/%.c
 	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.s.src: drivers/common/%.c
+$(OBJDIR)/%.S: drivers/common/%.c
 	$(V_CC) -S $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -c $< -o $@
 
-$(OBJDIR)/%.s.src: drivers/$(ERLANG_OSTYPE)/%.c
+$(OBJDIR)/%.S: drivers/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) -S $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
 # ----------------------------------------------------------------------
@@ -702,16 +703,16 @@ $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_SRC) $(ERTS
 	$(ld_verbose)$(CS_PURIFY) $(CC) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_SRC) $(CS_LIBS)
 
-$(OBJDIR)/%.kp.o: sys/common/%.c
-	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.kp.S: sys/common/%.c
+	$(V_CC) -S -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.nkp.o: sys/common/%.c
-	$(V_CC) -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%.nkp.S: sys/common/%.c
+	$(V_CC) -S -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 ifeq ($(GCC),yes)
 
-$(OBJDIR)/erl_goodfit_alloc.o: beam/erl_goodfit_alloc.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS) $(UNROLL_FLG), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/erl_goodfit_alloc.S: beam/erl_goodfit_alloc.c
+	$(V_CC) -S $(subst -O2, $(GEN_OPT_FLGS) $(UNROLL_FLG), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 endif
 
 # ----------------------------------------------------------------------
@@ -780,7 +781,9 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
-	$(OBJDIR)/erl_msacc.o           $(OBJDIR)/erl_fast_branch.o
+	$(OBJDIR)/erl_msacc.o
+
+FAST_BRANCH_OBJ = $(OBJDIR)/erl_fast_branch.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
@@ -886,7 +889,7 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
+BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) $(FAST_BRANCH_OBJ)
 
 before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS)
 
@@ -900,6 +903,7 @@ $(OBJDIR)/erlang_dtrace.o: $(before_DTrace_OBJS) $(TARGET)/erlang_dtrace.h
 endif
 
 OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
+ASMS = $(patsubst %.o, %.s, $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS))
 
 $(INIT_OBJS): $(TTF_DIR)/GENERATED
 $(OBJS): $(TTF_DIR)/GENERATED
@@ -998,6 +1002,9 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 
 endif
 
+$(TTF_DIR)/erl_fast_branch_symbols.h: $(ASMS)
+	utils/make_branches header $@ $^
+
 # ----------------------------------------------------------------------
 # Dependencies
 #
@@ -1015,6 +1022,8 @@ SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TO
 SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
 SED_REPL_CHK_IO=s|$$(OBJDIR)/erl_check_io.o|$$(OBJDIR)/erl_check_io.kp.o $$(OBJDIR)/erl_check_io.nkp.o|g
 SED_REPL_TTF_COMP_FLAGS=s|\([^/]\)erl_compile_flags\.h|\1$$(TTF_DIR)/erl_compile_flags\.h|g
+SED_REPL_TTF_SYMBOLS_FLAGS=s|\([^/]\)erl_fast_branch_symbols\.h|\1$$(TTF_DIR)/erl_fast_branch_symbols\.h|g
+SED_REPL_S=s|^\([^\.]*\)\.o:|\1.o \1.S:|g
 
 ifeq ($(TARGET),win32)
 #SED_PREFIX=$(SED_REPL_WIN_DRIVE);
@@ -1029,7 +1038,7 @@ else
 SED_SUFFIX=
 endif
 
-SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX);$(SED_REPL_TTF_COMP_FLAGS)'
+SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX);$(SED_REPL_TTF_COMP_FLAGS);$(SED_REPL_TTF_SYMBOLS_FLAGS);$(SED_REPL_S)'
 SED_DEPEND_ZLIB=sed '$(SED_PREFIX)$(SED_REPL_O_ZLIB)'
 
 ifdef HIPE_ENABLED

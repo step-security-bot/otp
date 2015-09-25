@@ -2415,6 +2415,7 @@ erts_cnd_wait(erts_cnd_t *cnd, erts_mtx_t *mtx)
 {
 #ifdef USE_THREADS
     int res;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_unlock(&mtx->lc);
@@ -3483,6 +3484,7 @@ ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep)
 {
 #ifdef USE_THREADS
     int res;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
     res = ethr_event_wait(&((ethr_ts_event *) ep)->event);
     ERTS_MSACC_POP_STATE();

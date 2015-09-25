@@ -1711,6 +1711,7 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waitin
     int need_thr_progress = 0;
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     int more_work = 0;
+    ERTS_MSACC_DECLARE_CACHE_X();
     ERTS_MSACC_PUSH_STATE_M_X();
 #ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
@@ -2220,15 +2221,17 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 	aux_work = HNDLR(awdp, aux_work, waiting);   \
 	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
 	if (!(aux_work & ~ignore)) { \
-	    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
-            ERTS_MSACC_UPDATE_CACHE();       \
-            ERTS_MSACC_POP_STATE_M();              \
+	    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);     \
+            ERTS_FAST_BRANCH_MSACC(                  \
+                ERTS_MSACC_UPDATE_CACHE_R();         \
+                ERTS_MSACC_POP_STATE_M_R());         \
 	    return aux_work; \
 	} \
     }
 
     erts_aint32_t aux_work = orig_aux_work;
     erts_aint32_t ignore = 0;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_AUX);
 
 #ifdef ERTS_SMP
@@ -2899,6 +2902,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     int thr_prgr_active = 1;
     erts_aint32_t flgs;
 #endif
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 #ifdef ERTS_SMP
 

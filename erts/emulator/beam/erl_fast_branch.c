@@ -22,31 +22,33 @@
 #  include "config.h"
 #endif
 
+#include "global.h"
 #include "erl_fast_branch.h"
+#include "erl_fast_branch_symbols.h"
 
-#undef ERTS_FAST_BRANCH_DECLARE2
-#define ERTS_FAST_BRANCH_DECLARE2(name, num)                            \
-    ErtsFastBranch __##name##_variable[num];                            \
-    int __##name##_variable_cnt = num
-
+#define ERTS_FAST_BRANCH_DECLARE(name, num) \
+    ErtsFastBranches __##name##_variable;
 ERTS_FAST_BRANCHES
+#undef ERTS_FAST_BRANCH_DECLARE
+
+static void ptr_protect(void *ptr, int flags)
+{
+    void *page_ptr = (void*)((long)ptr & ~(0xfffl));
+    if (mprotect(page_ptr, (ptr - page_ptr) + 5, flags) < 0) {
+        abort();
+    }
+}
 
 static void protect(void *ptr)
 {
-    if (mprotect((void*)((long)ptr & ~(0xfffl)), 0x1000,
-                 PROT_READ | PROT_EXEC) < 0) {
-        abort();
-    }
+    ptr_protect(ptr, PROT_READ | PROT_EXEC);
     /* Clear the instruction cache */
     __clear_cache(ptr, ptr + 2);
 }
 
 static void unprotect(void *ptr)
 {
-    if (mprotect((void*)((long)ptr & ~(0xfffl)), 0x1000,
-                 PROT_READ | PROT_WRITE | PROT_EXEC) < 0) {
-        abort();
-    }
+    ptr_protect(ptr, PROT_READ | PROT_WRITE | PROT_EXEC);
 }
 
 static void update_jump_target(ErtsFastBranch *fb,
@@ -70,13 +72,10 @@ static void update_jump_target(ErtsFastBranch *fb,
         ((byte *)&preq_val)[0] = 0xeb;
         ((byte *)&preq_val)[1] = addr_diff;
         /* We insert a bunch of nops to overwrite the
-           movq or compq that we area replacing in order
-           for gdb disassemble to look nicer */
-        if (fb->orig[5] == 0xe9) {
-            ((byte *)&preq_val)[2] = 0x0F;
-            ((byte *)&preq_val)[3] = 0x1F;
-            ((byte *)&preq_val)[4] = 0x00;
-        }
+           broken asm for gdb disassemble to look nicer */
+        ((byte *)&preq_val)[2] = 0x0F;
+        ((byte *)&preq_val)[3] = 0x1F;
+        ((byte *)&preq_val)[4] = 0x00;
     } else {
         ((byte *)&preq_val)[0] = 0xe9;
         /* subtract 3 extra as jmpq is 3 bytes larger than jmp */
@@ -86,18 +85,18 @@ static void update_jump_target(ErtsFastBranch *fb,
     protect(start);
 }
 
-void erts_fast_branch_enable(ErtsFastBranch *fb, int number) {
+void erts_fast_branch_enable(ErtsFastBranches *fb) {
     int i;
-    for (i = 0; i < number; i++) {
-        ErtsFastBranch *cfb = fb+i;
+    for (i = 0; i < fb->num_branches; i++) {
+        ErtsFastBranch *cfb = fb->branches+i;
         update_jump_target(cfb, cfb->start, cfb->trace);
     }
 }
 
-void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
+void erts_fast_branch_disable(ErtsFastBranches *fb) {
     int i;
-    for (i = 0; i < number; i++) {
-        ErtsFastBranch *cfb = fb+i;
+    for (i = 0; i < fb->num_branches; i++) {
+        ErtsFastBranch *cfb = fb->branches+i;
         void *start = cfb->start;
         UWord *preq_ptr = (UWord*)start, preq_val = *preq_ptr;
         unprotect(start);
@@ -114,62 +113,28 @@ void erts_fast_branch_disable(ErtsFastBranch *fb, int number) {
     }
 }
 
-#ifdef ERTS_FAST_BRANCH_SYMBOLS
+#define ERTS_FAST_BRANCH_SYMBOL(name, num, type, symbol) \
+    extern void *symbol
 
-#define ERTS_FAST_BRANCH_EXPAND_1_(name) ERTS_FAST_BRANCH_EXPAND(name, 0)
-#define ERTS_FAST_BRANCH_EXPAND_2_(name) ERTS_FAST_BRANCH_EXPAND_1_(name) ERTS_FAST_BRANCH_EXPAND(name, 1)
-#define ERTS_FAST_BRANCH_EXPAND_3_(name) ERTS_FAST_BRANCH_EXPAND_2_(name) ERTS_FAST_BRANCH_EXPAND(name, 2)
-#define ERTS_FAST_BRANCH_EXPAND_4_(name) ERTS_FAST_BRANCH_EXPAND_3_(name) ERTS_FAST_BRANCH_EXPAND(name, 3)
-#define ERTS_FAST_BRANCH_EXPAND_5_(name) ERTS_FAST_BRANCH_EXPAND_4_(name) ERTS_FAST_BRANCH_EXPAND(name, 4)
-#define ERTS_FAST_BRANCH_EXPAND_6_(name) ERTS_FAST_BRANCH_EXPAND_5_(name) ERTS_FAST_BRANCH_EXPAND(name, 5)
-#define ERTS_FAST_BRANCH_EXPAND_7_(name) ERTS_FAST_BRANCH_EXPAND_6_(name) ERTS_FAST_BRANCH_EXPAND(name, 6)
-#define ERTS_FAST_BRANCH_EXPAND_8_(name) ERTS_FAST_BRANCH_EXPAND_7_(name) ERTS_FAST_BRANCH_EXPAND(name, 7)
-#define ERTS_FAST_BRANCH_EXPAND_9_(name) ERTS_FAST_BRANCH_EXPAND_8_(name) ERTS_FAST_BRANCH_EXPAND(name, 8)
+ERTS_FAST_BRANCHES_SYMBOLS
 
-#undef ERTS_FAST_BRANCH_DECLARE2
-#define ERTS_FAST_BRANCH_DECLARE2(name, num)    \
-    ERTS_FAST_BRANCH_EXPAND_##num##_(name)
+#undef ERTS_FAST_BRANCH_SYMBOL
 
-#define ERTS_FAST_BRANCH_EXPAND(name, num)      \
-    extern void * __##num##_##name##_start;     \
-    extern void * __##num##_##name##_trace;     \
-    extern void * __##num##_##name##_end;
-
-ERTS_FAST_BRANCHES
-
-#undef ERTS_FAST_BRANCH_EXPAND
-
-#endif
 
 void erts_pre_init_fast_branch()
 {
-#ifdef ERTS_FAST_BRANCH_SYMBOLS
 
-    int i;
-
-#define ERTS_FAST_BRANCH_EXPAND(name, num)                      \
-    __##name##_variable[num].start = __##num##_##name##_start;  \
-    __##name##_variable[num].trace = __##num##_##name##_trace;  \
-    __##name##_variable[num].end = __##num##_##name##_end;
-
+#define ERTS_FAST_BRANCH_DECLARE(name, num)                             \
+    __##name##_variable.branches = malloc(sizeof(ErtsFastBranch)*num);  \
+    __##name##_variable.num_branches = num
 ERTS_FAST_BRANCHES
+#undef ERTS_FAST_BRANCH_DECLARE
 
-/*
-  Check that the start label is pointing to a 5 byte nop
- */
-#undef ERTS_FAST_BRANCH_DECLARE2
-#define ERTS_FAST_BRANCH_DECLARE2(name, num)                            \
-    for (i = 0; i < num; i++) {                                         \
-        byte *start = (byte*)__##name##_variable[i].start;              \
-        if (start[0] == 0x0F && start[1] == 0x1F &&                     \
-            start[2] == 0x44 && start[3] == 0x00 &&                     \
-            start[4] == 0x00)                                           \
-            continue;                                                   \
-        abort();                                                        \
-}
+#define ERTS_FAST_BRANCH_SYMBOL(name, num, type, symbol) \
+    __##name##_variable.branches[num].type = symbol
 
-ERTS_FAST_BRANCHES
+ERTS_FAST_BRANCHES_SYMBOLS
 
-#endif
+#undef ERTS_FAST_BRANCH_SYMBOL
 
 }

@@ -402,18 +402,16 @@ static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 #endif
     if (!p) {
 	if (a->async_free) {
-            ERTS_FAST_BRANCH_START2(msacc_port, 0);
-            ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_PORT);
-            ERTS_FAST_BRANCH_END2(msacc_port, 0);
+            ERTS_MSACC_DECLARE_CACHE();
+            ERTS_MSACC_PUSH_AND_SET_STATE_CACHED(ERTS_MSACC_STATE_PORT);
 	    a->async_free(a->async_data);
-            ERTS_FAST_BRANCH_START2(msacc_port, 1);
             ERTS_MSACC_POP_STATE();
-            ERTS_FAST_BRANCH_END2(msacc_port,1);
         }
     }
     else {
 	if (async_ready(p, a->async_data)) {
 	    if (a->async_free) {
+                ERTS_MSACC_DECLARE_CACHE();
                 ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_PORT);
 		a->async_free(a->async_data);
                 ERTS_MSACC_POP_STATE();
@@ -647,12 +645,14 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
     unsigned int qix;
 #if ERTS_USE_ASYNC_READY_Q
     Uint sched_id;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE();
 
     sched_id = erts_get_scheduler_id();
     if (!sched_id)
 	sched_id = 1;
 #else
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE();
 #endif
 

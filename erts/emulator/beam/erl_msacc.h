@@ -21,6 +21,8 @@
 #ifndef ERL_MSACC_H__
 #define ERL_MSACC_H__
 
+#include "erl_fast_branch.h"
+
 /* Can be enabled/disabled via configure */
 #if ERTS_ENABLE_MSACC == 2
 #define ERTS_MSACC_EXTENDED_STATES 1
@@ -236,57 +238,54 @@ void erts_msacc_init_thread(char *type, int id, int liberty);
  *  of this file.
  */
 
+
 /* cache handling functions */
-#define ERTS_MSACC_IS_ENABLED() ERTS_UNLIKELY(erts_msacc_enabled)
+#define ERTS_MSACC_IS_ENABLED_R() ERTS_UNLIKELY(erts_msacc_enabled)
 #define ERTS_MSACC_DECLARE_CACHE()                                      \
-    ErtsMsAcc *ERTS_MSACC_UPDATE_CACHE();                                 \
+    ErtsMsAcc *__erts_msacc_cache;                                      \
     ERTS_DECLARE_DUMMY(Uint __erts_msacc_state) = ERTS_MSACC_STATE_OTHER;
-#define ERTS_MSACC_IS_ENABLED_CACHED() ERTS_UNLIKELY(__erts_msacc_cache != NULL)
-#define ERTS_MSACC_UPDATE_CACHE()                                       \
+#define ERTS_MSACC_IS_ENABLED_CACHED_R() ERTS_UNLIKELY(__erts_msacc_cache != NULL)
+#define ERTS_MSACC_UPDATE_CACHE_R()                                     \
     __erts_msacc_cache = erts_msacc_enabled ? ERTS_MSACC_TSD_GET() : NULL
 
 
 /* The defines below implicitly declare and load a new cache */
-#define ERTS_MSACC_PUSH_STATE()                           \
-    ERTS_MSACC_DECLARE_CACHE();                           \
-    ERTS_MSACC_PUSH_STATE_CACHED()
-#define ERTS_MSACC_SET_STATE(state)                                     \
-    ERTS_MSACC_DECLARE_CACHE();                                         \
-    ERTS_MSACC_SET_STATE_CACHED(state)
-#define ERTS_MSACC_PUSH_AND_SET_STATE(state)                    \
-    ERTS_MSACC_PUSH_STATE(); ERTS_MSACC_SET_STATE_CACHED(state)
+#define ERTS_MSACC_PUSH_STATE_R()                           \
+    ERTS_MSACC_PUSH_STATE_CACHED_R()
+#define ERTS_MSACC_SET_STATE_R(state)                                     \
+    ERTS_MSACC_SET_STATE_CACHED_R(state)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_R(state)                          \
+    ERTS_MSACC_PUSH_STATE_R(); ERTS_MSACC_SET_STATE_CACHED_R(state)
 
 /* The defines below need an already declared cache to work */
-#define ERTS_MSACC_PUSH_STATE_CACHED()                                  \
-    __erts_msacc_state = ERTS_MSACC_IS_ENABLED_CACHED() ?               \
+#define ERTS_MSACC_PUSH_STATE_CACHED_R()                                \
+    __erts_msacc_state = ERTS_MSACC_IS_ENABLED_CACHED_R() ?             \
         erts_msacc_get_state_um__(__erts_msacc_cache) : ERTS_MSACC_STATE_OTHER
-#define ERTS_MSACC_SET_STATE_CACHED(state) \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())                         \
+#define ERTS_MSACC_SET_STATE_CACHED_R(state)                            \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_R())                               \
         erts_msacc_set_state_um__(__erts_msacc_cache, state, 1)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED(state) \
-    ERTS_MSACC_PUSH_STATE_CACHED(); ERTS_MSACC_SET_STATE_CACHED(state)
-#define ERTS_MSACC_POP_STATE()                                          \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())                                 \
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_R(state)                   \
+    ERTS_MSACC_PUSH_STATE_CACHED_R(); ERTS_MSACC_SET_STATE_CACHED_R(state)
+#define ERTS_MSACC_POP_STATE_R()                                        \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_R())                               \
         erts_msacc_set_state_um__(__erts_msacc_cache, __erts_msacc_state, 0)
 
 /* Only use these defines when we know that we have in a managed thread */
-#define ERTS_MSACC_PUSH_STATE_M()                         \
-    ERTS_MSACC_DECLARE_CACHE();                           \
-    ERTS_MSACC_PUSH_STATE_CACHED_M()
-#define ERTS_MSACC_PUSH_STATE_CACHED_M()                                \
-    __erts_msacc_state = ERTS_MSACC_IS_ENABLED_CACHED() ?    \
+#define ERTS_MSACC_PUSH_STATE_M_R()                         \
+    ERTS_MSACC_PUSH_STATE_CACHED_M_R()
+#define ERTS_MSACC_PUSH_STATE_CACHED_M_R()                              \
+    __erts_msacc_state = ERTS_MSACC_IS_ENABLED_CACHED_R() ?             \
         erts_msacc_get_state_m__(__erts_msacc_cache) : ERTS_MSACC_STATE_OTHER
-#define ERTS_MSACC_SET_STATE_M(state)                   \
-    ERTS_MSACC_DECLARE_CACHE();                         \
-    ERTS_MSACC_SET_STATE_CACHED_M(state)
-#define ERTS_MSACC_SET_STATE_CACHED_M(state)            \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())      \
+#define ERTS_MSACC_SET_STATE_M_R(state)                   \
+    ERTS_MSACC_SET_STATE_CACHED_M_R(state)
+#define ERTS_MSACC_SET_STATE_CACHED_M_R(state)                          \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_R())                               \
         erts_msacc_set_state_m__(__erts_msacc_cache, state, 1)
-#define ERTS_MSACC_POP_STATE_M()                                  \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())                      \
+#define ERTS_MSACC_POP_STATE_M_R()                                        \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_R())                               \
         erts_msacc_set_state_m__(__erts_msacc_cache, __erts_msacc_state, 0)
-#define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)                    \
-    ERTS_MSACC_PUSH_STATE_M(); ERTS_MSACC_SET_STATE_CACHED_M(state)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_M_R(state)                          \
+    ERTS_MSACC_PUSH_STATE_M_R(); ERTS_MSACC_SET_STATE_CACHED_M_R(state)
 
 ERTS_MSACC_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc,Uint state,int increment);
@@ -355,8 +354,27 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
+#define ERTS_FAST_BRANCH_MSACC(body) ERTS_FAST_BRANCH(msacc, ERTS_MSACC_UPDATE_CACHE_R(); body)
+
+#define ERTS_MSACC_IS_ENABLED() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_IS_ENABLED_R())
+#define ERTS_MSACC_PUSH_STATE() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_STATE_R())
+#define ERTS_MSACC_PUSH_STATE_CACHED() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_STATE_CACHED_R())
+#define ERTS_MSACC_POP_STATE() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_POP_STATE_R())
+#define ERTS_MSACC_SET_STATE(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_SET_STATE_R(state))
+#define ERTS_MSACC_SET_STATE_CACHED(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_SET_STATE_CACHED_R(state))
+#define ERTS_MSACC_PUSH_AND_SET_STATE(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_AND_SET_STATE_R(state))
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_R(state))
+#define ERTS_MSACC_UPDATE_CACHE() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_UPDATE_CACHE_R())
+#define ERTS_MSACC_IS_ENABLED_CACHED() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_IS_ENABLED_CACHED_R())
+#define ERTS_MSACC_PUSH_STATE_M() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_STATE_M_R())
+#define ERTS_MSACC_PUSH_STATE_CACHED_M() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_STATE_CACHED_M_R())
+#define ERTS_MSACC_SET_STATE_CACHED_M(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_SET_STATE_CACHED_M_R(state))
+#define ERTS_MSACC_POP_STATE_M() ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_POP_STATE_M_R())
+#define ERTS_MSACC_PUSH_AND_SET_STATE_M(state) ERTS_FAST_BRANCH_MSACC(ERTS_MSACC_PUSH_AND_SET_STATE_M_R(state))
+
 #else
 
+#define ERTS_FAST_BRANCH_MSACC(body)
 #define ERTS_MSACC_IS_ENABLED() 0
 #define erts_msacc_early_init()
 #define erts_msacc_init()
@@ -382,6 +400,7 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 
 #ifndef ERTS_MSACC_EXTENDED_STATES
 
+#define ERTS_FAST_BRANCH_MSACC_X(body)
 #define ERTS_MSACC_PUSH_STATE_X()
 #define ERTS_MSACC_POP_STATE_X()
 #define ERTS_MSACC_SET_STATE_X(state)
@@ -400,6 +419,7 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 
 #else
 
+#define ERTS_FAST_BRANCH_MSACC_X(body) ERTS_FAST_BRANCH_MSACC(body)
 #define ERTS_MSACC_PUSH_STATE_X() ERTS_MSACC_PUSH_STATE()
 #define ERTS_MSACC_POP_STATE_X() ERTS_MSACC_POP_STATE()
 #define ERTS_MSACC_SET_STATE_X(state) ERTS_MSACC_SET_STATE(state)

@@ -1648,6 +1648,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int active;
     Uint64 start_time = 0;
     ErtsSchedulerData *esdp = runq->scheduler;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));

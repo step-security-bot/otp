@@ -4944,7 +4944,7 @@ void erts_init_bif(void)
 	= erts_export_put(am_erts_internal, am_await_microstate_accounting_modifications, 3);
 
     erts_smp_atomic32_init_nob(&sched_wall_time, 0);
-    erts_smp_atomic32_init_nob(&msacc, ERTS_MSACC_IS_ENABLED());
+    erts_smp_atomic32_init_nob(&msacc, ERTS_MSACC_IS_ENABLED_R());
 }
 
 #ifdef HARDDEBUG

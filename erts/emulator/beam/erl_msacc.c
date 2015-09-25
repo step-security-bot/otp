@@ -442,7 +442,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     }
     case ERTS_MSACC_ENABLE: {
         erts_rwmtx_rlock(&msacc_mutex);
-        fast_enable_trace(&msacc_bif);
+        ERTS_FAST_BRANCH_ENABLE(msacc);
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);
             msacc->perf_counter = erts_sys_perf_counter();
@@ -456,6 +456,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     case ERTS_MSACC_DISABLE: {
         ErtsSysPerfCounter perf_counter;
         erts_rwmtx_rlock(&msacc_mutex);
+        ERTS_FAST_BRANCH_DISABLE(msacc);
         /* make sure to update stats with latest results */
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);

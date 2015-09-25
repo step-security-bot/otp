@@ -685,6 +685,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
     error_number = error_type = 0;
     if (driver->start) {
+        ERTS_MSACC_DECLARE_CACHE();
         ERTS_MSACC_PUSH_STATE_M();
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_in, am_start);
@@ -1680,6 +1681,7 @@ call_driver_outputv(int bang_op,
     else {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	ErlDrvSizeT size = evp->size;
+        ERTS_MSACC_DECLARE_CACHE();
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
@@ -1783,6 +1785,7 @@ call_driver_output(int bang_op,
 	send_badsig(prt);
     else {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        ERTS_MSACC_DECLARE_CACHE();
         ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
 			   || ERTS_IS_CRASH_DUMPING);
@@ -3371,6 +3374,7 @@ static void flush_port(Port *p)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
 
     if (p->drv_ptr->flush != NULL) {
+        ERTS_MSACC_DECLARE_CACHE();
         ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_flush)) {
@@ -3433,6 +3437,7 @@ terminate_port(Port *prt)
     drv = prt->drv_ptr;
     if ((drv != NULL) && (drv->stop != NULL)) {
 	int fpe_was_unmasked = erts_block_fpe();
+        ERTS_MSACC_DECLARE_CACHE();
 	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_stop)) {
@@ -3753,6 +3758,7 @@ call_driver_control(Eterm caller,
 		    ErlDrvSizeT *from_size)
 {
     ErlDrvSSizeT cres;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 
     if (!prt->drv_ptr->control)
@@ -4162,6 +4168,7 @@ call_driver_call(Eterm caller,
 		 unsigned *ret_flagsp)
 {
     ErlDrvSSizeT cres;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 
     if (!prt->drv_ptr->call)
@@ -4896,6 +4903,7 @@ int get_port_flags(ErlDrvPort ix)
 void erts_raw_port_command(Port* p, byte* buf, Uint len)
 {
     int fpe_was_unmasked;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -4933,6 +4941,7 @@ int async_ready(Port *p, void* data)
     if (p) {
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
 	if (p->drv_ptr->ready_async != NULL) {
+            ERTS_MSACC_DECLARE_CACHE();
 	    ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(driver_ready_async)) {
@@ -6959,6 +6968,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     void (*callback)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     ErlDrvMonitor drv_monitor;
     int fpe_was_unmasked;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));

@@ -21,8 +21,6 @@
 #ifndef ERL_FAST_BRANCH__
 #define ERL_FAST_BRANCH__
 
-#include "global.h"
-
 /* This define with assembly and goto is here in order to attempt to
    influence gcc to layout code so that no branches are needed to be
    made when not branching. When the branch is disabled, the jmp in
@@ -74,26 +72,32 @@ __0_erts_system_monitor_long_schedule:
 #define FIVE_BYTE_NOP ".byte 0x0F\n\t.byte 0x1F\n\t.byte 0x44"  \
     "\n\t.byte 0x00\n\t.byte 0x00"
 
-#if 0
+#if 1
 
 #define ERTS_FAST_BRANCH_SYMBOLS 1
 
-#define ERTS_FAST_BRANCH_START2(name, num)                              \
-    __asm__ __volatile__ goto ("\n.L" #num "_" #name"_start:\n\t"       \
-                               FIVE_BYTE_NOP                            \
-                               :::: __##num##_##name##_trace);          \
-    goto __##num##_##name##_end;                                        \
-__##num##_##name##_trace:                                               \
-    __asm__ __volatile__("\n.L" #num "_" #name"_trace:")
+#define CONCAT_IMPL( x, y ) x##y
+#define MACRO_CONCAT( x, y ) CONCAT_IMPL( x, y )
 
-#define ERTS_FAST_BRANCH_END2(name, num)                                \
-__##num##_##name##_end:                                                 \
-    __asm__ __volatile__ ("\n.L" #num "_" #name"_end:")
+#define ASM_LABEL(name)                         \
+    ".Lerts_fb_" __FILE__ "_" #name
+#define LABEL(num, name, postfix)                                        \
+    MACRO_CONCAT(MACRO_CONCAT(__,num), _##name##_##postfix)
+
+#define ERTS_FAST_BRANCH_START2(name, num)                              \
+    __asm__ __volatile__ goto ("\n" ASM_LABEL(name) ":\n\t"      \
+                               "jmp %l0\n\t"                           \
+                               :::: LABEL(num, name, trace));           \
+    goto LABEL(num, name, end);                                         \
+LABEL(num, name, trace):
+
+#define ERTS_FAST_BRANCH_END2(name, num)        \
+    LABEL(num, name, end):
 
 #elif 1
 
 #define ERTS_FAST_BRANCH_START2(name, num)      \
-    goto __##num##_##name##_end
+    goto __##__LINE__##_##name##_end
 #define ERTS_FAST_BRANCH_END2(name, num) __##num##_##name##_end:
 
 #else
@@ -103,40 +107,34 @@ __##num##_##name##_end:                                                 \
         goto __##num##_##name##_end
 #define ERTS_FAST_BRANCH_END2(name, num) __##num##_##name##_end:
 
-
 #endif
 
 #define ERTS_FAST_BRANCH_START(name) ERTS_FAST_BRANCH_START2(name, 0)
 #define ERTS_FAST_BRANCH_END(name) ERTS_FAST_BRANCH_END2(name, 0)
+#define ERTS_FAST_BRANCH(name, body)            \
+    ERTS_FAST_BRANCH_START2(name, __LINE__);    \
+    { body; }                                   \
+    ERTS_FAST_BRANCH_END2(name, __LINE__)
 
-#define ERTS_FAST_BRANCH_ENABLE(name) erts_fast_branch_enable(__##name##_variable, __##name##_variable_cnt)
-#define ERTS_FAST_BRANCH_DISABLE(name) erts_fast_branch_disable(__##name##_variable, __##name##_variable_cnt)
+#define ERTS_FAST_BRANCH_ENABLE(name) erts_fast_branch_enable(&__##name##_variable)
+#define ERTS_FAST_BRANCH_DISABLE(name) erts_fast_branch_disable(&__##name##_variable)
+#define ERTS_FAST_BRANCH_DECLARE_EXTERN(name) extern ErtsFastBranches __##name##_variable
 
 typedef struct erts_fast_branch_ {
     void *start;
     void *trace;
-    void *end;
-    byte orig[12];
 } ErtsFastBranch;
 
+typedef struct erts_fast_branches_ {
+    ErtsFastBranch *branches;
+    int num_branches;
+} ErtsFastBranches;
+
 void erts_pre_init_fast_branch(void);
-void erts_fast_branch_setup(ErtsFastBranch *, void *, void *, void *);
-void erts_fast_branch_enable(ErtsFastBranch *, int);
-void erts_fast_branch_disable(ErtsFastBranch *, int);
+void erts_fast_branch_enable(ErtsFastBranches *);
+void erts_fast_branch_disable(ErtsFastBranches *);
 
-#define ERTS_FAST_BRANCH_DECLARE(name) ERTS_FAST_BRANCH_DECLARE2(name, 1)
-#define ERTS_FAST_BRANCH_DECLARE2(name, num)            \
-    extern ErtsFastBranch __##name##_variable[num];     \
-    extern int __##name##_variable_cnt
-
-/* Declaration */
-#define ERTS_FAST_BRANCHES \
-    ERTS_FAST_BRANCH_DECLARE2(erts_system_monitor_long_schedule, 2); \
-    ERTS_FAST_BRANCH_DECLARE2(msacc_bif, 6); \
-    ERTS_FAST_BRANCH_DECLARE2(msacc_port, 1);
-
-
-/* Declare externs, variable defined in erl_fast_branch.c */
-ERTS_FAST_BRANCHES
+ERTS_FAST_BRANCH_DECLARE_EXTERN(msacc);
+ERTS_FAST_BRANCH_DECLARE_EXTERN(erts_system_monitor_long_schedule);
 
 #endif

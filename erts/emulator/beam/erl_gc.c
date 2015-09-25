@@ -386,6 +386,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     int done = 0;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);

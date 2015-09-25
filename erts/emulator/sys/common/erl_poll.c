@@ -2239,6 +2239,7 @@ static ERTS_INLINE int
 check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 {
     int res;
+    ERTS_MSACC_DECLARE_CACHE();
     ERTS_MSACC_PUSH_STATE_M();
     if (erts_smp_atomic_read_nob(&ps->no_of_user_fds) == 0
 	&& timeout_time == ERTS_POLL_NO_TIMEOUT) {
