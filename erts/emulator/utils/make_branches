@@ -4,6 +4,12 @@
 -mode(compile).
 
 main(["header", ToFile | AllSFiles ]) ->
+    %% This function takes all .s files that have already been transformed
+    %% by the "asm" clause below and looks for all erts_fb
+    %% labels and creates a header file that contains information
+    %% about all symbols in the vm that point to patch points and
+    %% trace branches.
+
     AllSymbols = lists:flatmap(
                 fun(Filename) ->
                         {ok, Bin} = file:read_file(Filename),
@@ -34,12 +40,66 @@ main(["header", ToFile | AllSFiles ]) ->
     file:write_file(ToFile, Str),
     erlang:halt();
 main(["asm", ToFile, Filename]) ->
+    %% This function takes a .S file generated from gcc -S
+    %% It looks for all labels starting with .Lerts_fb and
+    %% rewrites the label to be a valid label (replacing . and / with _).
+    %% The .jmp that follows the label is commented out and replaced
+    %% by a 5 byte nop.
+    %%
+    %% Then at the end of the file two global variables are declared
+    %% for each label found, one that points to the patch point
+    %% and one that points to the trace branch.
+    %% e.g:
+    %%   #APP
+    %%   # 2419 "beam/erl_threads.h" 1
+    %%
+    %%   .Lerts_fb_beam/erl_threads.h_msacc:
+    %%   	jmp .L44
+    %%
+    %%   # 0 "" 2
+    %%   #NO_APP
+    %% is transformed to
+    %%   #APP
+    %%   # 2419 "beam/erl_threads.h" 1
+    %%
+    %%   .Lerts_fb_erl_trace_erl_threads_0_msacc:
+    %%   #	jmp .L44
+    %%   	.byte 0x0F
+    %%   	.byte 0x1F
+    %%   	.byte 0x44
+    %%   	.byte 0x00
+    %%   	.byte 0x00
+    %%
+    %%   # 0 "" 2
+    %%   #NO_APP
+    %%
+    %% and these global variables are added at the end
+    %%   .L__erts_fb_erl_trace_erl_threads_0_msacc_start_symbol_lbl:
+    %%   	.globl	__erts_fb_erl_trace_erl_threads_0_msacc_start
+    %%   	.data
+    %%   	.align 8
+    %%   	.type	__erts_fb_erl_trace_erl_threads_0_msacc_start, @object
+    %%   	.size	__erts_fb_erl_trace_erl_threads_0_msacc_start, 8
+    %%   __erts_fb_erl_trace_erl_threads_0_msacc_start:
+    %%   	.quad	.Lerts_fb_erl_trace_erl_threads_0_msacc
+    %%   .L__erts_fb_erl_trace_erl_threads_0_msacc_trace_symbol_lbl:
+    %%   	.globl	__erts_fb_erl_trace_erl_threads_0_msacc_trace
+    %%   	.data
+    %%   	.align 8
+    %%   	.type	__erts_fb_erl_trace_erl_threads_0_msacc_trace, @object
+    %%   	.size	__erts_fb_erl_trace_erl_threads_0_msacc_trace, 8
+    %%   __erts_fb_erl_trace_erl_threads_0_msacc_trace:
+    %%   	.quad	.L44
+
+
     {ok, Bin} = file:read_file(Filename),
     Basename = label_to_basename(Filename, Bin),
 
     %% This re replaces all trace jmp's with 5 byte nops
     ReplacedJmp = re:replace(Basename,
-                             "(.Lerts_fb_[^:]+:\n)([^j\n]+.*)$","\\1#\\2"
+                             "(.Lerts_fb_[^:]+:\n)([^j\n]+.*)$",
+                             "\\1#\\2"
+                             "\n\t.p2align 3" %% Align to 8 byte boundary to always be on same cache-line
                              "\n\t.byte 0x0F\n\t.byte 0x1F\n\t.byte 0x44"
                              "\n\t.byte 0x00\n\t.byte 0x00",
                              [global, multiline]),

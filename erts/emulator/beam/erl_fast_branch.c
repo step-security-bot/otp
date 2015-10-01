@@ -66,12 +66,24 @@ static void update_jump_target(ErtsFastBranch *fb,
      eb == jmp
      fa == twos-compliment 1 byte integer
    eb fa
+
+section 7.1.3 tells that I'm not allowed to do the below update if I want to be forward compatible
+  https://communities.intel.com/servlet/JiveServlet/previewBody/5061-102-1-8118/Pentium_SW_Developers_Manual_Vol3_SystemProgramming.pdf
+
+section 2.3 tells that if we are guarantee that we are on same cache-line with entire rewrite, it "should" be safe.
+http://landley.net/kdocs/ols/2007/ols2007v1-pages-189-200.pdf
+
+gdb inserts a 2 byte interrupt instruction for break points, so obviously that works and will probably work in the future.
+
+solution for now is to add a .p2align 3 to the 5 byte asm nop, this aligns the jmp/nobs to 8 bytes, which should avoid
+any cross-cache line reads by other cpu's.
+
 */
 
     if (addr_diff < 0x80 && addr_diff > -0x80) {
         ((byte *)&preq_val)[0] = 0xeb;
         ((byte *)&preq_val)[1] = addr_diff;
-        /* We insert a bunch of nops to overwrite the
+        /* We insert a three byte nop to overwrite the
            broken asm for gdb disassemble to look nicer */
         ((byte *)&preq_val)[2] = 0x0F;
         ((byte *)&preq_val)[3] = 0x1F;
