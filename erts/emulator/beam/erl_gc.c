@@ -1361,12 +1361,13 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 		 int need, Eterm* objv, int nobj, Uint *recl)
 {
     Uint size_before, size_after, stack_size;
-    Eterm* n_heap, *o_heap;
-    Eterm* n_htop, *o_htop;
+    Eterm* n_heap, *o_heap = NULL;
+    Eterm* n_htop, *o_htop = NULL;
     Eterm* mature = p->abandoned_heap ? p->abandoned_heap : HEAP_START(p);
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
-    Uint new_sz, old_sz, stk_sz;
+    Uint new_sz, old_sz, stk_sz,
+        mature_sz = (p->high_water - mature) * sizeof(Eterm);
     int adjusted;
 
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] MAJOR GC: %p %p %p %p\n", p->common.id,
@@ -1397,8 +1398,9 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     FLAGS(p) &= ~(F_HEAP_GROW|F_NEED_FULLSWEEP);
     n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
-    o_htop = o_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
-						sizeof(Eterm)*old_sz);
+    if (mature_sz || oh)
+        o_htop = o_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
+                                                    sizeof(Eterm)*old_sz);
 
     if (live_hf_end != ERTS_INVALID_HFRAG_PTR) {
 	/*
@@ -1411,7 +1413,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     n_htop = full_sweep_heaps(
         p, 0, n_heap, n_htop, o_heap, &o_htop,
-        (char*)mature,(p->high_water - mature) * sizeof(Eterm),
+        (char*)mature,mature_sz,
         oh, oh_size, objv, nobj);
 
     /* Move the stack to the end of the heap */
@@ -1488,7 +1490,7 @@ full_sweep_heaps(Process *p,
 
     /*
      * Copy all top-level terms directly referenced by the rootset to
-     * the new new_heap.
+     * the new new_heap or old heap.
      */
 
     n = setup_rootset(p, objv, nobj, &rootset);
@@ -1520,7 +1522,12 @@ full_sweep_heaps(Process *p,
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
 		} else if (!erts_is_literal(gval, ptr)) {
-		    MOVE_BOXED(ptr,val,n_htop,g_ptr++);
+                    if (o_heap &&
+                        (ErtsInArea(ptr, mature, mature_size)
+                         || ErtsInArea(ptr, oh, oh_size)))
+                        MOVE_BOXED(ptr,val,(*o_htop),g_ptr++);
+                    else
+                        MOVE_BOXED(ptr,val,n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -1533,7 +1540,12 @@ full_sweep_heaps(Process *p,
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (!erts_is_literal(gval, ptr)) {
-		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
+                    if (o_heap &&
+                        (ErtsInArea(ptr, mature, mature_size)
+                         || ErtsInArea(ptr, oh, oh_size)))
+                        MOVE_CONS(ptr,val,(*o_htop),g_ptr++);
+                    else
+                        MOVE_CONS(ptr,val,n_htop,g_ptr++);
 		} else {
 		    g_ptr++;
 		}
@@ -1779,7 +1791,7 @@ sweep(Eterm *n_hp, Eterm **n_htopp, Eterm **o_htopp,
     Eterm* ptr;
     Eterm val;
     Eterm gval;
-    Eterm *n_htop = *n_htopp, *o_htop = *o_htopp;
+    Eterm *n_htop = *n_htopp, *o_htop = o_htopp ? *o_htopp : NULL;
 
 #undef ERTS_IS_IN_PRIMARY_AREA
 #undef ERTS_IS_IN_SECONDARY_AREA
@@ -1792,13 +1804,14 @@ sweep(Eterm *n_hp, Eterm **n_htopp, Eterm **o_htopp,
         ? ErtsInYoungGen((TPtr), (Ptr), oh, ohsz)			\
         : ErtsInArea((Ptr), src, src_size)))
 
-#define ERTS_IS_IN_SECONDARY_AREA(TPtr, Ptr)               \
-    (type == ErtsSweepHeaps                                \
-     ? ErtsInArea(ptr, src, src_size)                      \
-          || !ErtsInYoungGen(TPtr, (Ptr), oh, ohsz)        \
-        : (type == ErtsSweepMatureHeap                     \
-           ? ErtsInArea(ptr, src, src_size)                \
-           : 0))
+#define ERTS_IS_IN_SECONDARY_AREA(TPtr, Ptr)                    \
+    (type == ErtsSweepHeaps                                     \
+     ? (o_htop &&                                               \
+        (ErtsInArea(ptr, src, src_size)                         \
+         || !ErtsInYoungGen(TPtr, (Ptr), oh, ohsz)))            \
+     : (type == ErtsSweepMatureHeap                             \
+        ? ErtsInArea(ptr, src, src_size)                        \
+        : 0))
 
     while (n_hp != n_htop) {
 	ASSERT(n_hp < n_htop);
@@ -1865,7 +1878,8 @@ sweep(Eterm *n_hp, Eterm **n_htopp, Eterm **o_htopp,
 	}
     }
     *n_htopp = n_htop;
-    *o_htopp = o_htop;
+    if (o_htopp)
+        *o_htopp = o_htop;
     return;
 #undef ERTS_IS_IN_PRIMARY_AREA
 #undef ERTS_IS_IN_SECONDARY_AREA
@@ -1903,7 +1917,7 @@ sweep_heaps(Eterm *n_hp, Eterm *n_htop, char* mature, Uint mature_size,
     sweep(o_hp, o_htop, NULL,
           ErtsSweepHeaps,
           old_heap, old_heap_size,
-          mature, mature_size);
+          NULL, 0);
     return n_htop;
 }
 
