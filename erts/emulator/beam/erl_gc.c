@@ -2653,7 +2653,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		}
 
 		pb->val = erts_bin_realloc(pb->val, new_size);
-		pb->bytes = (byte *) pb->val->orig_bytes;
+		pb->offset = 0;
 	    }
 	}
 
