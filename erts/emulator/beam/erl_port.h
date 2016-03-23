@@ -862,7 +862,7 @@ struct ErtsProc2PortSigData_ {
 	    ErlHeapFragment *bp;
 	} exit;
 	struct {
-	    struct binary *binp;
+	    struct BinaryRef_ *binp;
 	    unsigned int command;
 	    char *bufp;
 	    ErlDrvSizeT size;

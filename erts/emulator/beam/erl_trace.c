@@ -1056,7 +1056,7 @@ erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
  * if it is a pid or port we do a meta trace.
  */
 Uint32
-erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
+erts_call_trace(Process* p, BeamInstr mfa[3], BinaryRef *match_spec,
 		Eterm* args, int local, ErtsTracer *tracer)
 {
     Eterm* hp;
