@@ -3738,7 +3738,7 @@ do {						\
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
          bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-         bptr->flags = 0;
+         bptr->some_flags = 0;
          erts_refc_init(&bptr->refc, 1);
          bptr->bin = payload;
 
@@ -3832,7 +3832,7 @@ do {						\
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
          bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-         bptr->flags = 0;
+         bptr->some_flags = 0;
          erts_refc_init(&bptr->refc, 1);
          bptr->bin = payload;
 
