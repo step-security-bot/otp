@@ -1408,12 +1408,12 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Allocate the binary data struct itself.
 	 */
 	bptr = erts_bin_nrml_alloc(bin_size);
-	erts_refc_init(&bptr->refc, 1);
+	erts_bin_refc_init(bptr);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
         binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
         binref->some_flags = 0;
-        erts_refc_init(&binref->refc, 1);
+        erts_bin_ref_refc_init(binref);
         binref->bin = bptr;
 	/*
 	 * Now allocate the ProcBin on the heap.
@@ -1525,21 +1525,21 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     */
             BinaryRef* binref;
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    erts_refc_init(&bptr->refc, 1);
+	    erts_bin_refc_init(bptr);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 
             binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
             binref->some_flags = 0;
-            erts_refc_init(&binref->refc, 1);
+            erts_bin_ref_refc_init(binref);
             binref->bin = bptr;
+            bptr->parent = binref;
 
-            if (erts_refc_dectest(&pb->val->refc, 0) == 0) {
-                erts_bin_free(pb->val);
-            }
+            erts_bin_ref_refc_dec(pb->val, 1);
 
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = binref;
 	    pb->offset = 0;
+            erts_bin_ref_refc_inc(binref, 1);
 	}
     }
     erts_current_bin = ERTS_PROCBIN_GET_BYTES(pb);
@@ -1580,11 +1580,11 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate the binary data struct itself.
      */
     bptr = erts_bin_nrml_alloc(bin_size);
-    erts_refc_init(&bptr->refc, 1);
+    erts_bin_refc_init(bptr);
     
     binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
     binref->some_flags = 0;
-    erts_refc_init(&binref->refc, 1);
+    erts_bin_ref_refc_init(binref);
     binref->bin = bptr;
 
     /*

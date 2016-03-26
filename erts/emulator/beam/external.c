@@ -1809,8 +1809,8 @@ static void ttb_context_destructor(BinaryRef *context_bin)
 	case TTBEncode:
 	    DESTROY_SAVED_WSTACK(&context->s.ec.wstack);
 	    if (context->s.ec.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.ec.result_bin->refc),0) == 0);
-		erts_bin_payload_free(context->s.ec.result_bin);
+		ASSERT(erts_refc_read(&(context->s.ec.result_bin->brefc),1) == 1);
+                erts_bin_refc_dec(context->s.ec.result_bin, 0);
 		context->s.ec.result_bin = NULL;
 	    }
 	    break;
@@ -1818,14 +1818,14 @@ static void ttb_context_destructor(BinaryRef *context_bin)
 	    erl_zlib_deflate_finish(&(context->s.cc.stream));
 
 	    if (context->s.cc.destination_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.destination_bin->refc),0) == 0);
-		erts_bin_payload_free(context->s.cc.destination_bin);
+		ASSERT(erts_refc_read(&(context->s.cc.destination_bin->brefc),1) == 1);
+                erts_bin_refc_dec(context->s.cc.destination_bin, 0);
 		context->s.cc.destination_bin = NULL;
 	    }
 	    
 	    if (context->s.cc.result_bin != NULL) { /* Set to NULL if ever made alive! */
-		ASSERT(erts_refc_read(&(context->s.cc.result_bin->refc),0) == 0);
-		erts_bin_payload_free(context->s.cc.result_bin);
+		ASSERT(erts_refc_read(&(context->s.cc.result_bin->brefc),1) == 1);
+		erts_bin_refc_dec(context->s.cc.result_bin, 0);
 		context->s.cc.result_bin = NULL;
 	    }
 	    break;
@@ -1907,7 +1907,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 
 		result_bin = erts_bin_nrml_alloc(size);
-		erts_refc_init(&result_bin->refc, 0);
+		erts_bin_refc_init(result_bin);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
 		context->state = TTBEncode;
@@ -1943,14 +1943,12 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
                     bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
                     bptr->some_flags = 0;
-                    erts_refc_init(&bptr->refc, 1);
+                    erts_bin_ref_refc_init(bptr);
                     bptr->bin = result_bin;
 
                     ERTS_PROCBIN_INIT(pb, bptr, &MSO(p));
-		    erts_refc_inc(&result_bin->refc, 1);
-		    if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
-			erts_bin_free(context_b);
-		    }
+		    if (context_b)
+                        erts_bin_refc_dec(context_b->bin, 0);
 		    return make_binary(pb);
 		}
 		/* Continue with compression... */
@@ -1967,7 +1965,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->s.cc.result_bin = result_bin;
 
 		result_bin = erts_bin_nrml_alloc(real_size);
-		erts_refc_init(&result_bin->refc, 0);
+		erts_bin_refc_init(result_bin);
 		result_bin->orig_bytes[0] = VERSION_MAGIC;
 
 		context->s.cc.destination_bin = result_bin;
@@ -2014,18 +2012,17 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
                         bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
                         bptr->some_flags = 0;
-                        erts_refc_init(&bptr->refc, 1);
+                        erts_bin_ref_refc_init(bptr);
                         bptr->bin = result_bin;
+                        result_bin->parent = bptr;
 
                         ERTS_PROCBIN_INIT(pb, bptr, &(MSO(p)));
-			erts_refc_inc(&result_bin->refc, 1);
-			erts_bin_payload_free(context->s.cc.result_bin);
+			erts_bin_refc_dec(context->s.cc.result_bin, 0);
 			context->s.cc.result_bin = NULL;
 			context->alive = 0;
 			BUMP_REDS(p, (this_time * CONTEXT_REDS) / TERM_TO_BINARY_COMPRESS_CHUNK);
-			if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
-			    erts_bin_free(context_b);
-			}
+			if (context_b)
+                            erts_bin_refc_dec(context_b->bin, 0);
 			return make_binary(pb);
 		    }
 		default: {/* Compression error, revert to uncompressed binary (still in
@@ -2039,19 +2036,18 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
                     bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
                     bptr->some_flags = 0;
-                    erts_refc_init(&bptr->refc, 1);
+                    erts_bin_ref_refc_init(bptr);
                     bptr->bin = result_bin;
+                    result_bin->parent = bptr;
 
                     ERTS_PROCBIN_INIT(pb, bptr, &(MSO(p)));
-		    erts_refc_inc(&result_bin->refc, 1);
 		    erl_zlib_deflate_finish(&(context->s.cc.stream));
-		    erts_bin_payload_free(context->s.cc.destination_bin);
+		    erts_bin_refc_dec(context->s.cc.destination_bin, 0);
 		    context->s.cc.destination_bin = NULL;
 		    context->alive = 0;
 		    BUMP_REDS(p, (this_time * CONTEXT_REDS) / TERM_TO_BINARY_COMPRESS_CHUNK);
-		    if (context_b && erts_refc_read(&context_b->refc,0) == 0) {
-			erts_bin_free(context_b);
-		    }
+		    if (context_b)
+                        erts_bin_refc_dec(context_b->bin, 0);
 		    return make_binary(pb);
 		}}
 	    }
@@ -2755,7 +2751,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			    erts_emasculate_writable_binary(pb);
 			    bytes += (pb->val->bin->orig_bytes - before_realloc);
 			}
-			erts_refc_inc(&pb->val->refc, 2);
+			erts_bin_ref_refc_inc(pb->val, 3);
 
 			sys_memcpy(&tmp, pb, sizeof(ProcBin));
 			tmp.next = *off_heap;
@@ -3487,13 +3483,13 @@ dec_term_atom_common:
 		    Binary* dbin = erts_bin_nrml_alloc(n);
                     BinaryRef* bptr;
 		    ProcBin* pb;
-		    erts_refc_init(&dbin->refc, 1);
+		    erts_bin_refc_init(dbin);
 		    pb = (ProcBin *) hp;
 		    hp += PROC_BIN_SIZE;
 
                     bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
                     bptr->some_flags = 0;
-                    erts_refc_init(&bptr->refc, 1);
+                    erts_bin_ref_refc_init(bptr);
                     bptr->bin = dbin;
 
                     ERTS_PROCBIN_INIT(pb, bptr, factory->off_heap);
@@ -3540,12 +3536,12 @@ dec_term_atom_common:
                     BinaryRef* bptr;
 		    ProcBin* pb;
 
-		    erts_refc_init(&dbin->refc, 1);
+		    erts_bin_refc_init(dbin);
 		    pb = (ProcBin *) hp;
 
                     bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
                     bptr->some_flags = 0;
-                    erts_refc_init(&bptr->refc, 1);
+                    erts_bin_ref_refc_init(bptr);
                     bptr->bin = dbin;
 
                     ERTS_PROCBIN_INIT(pb, bptr, factory->off_heap);
@@ -3846,7 +3842,7 @@ dec_term_atom_common:
 		sys_memcpy(pb, ep, sizeof(ProcBin));
 		ep += sizeof(ProcBin);
 
-		erts_refc_inc(&pb->val->refc, 1);
+		erts_bin_ref_refc_inc(pb->val, 2);
 		hp += PROC_BIN_SIZE;
 		pb->next = factory->off_heap->first;
 		factory->off_heap->first = (struct erl_off_heap_header*)pb;
@@ -3864,7 +3860,7 @@ dec_term_atom_common:
 		sys_memcpy(pb, ep, sizeof(ProcBin));
 		ep += sizeof(ProcBin);
 
-		erts_refc_inc(&pb->val->refc, 1);
+		erts_bin_ref_refc_inc(pb->val, 2);
 		hp += PROC_BIN_SIZE;
 		pb->next = factory->off_heap->first;
 		factory->off_heap->first = (struct erl_off_heap_header*)pb;

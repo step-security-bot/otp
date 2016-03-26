@@ -764,7 +764,7 @@ erts_ptab_list(Process *c_p, ErtsPTab *ptab)
 
     if (ERTS_BIF_REDS_LEFT(c_p) >= ERTS_PTAB_LIST_BIF_MIN_START_REDS
 	&& ptab_list_bif_engine(c_p, &res_acc, mbp)) {
-	erts_bin_free(mbp);
+	erts_bin_ref_refc_dec(mbp, 0);
 	ERTS_PTAB_LIST_DBG_CHK_RESLIST(res_acc);
 	ERTS_PTAB_LIST_DBG_TRACE(c_p->common.id, return);
 	ERTS_BIF_PREP_RET(ret_val, res_acc);

@@ -3734,12 +3734,12 @@ do {						\
 	  * Allocate the binary struct itself.
 	  */
 	 payload = erts_bin_nrml_alloc(num_bytes);
-	 erts_refc_init(&payload->refc, 1);
+	 erts_bin_refc_init(payload);
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
          bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
          bptr->some_flags = 0;
-         erts_refc_init(&bptr->refc, 1);
+         erts_bin_ref_refc_init(bptr);
          bptr->bin = payload;
 
 	 /*
@@ -3828,12 +3828,12 @@ do {						\
 	  * Allocate the binary struct itself.
 	  */
 	 payload = erts_bin_nrml_alloc(BsOp1);
-	 erts_refc_init(&payload->refc, 1);
+	 erts_bin_refc_init(payload);
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
          bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
          bptr->some_flags = 0;
-         erts_refc_init(&bptr->refc, 1);
+         erts_bin_ref_refc_init(bptr);
          bptr->bin = payload;
 
 	 /*

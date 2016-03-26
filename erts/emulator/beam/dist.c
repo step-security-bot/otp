@@ -627,7 +627,7 @@ alloc_dist_obuf(Uint size)
     ErtsDistOutputBuf *obuf;
     Uint obuf_size = sizeof(ErtsDistOutputBuf)+sizeof(byte)*(size-1);
     Binary *bin = erts_bin_drv_alloc(obuf_size);
-    erts_refc_init(&bin->refc, 1);
+    erts_bin_refc_init(bin);
     obuf = (ErtsDistOutputBuf *) &bin->orig_bytes[0];
 #ifdef DEBUG
     obuf->dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
@@ -641,8 +641,7 @@ free_dist_obuf(ErtsDistOutputBuf *obuf)
 {
     Binary *bin = ErtsDistOutputBuf2Binary(obuf);
     ASSERT(obuf->dbg_pattern == ERTS_DIST_OUTPUT_BUF_DBG_PATTERN);
-    if (erts_refc_dectest(&bin->refc, 0) == 0)
-	erts_bin_payload_free(bin);
+    erts_bin_refc_dec(bin, 0);
 }
 
 static ERTS_INLINE Sint

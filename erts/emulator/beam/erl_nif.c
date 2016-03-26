@@ -783,7 +783,7 @@ int enif_alloc_binary(size_t size, ErlNifBinary* bin)
     if (refbin == NULL) {
 	return 0; /* The NIF must take action */
     }
-    erts_refc_init(&refbin->refc, 1);
+    erts_bin_refc_init(refbin);
 
     bin->size = size;
     bin->data = (unsigned char*) refbin->orig_bytes;
@@ -822,9 +822,7 @@ void enif_release_binary(ErlNifBinary* bin)
     if (bin->ref_bin != NULL) {
 	Binary* refbin = bin->ref_bin;
 	ASSERT(bin->bin_term == THE_NON_VALUE);
-	if (erts_refc_dectest(&refbin->refc, 0) == 0) {
-	    erts_bin_payload_free(refbin);
-	}
+        erts_bin_refc_dec(refbin, 0);
     }
 #ifdef DEBUG
     bin->data = NULL;
@@ -980,15 +978,16 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	/* !! Copy-paste from new_binary() !! */
         binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
         binref->some_flags = 0;
-        erts_refc_init(&binref->refc, 1);
+        erts_bin_ref_refc_init(binref);
         binref->bin = bptr;
+        bptr->parent = binref;
 
 	pb = (ProcBin *) alloc_heap(env, PROC_BIN_SIZE);
 
         ERTS_PROCBIN_INIT(pb, binref, &MSO(env->proc));
 
 	bin_term = make_binary(pb);
-	if (erts_refc_read(&bptr->refc, 1) == 1) {
+	if (erts_refc_read(&bptr->brefc, 1) == 1) {
 	    /* Total ownership transfer */
 	    bin->ref_bin = NULL;
 	    bin->bin_term = bin_term;
@@ -1837,7 +1836,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
     resource->parent_ref = bin;
-    erts_refc_inc(&bin->refc, 1);
+    erts_bin_ref_refc_inc(bin, 1);
 #ifdef DEBUG
     erts_refc_init(&resource->nif_refc, 1);
 #endif
@@ -1856,10 +1855,7 @@ void enif_release_resource(void* obj)
 #ifdef DEBUG
     erts_refc_dec(&resource->nif_refc, 0);
 #endif
-    if (erts_refc_dectest(&bin->binary.refc, 0) == 0) {
-        ASSERT(erts_refc_read(&resource->parent_ref->refc, 1) == 1);
-	erts_bin_free(resource->parent_ref);
-    }
+    erts_bin_refc_dec(&bin->binary, 0);
 }
 
 void enif_keep_resource(void* obj)
@@ -1873,7 +1869,7 @@ void enif_keep_resource(void* obj)
 #ifdef DEBUG
     erts_refc_inc(&resource->nif_refc, 1);
 #endif
-    erts_refc_inc(&bin->binary.refc, 2);
+    erts_bin_refc_inc(&bin->binary, 3);
 }
 
 ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)

@@ -742,7 +742,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 		    }
 		    *argp = make_binary(hbot);
 		    pb = (ProcBin*) hbot;
-		    erts_refc_inc(&pb->val->refc, 2);
+		    erts_bin_ref_refc_inc(pb->val, 3);
 		    pb->next = off_heap->first;
 		    pb->flags = 0;
 		    off_heap->first = (struct erl_off_heap_header*) pb;
@@ -790,7 +790,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 			to->thing_word = HEADER_PROC_BIN;
 			to->size = real_size;
 			to->val = from->val;
-			erts_refc_inc(&to->val->refc, 2);
+			erts_bin_ref_refc_inc(to->val, 2);
 			to->offset = from->offset + offset;
 			to->next = off_heap->first;
 			to->flags = 0;
@@ -1545,7 +1545,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		while (sz-- > 0) {
 		    *hp++ = *ptr++;
 		}
-		erts_refc_inc(&pb->val->refc, 2);
+		erts_bin_ref_refc_inc(pb->val, 3);
 		pb->next = off_heap->first;
 		pb->flags = 0;
 		off_heap->first = (struct erl_off_heap_header*) pb;
@@ -1604,7 +1604,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    to->thing_word = HEADER_PROC_BIN;
 		    to->size = real_size;
 		    to->val = from->val;
-		    erts_refc_inc(&to->val->refc, 2);
+		    erts_bin_ref_refc_inc(to->val, 3);
 		    to->offset = from->offset + offset;
 		    to->next = off_heap->first;
 		    to->flags = 0;
@@ -1794,7 +1794,7 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case REFC_BINARY_SUBTAG:
 		{
 		    ProcBin* pb = (ProcBin *) (tp-1);
-		    erts_refc_inc(&pb->val->refc, 2);
+		    erts_bin_ref_refc_inc(pb->val, 3);
 		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		goto off_heap_common;

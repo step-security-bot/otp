@@ -1019,7 +1019,6 @@ BinaryRef *db_match_set_compile(Process *p, Eterm matchexpr,
     int num_heads;
     int i;
     BinaryRef *mps = NULL;
-    int compiled = 0;
     Eterm *matches,*guards, *bodies;
     Eterm *buff;
     Eterm sbuff[15];
@@ -1085,16 +1084,12 @@ BinaryRef *db_match_set_compile(Process *p, Eterm matchexpr,
 				NULL)) == NULL) {
 	goto error;
     }
-    compiled = 1;
     if (buff != sbuff) {
 	erts_free(ERTS_ALC_T_DB_TMP, buff);
     }
     return mps;
 
 error:
-    if (compiled) {
-	erts_bin_free(mps);
-    }
     if (buff != sbuff) {
 	erts_free(ERTS_ALC_T_DB_TMP, buff);
     }
@@ -1191,7 +1186,7 @@ Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
     mp = db_match_compile(matches, guards, bodies, num_heads,
 			  flags, err_info); 
     if (mp != NULL) {
-	erts_bin_free(mp);
+	erts_bin_refc_dec(mp->bin, 0);
     }
 done:
     ret = db_format_dmc_err_info(p, err_info);
@@ -1780,7 +1775,7 @@ Eterm db_prog_match(Process *c_p, BinaryRef *bprog,
 #define BEGIN_ATOMIC_TRACE(p)                               \
     do {                                                    \
 	if (! atomic_trace) {                               \
-            erts_refc_inc(&bprog->refc, 2);                 \
+            erts_bin_ref_refc_inc(bprog, 3);                \
 	    erts_smp_proc_unlock((p), ERTS_PROC_LOCK_MAIN); \
 	    erts_smp_thr_progress_block();                  \
             atomic_trace = !0;                              \
@@ -1791,9 +1786,7 @@ Eterm db_prog_match(Process *c_p, BinaryRef *bprog,
 	if (atomic_trace) {                               \
             erts_smp_thr_progress_unblock();              \
             erts_smp_proc_lock((p), ERTS_PROC_LOCK_MAIN); \
-            if (erts_refc_dectest(&bprog->refc, 0) == 0) {\
-                erts_bin_free(bprog);                     \
-	    }                                             \
+            erts_bin_ref_refc_dec(bprog, 2);              \
             atomic_trace = 0;                             \
 	}                                                 \
     } while (0)
@@ -3074,9 +3067,7 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 	}
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    if (erts_refc_dectest(&u.pb->val->refc, 0) == 0) {
-		erts_bin_free(u.pb->val);
-	    }
+            erts_bin_ref_refc_dec(u.pb->val, 1);
 	    break;
 	case FUN_SUBTAG:
 	    ASSERT(u.pb != &tmp);
@@ -5130,7 +5121,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	if (trace && arr != NULL) {
 	    erts_free(ERTS_ALC_T_DB_TMP, arr);
 	}
-	erts_bin_free(mps);
+	erts_bin_ref_refc_dec(mps, 0);
 	ret = TUPLE4(hp, am_atom_put("ok",2), res, flg, lint_res);
     }
     return ret;

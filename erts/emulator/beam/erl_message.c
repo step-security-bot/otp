@@ -166,9 +166,7 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
     for (u.hdr = offheap->first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    if (erts_refc_dectest(&u.pb->val->refc, 0) == 0) {
-		erts_bin_free(u.pb->val);
-	    }
+            erts_bin_ref_refc_dec(u.pb->val, 1);
 	    break;
 	case FUN_SUBTAG:
 	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {

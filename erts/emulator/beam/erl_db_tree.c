@@ -1080,7 +1080,7 @@ static int db_select_tree(Process *p, DbTable *tbl,
 
 #define RET_TO_BIF(Term,RetVal) do { 	       	\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);       	\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	*ret = (Term); 				\
 	return RetVal; 			        \
@@ -1287,7 +1287,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
 
 #define RET_TO_BIF(Term,RetVal) do { 	       	\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);       	\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	*ret = (Term); 				\
 	return RetVal; 			        \
@@ -1388,7 +1388,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
 
 #define RET_TO_BIF(Term,RetVal) do { 		\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);		\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	*ret = (Term); 				\
 	return RetVal; 			        \
@@ -1627,7 +1627,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 
 #define RET_TO_BIF(Term,RetVal) do { 	       	\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);       	\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	if (sc.erase_lastterm) {                \
 	    free_term(tb, sc.lastterm);         \

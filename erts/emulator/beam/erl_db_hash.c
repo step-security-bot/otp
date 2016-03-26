@@ -1453,7 +1453,7 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
 
 #define RET_TO_BIF(Term,RetVal) do {		\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);		\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	if (mpi.lists != mpi.dlists) {		\
 	    erts_free(ERTS_ALC_T_DB_SEL_LIST,	\
@@ -1636,7 +1636,7 @@ static int db_select_count_hash(Process *p,
 
 #define RET_TO_BIF(Term,RetVal) do {		\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);		\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	if (mpi.lists != mpi.dlists) {		\
 	    erts_free(ERTS_ALC_T_DB_SEL_LIST,	\
@@ -1760,7 +1760,7 @@ static int db_select_delete_hash(Process *p,
 
 #define RET_TO_BIF(Term,RetVal) do {		\
 	if (mpi.mp != NULL) {			\
-	    erts_bin_free(mpi.mp);		\
+	    erts_bin_ref_refc_dec(mpi.mp, 1);   \
 	}					\
 	if (mpi.lists != mpi.dlists) {		\
 	    erts_free(ERTS_ALC_T_DB_SEL_LIST,	\

@@ -90,14 +90,14 @@ new_binary(Process *p, byte *buf, Uint len)
      * Allocate the binary struct itself.
      */
     bptr = erts_bin_nrml_alloc(len);
-    erts_refc_init(&bptr->refc, 1);
+    erts_bin_refc_init(bptr);
     if (buf != NULL) {
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
     binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
     binref->some_flags = 0;
-    erts_refc_init(&binref->refc, 1);
+    erts_bin_ref_refc_init(binref);
     binref->bin = bptr;
 
     /*
@@ -127,14 +127,14 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
      * Allocate the binary struct itself.
      */
     bptr = erts_bin_nrml_alloc(len);
-    erts_refc_init(&bptr->refc, 1);
+    erts_bin_refc_init(bptr);
     if (buf != NULL) {
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
     binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
     binref->some_flags = 0;
-    erts_refc_init(&binref->refc, 1);
+    erts_bin_ref_refc_init(binref);
     binref->bin = bptr;
 
     /*

@@ -135,7 +135,7 @@ prepare_loading_2(BIF_ALIST_2)
     }
     hp = HAlloc(BIF_P, PROC_BIN_SIZE);
     res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
-    erts_refc_dec(&magic->refc, 1);
+    erts_bin_ref_refc_dec(magic, 2);
     BIF_RET(res);
 }
 
@@ -340,7 +340,7 @@ finish_loading_1(BIF_ALIST_1)
 	    Eterm mod;
 	    Eterm retval;
 
-	    erts_refc_inc(&p[i].code->refc, 1);
+	    erts_bin_ref_refc_inc(p[i].code, 2);
 	    retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
 	    ASSERT(retval == NIL || retval == am_on_load);
 	    if (retval == am_on_load) {
@@ -1217,9 +1217,7 @@ decrement_refc(BeamCodeHeader* code_hdr)
 	BinaryRef* bptr;
 	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
 	bptr = ((ProcBin*)oh)->val;
-	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-	    erts_bin_free(bptr);
-	}
+        erts_bin_ref_refc_dec(bptr, 0);
 	oh = oh->next;
     }
 }

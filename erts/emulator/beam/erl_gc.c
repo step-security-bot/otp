@@ -983,7 +983,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 	     * link it into the MSO list for the process.
 	     */
 
-	    erts_refc_inc(&bptr->refc, 1);
+	    erts_bin_ref_refc_inc(bptr, 2);
 	    *prev = ptr;
 	    prev = &ptr->next;
 	}
@@ -2576,9 +2576,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	    case REFC_BINARY_SUBTAG:
 		{
 		    BinaryRef* bptr = ((ProcBin*)ptr)->val;
-		    if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-			erts_bin_free(bptr);
-		    }
+                    erts_bin_ref_refc_dec(bptr, 1);
 		    break;
 		}
 	    case FUN_SUBTAG:
@@ -3088,7 +3086,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    refc = erts_refc_read(&u.pb->val->refc, 1);		
+	    refc = erts_refc_read(&u.pb->val->brefc, 1);
 	    break;
 	case FUN_SUBTAG:
 	    refc = erts_refc_read(&u.fun->fe->refc, 1);

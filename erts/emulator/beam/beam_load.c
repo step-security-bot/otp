@@ -833,7 +833,7 @@ erts_alloc_loader_state(void)
 
     magic = erts_create_magic_binary(sizeof(LoaderState),
 				     loader_state_dtor);
-    erts_refc_inc(&magic->refc, 1);
+    erts_bin_ref_refc_inc(magic, 2);
     stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */
@@ -909,9 +909,7 @@ static void
 free_loader_state(BinaryRef* magic)
 {
     loader_state_dtor(magic);
-    if (erts_refc_dectest(&magic->refc, 0) == 0) {
-	erts_bin_free(magic);
-    }
+    erts_bin_ref_refc_dec(magic, 0);
 }
 
 static ErlHeapFragment* new_literal_fragment(Uint size)

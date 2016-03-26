@@ -227,10 +227,13 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
     erts_refc_t refc;						\
     ERTS_BINARY_STRUCT_ALIGNMENT
 
+
+struct BinaryRef_;
+
 typedef struct binary {
-    UWord flags;       
-    erts_refc_t refc;     
-    ERTS_BINARY_STRUCT_ALIGNMENT
+    UWord flags;
+    erts_refc_t brefc;
+    struct BinaryRef_ *parent;
 
     SWord orig_size;
     char orig_bytes[1]; /* to be continued */
@@ -238,8 +241,6 @@ typedef struct binary {
 
 #define ERTS_SIZEOF_Binary(Sz) \
     (offsetof(Binary,orig_bytes) + (Sz))
-
-struct BinaryRef_;
 
 typedef struct {
     UWord flags;       
@@ -271,7 +272,7 @@ typedef union {
     struct {
         UWord flags;
         erts_refc_t refc;
-        ERTS_BINARY_STRUCT_ALIGNMENT
+        struct BinaryRef_ *parent;
 
 	ErlDrvBinary binary;
     } driver;
@@ -325,7 +326,7 @@ typedef union {
 
 typedef struct BinaryRef_ {
     UWord some_flags;            /* Do we need these? */
-    erts_refc_t refc;
+    erts_refc_t brefc;
     Binary* bin;
 } BinaryRef;
 
@@ -340,6 +341,10 @@ typedef struct proc_bin {
     BinaryRef *val;		/* Pointer to BinaryRef structure. */
     Uint offset;		/* Offset of actual data bytes. */
     Uint flags;			/* Flag word. */
+    Binary *fixed;              /* Pointer to fixed Binary,
+                                   only used when a Binary is copied
+                                   to a nif environment.
+                                   Otherwise it is NULL.*/
 } ProcBin;
 
 #define PB_IS_WRITABLE 1	/* Writable (only one reference to ProcBin) */
@@ -373,9 +378,9 @@ erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, BinaryRef *mbp)
     pb->offset = 0;
     pb->flags = 0;
 
-    erts_refc_inc(&mbp->refc, 1);
+    erts_refc_inc(&mbp->brefc, 2);
 
-    return make_binary(pb);    
+    return make_binary(pb);
 }
 
 #endif
@@ -1488,15 +1493,14 @@ Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
 #define MatchSetRef(MPSP) 			\
 do {						\
     if ((MPSP) != NULL) {			\
-	erts_refc_inc(&(MPSP)->refc, 1);	\
+	erts_bin_ref_refc_inc(MPSP, 2);         \
     }						\
 } while (0)
 
 #define MatchSetUnref(MPSP)					\
 do {								\
-    if (((MPSP) != NULL) && erts_refc_dectest(&(MPSP)->refc, 0) <= 0) { \
-	erts_bin_free(MPSP);					\
-    }								\
+    if ((MPSP) != NULL)                                         \
+	erts_bin_ref_refc_dec(MPSP, 0);                         \
 } while(0)
 
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)

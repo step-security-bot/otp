@@ -1451,7 +1451,7 @@ binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
 	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
     } else if (bin_term == NIL) {
-	erts_bin_free(bin);
+	erts_bin_ref_refc_dec(bin, 1);
     }
     switch (runres) {
     case DO_BIN_MATCH_OK:
@@ -1537,7 +1537,7 @@ binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
     } else if (bin_term == NIL) {
-	erts_bin_free(bin);
+	erts_bin_ref_refc_dec(bin, 1);
     }
     switch(runres) {
     case DO_BIN_MATCH_OK:
@@ -2132,7 +2132,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 	b = CAR(list_val(l));
 	ERTS_GET_REAL_BIN(b, real_bin, offset, bitoffs, bitsize);
 	if (bitsize != 0) {
-	    erts_bin_free(mb);
+	    erts_bin_ref_refc_dec(mb, 0);
 	    goto badarg;
 	}
 	cd[i].bufflen = binary_size(b);
@@ -2172,7 +2172,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
     }
     epos = erts_make_integer(pos,p);
     if (res == CL_OK) {
-	erts_bin_free(mb);
+	erts_bin_ref_refc_dec(mb, 1);
 	BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
 	BIF_RET(epos);
     } else {
@@ -2567,7 +2567,7 @@ static void cleanup_copy_bin_state(BinaryRef *bp)
 {
     CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(bp);
     if (cbs->result != NULL) {
-	erts_bin_payload_free(cbs->result);
+	erts_bin_refc_dec(cbs->result, 0);
 	cbs->result = NULL;
     }
     switch (cbs->source_type) {
@@ -2668,7 +2668,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	}
 	cbs->result = erts_bin_nrml_alloc(target_size); /* Always offheap
 							   if trapping */
-	erts_refc_init(&(cbs->result->refc), 1);
+	erts_bin_refc_init(cbs->result);
 	t = (byte *) cbs->result->orig_bytes; /* No offset or anything */
 	pos = 0;
 	i = 0;
@@ -2751,7 +2751,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 
         binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
         binref->some_flags = 0;
-        erts_refc_init(&binref->refc, 1);
+        erts_bin_ref_refc_init(binref);
         binref->bin = save;
 
 	pb = (ProcBin *) HAlloc(BIF_P, PROC_BIN_SIZE);
