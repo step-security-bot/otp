@@ -909,7 +909,7 @@ static void
 free_loader_state(BinaryRef* magic)
 {
     loader_state_dtor(magic);
-    erts_bin_ref_refc_dec(magic, 0);
+    erts_bin_ref_refc_dec(magic, 1);
 }
 
 static ErlHeapFragment* new_literal_fragment(Uint size)

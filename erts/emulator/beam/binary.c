@@ -95,10 +95,7 @@ new_binary(Process *p, byte *buf, Uint len)
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
-    binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-    binref->some_flags = 0;
-    erts_bin_ref_refc_init(binref);
-    binref->bin = bptr;
+    binref = erts_bin_ref_nrml_alloc(bptr);
 
     /*
      * Now allocate the ProcBin on the heap.
@@ -132,10 +129,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
 	sys_memcpy(bptr->orig_bytes, buf, len);
     }
 
-    binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-    binref->some_flags = 0;
-    erts_bin_ref_refc_init(binref);
-    binref->bin = bptr;
+    binref = erts_bin_ref_nrml_alloc(bptr);
 
     /*
      * Now allocate the ProcBin on the heap.

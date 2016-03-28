@@ -1282,11 +1282,11 @@ Eterm db_getkey(int keypos, Eterm obj)
 ** The actual compiling of the match expression and the guards
 */
 BinaryRef *db_match_compile(Eterm *matchexpr,
-			 Eterm *guards, 
-			 Eterm *body,
-			 int num_progs,
-			 Uint flags, 
-			 DMCErrInfo *err_info)
+                            Eterm *guards,
+                            Eterm *body,
+                            int num_progs,
+                            Uint flags,
+                            DMCErrInfo *err_info)
 {
     DMCHeap heap;
     DMC_STACK_TYPE(Eterm) stack;
@@ -1636,6 +1636,7 @@ restart:
     bp = erts_create_magic_binary(((sizeof(MatchProg) - sizeof(UWord)) +
 				   (DMC_STACK_NUM(text) * sizeof(UWord))),
 				  erts_db_match_prog_destructor);
+    erts_bin_ref_refc_inc(bp, 2);
     ret = Binary2MatchProg(bp);
     ret->saved_program_buf = NULL;
     ret->saved_program = NIL;

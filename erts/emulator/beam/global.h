@@ -232,7 +232,7 @@ struct BinaryRef_;
 
 typedef struct binary {
     UWord flags;
-    erts_refc_t brefc;
+    erts_refc_t refc;
     struct BinaryRef_ *parent;
 
     SWord orig_size;
@@ -326,7 +326,7 @@ typedef union {
 
 typedef struct BinaryRef_ {
     UWord some_flags;            /* Do we need these? */
-    erts_refc_t brefc;
+    erts_refc_t refc;
     Binary* bin;
 } BinaryRef;
 
@@ -378,7 +378,7 @@ erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, BinaryRef *mbp)
     pb->offset = 0;
     pb->flags = 0;
 
-    erts_refc_inc(&mbp->brefc, 2);
+    erts_refc_inc(&mbp->refc, 2);
 
     return make_binary(pb);
 }

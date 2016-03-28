@@ -92,8 +92,9 @@ typedef struct erl_heap_bin {
 
 #define ERTS_PROCBIN_INIT(PB, BIN, OH)                                  \
     do {                                                                \
-        erts_bin_ref_refc_inc((PB)->val, 2);                            \
+        erts_bin_ref_refc_inc(BIN, 2);                                  \
         ASSERT((BIN)->bin->parent == (BIN));                            \
+        ASSERT((BIN)->some_flags == 0);                                 \
         (PB)->thing_word = HEADER_PROC_BIN;                             \
         (PB)->size = (BIN)->bin->orig_size;                             \
         (PB)->val = (BIN);                                              \
@@ -104,6 +105,7 @@ typedef struct erl_heap_bin {
             (PB)->next = ((ErlOffHeap*)(OH))->first;                    \
             ((ErlOffHeap*)(OH))->first = (struct erl_off_heap_header*) (PB); \
             OH_OVERHEAD((ErlOffHeap*)(OH), (PB)->size / sizeof(Eterm)); \
+            erts_binary_oh_check((ErlOffHeap*)(OH));                    \
         }                                                               \
     } while (0)
 
@@ -214,6 +216,7 @@ ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_refc_inc(Binary *bp, erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_bin_refc_dec(Binary *bp, erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_bin_refc_init(Binary *brp);
+ERTS_GLB_INLINE BinaryRef *erts_bin_ref_nrml_alloc(Binary *bin);
 ERTS_GLB_INLINE void erts_bin_ref_refc_inc(BinaryRef *bp, erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_bin_ref_refc_dec(BinaryRef *bp, erts_aint_t min_val);
 ERTS_GLB_INLINE void erts_bin_ref_refc_init(BinaryRef *brp);
@@ -222,6 +225,8 @@ ERTS_GLB_INLINE BinaryRef *erts_create_magic_binary_x(Uint size,
                                                       int unaligned);
 ERTS_GLB_INLINE BinaryRef *erts_create_magic_binary(Uint size,
 						 void (*destructor)(BinaryRef *));
+ERTS_GLB_INLINE void erts_binary_oh_check(ErlOffHeap *ohp);
+
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -328,7 +333,8 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
     ERTS_CHK_BIN_ALIGNMENT(nbp);
     if (nbp) {
 	nbp->orig_size = size;
-        ASSERT(nbp->parent == NULL);
+        if (nbp->parent != NULL)
+            ASSERT(erts_refc_read(&nbp->parent->refc, 2) == 2);
     }
     return nbp;
 }
@@ -348,14 +354,30 @@ erts_bin_realloc(Binary *bp, Uint size)
 	erts_realloc_enomem(type, bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
     nbp->orig_size = size;
-    ASSERT(nbp->parent == NULL);
+    if (nbp->parent != NULL)
+        ASSERT(erts_refc_read(&nbp->parent->refc, 2) == 2);
     return nbp;
+}
+
+/* */
+ERTS_GLB_INLINE BinaryRef *
+erts_bin_ref_nrml_alloc(Binary *bin)
+{
+    BinaryRef *res = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
+    res->some_flags = 0;
+    erts_bin_ref_refc_init(res);
+    res->bin = bin;
+    if (bin) {
+        ASSERT(bin->parent == NULL);
+        bin->parent = res;
+    }
+    return res;
 }
 
 ERTS_GLB_INLINE void
 erts_bin_refc_inc(Binary *bp, erts_aint_t min_val)
 {
-    erts_refc_inc(&bp->brefc, min_val);
+    erts_refc_inc(&bp->refc, min_val);
 }
 
 ERTS_GLB_INLINE void
@@ -365,14 +387,14 @@ erts_bin_refc_dec(Binary *bp, erts_aint_t min_val)
        and when being unfixed by a nif/port or
        when a very temporary magic binary is 
        freed. */
-    if (erts_refc_dectest(&bp->brefc, min_val) == 0) {
+    if (erts_refc_dectest(&bp->refc, min_val) == 0) {
 
         /* When a binary is fixed and all the ProcBin's
            have been GC:ed away, this dec may return
            1, which should indicate that we can free the
            BinaryRef as well...  */
         if (bp->parent) /* parent may not be set */ {
-            if (erts_refc_dectest(&bp->parent->brefc, 1) == 0) {
+            if (erts_refc_dectest(&bp->parent->refc, 0) == 0) {
                 if (bp->flags & BIN_FLAG_MAGIC)
                     ERTS_MAGIC_BIN_DESTRUCTOR(bp->parent)(bp->parent);
                 erts_free(ERTS_ALC_T_BINARY_REF, bp->parent);
@@ -389,28 +411,28 @@ erts_bin_refc_dec(Binary *bp, erts_aint_t min_val)
 ERTS_GLB_INLINE void
 erts_bin_refc_init(Binary *brp)
 {
-    erts_refc_init(&brp->brefc, 1);
+    erts_refc_init(&brp->refc, 1);
 }
 
 ERTS_GLB_INLINE void
 erts_bin_ref_refc_inc(BinaryRef *brp, erts_aint_t min_val)
 {
-    erts_refc_inc(&brp->brefc, min_val);
+    erts_refc_inc(&brp->refc, min_val);
 }
 
 ERTS_GLB_INLINE void
 erts_bin_ref_refc_dec(BinaryRef *brp, erts_aint_t min_val)
 {
-    if (erts_refc_dectest(&brp->brefc, min_val) <= 1) {
+    if (erts_refc_dectest(&brp->refc, min_val) <= 1) {
         /* Only the reference from one Binary remains */
-        erts_bin_refc_dec(brp->bin, 1);
+        erts_bin_refc_dec(brp->bin, 0);
     }
 }
 
 ERTS_GLB_INLINE void
 erts_bin_ref_refc_init(BinaryRef *brp)
 {
-    erts_refc_init(&brp->brefc, 1);
+    erts_refc_init(&brp->refc, 1);
 }
 
 ERTS_GLB_INLINE BinaryRef *
@@ -420,21 +442,19 @@ erts_create_magic_binary_x(Uint size, void (*destructor)(BinaryRef *),
     Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
                            : ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
-    BinaryRef* binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
+    BinaryRef* binref;
     ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
-    bptr->parent = binref;
+    bptr->parent = NULL;
 
     bptr->orig_size = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(size)
                                 : ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_bin_refc_init(bptr);
 
-    binref->some_flags = 0;
-    erts_bin_ref_refc_init(binref);
-    binref->bin = bptr;
+    binref = erts_bin_ref_nrml_alloc(bptr);
 
     ERTS_MAGIC_BIN_DESTRUCTOR(binref) = destructor;
 
@@ -447,6 +467,25 @@ erts_create_magic_binary(Uint size, void (*destructor)(BinaryRef *))
     return erts_create_magic_binary_x(size, destructor, 0);
 }
 
+ERTS_GLB_INLINE void
+erts_binary_oh_check(ErlOffHeap *ohp)
+{
+    struct erl_off_heap_header *oh = ohp->first;
+    while (oh) {
+        if (oh->thing_word == HEADER_PROC_BIN) {
+            ProcBin *pb = (ProcBin*)oh;
+            erts_refc_read(&pb->val->refc, 2);
+            erts_refc_read(&pb->val->bin->refc, 1);
+            ASSERT(pb->val->some_flags == 0);
+            ASSERT(pb->val->bin->parent == pb->val);
+        }
+        oh = oh->next;
+    }
+}
+
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+
 
 #endif /* !__ERL_BINARY_H */

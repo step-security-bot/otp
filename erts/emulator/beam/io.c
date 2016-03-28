@@ -3530,10 +3530,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
 	erts_bin_refc_init(payload);
 	sys_memcpy(payload->orig_bytes, buf, len);
 
-        bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-        bptr->some_flags = 0;
-        erts_bin_ref_refc_init(bptr);
-        bptr->bin = payload;
+        bptr = erts_bin_ref_nrml_alloc(payload);
 
 	pb = (ProcBin *) hp;
         hp += PROC_BIN_SIZE;
@@ -3682,29 +3679,31 @@ deliver_vec_message(Port* prt,			/* Port */
     } else {
 	binv += vsize;
 	while (vsize--) {
-	    ErlDrvBinary* b;
+            ErlDrvBinary *bin;
             BinaryRef* bptr;
 	    ProcBin* pb = (ProcBin*) hp;
 
-            bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-            bptr->some_flags = 0;
-            erts_bin_ref_refc_init(bptr);
-
 	    iov--;
 	    binv--;
-	    if ((b = *binv) == NULL) {
-		b = driver_alloc_binary(iov->iov_len);
-		sys_memcpy(b->orig_bytes, iov->iov_base, iov->iov_len);
+	    if ((bin = *binv) == NULL) {
 
-                bptr->bin = ErlDrvBinary2Binary(b);
+		bin = driver_alloc_binary(iov->iov_len);
+		sys_memcpy(bin->orig_bytes, iov->iov_base, iov->iov_len);
+
+                bptr = erts_bin_ref_nrml_alloc(ErlDrvBinary2Binary(bin));
+
                 ERTS_PROCBIN_INIT(pb, bptr, ohp);
 	    } else {
+                Binary *b = ErlDrvBinary2Binary(bin);
 		/* Must increment reference count, caller calls free */
-		driver_binary_inc_refc(b);
-                bptr->bin = ErlDrvBinary2Binary(b);
+		driver_binary_inc_refc(bin);
+                bptr = b->parent;
+                if (!bptr) {
+                    bptr = erts_bin_ref_nrml_alloc(b);
+                }
                 ERTS_PROCBIN_INIT(pb, bptr, NULL);
                 pb->size = iov->iov_len;
-                pb->offset = (byte*)iov->iov_base - (byte*)pb->val->bin->orig_bytes;
+                pb->offset = (byte*)iov->iov_base - (byte*)b->orig_bytes;
                 pb->next = ohp->first;
                 ohp->first = (struct erl_off_heap_header*) pb;
                 OH_OVERHEAD(ohp, iov->iov_len / sizeof(Eterm));
@@ -4305,10 +4304,7 @@ write_port_control_result(int control_flags,
 		ProcBin* pb = (ProcBin *) *hpp;
 		*hpp += PROC_BIN_SIZE;
 
-                bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-                bptr->some_flags = 0;
-                erts_bin_ref_refc_init(bptr);
-                bptr->bin = ErlDrvBinary2Binary(dbin);
+                bptr = erts_bin_ref_nrml_alloc(ErlDrvBinary2Binary(dbin));
 
                 ERTS_PROCBIN_INIT(pb, bptr, ohp);
 		return make_binary(pb);
@@ -6035,10 +6031,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 							    PROC_BIN_SIZE, HEAP_EXTRA);
 		driver_binary_inc_refc(b);  /* caller will free binary */
 
-                bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-                bptr->some_flags = 0;
-                erts_bin_ref_refc_init(bptr);
-                bptr->bin = ErlDrvBinary2Binary(b);
+                bptr = erts_bin_ref_nrml_alloc(ErlDrvBinary2Binary(b));
 
 		pb->thing_word = HEADER_PROC_BIN;
 		pb->size = size;
@@ -6085,10 +6078,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
 		pbp = (ProcBin *) erts_produce_heap(&factory,
 						    PROC_BIN_SIZE, HEAP_EXTRA);
 
-                bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-                bptr->some_flags = 0;
-                erts_bin_ref_refc_init(bptr);
-                bptr->bin = bp;
+                bptr = erts_bin_ref_nrml_alloc(bp);
 
                 ERTS_PROCBIN_INIT(pbp, bptr, factory.off_heap);
 		mess = make_binary(pbp);
@@ -6584,21 +6574,21 @@ ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_read(&bp->brefc, 1);
+    return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);
 }
 
 ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_inctest(&bp->brefc, 2);
+    return (ErlDrvSInt) erts_refc_inctest(&bp->refc, 2);
 }
 
 ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return (ErlDrvSInt) erts_refc_dectest(&bp->brefc, 1);
+    return (ErlDrvSInt) erts_refc_dectest(&bp->refc, 1);
 }
 
 

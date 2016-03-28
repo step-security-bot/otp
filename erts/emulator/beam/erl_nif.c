@@ -976,18 +976,14 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	Eterm bin_term;
 	
 	/* !! Copy-paste from new_binary() !! */
-        binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-        binref->some_flags = 0;
-        erts_bin_ref_refc_init(binref);
-        binref->bin = bptr;
-        bptr->parent = binref;
+        binref = erts_bin_ref_nrml_alloc(bptr);
 
 	pb = (ProcBin *) alloc_heap(env, PROC_BIN_SIZE);
 
         ERTS_PROCBIN_INIT(pb, binref, &MSO(env->proc));
 
 	bin_term = make_binary(pb);
-	if (erts_refc_read(&bptr->brefc, 1) == 1) {
+	if (erts_refc_read(&bptr->refc, 1) == 1) {
 	    /* Total ownership transfer */
 	    bin->ref_bin = NULL;
 	    bin->bin_term = bin_term;

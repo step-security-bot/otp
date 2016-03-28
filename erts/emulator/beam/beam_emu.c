@@ -2777,6 +2777,7 @@ do {						\
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+        erts_binary_oh_check(&MSO(c_p));
 	if (ERTS_IS_GC_DESIRED(c_p)) {
 	    Uint arity = ((Export *)Arg(0))->code[2];
 	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
@@ -3531,6 +3532,7 @@ do {						\
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
+            erts_binary_oh_check(&MSO(c_p));
 	    if (ERTS_IS_GC_DESIRED(c_p)) {
 		nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
 							    nif_bif_result,
@@ -3737,10 +3739,7 @@ do {						\
 	 erts_bin_refc_init(payload);
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
-         bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-         bptr->some_flags = 0;
-         erts_bin_ref_refc_init(bptr);
-         bptr->bin = payload;
+         bptr = erts_bin_ref_nrml_alloc(payload);
 
 	 /*
 	  * Now allocate the ProcBin on the heap.
@@ -3831,10 +3830,7 @@ do {						\
 	 erts_bin_refc_init(payload);
 	 erts_current_bin = (byte *) payload->orig_bytes;
 
-         bptr = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-         bptr->some_flags = 0;
-         erts_bin_ref_refc_init(bptr);
-         bptr->bin = payload;
+         bptr = erts_bin_ref_nrml_alloc(payload);
 
 	 /*
 	  * Now allocate the ProcBin on the heap.

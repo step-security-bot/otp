@@ -1411,10 +1411,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	erts_bin_refc_init(bptr);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
-        binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-        binref->some_flags = 0;
-        erts_bin_ref_refc_init(binref);
-        binref->bin = bptr;
+        binref = erts_bin_ref_nrml_alloc(bptr);
 	/*
 	 * Now allocate the ProcBin on the heap.
 	 */
@@ -1528,11 +1525,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	    erts_bin_refc_init(bptr);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 
-            binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-            binref->some_flags = 0;
-            erts_bin_ref_refc_init(binref);
-            binref->bin = bptr;
-            bptr->parent = binref;
+            binref = erts_bin_ref_nrml_alloc(bptr);
 
             erts_bin_ref_refc_dec(pb->val, 1);
 
@@ -1582,10 +1575,7 @@ erts_bs_init_writable(Process* p, Eterm sz)
     bptr = erts_bin_nrml_alloc(bin_size);
     erts_bin_refc_init(bptr);
     
-    binref = erts_alloc(ERTS_ALC_T_BINARY_REF, sizeof(BinaryRef));
-    binref->some_flags = 0;
-    erts_bin_ref_refc_init(binref);
-    binref->bin = bptr;
+    binref = erts_bin_ref_nrml_alloc(bptr);
 
     /*
      * Now allocate the ProcBin on the heap.
