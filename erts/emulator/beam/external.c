@@ -420,7 +420,7 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
 	    ip = &instr_buf[0] + (2+4)*iix;
 	    cix = (int) get_int16(&ip[0]);
 	    ASSERT(0 <= cix && cix < ERTS_ATOM_CACHE_SIZE);
-	    atom = make_atom((Uint) get_int32(&ip[2]));
+	    atom = make_atom_assert((Uint) get_int32(&ip[2]));
 	    if (cache->out_arr[cix] == atom) {
 		--ep;
 		put_int8(cix, ep);
@@ -1955,7 +1955,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 	if (n >= atom_table_size()) {
 	    goto error;
 	}
-	*objp = make_atom(n);
+	*objp = make_atom_assert(n);
 	break;
     case ATOM_INTERNAL_REF3:
 	n = get_int24(ep);
@@ -1963,7 +1963,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 	if (n >= atom_table_size()) {
 	    goto error;
 	}
-	*objp = make_atom(n);
+	*objp = make_atom_assert(n);
 	break;
 
     default:
@@ -3248,7 +3248,7 @@ dec_term_atom_common:
 	    if (n >= atom_table_size()) {
 		goto error;
 	    }
-	    *objp = make_atom(n);
+	    *objp = make_atom_assert(n);
 	    break;
 	case ATOM_INTERNAL_REF3:
 	    n = get_int24(ep);
@@ -3256,7 +3256,7 @@ dec_term_atom_common:
 	    if (n >= atom_table_size()) {
 		goto error;
 	    }
-	    *objp = make_atom(n);
+	    *objp = make_atom_assert(n);
 	    break;
 
 	case BINARY_INTERNAL_REF:

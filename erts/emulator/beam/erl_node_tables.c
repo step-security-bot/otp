@@ -219,7 +219,7 @@ erts_channel_no_to_dist_entry(Uint cno)
         
     /* cno is a valid atom index; find corresponding dist entry (if there
        is one) */
-    return erts_find_dist_entry(make_atom(cno));
+    return erts_find_dist_entry(make_atom_assert(cno));
 }
 
 

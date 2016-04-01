@@ -3840,7 +3840,7 @@ erts_ets_colliding_names(Process* p, Eterm name, Uint cnt)
                 erts_snprintf(tmp, sizeof(tmp), "am%x", atom_table_size());
                 erts_atom_put((byte *) tmp, strlen(tmp), ERTS_ATOM_ENC_LATIN1, 1);
             }
-            list = CONS(hp, make_atom(index), list);
+            list = CONS(hp, make_atom_assert(index), list);
             hp += 2;
             --cnt;
         }

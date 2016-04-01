@@ -165,7 +165,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 	Uint fi;
 
 	if (specified > 0) {
-	    if (mfa[0] != make_atom(module[current]->module)) {
+	    if (mfa[0] != make_atom_assert(module[current]->module)) {
 		/* Wrong module name */
 		continue;
 	    }

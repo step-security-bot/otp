@@ -286,6 +286,7 @@ _ET_DECLARE_CHECKED(Sint,signed_val,Eterm)
 
 /* atom access methods */
 #define make_atom(x)  ((Eterm)(((x) << _TAG_IMMED2_SIZE) + _TAG_IMMED2_ATOM))
+#define make_atom_assert(x)  (((x) < (erts_atom_table.limit)) ? (Eterm)(((x) << _TAG_IMMED2_SIZE) + _TAG_IMMED2_ATOM) : (abort(), 0))
 #define is_atom(x)	(((x) & _TAG_IMMED2_MASK) == _TAG_IMMED2_ATOM)
 #define is_not_atom(x)	(!is_atom(x))
 #define _unchecked_atom_val(x)	((x) >> _TAG_IMMED2_SIZE)

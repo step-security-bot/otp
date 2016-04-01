@@ -424,7 +424,7 @@ loaded(int to, void *to_arg)
 	    if (modp != NULL &&
 	    ((modp->curr.code_length != 0) ||
 	     (modp->old.code_length != 0))) {
-		erts_print(to, to_arg, "%T", make_atom(modp->module));
+		erts_print(to, to_arg, "%T", make_atom_assert(modp->module));
 		cur += modp->curr.code_length;
 		erts_print(to, to_arg, " %d", modp->curr.code_length );
 		if (modp->old.code_length != 0) {
@@ -442,7 +442,7 @@ loaded(int to, void *to_arg)
 		((modp->curr.code_length != 0) ||
 		 (modp->old.code_length != 0))) {
 		erts_print(to, to_arg, "=mod:");
-		erts_print(to, to_arg, "%T", make_atom(modp->module));
+		erts_print(to, to_arg, "%T", make_atom_assert(modp->module));
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
 			   modp->curr.code_length);

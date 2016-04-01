@@ -294,7 +294,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_read_unlock();
     if (aix >= 0) {
 	/* Already in table no need to verify it */
-	return make_atom(aix);
+	return make_atom_assert(aix);
     }
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
@@ -332,7 +332,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
-    return make_atom(aix);
+    return make_atom_assert(aix);
 }
 
 Eterm
@@ -390,7 +390,7 @@ erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
     }
     atom_read_lock();
     i = index_get(&erts_atom_table, (void*) &a);
-    res = i < 0 ? 0 : (*ap = make_atom(i), 1);
+    res = i < 0 ? 0 : (*ap = make_atom_assert(i), 1);
     atom_read_unlock();
     return res;
 }
@@ -475,7 +475,7 @@ dump_atoms(int to, void *to_arg)
      */
     while (--i >= 0) {
 	if (erts_index_lookup(&erts_atom_table, i)) {
-	    erts_print(to, to_arg, "%T\n", make_atom(i));
+	    erts_print(to, to_arg, "%T\n", make_atom_assert(i));
 	}
     }
 }

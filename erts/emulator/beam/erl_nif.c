@@ -1248,7 +1248,7 @@ enif_open_resource_type(ErlNifEnv* env,
 
     ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(module_str == NULL); /* for now... */
-    module_am = make_atom(env->mod_nif->mod->module);
+    module_am = make_atom_assert(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
 
     type = find_resource_type(module_am, name_am);

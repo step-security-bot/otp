@@ -587,7 +587,7 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 	    if ((modp=module_code(i,code_ix)) != NULL &&
 		((modp->curr.code_length != 0) ||
 		 (modp->old.code_length != 0))) {
-		previous = CONS(hp, make_atom(modp->module), previous);
+		previous = CONS(hp, make_atom_assert(modp->module), previous);
 		hp += 2;
 	    }
 	}
@@ -1025,7 +1025,7 @@ static void
 delete_code(Module* modp)
 {
     ErtsCodeIndex code_ix = erts_staging_code_ix();
-    Eterm module = make_atom(modp->module);
+    Eterm module = make_atom_assert(modp->module);
     int i;
 
     for (i = 0; i < export_list_size(code_ix); i++) {
