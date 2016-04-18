@@ -2023,7 +2023,7 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
         if (bptr) {
             ProcBin* pb = (ProcBin *) bptr;
 
-            ivp[1].iov_base = pb->bytes+offset;
+            ivp[1].iov_base = pb->val->bin->orig_bytes+offset;
             ivp[1].iov_len = size;
             bvp[1] = Binary2ErlDrvBinary(pb->val);
 

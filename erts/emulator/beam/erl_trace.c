@@ -1763,7 +1763,7 @@ trace_port(Port *t_p, Eterm what, Eterm data) {
 
 
 static Eterm
-trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
+trace_port_tmp_binary(char *bin, Sint sz, BinaryRef **bptrp, Eterm **hp)
 {
     if (sz <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin *hb = (ErlHeapBin *)*hp;
@@ -1775,15 +1775,18 @@ trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
     } else {
         ProcBin* pb = (ProcBin *)*hp;
         Binary *bptr = erts_bin_nrml_alloc(sz);
-        erts_refc_init(&bptr->refc, 1);
+        /* Ideally this ref would not have to allocated,
+           but because procbin which is what gets passed to
+           the nif needs the ref, we have to create the ref */
+        BinaryRef *bin_ref = erts_bin_ref_nrml_alloc(bptr);
         sys_memcpy(bptr->orig_bytes, bin, sz);
         pb->thing_word = HEADER_PROC_BIN;
         pb->size = sz;
         pb->next = NULL;
-        pb->val = bptr;
-        pb->bytes = (byte*) bptr->orig_bytes;
+        pb->val = bin_ref;
+        pb->offset = 0;
         pb->flags = 0;
-        *bptrp = bptr;
+        *bptrp = bin_ref;
         *hp += PROC_BIN_SIZE;
         return make_binary(pb);
     }
@@ -1809,7 +1812,7 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
         DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 
         Eterm *hp, data, *orig_hp = NULL;
-        Binary *bptr = NULL;
+        BinaryRef *bptr = NULL;
         va_list args;
         UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
         hp = local_heap;
@@ -1863,17 +1866,19 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
                         ErlSubBin *sb;
                         ASSERT(evp->binv[i]);
                         pb->thing_word = HEADER_PROC_BIN;
-                        pb->val = ErlDrvBinary2Binary(evp->binv[i]);
-                        pb->size = pb->val->orig_size;
+                        pb->val = ErlDrvBinary2Binary(evp->binv[i])->parent;
+                        ASSERT(pb->val);
+                        pb->size = pb->val->bin->orig_size;
                         pb->next = NULL;
-                        pb->bytes = (byte*) pb->val->orig_bytes;
+                        pb->offset = 0;
                         pb->flags = 0;
                         hp += PROC_BIN_SIZE;
 
                         sb = (ErlSubBin*) hp;
                         sb->thing_word = HEADER_SUB_BIN;
                         sb->size = evp->iov[i].iov_len;
-                        sb->offs = (byte*)(evp->iov[i].iov_base) - pb->bytes;
+                        sb->offs = (byte*)(evp->iov[i].iov_base) -
+                            (byte*)pb->val->bin->orig_bytes;
                         sb->orig = make_binary(pb);
                         sb->bitoffs = 0;
                         sb->bitsize = 0;
@@ -1897,8 +1902,8 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
                            am_receive, data, THE_NON_VALUE);
 
-        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
-            erts_bin_free(bptr);
+        if (bptr)
+            erts_bin_ref_refc_dec(bptr, 0);
 
         if (orig_hp)
             erts_free(ERTS_ALC_T_TMP, orig_hp);
@@ -1929,7 +1934,7 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, am_send)) {
         Eterm msg;
-        Binary* bptr = NULL;
+        BinaryRef* bptr = NULL;
 #define LOCAL_HEAP_SIZE (3 + 3 + heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
         DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 
@@ -1948,8 +1953,8 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
 
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
                            am_send, msg, to);
-        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
-            erts_bin_free(bptr);
+        if (bptr)
+            erts_bin_ref_refc_dec(bptr, 0);
 
         UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE

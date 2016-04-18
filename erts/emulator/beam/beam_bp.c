@@ -93,7 +93,7 @@ get_mtime(Process *c_p)
 ** Helpers
 */
 static ErtsTracer do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
-                                int local, Binary* ms, ErtsTracer tracer);
+                                int local, BinaryRef* ms, ErtsTracer tracer);
 static void set_break(BpFunctions* f, BinaryRef *match_spec, Uint break_flags,
 		      enum erts_break_op count_op, ErtsTracer tracer);
 static void set_function_break(BeamInstr *pc,
