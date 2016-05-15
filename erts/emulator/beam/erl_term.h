@@ -67,6 +67,27 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #  error Not supported arch
 #endif
 
+/* If we don't need the literal tag, we use the extra tags on 64-bit to
+   point to compact lists. The extra tags 4 and 7 are still occupied
+   by hearder and immed. */
+#if !defined(TAG_LITERAL_PTR)
+    /* CLISTS use a more compact format to store the contents of the list.
+       The format is looks like this for the list "abc".
+       |  $a  |  $b  |  $c  |  TNV  |  []  |
+
+       CLISTS have a bestcase memory usage of n+2 vs the 2*n of normal
+       cons cells. However the worstcase usage is 3*n, so when creating
+       CLISTS we make sure that n > 1 as often as possible.
+       CLISTS are only created by the GC, bifs and some other special cases.
+    */
+#  define ERTS_USE_CLIST        1
+   /* We use 0x5 because that way we can define is_list to be the same for
+      CLIST and LIST. */
+#  define TAG_PRIMARY_CLIST     0x5
+   /* This could be used for pointing to specific arity tuples, e.g. 2 tuples
+      which would save 1 word, or 33% of the memory requirements for that. */
+#  define TAG_PRIMARY_UNUSED    0x6
+#endif
 
 #define _TAG_PRIMARY_SIZE	2
 #define _TAG_PRIMARY_MASK	0x3
@@ -237,7 +258,23 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CAR(x)  ((x)[0])
 #define CDR(x)  ((x)[1])
 
-/* generic tagged pointer (boxed or list) access methods */
+
+/* compact list access methods */
+#define _unchecked_make_clist(x)  ((Uint)(x) + TAG_PRIMARY_CLIST)
+_ET_DECLARE_CHECKED(Eterm,make_clist,const Eterm*)
+#define make_list(x)		_ET_APPLY(make_clist,(x))
+#define _unchecked_is_not_clist(x) ((x) & (_TAG_PTR_MASK-TAG_PRIMARY_CLIST))
+_ET_DECLARE_CHECKED(int,is_not_clist,Eterm)
+#define is_not_clist(x)		_ET_APPLY(is_not_clist,(x))
+#define is_clist(x)		(!is_not_clist((x)))
+#define _clist_precond(x)        (is_clist(x))
+#define _unchecked_clist_val(x) _unchecked_ptr_val(x)
+_ET_DECLARE_CHECKED(Eterm*,clist_val,Wterm)
+#define clist_val(x)		_ET_APPLY(clist_val,(x))
+
+#define CCDR(x)  (is_non_value((x)[1]) ? (x)[2] : make_clist((x)+1))
+
+/* generic tagged pointer (boxed, list or clist) access methods */
 #define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
