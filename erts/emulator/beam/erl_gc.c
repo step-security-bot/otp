@@ -1782,6 +1782,37 @@ typedef enum {
     ErtsSweepLiteralArea
 } ErtsSweepType;
 
+static ERTS_FORCE_INLINE int
+is_in_primary_area(Eterm gval, Eterm *ptr,
+                   ErtsSweepType type,
+                   char *oh, Uint ohsz,
+                   char *src, Uint src_size)
+{
+    if (type == ErtsSweepHeaps)
+        return !erts_is_literal(gval,ptr);
+    if (type == ErtsSweepNewHeap || type == ErtsSweepMatureHeap)
+        return ErtsInYoungGen(gval, ptr, oh, ohsz);
+    return ErtsInArea(ptr, src, src_size);
+}
+
+static ERTS_FORCE_INLINE int
+is_in_secondary_area(Eterm gval, Eterm *ptr,
+                     ErtsSweepType type,
+                     char *oh, Uint ohsz,
+                     char *src, Uint src_size,
+                     Eterm *o_htop)
+{
+    if (type == ErtsSweepHeaps) {
+        if (o_htop)
+            return ErtsInArea(ptr, src, src_size)
+                || !ErtsInYoungGen(gval, ptr, oh, ohsz);
+        return 0;
+    }
+    if (type == ErtsSweepMatureHeap)
+        return ErtsInArea(ptr, src, src_size);
+    return 0;
+}
+
 static ERTS_FORCE_INLINE void
 sweep(Eterm *n_hp, Eterm **n_htopp, Eterm **o_htopp,
       ErtsSweepType type,
@@ -1796,22 +1827,11 @@ sweep(Eterm *n_hp, Eterm **n_htopp, Eterm **o_htopp,
 #undef ERTS_IS_IN_PRIMARY_AREA
 #undef ERTS_IS_IN_SECONDARY_AREA
 
+#define ERTS_IS_IN_PRIMARY_AREA(TPtr, Ptr)                              \
+    is_in_primary_area(TPtr, Ptr, type, oh, ohsz, src, src_size)
 
-#define ERTS_IS_IN_PRIMARY_AREA(TPtr, Ptr)				\
-    (type == ErtsSweepHeaps                                             \
-     ? !erts_is_literal((TPtr), (Ptr))					\
-     : (type == ErtsSweepNewHeap || type == ErtsSweepMatureHeap         \
-        ? ErtsInYoungGen((TPtr), (Ptr), oh, ohsz)			\
-        : ErtsInArea((Ptr), src, src_size)))
-
-#define ERTS_IS_IN_SECONDARY_AREA(TPtr, Ptr)                    \
-    (type == ErtsSweepHeaps                                     \
-     ? (o_htop &&                                               \
-        (ErtsInArea(ptr, src, src_size)                         \
-         || !ErtsInYoungGen(TPtr, (Ptr), oh, ohsz)))            \
-     : (type == ErtsSweepMatureHeap                             \
-        ? ErtsInArea(ptr, src, src_size)                        \
-        : 0))
+#define ERTS_IS_IN_SECONDARY_AREA(TPtr, Ptr)                            \
+    is_in_secondary_area(TPtr, Ptr, type, oh, ohsz, src, src_size, o_htop)
 
     while (n_hp != n_htop) {
 	ASSERT(n_hp < n_htop);
