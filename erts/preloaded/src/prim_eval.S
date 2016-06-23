@@ -54,7 +54,7 @@
     return.
 
 
-{function, module_info, 0, 8}.
+{function, module_info, 0, 7}.
   {label,6}.
     {func_info,{atom,prim_eval},{atom,module_info},0}.
   {label,7}.
@@ -62,7 +62,7 @@
     {call_ext_only,1,{extfunc,erlang,get_module_info,1}}.
 
 
-{function, module_info, 1, 10}.
+{function, module_info, 1, 9}.
   {label,8}.
     {func_info,{atom,prim_eval},{atom,module_info},1}.
   {label,9}.
