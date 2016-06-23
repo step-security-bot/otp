@@ -61,11 +61,15 @@ typedef struct {
 
 typedef struct generic_bp_data {
     Uint flags;
-    Binary* local_ms;		/* Match spec for local call trace */
-    Binary* meta_ms;		/* Match spec for meta trace */
-    BpMetaTracer* meta_tracer;	/* Meta tracer */
-    BpCount* count;		/* For call count */
-    BpDataTime* time;		/* For time trace */
+    union {
+        Binary* local_ms;		/* Match spec for local call trace */
+        struct meta {
+            Binary* ms;			/* Match spec for meta trace */
+            BpMetaTracer *tracer;	/* Meta tracer */
+        } meta;
+        BpCount *count;			/* For call count */
+        BpDataTime *time;		/* For time trace */
+    } u;
 } GenericBpData;
 
 #define ERTS_NUM_BP_IX 2
