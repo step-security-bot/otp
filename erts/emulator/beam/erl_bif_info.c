@@ -1563,9 +1563,9 @@ process_info_aux(Process *BIF_P,
 		    term = am_timeout;
 		else {
 		    term = TUPLE3(hp,
-				  scb->ct[j]->code[0],
-				  scb->ct[j]->code[1],
-				  make_small(scb->ct[j]->code[2]));
+				  scb->ct[j]->info.module,
+				  scb->ct[j]->info.function,
+				  make_small(scb->ct[j]->info.arity));
 		    hp += 4;
 		}
 		list = CONS(hp, term, list);
@@ -3230,7 +3230,7 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_module:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[0];
+	    val = exp->info.module;
 	    break;
 	case am_new_index:
 	    hp = HAlloc(p, 3);
@@ -3258,11 +3258,11 @@ fun_info_2(BIF_ALIST_2)
 	    break;
 	case am_arity:
 	    hp = HAlloc(p, 3);
-	    val = make_small(exp->code[2]);
+	    val = make_small(exp->info.arity);
 	    break;
 	case am_name:
 	    hp = HAlloc(p, 3);
-	    val = exp->code[1];
+	    val = exp->info.function;
 	    break;
 	default:
 	    goto error;
@@ -3288,7 +3288,7 @@ fun_info_mfa_1(BIF_ALIST_1)
     } else if (is_export(fun)) {
 	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	hp = HAlloc(p, 4);
-	BIF_RET(TUPLE3(hp,exp->code[0],exp->code[1],make_small(exp->code[2])));
+	BIF_RET(TUPLE3(hp,exp->info.module,exp->info.function,make_small(exp->info.arity)));
     }
     BIF_ERROR(p, BADARG);
 }

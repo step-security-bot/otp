@@ -553,7 +553,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    {
 		Export* ex = (Export *) *ap;
 		erts_print(to, to_arg,
-			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], ex->code[2]);
+			   "%T:%T/%bpu", (Eterm) ex->info.module,
+                           (Eterm) ex->info.function,
+                           ex->info.arity);
 		ap++;
 	    }
 	    break;

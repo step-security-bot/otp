@@ -681,19 +681,19 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+	    if (ep == NULL || ep->info.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[4] != 0) {
-		ep->addressv[code_ix] = (void *) ep->code[4];
-		ep->code[4] = 0;
+	    if (ep->code0[1] != 0) {
+		ep->addressv[code_ix] = (void *) ep->code0[1];
+		ep->code0[1] = 0;
 	    } else {
-		if (ep->addressv[code_ix] == ep->code+3 &&
-		    ep->code[3] == (BeamInstr) em_apply_bif) {
+		if (ep->addressv[code_ix] == ep->code0 &&
+		    ep->code0[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		ep->addressv[code_ix] = ep->code+3;
-		ep->code[3] = (BeamInstr) em_call_error_handler;
+		ep->addressv[code_ix] = ep->code0;
+		ep->code0[0] = (BeamInstr) em_call_error_handler;
 	    }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -708,13 +708,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+	    if (ep == NULL || ep->info.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[3] == (BeamInstr) em_apply_bif) {
+	    if (ep->code0[0] == (BeamInstr) em_apply_bif) {
 		continue;
 	    }
-	    ep->code[4] = 0;
+	    ep->code0[1] = 0;
 	}
     }
     erts_smp_thr_progress_unblock();
@@ -1345,23 +1345,23 @@ delete_code(Module* modp)
 
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
-        if (ep != NULL && (ep->code[0] == module)) {
-	    if (ep->addressv[code_ix] == ep->code+3) {
-		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+        if (ep != NULL && (ep->info.module == module)) {
+	    if (ep->addressv[code_ix] == ep->code0) {
+		if (ep->code0[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		else if (ep->code[3] ==
+		else if (ep->code0[0] ==
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
-		    erts_clear_export_break(modp, ep->code+3);
+		    erts_clear_export_break(modp, ep->code0);
 		}
-		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
+		else ASSERT(ep->code0[0] == (BeamInstr) em_call_error_handler
 			    || !erts_initialized);
 	    }
-	    ep->addressv[code_ix] = ep->code+3;
-	    ep->code[3] = (BeamInstr) em_call_error_handler;
-	    ep->code[4] = 0;
+	    ep->addressv[code_ix] = ep->code0;
+	    ep->code0[0] = (BeamInstr) em_call_error_handler;
+	    ep->code0[1] = 0;
 	}
     }
 

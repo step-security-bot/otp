@@ -62,6 +62,20 @@ struct process;
 #define ERTS_NUM_CODE_IX 3
 typedef unsigned ErtsCodeIndex;
 
+/*
+ * The ErtsCodeInfo structure is used both in the Export entry
+ * and in the code as the function header.
+ */
+
+typedef struct ErtsCodeInfo_ {
+    BeamInstr op;           /* OpCode(i_func_info) */
+    BeamInstr native;       /* Used by hipe and trace to store extra data */
+    //BeamInstr native_arg;   /* used by trace to store the "real_I" */
+    Eterm module;
+    Eterm function;
+    Uint  arity;
+} ErtsCodeInfo;
+
 
 /* Called once at emulator initialization.
  */

@@ -101,11 +101,11 @@ void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm, Eterm, ErtsTracingEvent*);
-Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec,
+Uint32 erts_call_trace(Process *p, ErtsCodeInfo *info, struct binary *match_spec,
                        Eterm* args, int local, ErtsTracer *tracer);
-void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval,
+void erts_trace_return(Process* p, BeamInstr *fi, Eterm retval,
                        ErtsTracer *tracer);
-void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
+void erts_trace_exception(Process* p, BeamInstr *fi, Eterm class, Eterm value,
                           ErtsTracer *tracer);
 void erts_trace_return_to(Process *p, BeamInstr *pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);

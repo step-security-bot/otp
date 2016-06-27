@@ -1034,14 +1034,16 @@ erts_trace_return_to(Process *p, BeamInstr *pc)
  * or   {trace, Pid, return_from, {Mod, Name, Arity}, Retval}
  */
 void
-erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, ErtsTracer *tracer)
+erts_trace_return(Process* p, BeamInstr *fi, Eterm retval, ErtsTracer *tracer)
 {
     Eterm* hp;
     Eterm mfa, mod, name;
     int arity;
     Uint meta_flags, *tracee_flags;
+    ErtsCodeInfo *info = ErtsContainerStruct(fi, ErtsCodeInfo, module);
 
     ASSERT(tracer);
+    ASSERT(is_atom(info->module) && is_atom(info->function));
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
 	/* Breakpoint trace enabled without specifying tracer =>
 	 *   use process tracer and flags
@@ -1072,9 +1074,9 @@ erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, ErtsTracer *tracer)
 	tracee_flags = &meta_flags;
     }
 
-    mod = fi[0];
-    name = fi[1];
-    arity = fi[2];
+    mod = info->module;
+    name = info->module;
+    arity = info->module;
 
     hp = HAlloc(p, 4);
     mfa = TUPLE3(hp, mod, name, make_small(arity));
@@ -1091,12 +1093,13 @@ erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, ErtsTracer *tracer)
  * Where Class is atomic but Value is any term.
  */
 void
-erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
+erts_trace_exception(Process* p, BeamInstr *fi, Eterm class, Eterm value,
 		     ErtsTracer *tracer)
 {
     Eterm* hp;
     Eterm mfa_tuple, cv;
     Uint meta_flags, *tracee_flags;
+    ErtsCodeInfo *info = ErtsContainerStruct(fi, ErtsCodeInfo, module);
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
@@ -1130,7 +1133,7 @@ erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
     }
 
     hp = HAlloc(p, 7);;
-    mfa_tuple = TUPLE3(hp, (Eterm) mfa[0], (Eterm) mfa[1], make_small((Eterm)mfa[2]));
+    mfa_tuple = TUPLE3(hp, info->module, info->function, make_small(info->arity));
     hp += 4;
     cv = TUPLE2(hp, class, value);
     hp += 3;
@@ -1153,7 +1156,7 @@ erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
  * if it is a pid or port we do a meta trace.
  */
 Uint32
-erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
+erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
 		Eterm* args, int local, ErtsTracer *tracer)
 {
     Eterm* hp;
@@ -1230,7 +1233,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
      * such as size_object() and copy_struct(), we must make sure that we
      * temporarily convert any match contexts to sub binaries.
      */
-    arity = (Eterm) mfa[2];
+    arity = info->arity;
     for (i = 0; i < arity; i++) {
 	Eterm arg = args[i];
 	if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
@@ -1325,7 +1328,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
             hp += 2;
         }
     }
-    mfa_tuple = TUPLE3(hp, (Eterm) mfa[0], (Eterm) mfa[1], mfa_tuple);
+    mfa_tuple = TUPLE3(hp, info->module, info->function, mfa_tuple);
     hp += 4;
 
     /*

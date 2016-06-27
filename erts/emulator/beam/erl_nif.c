@@ -2279,9 +2279,9 @@ allocate_nif_sched_data(Process* proc, int argc)
     ep->rootset_extra = argc;
     ep->rootset[0] = NIL;
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	ep->exp.addressv[i] = &ep->exp.code[3];
+	ep->exp.addressv[i] = &ep->exp.code0[0];
     }
-    ep->exp.code[3] = (BeamInstr) em_call_nif;
+    ep->exp.code0[0] = (BeamInstr) em_call_nif;
     (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ep);
     return ep;
 }
@@ -2353,10 +2353,10 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 	ep->saved_argc = argc;
     }
     proc->i = (BeamInstr*) ep->exp.addressv[0];
-    ep->exp.code[0] = (BeamInstr) proc->current[0];
-    ep->exp.code[1] = (BeamInstr) proc->current[1];
-    ep->exp.code[2] = argc;
-    ep->exp.code[4] = (BeamInstr) direct_fp;
+    ep->exp.info.module = (BeamInstr) proc->current[0];
+    ep->exp.info.function = (BeamInstr) proc->current[1];
+    ep->exp.info.arity = argc;
+    ep->exp.code0[0] = (BeamInstr) direct_fp;
     ep->m = env->mod_nif;
     ep->fp = indirect_fp;
     proc->freason = TRAP;
@@ -2648,7 +2648,7 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
-    ep->exp.code[1] = (BeamInstr) fun_name_atom;
+    ep->exp.info.function = (BeamInstr) fun_name_atom;
 
 done:
     if (scheduler < 0)

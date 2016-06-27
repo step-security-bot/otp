@@ -116,10 +116,10 @@ do {                                     \
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
-#define GET_BIF_MODULE(p)  ((Eterm) (((Export *) p)->code[0]))
-#define GET_BIF_FUNCTION(p)  ((Eterm) (((Export *) p)->code[1]))
-#define GET_BIF_ARITY(p)  ((Eterm) (((Export *) p)->code[2]))
-#define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code[4]))
+#define GET_BIF_MODULE(p)  (((Export *) p)->info.module)
+#define GET_BIF_FUNCTION(p)  (((Export *) p)->info.function)
+#define GET_BIF_ARITY(p)  (((Export *) p)->info.arity)
+#define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code0[1]))
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
@@ -2816,13 +2816,14 @@ do {						\
 	Eterm result;
 	BeamInstr *next;
 	ErlHeapFragment *live_hf_end;
+        Export *export = (Export*)Arg(0);
 
 
         if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
             /* If we have run out of reductions, we do a context
                switch before calling the bif */
-            c_p->arity = ((Export *)Arg(0))->code[2];
-            c_p->current = ((Export *)Arg(0))->code;
+            c_p->arity = GET_BIF_ARITY(export);
+            c_p->current = &(GET_BIF_MODULE(export));
             goto context_switch3;
         }
 
@@ -2834,13 +2835,13 @@ do {						\
             }
         }
 
-	bf = GET_BIF_ADDRESS(Arg(0));
+	bf = GET_BIF_ADDRESS(export);
 
 	PRE_BIF_SWAPOUT(c_p);
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS - 1;
 	if (FCALLS <= 0) {
-	   save_calls(c_p, (Export *) Arg(0));
+	   save_calls(c_p, export);
 	}
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2852,7 +2853,7 @@ do {						\
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	if (ERTS_IS_GC_DESIRED(c_p)) {
-	    Uint arity = ((Export *)Arg(0))->code[2];
+	    Uint arity = GET_BIF_ARITY(export);
 	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
 	    E = c_p->stop;
 	}
@@ -4709,7 +4710,7 @@ do {						\
      BeamInstr real_I;
      ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      HEAVY_SWAPOUT;
-     real_I = erts_generic_breakpoint(c_p, I, reg);
+     real_I = erts_generic_breakpoint(c_p, (ErtsCodeInfo*)(I-5), reg);
      HEAVY_SWAPIN;
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
@@ -5124,10 +5125,10 @@ do {						\
 			      bif_table[i].name,
 			      bif_table[i].arity);
 	 bif_export[i] = ep;
-	 ep->code[3] = (BeamInstr) OpCode(apply_bif);
-	 ep->code[4] = (BeamInstr) bif_table[i].f;
+	 ep->code0[0] = (BeamInstr) OpCode(apply_bif);
+	 ep->code0[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ep->fake_op_func_info_for_hipe[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
 
      return;
@@ -5846,7 +5847,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	for (i = 0; i < BIF_SIZE; i++) {
 	    if (bf == bif_table[i].f || bf == bif_table[i].traced) {
 		Export *ep = bif_export[i];
-		s->current = ep->code;
+		s->current = &ep->info.module;
 	        a = bif_table[i].arity;
 		break;
 	    }
@@ -6443,7 +6444,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = bif_export[BIF_hibernate_3]->code;
+    c_p->current = &bif_export[BIF_hibernate_3]->info.module;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }
@@ -6570,7 +6571,7 @@ call_fun(Process* p,		/* Current process. */
 	int actual_arity;
 
 	ep = *((Export **) (export_val(fun) + 1));
-	actual_arity = (int) ep->code[2];
+	actual_arity = ep->info.arity;
 
 	if (arity == actual_arity) {
 	    DTRACE_GLOBAL_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
@@ -7190,15 +7191,15 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 	return 1;
     }
 
-    e.code[0] = Mod;
-    e.code[1] = Name;
-    e.code[2] = arity;
+    e.info.module = Mod;
+    e.info.function = Name;
+    e.info.arity = arity;
 
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->code+3
-	&& (ep->code[3] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->code0
+	&& (ep->code0[0] == (BeamInstr) em_apply_bif);
 }
 
 

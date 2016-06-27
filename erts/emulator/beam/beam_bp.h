@@ -155,7 +155,7 @@ void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
 void erts_clear_export_break(Module *modp, BeamInstr* pc);
 
-BeamInstr erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg);
+BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 
@@ -168,7 +168,7 @@ int erts_is_native_break(BeamInstr *pc);
 int erts_is_count_break(BeamInstr *pc, Uint *count_ret);
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 
-void erts_trace_time_call(Process* c_p, BeamInstr* pc, BpDataTime* bdt);
+void erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt);
 void erts_trace_time_return(Process* c_p, BeamInstr* pc);
 void erts_schedule_time_break(Process *p, Uint out);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);

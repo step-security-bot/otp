@@ -892,11 +892,11 @@ tail_recur:
 	{
 	    Export* ep = *((Export **) (export_val(term) + 1));
 
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
+	    hash = hash * FUNNY_NUMBER11 + ep->info.arity;
 	    hash = hash*FUNNY_NUMBER1 + 
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.module))->slot.bucket.hvalue);
 	    hash = hash*FUNNY_NUMBER1 + 
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.function))->slot.bucket.hvalue);
 	    break;
 	}
 
@@ -1329,11 +1329,11 @@ make_hash2(Eterm term)
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
 		UINT32_HASH_2
-		    (ep->code[2], 
-		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
+		    (ep->info.arity, 
+		     atom_tab(atom_val(ep->info.module))->slot.bucket.hvalue,
 		     HCONST);
 		UINT32_HASH
-		    (atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue,
+		    (atom_tab(atom_val(ep->info.function))->slot.bucket.hvalue,
 		     HCONST_14);
 		goto hash2_common;
 	    }
@@ -2019,11 +2019,11 @@ tail_recur:
 	{
 	    Export* ep = *((Export **) (export_val(term) + 1));
 
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
+	    hash = hash * FUNNY_NUMBER11 + ep->info.arity;
 	    hash = hash*FUNNY_NUMBER1 + 
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.module))->slot.bucket.hvalue);
 	    hash = hash*FUNNY_NUMBER1 + 
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.function))->slot.bucket.hvalue);
 	    break;
 	}
 
@@ -3300,13 +3300,13 @@ tailrecur_ne:
 		    Export* a_exp = *((Export **) (export_val(a) + 1));
 		    Export* b_exp = *((Export **) (export_val(b) + 1));
 
-		    if ((j = erts_cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.module, b_exp->info.module)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    if ((j = erts_cmp_atoms(a_exp->code[1], b_exp->code[1])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.function, b_exp->info.function)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    ON_CMP_GOTO((Sint) a_exp->code[2] - (Sint) b_exp->code[2]);
+		    ON_CMP_GOTO((Sint) a_exp->info.arity - (Sint) b_exp->info.arity);
 		}
 		break;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):

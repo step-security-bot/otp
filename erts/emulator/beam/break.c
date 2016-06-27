@@ -291,9 +291,9 @@ print_process_info(int to, void *to_arg, Process *p)
 		   erts_print(to, to_arg, "timeout");
 	     else
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
-			    scb->ct[j]->code[0],
-			    scb->ct[j]->code[1],
-			    scb->ct[j]->code[2]);
+			    scb->ct[j]->info.module,
+			    scb->ct[j]->info.function,
+			    scb->ct[j]->info.arity);
        }
        erts_print(to, to_arg, "\n");
     }

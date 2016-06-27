@@ -806,21 +806,21 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i, code_ix);
-	    if (ep == NULL || ep->code[0] != module) {
+	    if (ep == NULL || ep->info.module != module) {
 		continue;
 	    }
-	    if (ep->addressv[code_ix] == ep->code+3) {
-		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+	    if (ep->addressv[code_ix] == ep->code0) {
+		if (ep->code0[0] == (BeamInstr) em_apply_bif) {
 		    continue;
-		} else if (ep->code[3] ==
+		} else if (ep->code0[0] ==
 			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
-		    erts_clear_export_break(mod_tab_p, ep->code+3);
-		    ep->addressv[code_ix] = (BeamInstr *) ep->code[4];
-		    ep->code[4] = 0;
+		    erts_clear_export_break(mod_tab_p, ep->code0);
+		    ep->addressv[code_ix] = (BeamInstr *) ep->code0[1];
+		    ep->code0[1] = 0;
 		}
-		ASSERT(ep->code[4] == 0);
+		ASSERT(ep->code0[1] == 0);
 	    }
 	}
 	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
@@ -1410,8 +1410,8 @@ load_import_table(LoaderState* stp)
 	 * the BIF function.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (e->code[3] == (BeamInstr) em_apply_bif) {
-		stp->import[i].bf = (BifFunction) e->code[4];
+	    if (e->code0[0] == (BeamInstr) em_apply_bif) {
+		stp->import[i].bf = (BifFunction) e->code0[1];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
 		}
@@ -1504,7 +1504,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
     if (e == NULL) {
 	return 0;
     }
-    if (e->code[3] != (BeamInstr) em_apply_bif) {
+    if (e->code0[0] != (BeamInstr) em_apply_bif) {
 	return 0;
     }
     if (mod == am_erlang && func == am_apply && arity == 3) {
@@ -4802,7 +4802,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	     * callable yet. Keep any function in the current
 	     * code callable.
 	     */
-	    ep->code[4] = (BeamInstr) address;
+	    ep->code0[1] = (BeamInstr) address;
 	}
     }
 
@@ -4980,7 +4980,7 @@ transform_engine(LoaderState* st)
 		if (i >= st->num_imports || st->import[i].bf == NULL)
 		    goto restart;
 		if (bif_number != -1 &&
-		    bif_export[bif_number]->code[4] != (BeamInstr) st->import[i].bf) {
+		    bif_export[bif_number]->code0[1] != (BeamInstr) st->import[i].bf) {
 		    goto restart;
 		}
 	    }
@@ -5718,11 +5718,11 @@ exported_from_module(Process* p, /* Process whose heap to use. */
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export* ep = export_list(i,code_ix);
 	
-	if (ep->code[0] == mod) {
+	if (ep->info.module == mod) {
 	    Eterm tuple;
 	    
-	    if (ep->addressv[code_ix] == ep->code+3 &&
-		ep->code[3] == (BeamInstr) em_call_error_handler) {
+	    if (ep->addressv[code_ix] == ep->code0 &&
+		ep->code0[0] == (BeamInstr) em_call_error_handler) {
 		/* There is a call to the function, but it does not exist. */ 
 		continue;
 	    }
@@ -5732,7 +5732,8 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 		hp = HAlloc(p, need);
 		hend = hp + need;
 	    }
-	    tuple = TUPLE2(hp, ep->code[1], make_small(ep->code[2]));
+	    tuple = TUPLE2(hp, ep->info.function,
+                           make_small(ep->info.function));
 	    hp += 3;
 	    result = CONS(hp, tuple, result);
 	    hp += 2;
@@ -5983,24 +5984,26 @@ code_module_md5_1(BIF_ALIST_1)
     return res;
 }
 
-#define WORDS_PER_FUNCTION 6
+#define WORDS_PER_FUNCTION (sizeof(ErtsCodeInfo) / sizeof(UWord) + 1)
 
 static BeamInstr*
-make_stub(BeamInstr* fp, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
+make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
 {
-    fp[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
-    fp[1] = native;
-    fp[2] = mod;
-    fp[3] = func;
-    fp[4] = arity;
+    ASSERT(WORDS_PER_FUNCTION == 6);
+    info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+    info->native = native;
+//    info->native_arg = 0;
+    info->module = mod;
+    info->function = func;
+    info->arity = arity;
 #ifdef HIPE
     if (native) {
-	fp[5] = BeamOpCode(op_move_return_n);
-	hipe_mfa_save_orig_beam_op(mod, func, arity, fp+5);
+        ((BeamInstr*)(info+1))[0] = BeamOpCode(op_move_return_n);
+	hipe_mfa_save_orig_beam_op(mod, func, arity, (BeamInstr*)(info+1));
     }
 #endif
-    fp[5] = OpCode;
-    return fp + WORDS_PER_FUNCTION;
+    ((BeamInstr*)(info+1))[0] = OpCode;
+    return ((BeamInstr*)(info+1))+1;
 }
 
 static byte*
@@ -6433,7 +6436,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 #else
 	op = (Eterm) BeamOpCode(op_move_return_n);
 #endif
-	fp = make_stub(fp, Mod, func, arity, (Uint)native_address, op);
+	fp = make_stub((ErtsCodeInfo*)fp, Mod, func, arity,
+                       (Uint)native_address, op);
     }
 
     /*
