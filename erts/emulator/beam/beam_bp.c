@@ -302,11 +302,10 @@ consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
 
     flags = dst->flags;
     if (flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
-	MatchSetUnref(dst->u.local_ms);
+	MatchSetUnref(dst->u.call.ms);
     }
     if (flags & ERTS_BPF_META_TRACE) {
-	bp_meta_unref(dst->u.meta.tracer);
-	MatchSetUnref(dst->u.meta.ms);
+	MatchSetUnref(dst->u.call.ms);
     }
     if (flags & ERTS_BPF_COUNT) {
 	bp_count_unref(dst->u.count);
@@ -342,14 +341,14 @@ consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
      */
 
     if (flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
-	dst->u.local_ms = src->u.local_ms;
-	MatchSetRef(dst->u.local_ms);
+	dst->u.call.ms = src->u.call.ms;
+	MatchSetRef(dst->u.call.ms);
     }
     if (flags & ERTS_BPF_META_TRACE) {
 	dst->u.meta.tracer = src->u.meta.tracer;
-	erts_refc_inc(&dst->u.meta.tracer->refc, 1);
-	dst->u.meta.ms = src->u.meta.ms;
-	MatchSetRef(dst->u.meta.ms);
+        erts_refc_inc(&dst->u.meta.tracer->refc, 1);
+	dst->u.call.ms = src->u.call.ms;
+	MatchSetRef(dst->u.call.ms);
     }
     if (flags & ERTS_BPF_COUNT) {
 	dst->u.count = src->u.count;
@@ -628,9 +627,9 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 
     if (bp_flags & ERTS_BPF_LOCAL_TRACE) {
 	ASSERT((bp_flags & ERTS_BPF_GLOBAL_TRACE) == 0);
-	(void) do_call_trace(c_p, I, reg, 1, bp->u.local_ms, erts_tracer_true);
+	(void) do_call_trace(c_p, I, reg, 1, bp->u.call.ms, erts_tracer_true);
     } else if (bp_flags & ERTS_BPF_GLOBAL_TRACE) {
-	(void) do_call_trace(c_p, I, reg, 0, bp->u.local_ms, erts_tracer_true);
+	(void) do_call_trace(c_p, I, reg, 0, bp->u.call.ms, erts_tracer_true);
     }
 
     if (bp_flags & ERTS_BPF_META_TRACE) {
@@ -727,7 +726,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     if (bp_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE) &&
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	int local = !!(bp_flags & ERTS_BPF_LOCAL_TRACE);
-	flags = erts_call_trace(p, ep->code, bp->u.local_ms, args,
+	flags = erts_call_trace(p, ep->code, bp->u.call.ms, args,
 				local, &ERTS_TRACER(p));
     }
     if (bp_flags & ERTS_BPF_META_TRACE) {
@@ -1110,7 +1109,7 @@ erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local)
 
     if (bp) {
 	if (match_spec_ret) {
-	    *match_spec_ret = bp->u.local_ms;
+	    *match_spec_ret = bp->u.call.ms;
 	}
 	return 1;
     }
@@ -1454,7 +1453,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 
     common = break_flags & bp->flags;
     if (common & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
-	MatchSetUnref(bp->u.local_ms);
+	MatchSetUnref(bp->u.call.ms);
     } else if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->u.meta.ms);
 	bp_meta_unref(bp->u.meta.tracer);
@@ -1490,7 +1489,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 
     if (break_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
 	MatchSetRef(match_spec);
-	bp->u.local_ms = match_spec;
+	bp->u.call.ms = match_spec;
     } else if (break_flags & ERTS_BPF_META_TRACE) {
 	BpMetaTracer* bmt;
         ErtsTracer meta_tracer = erts_tracer_nil;
@@ -1560,7 +1559,7 @@ clear_function_break(BeamInstr *pc, Uint break_flags)
     common = bp->flags & break_flags;
     bp->flags &= ~break_flags;
     if (common & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
-	MatchSetUnref(bp->u.local_ms);
+	MatchSetUnref(bp->u.call.ms);
     }
     if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->u.meta.ms);
