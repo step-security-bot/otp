@@ -1354,7 +1354,7 @@ delete_code(Module* modp)
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
-		    erts_clear_export_break(modp, ep->code0);
+		    erts_clear_export_break(modp, &ep->info);
 		}
 		else ASSERT(ep->code0[0] == (BeamInstr) em_call_error_handler
 			    || !erts_initialized);

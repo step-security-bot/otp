@@ -816,7 +816,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
-		    erts_clear_export_break(mod_tab_p, ep->code0);
+		    erts_clear_export_break(mod_tab_p, &ep->info);
 		    ep->addressv[code_ix] = (BeamInstr *) ep->code0[1];
 		    ep->code0[1] = 0;
 		}
@@ -2552,7 +2552,7 @@ load_code(LoaderState* stp)
 		stp->arity = code[ci-1];
 
 		ASSERT(stp->labels[last_label].value == ci - FUNC_INFO_SZ);
-		stp->hdr->functions[function_number] = (BeamInstr*) stp->labels[last_label].patches;
+		stp->hdr->functions[function_number] = (ErtsCodeInfo*) stp->labels[last_label].patches;
 		offset = function_number;
 		stp->labels[last_label].patches = offset;
 		function_number++;
@@ -4538,7 +4538,7 @@ freeze_code(LoaderState* stp)
      * function table in the beginning of the file.
      */
 
-    code_hdr->functions[stp->num_functions] = (codev + stp->ci - 1);
+    code_hdr->functions[stp->num_functions] = (ErtsCodeInfo*)(codev + stp->ci - 1);
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
@@ -5605,18 +5605,16 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-	BeamInstr* func_info = code_hdr->functions[i];
-	Eterm name = (Eterm) func_info[3];
-	int arity = (int) func_info[4];
+	ErtsCodeInfo* ci = code_hdr->functions[i];
 	Eterm tuple;
 
 	/*
 	 * If the function name is [], this entry is a stub for
 	 * a BIF that should be ignored.
 	 */
-	ASSERT(is_atom(name) || is_nil(name));
-	if (is_atom(name)) {
-	    tuple = TUPLE2(hp, name, make_small(arity));
+	ASSERT(is_atom(ci->function) || is_nil(ci->function));
+	if (is_atom(ci->function)) {
+	    tuple = TUPLE2(hp, ci->function, make_small(ci->arity));
 	    hp += 3;
 	    result = CONS(hp, tuple, result);
 	    hp += 2;
@@ -5682,17 +5680,16 @@ native_addresses(Process* p, BeamCodeHeader* code_hdr)
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-	BeamInstr* func_info = code_hdr->functions[i];
-	Eterm name = (Eterm) func_info[3];
-	int arity = (int) func_info[4];
+	ErtsCodeInfo *ci = code_hdr->functions[i];
 	Eterm tuple;
 
-	ASSERT(is_atom(name) || is_nil(name)); /* [] if BIF stub */
-	if (func_info[1] != 0) {
-	    Eterm addr;
-	    ASSERT(is_atom(name));
-	    addr = erts_bld_uint(&hp, NULL, func_info[1]);
-	    tuple = erts_bld_tuple(&hp, NULL, 3, name, make_small(arity), addr);
+	ASSERT(is_atom(ci->function) || is_nil(ci->function)); /* [] if BIF stub */
+	if (ci->native != 0) {
+            Eterm addr;
+	    ASSERT(is_atom(ci->function));
+	    addr = erts_bld_uint(&hp, NULL, ci->native);
+	    tuple = erts_bld_tuple(&hp, NULL, 3, ci->function,
+                                   make_small(ci->arity), addr);
 	    result = erts_bld_cons(&hp, NULL, tuple, result);
 	}
     }
@@ -5998,12 +5995,12 @@ make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, Be
     info->arity = arity;
 #ifdef HIPE
     if (native) {
-        ((BeamInstr*)(info+1))[0] = BeamOpCode(op_move_return_n);
-	hipe_mfa_save_orig_beam_op(mod, func, arity, (BeamInstr*)(info+1));
+        ERTS_CODEINFO_TO_CODE(info)[0] = BeamOpCode(op_move_return_n);
+	hipe_mfa_save_orig_beam_op(mod, func, arity, ERTS_CODEINFO_TO_CODE(info));
     }
 #endif
-    ((BeamInstr*)(info+1))[0] = OpCode;
-    return ((BeamInstr*)(info+1))+1;
+    ERTS_CODEINFO_TO_CODE(info)[0] = OpCode;
+    return ERTS_CODEINFO_TO_CODE(info)+1;
 }
 
 static byte*
@@ -6062,22 +6059,19 @@ stub_read_export_table(LoaderState* stp)
 }
 
 static void
-stub_final_touch(LoaderState* stp, BeamInstr* fp)
+stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
 {
     int i;
     int n = stp->num_exps;
-    Eterm mod = fp[2];
-    Eterm function = fp[3];
-    int arity = fp[4];
 #ifdef HIPE
     Lambda* lp;
 #endif
 
-    if (is_bif(mod, function, arity)) {
-	fp[1] = 0;
-	fp[2] = 0;
-	fp[3] = 0;
-	fp[4] = 0;
+    if (is_bif(ci->module, ci->function, ci->arity)) {
+	ci->native = 0;
+	ci->module = 0;
+	ci->function = 0;
+	ci->arity = 0;
 	return;
     }
 
@@ -6086,9 +6080,9 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
      */
 
     for (i = 0; i < n; i++) {
-	if (stp->export[i].function == function && stp->export[i].arity == arity) {
-	    Export* ep = erts_export_put(mod, function, arity);
-	    ep->addressv[erts_staging_code_ix()] = fp+5;
+	if (stp->export[i].function == ci->function && stp->export[i].arity == ci->arity) {
+	    Export* ep = erts_export_put(ci->module, ci->function, ci->arity);
+	    ep->addressv[erts_staging_code_ix()] = ERTS_CODEINFO_TO_CODE(ci);
 	    return;
 	}
     }
@@ -6102,9 +6096,9 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
     n = stp->num_lambdas;
     for (i = 0, lp = stp->lambdas; i < n; i++, lp++) {
         ErlFunEntry* fe = stp->lambdas[i].fe;
-	if (lp->function == function && lp->arity == arity) {
-	    fp[5] = (Eterm) BeamOpCode(op_hipe_trap_call_closure);
-            fe->address = &(fp[5]);
+	if (lp->function == ci->function && lp->arity == ci->arity) {
+	    *ERTS_CODEINFO_TO_CODE(ci) = (Eterm) BeamOpCode(op_hipe_trap_call_closure);
+            fe->address = ERTS_CODEINFO_TO_CODE(ci);
 	}
     }
 #endif
@@ -6430,7 +6424,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	 * Set the pointer and make the stub. Put a return instruction
 	 * as the body until we know what kind of trap we should put there.
 	 */
-	code_hdr->functions[i] = fp;
+	code_hdr->functions[i] = (ErtsCodeInfo*)fp;
 #ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
 #else
@@ -6444,7 +6438,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the last pointer and the int_code_end instruction.
      */
 
-    code_hdr->functions[i] = fp;
+    code_hdr->functions[i] = (ErtsCodeInfo*)fp;
     *fp++ = (BeamInstr) BeamOp(op_int_code_end);
 
     /*
@@ -6492,7 +6486,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     fp = code_base;
     for (i = 0; i < n; i++) {
-	stub_final_touch(stp, fp);
+	stub_final_touch(stp, (ErtsCodeInfo*)fp);
 	fp += WORDS_PER_FUNCTION;
     }
 

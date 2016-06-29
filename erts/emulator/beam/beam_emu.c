@@ -4708,9 +4708,8 @@ do {						\
 
  OpCase(i_generic_breakpoint): {
      BeamInstr real_I;
-     ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      HEAVY_SWAPOUT;
-     real_I = erts_generic_breakpoint(c_p, (ErtsCodeInfo*)(I-5), reg);
+     real_I = erts_generic_breakpoint(c_p, ERTS_CODE_TO_CODEINFO(I), reg);
      HEAVY_SWAPIN;
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
@@ -4719,7 +4718,7 @@ do {						\
  OpCase(i_return_time_trace): {
      BeamInstr *pc = (BeamInstr *) (UWord) E[0];
      SWAPOUT;
-     erts_trace_time_return(c_p, pc);
+     erts_trace_time_return(c_p, ERTS_CODE_TO_CODEINFO(pc));
      SWAPIN;
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[1]));

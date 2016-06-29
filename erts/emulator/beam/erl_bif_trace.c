@@ -975,6 +975,7 @@ static int function_is_traced(Process *p,
     Export e;
     Export* ep;
     BeamInstr* pc;
+    ErtsCodeInfo *ci;
 
     /* First look for an export entry */
     e.info.module = mfa[0];
@@ -990,17 +991,17 @@ static int function_is_traced(Process *p,
 	    ASSERT(*pc == (BeamInstr) em_apply_bif ||
 		   *pc == (BeamInstr) BeamOp(op_i_generic_breakpoint));
 
-	    if (erts_is_trace_break(pc, ms, 0)) {
+	    if (erts_is_trace_break(&ep->info, ms, 0)) {
 		return FUNC_TRACE_GLOBAL_TRACE;
 	    }
 
-	    if (erts_is_trace_break(pc, ms, 1)) {
+	    if (erts_is_trace_break(&ep->info, ms, 1)) {
 		r |= FUNC_TRACE_LOCAL_TRACE;
 	    }
-	    if (erts_is_mtrace_break(pc, ms_meta, tracer_pid_meta)) {
+	    if (erts_is_mtrace_break(&ep->info, ms_meta, tracer_pid_meta)) {
 		r |= FUNC_TRACE_META_TRACE;
 	    }
-	    if (erts_is_time_break(p, pc, call_time)) {
+	    if (erts_is_time_break(p, &ep->info, call_time)) {
 		r |= FUNC_TRACE_TIME_TRACE;
 	    }
 	    return r ? r : FUNC_TRACE_UNTRACED;
@@ -1008,15 +1009,15 @@ static int function_is_traced(Process *p,
     }
     
     /* OK, now look for breakpoint tracing */
-    if ((pc = erts_find_local_func(mfa)) != NULL) {
+    if ((ci = erts_find_local_func(mfa)) != NULL) {
 	int r = 
-	    (erts_is_trace_break(pc, ms, 1)
+	    (erts_is_trace_break(ci, ms, 1)
 	     ? FUNC_TRACE_LOCAL_TRACE : 0) 
-	    | (erts_is_mtrace_break(pc, ms_meta, tracer_pid_meta)
+	    | (erts_is_mtrace_break(ci, ms_meta, tracer_pid_meta)
 	       ? FUNC_TRACE_META_TRACE : 0)
-	    | (erts_is_count_break(pc, count)
+	    | (erts_is_count_break(ci, count)
 	       ? FUNC_TRACE_COUNT_TRACE : 0)
-	    | (erts_is_time_break(p, pc, call_time)
+	    | (erts_is_time_break(p, ci, call_time)
 	       ? FUNC_TRACE_TIME_TRACE : 0);
 	
 	return r ? r : FUNC_TRACE_UNTRACED;
@@ -1370,8 +1371,9 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
     n = finish_bp.e.matched;
 
     for (i = 0; i < n; i++) {
-	BeamInstr* pc = fp[i].pc;
-	Export* ep = ErtsContainerStruct(pc, Export, code0[0]);
+        ErtsCodeInfo *ci = fp[i].ci;
+	BeamInstr* pc = ERTS_CODEINFO_TO_CODE(ci);
+	Export* ep = ErtsContainerStruct(ci, Export, info);
 
 	if (on && !flags.breakpoint) {
 	    /* Turn on global call tracing */
@@ -1383,7 +1385,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
                 ep->code0[0] = (BeamInstr) BeamOp(op_jump_f);
 		ep->code0[1] = (BeamInstr) ep->addressv[code_ix];
 	    }
-	    erts_set_call_trace_bif(pc, match_prog_set, 0);
+	    erts_set_call_trace_bif(ci, match_prog_set, 0);
 	    if (ep->addressv[code_ix] != pc) {
 		ep->code0[0] = (BeamInstr) BeamOp(op_i_generic_breakpoint);
 	    }
@@ -1394,7 +1396,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 	     * Turn off global tracing, either explicitly or implicitly
 	     * before turning on breakpoint tracing.
 	     */
-	    erts_clear_call_trace_bif(pc, 0);
+	    erts_clear_call_trace_bif(ci, 0);
 	    if (ep->code0[0] == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		ep->code0[0] = (BeamInstr) BeamOp(op_jump_f);
 	    }
@@ -1406,7 +1408,6 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
     */
     for (i = 0; i < BIF_SIZE; ++i) {
 	Export *ep = bif_export[i];
-        BeamInstr* pc = (BeamInstr *)bif_export[i]->code0;
 
 	if (!ExportIsBuiltIn(ep)) {
 	    continue;
@@ -1427,6 +1428,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
         case 1:
             if (mfa[0] != ep->info.module)
                 continue;
+        case 0:
             break;
         default:
             ASSERT(0);
@@ -1434,11 +1436,11 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 
         if (! flags.breakpoint) { /* Export entry call trace */
             if (on) {
-                erts_clear_call_trace_bif(pc, 1);
-                erts_clear_mtrace_bif(pc);
-                erts_set_call_trace_bif(pc, match_prog_set, 0);
+                erts_clear_call_trace_bif(&ep->info, 1);
+                erts_clear_mtrace_bif(&ep->info);
+                erts_set_call_trace_bif(&ep->info, match_prog_set, 0);
             } else { /* off */
-                erts_clear_call_trace_bif(pc, 0);
+                erts_clear_call_trace_bif(&ep->info, 0);
             }
             matches++;
         } else { /* Breakpoint call trace */
@@ -1446,31 +1448,31 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 
             if (on) {
                 if (flags.local) {
-                    erts_clear_call_trace_bif(pc, 0);
-                    erts_set_call_trace_bif(pc, match_prog_set, 1);
+                    erts_clear_call_trace_bif(&ep->info, 0);
+                    erts_set_call_trace_bif(&ep->info, match_prog_set, 1);
                     m = 1;
                 }
                 if (flags.meta) {
-                    erts_set_mtrace_bif(pc, meta_match_prog_set,
+                    erts_set_mtrace_bif(&ep->info, meta_match_prog_set,
                                         meta_tracer);
                     m = 1;
                 }
                 if (flags.call_time) {
-                    erts_set_time_trace_bif(pc, on);
+                    erts_set_time_trace_bif(&ep->info, on);
                     /* I don't want to remove any other tracers */
                     m = 1;
                 }
             } else { /* off */
                 if (flags.local) {
-                    erts_clear_call_trace_bif(pc, 1);
+                    erts_clear_call_trace_bif(&ep->info, 1);
                     m = 1;
                 }
                 if (flags.meta) {
-                    erts_clear_mtrace_bif(pc);
+                    erts_clear_mtrace_bif(&ep->info);
                     m = 1;
                 }
                 if (flags.call_time) {
-                    erts_clear_time_trace_bif(pc);
+                    erts_clear_time_trace_bif(&ep->info);
                     m = 1;
                 }
             }
@@ -1677,8 +1679,7 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	BeamInstr* pc = fp[i].pc;
-	Export* ep = ErtsContainerStruct(pc, Export, code0[0]);
+	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
 	ep->addressv[code_ix] = ep->code0;
     }
@@ -1693,13 +1694,12 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	BeamInstr* pc = fp[i].pc;
-	Export* ep = ErtsContainerStruct(pc, Export, code0[0]);
+	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-	if (ep->addressv[code_ix] != pc) {
+	if (ep->addressv[code_ix] != ep->code0) {
 	    continue;
 	}
-	ASSERT(*pc == (BeamInstr) BeamOp(op_jump_f));
+	ASSERT(ep->code0[0] == (BeamInstr) BeamOp(op_jump_f));
 	ep->addressv[code_ix] = (BeamInstr *) ep->code0[1];
     }
 }
@@ -1713,13 +1713,12 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-	BeamInstr* pc = fp[i].pc;
-	Export* ep = ErtsContainerStruct(pc, Export, code0[0]);
+	Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
 
-	if (ep->addressv[code_ix] == pc) {
+	if (ep->addressv[code_ix] == ep->code0) {
 	    continue;
 	}
-	if (*pc == (BeamInstr) BeamOp(op_jump_f)) {
+	if (ep->code0[0] == (BeamInstr) BeamOp(op_jump_f)) {
 	    ep->code0[0] = (BeamInstr) 0;
 	    ep->code0[1] = (BeamInstr) 0;
 	}

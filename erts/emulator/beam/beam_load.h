@@ -116,7 +116,7 @@ typedef struct beam_code_header {
      * The actual loaded code (for the first function) start just beyond
      * this table.
      */
-    BeamInstr* functions[1];
+    ErtsCodeInfo* functions[1];
 
 }BeamCodeHeader;
 

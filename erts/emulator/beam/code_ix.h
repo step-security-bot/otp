@@ -76,6 +76,8 @@ typedef struct ErtsCodeInfo_ {
     Uint  arity;
 } ErtsCodeInfo;
 
+#define ERTS_CODEINFO_TO_CODE(CodeInfo) ((BeamInstr*)(CodeInfo+1))
+#define ERTS_CODE_TO_CODEINFO(pc) ((ErtsCodeInfo *)(((char *)(pc)) - sizeof(ErtsCodeInfo)))
 
 /* Called once at emulator initialization.
  */

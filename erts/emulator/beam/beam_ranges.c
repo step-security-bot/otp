@@ -236,7 +236,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
     }
     hdr = (BeamCodeHeader*) rp->start;
 
-    low = hdr->functions;
+    low = (BeamInstr**)hdr->functions;
     high = low + hdr->num_functions;
     while (low < high) {
 	mid = low + (high-low) / 2;
@@ -245,7 +245,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 	} else if (pc < mid[1]) {
 	    fi->current = mid[0]+2;
 	    if (full_info) {
-		BeamInstr** fp = hdr->functions;
+		BeamInstr** fp = (BeamInstr**)hdr->functions;
 		int idx = mid - fp;
 		lookup_loc(fi, pc, hdr, idx);
 	    }

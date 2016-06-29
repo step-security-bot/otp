@@ -241,19 +241,20 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    BeamInstr* funcinfo = NULL;	/* Initialized to eliminate warning. */
+    ErtsCodeInfo *ci;
     BeamCodeHeader* code_hdr;
-    BeamInstr* code_ptr = NULL;	/* Initialized to eliminate warning. */
+    BeamInstr *code_ptr;
     BeamInstr instr;
     BeamInstr uaddr;
     Uint hsz;
     int i;
 
     if (term_to_UWord(addr, &uaddr)) {
-	code_ptr = (BeamInstr *) uaddr;
-	if ((funcinfo = find_function_from_pc(code_ptr)) == NULL) {
+	BeamInstr *pc = (BeamInstr *) uaddr;
+	if ((pc = find_function_from_pc(pc)) == NULL) {
 	    BIF_RET(am_false);
 	}
+        ci = ErtsContainerStruct(pc, ErtsCodeInfo, module);
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
 	Module* modp;
@@ -290,16 +291,14 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
-	    funcinfo = code_ptr+2;
+	    ci = ERTS_CODE_TO_CODEINFO(ep->addressv[code_ix]);
 	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
 	    n = code_hdr->num_functions;
 	    for (i = 0; i < n; i++) {
-		code_ptr = code_hdr->functions[i];
-		if (code_ptr[3] == name && code_ptr[4] == arity) {
-		    funcinfo = code_ptr+2;
+		ci = code_hdr->functions[i];
+		if (ci->function == name && ci->arity == arity) {
 		    break;
 		}
 	    }
@@ -311,6 +310,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	goto error;
     }
 
+
+    code_ptr = ERTS_CODEINFO_TO_CODE(ci);
     dsbufp = erts_create_tmp_dsbuf(0);
     erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
     instr = (BeamInstr) code_ptr[0];
@@ -332,9 +333,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
-    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
-    mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
+    ASSERT(is_atom(ci->module) || ci->module == NIL);
+    ASSERT(is_atom(ci->function) || ci->function == NIL);
+    mfa = TUPLE3(hp, ci->module, ci->function, make_small(ci->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
 }
