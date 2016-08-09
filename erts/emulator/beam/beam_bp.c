@@ -178,7 +178,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 	for (fi = 0; fi < num_functions; fi++) {
 
 	    ci = code_hdr->functions[fi];
-	    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+	    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IIaaI));
 	    if (erts_is_native_break(ci)) {
 		continue;
 	    }
@@ -616,7 +616,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     Uint bp_flags;
     ErtsBpIndex ix = erts_active_bp_ix();
 
-    ASSERT(info->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    ASSERT(info->op == (BeamInstr) BeamOp(op_i_func_info_IIaaI));
 
     g = (GenericBp *) info->native;
     bp = &g->data[ix];
@@ -1146,7 +1146,7 @@ erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
 int
 erts_is_native_break(ErtsCodeInfo *ci) {
 #ifdef HIPE
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IIaaI));
     return ERTS_CODEINFO_TO_CODE(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call)
 	|| ERTS_CODEINFO_TO_CODE(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call_closure);
 #else
@@ -1242,7 +1242,7 @@ erts_find_local_func(Eterm mfa[3]) {
     n = (BeamInstr) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	ci = code_hdr->functions[i];
-	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IaaI)) == ci->op);
+	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IIaaI)) == ci->op);
 	ASSERT(mfa[0] == ci->module || is_nil(ci->module));
 	if (mfa[1] == ci->function &&
 	    ((Uint) mfa[2]) == ci->arity) {
@@ -1654,7 +1654,7 @@ check_break(ErtsCodeInfo *ci, Uint break_flags)
 {
     GenericBp* g = (GenericBp *) ci->native;
 
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IIaaI));
     if (erts_is_native_break(ci)) {
 	return 0;
     }

@@ -3700,7 +3700,7 @@ do {						\
     c_p->freason = EXC_IF_CLAUSE;
     goto find_func_info;
 
- OpCase(i_func_info_IaaI): {
+ OpCase(i_func_info_IIaaI): {
      c_p->freason = EXC_FUNCTION_CLAUSE;
      c_p->current = I + 2;
      goto handle_error;
@@ -4903,14 +4903,14 @@ do {						\
 	  * I[ 0]: &&lb_hipe_trap_call
 	  * ... remainder of original BEAM code
 	  */
-	 ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-	 c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
+	 ASSERT(I[-6] == (Uint) OpCode(i_func_info_IIaaI));
+	 c_p->hipe.u.ncallee = (void(*)(void)) I[-5];
 	 ++hipe_trap_count;
 	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (I[-1] << 8));
      }
      OpCase(hipe_trap_call_closure): {
-       ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
-       c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
+       ASSERT(I[-6] == (Uint) OpCode(i_func_info_IIaaI));
+       c_p->hipe.u.ncallee = (void(*)(void)) I[-5];
        ++hipe_trap_count;
        HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (I[-1] << 8));
      }
@@ -4981,8 +4981,8 @@ do {						\
       * I[ 0]: &&lb_hipe_call_count
       * ... remainder of original BEAM code
       */
-     struct hipe_call_count *hcc = (struct hipe_call_count*)I[-4];
-     ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
+     struct hipe_call_count *hcc = (struct hipe_call_count*)I[-5];
+     ASSERT(I[-6] == (Uint) OpCode(i_func_info_IIaaI));
      ASSERT(hcc != NULL);
      ASSERT(VALID_INSTR(hcc->opcode));
      ++(hcc->count);
@@ -5127,7 +5127,7 @@ do {						\
 	 ep->code[0] = (BeamInstr) OpCode(apply_bif);
 	 ep->code[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IIaaI);
      }
 
      return;

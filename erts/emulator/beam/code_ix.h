@@ -70,7 +70,7 @@ typedef unsigned ErtsCodeIndex;
 typedef struct ErtsCodeInfo_ {
     BeamInstr op;           /* OpCode(i_func_info) */
     BeamInstr native;       /* Used by hipe and trace to store extra data */
-    //BeamInstr native_arg;   /* used by trace to store the "real_I" */
+    BeamInstr native_arg;   /* used by trace to store the "real_I" */
     Eterm module;
     Eterm function;
     Uint  arity;

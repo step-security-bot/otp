@@ -1380,7 +1380,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
 #ifdef DEBUG
-		ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+		ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IIaaI);
 #endif
                 ep->code[0] = (BeamInstr) BeamOp(op_jump_f);
 		ep->code[1] = (BeamInstr) ep->addressv[code_ix];

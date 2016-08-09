@@ -1879,7 +1879,7 @@ load_code(LoaderState* stp)
      * by both the nif functionality and line instructions.
      */
     enum {
-	FUNC_INFO_SZ = 5
+	FUNC_INFO_SZ = sizeof(ErtsCodeInfo) / sizeof(Eterm)
     };
 
     code = stp->codev;
@@ -2508,7 +2508,7 @@ load_code(LoaderState* stp)
 	 * Handle a few special cases.
 	 */
 	switch (stp->specific_op) {
-	case op_i_func_info_IaaI:
+	case op_i_func_info_IIaaI:
 	    {
 		Sint offset;
 		if (function_number >= stp->num_functions) {
@@ -5987,7 +5987,7 @@ static BeamInstr*
 make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
 {
     ASSERT(WORDS_PER_FUNCTION == 6);
-    info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+    info->op = (BeamInstr) BeamOp(op_i_func_info_IIaaI);
     info->native = native;
 //    info->native_arg = 0;
     info->module = mod;
