@@ -49,10 +49,10 @@ typedef struct export
      * code[1]: Function pointer to BIF function (for BIFs only),
      *		or pointer to threaded code if the module has an
      *		on_load function that has not been run yet, or pointer
-     *          to code if function code[3] is a breakpoint instruction.
+     *          to code if function code[0] is a breakpoint instruction.
      *		Otherwise: 0.
      */
-    BeamInstr code0[2];
+    BeamInstr code[2];
 } Export;
 
 
@@ -78,8 +78,8 @@ extern erts_smp_mtx_t export_staging_lock;
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
-(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code0) && \
- ((EntryPtr)->code0[0] == (BeamInstr) em_apply_bif))
+(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code) && \
+ ((EntryPtr)->code[0] == (BeamInstr) em_apply_bif))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

@@ -119,7 +119,7 @@ do {                                     \
 #define GET_BIF_MODULE(p)  (((Export *) p)->info.module)
 #define GET_BIF_FUNCTION(p)  (((Export *) p)->info.function)
 #define GET_BIF_ARITY(p)  (((Export *) p)->info.arity)
-#define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code0[1]))
+#define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code[1]))
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
@@ -5124,8 +5124,8 @@ do {						\
 			      bif_table[i].name,
 			      bif_table[i].arity);
 	 bif_export[i] = ep;
-	 ep->code0[0] = (BeamInstr) OpCode(apply_bif);
-	 ep->code0[1] = (BeamInstr) bif_table[i].f;
+	 ep->code[0] = (BeamInstr) OpCode(apply_bif);
+	 ep->code[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
 	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
@@ -7197,8 +7197,8 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->code0
-	&& (ep->code0[0] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->code
+	&& (ep->code[0] == (BeamInstr) em_apply_bif);
 }
 
 

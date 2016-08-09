@@ -283,9 +283,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
 	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
-	    /* XXX: add "&& ep->address != ep->code+3" condition?
+	    /* XXX: add "&& ep->address != ep->code" condition?
 	     * Consider a traced function.
-	     * Its ep will have ep->address == ep->code+3.
+	     * Its ep will have ep->address == ep->code.
 	     * erts_find_function() will return the non-NULL ep.
 	     * Below we'll try to derive a code_ptr from ep->address.
 	     * But this code_ptr will point to the start of the Export,
