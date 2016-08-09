@@ -5804,7 +5804,6 @@ md5_of_module(Process* p, /* Process whose heap to use. */
 Eterm*
 erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 {
-    BeamInstr* current = fi->current;
     Eterm loc = NIL;
 
     if (fi->loc != LINE_INVALID_LOCATION) {
@@ -5814,7 +5813,7 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 	Eterm file_term = NIL;
 
 	if (file == 0) {
-	    Atom* ap = atom_tab(atom_val(fi->current[0]));
+	    Atom* ap = atom_tab(atom_val(fi->ci->module));
 	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
 	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
 	} else {
@@ -5833,10 +5832,12 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
     }
 
     if (is_list(args) || is_nil(args)) {
-	*mfa_p = TUPLE4(hp, current[0], current[1], args, loc);
+	*mfa_p = TUPLE4(hp, fi->ci->module, fi->ci->function,
+                        args, loc);
     } else {
-	Eterm arity = make_small(current[2]);
-	*mfa_p = TUPLE4(hp, current[0], current[1], arity, loc);
+	Eterm arity = make_small(fi->ci->arity);
+	*mfa_p = TUPLE4(hp, fi->ci->module, fi->ci->function,
+                        arity, loc);
     }
     return hp + 5;
 }
@@ -5849,7 +5850,7 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 void
 erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
 {
-    fi->current = current;
+    fi->ci = ERTS_CODE_TO_CODEINFO(current+3);
     fi->needed = 5;
     fi->loc = LINE_INVALID_LOCATION;
 }
@@ -5858,13 +5859,13 @@ erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
 /*
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
-BeamInstr*
+ErtsCodeInfo*
 find_function_from_pc(BeamInstr* pc)
 {
     FunctionInfo fi;
 
     erts_lookup_function_info(&fi, pc, 0);
-    return fi.current;
+    return fi.ci;
 }
 
 /*

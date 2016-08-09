@@ -773,7 +773,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
 	curr_func = 0;
     else {
 	if (!p->current)
-	    p->current = find_function_from_pc(p->i);
+	    p->current = (BeamInstr*)&find_function_from_pc(p->i)->module;
 	curr_func = p->current != NULL;
     }
 
@@ -1015,14 +1015,13 @@ erts_trace_return_to(Process *p, BeamInstr *pc)
 {
     Eterm mfa;
 
-    BeamInstr *code_ptr = find_function_from_pc(pc);
+    ErtsCodeInfo *ci = find_function_from_pc(pc);
 
-
-    if (!code_ptr) {
+    if (!ci) {
 	mfa = am_undefined;
     } else {
         Eterm *hp = HAlloc(p, 4);
-	mfa = TUPLE3(hp, code_ptr[0], code_ptr[1], make_small(code_ptr[2]));
+	mfa = TUPLE3(hp, ci->module, ci->function, make_small(ci->arity));
     }
 
     send_to_tracer_nif(p, &p->common, p->common.id, NULL, TRACE_FUN_T_CALL,
@@ -1448,7 +1447,8 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
 }
 
 void 
-monitor_long_schedule_proc(Process *p, BeamInstr *in_fp, BeamInstr *out_fp, Uint time)
+monitor_long_schedule_proc(Process *p, ErtsCodeInfo *in_fp,
+                           ErtsCodeInfo *out_fp, Uint time)
 {
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
@@ -1479,11 +1479,13 @@ monitor_long_schedule_proc(Process *p, BeamInstr *in_fp, BeamInstr *out_fp, Uint
     hp = ERTS_ALLOC_SYSMSG_HEAP(hsz, &bp, &off_heap, monitor_p);
     tmo = erts_bld_uint(&hp, NULL, time);
     if (in_fp != NULL) {
-	in_mfa = TUPLE3(hp,(Eterm) in_fp[0], (Eterm) in_fp[1], make_small(in_fp[2]));
+	in_mfa = TUPLE3(hp, in_fp->module, in_fp->function,
+                        make_small(in_fp->arity));
 	hp +=4;
     } 
     if (out_fp != NULL) {
-	out_mfa = TUPLE3(hp,(Eterm) out_fp[0], (Eterm) out_fp[1], make_small(out_fp[2]));
+	out_mfa = TUPLE3(hp, out_fp->module, out_fp->function,
+                         make_small(out_fp->arity));
 	hp +=4;
     } 
     tmo_tpl = TUPLE2(hp,am_timeout, tmo);
@@ -2118,7 +2120,7 @@ profile_runnable_proc(Process *p, Eterm status){
     Eterm *hp, msg;
     Eterm where = am_undefined;
     ErlHeapFragment *bp = NULL;
-    BeamInstr *current = NULL;
+    ErtsCodeInfo *ci = NULL;
 
 #ifndef ERTS_SMP
 #define LOCAL_HEAP_SIZE (4 + 6 + ERTS_TRACE_PATCH_TS_MAX_SIZE)
@@ -2140,14 +2142,14 @@ profile_runnable_proc(Process *p, Eterm status){
 
     if (!ERTS_PROC_IS_EXITING(p)) {
         if (p->current) {
-            current = p->current;
+            ci = ERTS_CODE_TO_CODEINFO(p->current+3);
         } else {
-            current = find_function_from_pc(p->i);
+            ci = find_function_from_pc(p->i);
         }
     }
 
 #ifdef ERTS_SMP
-    if (!current) {
+    if (!ci) {
 	hsz -= 4;
     }
 
@@ -2155,8 +2157,9 @@ profile_runnable_proc(Process *p, Eterm status){
     hp = bp->mem;
 #endif
 
-    if (current) {
-	where = TUPLE3(hp, current[0], current[1], make_small(current[2])); hp += 4;
+    if (ci) {
+	where = TUPLE3(hp, ci->module, ci->function, make_small(ci->arity));
+        hp += 4;
     } else {
 	where = make_small(0);
     }

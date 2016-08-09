@@ -2962,17 +2962,16 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
  ***************************************************************************/
 
 
-static BeamInstr** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsigned arity)
+static ErtsCodeInfo** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code->num_functions;
     int j;
     for (j = 0; j < n; ++j) {
-	BeamInstr* code_ptr = (BeamInstr*) mod_code->functions[j];
-	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-	if (f_atom == ((Eterm) code_ptr[3])
-	    && arity == ((unsigned) code_ptr[4])) {
-
-	    return (BeamInstr**) &mod_code->functions[j];
+	ErtsCodeInfo* ci = mod_code->functions[j];
+	ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IIaaI));
+	if (f_atom == ci->function
+	    && arity == ci->arity) {
+	    return mod_code->functions+j;
 	}
     }
     return NULL;
@@ -3108,7 +3107,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Eterm mod_atom;
     const Atom* mod_atomp;
     Eterm f_atom;
-    BeamInstr* caller;
+    ErtsCodeInfo* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
@@ -3147,7 +3146,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	   && BIF_P->current[2] == 2);
     caller = find_function_from_pc(BIF_P->cp);
     ASSERT(caller != NULL);
-    mod_atom = caller[0];
+    mod_atom = caller->module;
     ASSERT(is_atom(mod_atom));
     module_p = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(module_p != NULL);
@@ -3218,9 +3217,9 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	int incr = 0;
 	ErlNifFunc* f = entry->funcs;
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
-	    BeamInstr** code_pp;
+	    ErtsCodeInfo** ci_pp;
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (code_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
+		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
@@ -3242,9 +3241,9 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 #endif
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
-	    else if (code_pp[1] - code_pp[0] < (5+4))
+	    else if (ERTS_CODEINFO_TO_CODE(ci_pp[1]) - ERTS_CODEINFO_TO_CODE(ci_pp[0]) < (4))
 #else
-	    else if (code_pp[1] - code_pp[0] < (5+3))
+	    else if (ERTS_CODEINFO_TO_CODE(ci_pp[1]) - ERTS_CODEINFO_TO_CODE(ci_pp[0]) < (3))
 #endif
 	    {
 		ret = load_nif_error(BIF_P,bad_lib,"No explicit call to load_nif"
@@ -3361,31 +3360,33 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	this_mi->nif = lib;
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
-	    BeamInstr* code_ptr;
+	    ErtsCodeInfo* ci;
+            BeamInstr *code_ptr;
 	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
-	    code_ptr = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
+	    ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
+            code_ptr = ERTS_CODEINFO_TO_CODE(ci);
 
-	    if (code_ptr[1] == 0) {
-		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
+	    if (ci->native == 0) {
+		code_ptr[0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
-		GenericBp* g = (GenericBp *) code_ptr[1];
-		ASSERT(code_ptr[5+0] ==
+		GenericBp* g = (GenericBp *) ci->native;
+		ASSERT(code_ptr[0] ==
 		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
 		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }
 #ifdef ERTS_DIRTY_SCHEDULERS
 	    if ((entry->major > 2 || (entry->major == 2 && entry->minor >= 7))
 		&& (entry->options & ERL_NIF_DIRTY_NIF_OPTION) && f->flags) {
-		code_ptr[5+3] = (BeamInstr) f->fptr;
-		code_ptr[5+1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
+		code_ptr[3] = (BeamInstr) f->fptr;
+		code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
 		    (BeamInstr) schedule_dirty_io_nif :
 		    (BeamInstr) schedule_dirty_cpu_nif;
 	    }
 	    else
 #endif
-		code_ptr[5+1] = (BeamInstr) f->fptr;
-	    code_ptr[5+2] = (BeamInstr) lib;
+		code_ptr[1] = (BeamInstr) f->fptr;
+	    code_ptr[2] = (BeamInstr) lib;
 	    f = next_func(entry, &incr, f);
 	}
     }

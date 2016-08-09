@@ -241,7 +241,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    ErtsCodeInfo *ci;
+    ErtsCodeInfo *ci = NULL;
     BeamCodeHeader* code_hdr;
     BeamInstr *code_ptr;
     BeamInstr instr;
@@ -251,10 +251,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 
     if (term_to_UWord(addr, &uaddr)) {
 	BeamInstr *pc = (BeamInstr *) uaddr;
-	if ((pc = find_function_from_pc(pc)) == NULL) {
+	if ((ci = find_function_from_pc(pc)) == NULL) {
 	    BIF_RET(am_false);
 	}
-        ci = ErtsContainerStruct(pc, ErtsCodeInfo, module);
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
 	Module* modp;
@@ -347,11 +346,11 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    BeamInstr* addr = find_function_from_pc(cp_val(*sp));
-	    if (addr)
+	    ErtsCodeInfo* ci = find_function_from_pc(cp_val(*sp));
+	    if (ci)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
-			     addr, (Eterm) addr[0], (Eterm) addr[1], addr[2]);
+			     &ci->module, ci->module, ci->function, ci->arity);
 	}
 	sp++;
     }
@@ -360,17 +359,16 @@ dbg_bt(Process* p, Eterm* sp)
 void
 dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
 {
-    BeamInstr* f = find_function_from_pc(addr);
+    ErtsCodeInfo* ci = find_function_from_pc(addr);
 
-    if (f == NULL) {
+    if (ci == NULL) {
 	erts_fprintf(stderr, "???\n");
     } else {
 	int arity;
 	int i;
 
-	addr = f;
-	arity = addr[2];
-	erts_fprintf(stderr, HEXF ": %T:%T(", addr, (Eterm) addr[0], (Eterm) addr[1]);
+	arity = ci->arity;
+	erts_fprintf(stderr, HEXF ": %T:%T(", addr, ci->module, ci->function);
 	for (i = 0; i < arity; i++)
 	    erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
 	erts_fprintf(stderr, ")\n");

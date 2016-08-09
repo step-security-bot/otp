@@ -1324,8 +1324,8 @@ void process_main(void)
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
-	    BeamInstr *inptr = find_function_from_pc(start_time_i);
-	    BeamInstr *outptr = find_function_from_pc(c_p->i);
+	    ErtsCodeInfo *inptr = find_function_from_pc(start_time_i);
+	    ErtsCodeInfo *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
 	}
     }
@@ -6065,7 +6065,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * If fi.current is still NULL, default to the initial function
      * (e.g. spawn_link(erlang, abs, [1])).
      */
-    if (fi.current == NULL) {
+    if (fi.ci == NULL) {
 	erts_set_current_function(&fi, c_p->u.initial);
 	args = am_true; /* Just in case */
     } else {
@@ -6082,7 +6082,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
     heap_size = fi.needed + 2;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
-	if (stkp->current) {
+	if (stkp->ci) {
 	    heap_size += stkp->needed + 2;
 	    stkp++;
 	}

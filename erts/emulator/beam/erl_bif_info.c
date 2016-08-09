@@ -1614,10 +1614,10 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 
     if (rp->current == NULL) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	rp->current = fi.current;
+	rp->current = (BeamInstr*)&fi.ci->module;
     } else if (full_info) {
 	erts_lookup_function_info(&fi, rp->i, full_info);
-	if (fi.current == NULL) {
+	if (fi.ci == NULL) {
 	    /* Use the current function without location info */
 	    erts_set_current_function(&fi, rp->current);
 	}
@@ -1633,9 +1633,9 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	 * instead if it can be looked up.
 	 */
 	erts_lookup_function_info(&fi2, rp->cp, full_info);
-	if (fi2.current) {
+	if (fi2.ci) {
 	    fi = fi2;
-	    rp->current = fi2.current;
+	    rp->current = (BeamInstr*)&fi2.ci->module;
 	}
     }
 
@@ -1692,7 +1692,7 @@ current_stacktrace(Process* p, Process* rp, Eterm** hpp)
     heap_size = 3;
     for (i = 0; i < depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
-	if (stkp->current) {
+	if (stkp->ci) {
 	    heap_size += stkp->needed + 2;
 	    stkp++;
 	}
