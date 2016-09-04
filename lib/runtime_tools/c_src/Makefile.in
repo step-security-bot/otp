@@ -27,27 +27,24 @@ include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 include ../vsn.mk
 VSN=$(RUNTIME_TOOLS_VSN)
 
+TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv trace_file_nif
+
 # ----------------------------------------------------
-# The following variables differ on different systems, we set
-# reasonable defaults, if something different is needed it should
-# be set for that system only.
+# The following variables differ between systems.
+# Set by configure.
 # ----------------------------------------------------
 CC = $(DED_CC)
-CFLAGS = $(DED_CFLAGS) -I./
 LD = $(DED_LD)
 SHELL = /bin/sh
-LIBS = $(DED_LIBS) @LIBS@
+LIBS = $(DED_LIBS) @LIBS@ @ZSTD_LIBS@
 LDFLAGS += $(DED_LDFLAGS)
+CFLAGS = $(DED_CFLAGS)
 
-TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
-
-SYSINCLUDE = $(DED_SYS_INCLUDE)
-
-TRACE_DRV_INCLUDES = $(SYSINCLUDE)
+INCLUDES = $(DED_INCLUDES) @ZSTD_CFLAGS@
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
-TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DDEBUG @DEBUG_FLAGS@
+TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DDEBUG
 else
 ifeq ($(TYPE),valgrind)
 TYPEMARKER = .valgrind
@@ -58,8 +55,8 @@ TYPE_FLAGS = $(CFLAGS)
 endif
 endif
 
-ALL_CFLAGS = @DEFS@ @ERTS_CONFIG_H_IDIR@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
-	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
+ALL_CFLAGS = @DEFS@ @ERTS_CONFIG_H_IDIR@ $(TYPE_FLAGS) $(EXTRA_FLAGS) \
+	$(INCLUDES) -I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
 
 ROOTDIR = $(ERL_TOP)/lib
 PRIVDIR = ../priv

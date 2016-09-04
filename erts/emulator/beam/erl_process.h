@@ -620,11 +620,7 @@ typedef enum {
 
 
 struct ErtsSchedulerData_ {
-    /*
-     * Keep X registers first (so we get as many low
-     * numbered registers as possible in the same cache
-     * line).
-     */
+    Uint no;			/* Scheduler number for normal schedulers */
     Eterm* x_reg_array;		/* X registers */
     FloatDef* f_reg_array;	/* Floating point registers. */
 
@@ -639,7 +635,6 @@ struct ErtsSchedulerData_ {
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     ErtsSchedType type;
-    Uint no;			/* Scheduler number for normal schedulers */
     Uint dirty_no;  /* Scheduler number for dirty schedulers */
     struct enif_environment_t *current_nif;
     Process *dirty_shadow_process;
