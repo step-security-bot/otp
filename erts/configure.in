@@ -1329,6 +1329,55 @@ LIBS=$zlib_save_LIBS
 fi
 AC_SUBST(Z_LIB)
 
+AC_ARG_WITH(zstd,
+        AS_HELP_STRING([--with-zstd=PATH], [specify location of zstandard include and lib])
+        AS_HELP_STRING([--with-zstd], [use ZSTD (default)])
+        AS_HELP_STRING([--without-zstd], [don't use ZSTD]),
+        [],
+        [with_zstd=check])
+
+zstd_save_CFLAGS=$CFLAGS
+zstd_save_LIBS=$LIBS
+
+AC_MSG_CHECKING(for zstd)
+if test "$with_zstd" = "no"; then
+  AC_MSG_RESULT([User gave --without-zstd option])
+else
+  if test "$with_zstd" != "yes" -a "$with_zstd" != "check"; then
+    ZSTD_LIBS="-L$with_zstd/lib"
+    ZSTD_CFLAGS="-I$with_zstd/include"
+  fi
+  ZSTD_LIBS="-lzstd $ZSTD_LIBS"
+  LIBS="$ZSTD_LIBS $LIBS"
+  CFLAGS="$ZSTD_CFLAGS $CFLAGS"
+  AC_TRY_LINK([
+    #include <zstd.h>
+  ],
+  [
+    ZSTD_createCStream();
+    ZSTD_compressStream(NULL, NULL, NULL);
+  ],[have_zstd=yes],[have_zstd=no])
+  case "$have_zstd-$with_zstd" in
+    no-check)
+      ZSTD_LIBS=
+      ZSTD_CFLAGS=
+      AC_MSG_RESULT([no])
+      ;;
+    no-*)
+      AC_MSG_ERROR([not found, but --with-zstd given])
+      ;;
+    yes-*)
+      ZSTD_CFLAGS=-DHAVE_ZSTD=1 $ZSTD_CFLAGD
+      AC_MSG_RESULT(yes)
+    ;;
+  esac
+fi
+
+AC_SUBST(ZSTD_LIBS)
+AC_SUBST(ZSTD_CFLAGS)
+CFLAGS=$zstd_save_CFLAGS
+LIBS=$zstd_save_LIBS
+
 dnl
 dnl This test kindly borrowed from Tcl
 dnl

@@ -52,11 +52,6 @@
 %% Internal exports
 -export(['$code_change'/1]).
 
-
-
--define(FNAME_WIDTH, 72).
--define(NR_WIDTH, 15).
-
 -define(TRACE_FILE, "fprof.trace").
 -define(DUMP_FILE, "fprof.dump").
 -define(PROFILE_FILE, "fprof.profile").
@@ -66,8 +61,7 @@
 -define(FPROF_SERVER_TIMEOUT, infinity).
 
 
-
--define(debug, 9).
+%-define(debug, 9).
 %-define(debug, 0).
 -ifdef(debug).
 dbg(Level, F, A) when Level >= ?debug ->
@@ -227,7 +221,7 @@ apply_continue(Function, Args, Procs, Options) ->
 
 -record(trace_start, {procs,  % List of processes
 		      mode,   % normal | verbose
-		      type,   % file | tracer
+		      type,   % file | file_drv | tracer
 		      dest}). % Filename | Pid/Port
 
 -record(trace_stop, {}).
@@ -237,6 +231,7 @@ apply_continue(Function, Args, Procs, Options) ->
 % -record(close_out, {}).
 
 -record(profile, {src,          % Filename
+                  type,         % file | file_drv
 		  group_leader, % IoPid
 		  dump,         % Filename | IoPid
 		  flags}).      % List
@@ -304,22 +299,29 @@ trace(Option) when is_atom(Option) ->
     trace([Option]);
 trace(Options) when is_list(Options) ->
     case getopts(Options, 
-		 [start, stop, procs, verbose, file, tracer, cpu_time]) of
+		 [start, stop, procs, verbose,
+                  file_drv, file, tracer, cpu_time]) of
 	{[[], [stop], [], [], [], [], []], []} ->
 	    call(#trace_stop{});
-	{[[start], [], Procs, Verbose, File, Tracer, CpuTime], []} ->
-	    {Type, Dest} = case {File, Tracer} of
-			       {[], [{tracer, Pid} = T]} 
+	{[[start], [], Procs, Verbose, FileDrv, File, Tracer, CpuTime], []} ->
+	    {Type, Dest} = case {File, FileDrv, Tracer} of
+			       {[], [], [{tracer, Pid} = T]} 
 			       when is_pid(Pid); is_port(Pid) ->
 				   T;
-			       {[file], []} ->
-				   {file, ?TRACE_FILE};
-			       {[{file, []}], []} ->
-				   {file, ?TRACE_FILE};
-			       {[{file, _} = F], []} ->
+			       {[], [file_drv], []} ->
+				   {file_drv, ?TRACE_FILE};
+			       {[], [{file_drv, []}], []} ->
+				   {file_drv, ?TRACE_FILE};
+			       {[], [{file_drv, _} = F], []} ->
 				   F;
-			       {[], []} ->
+			       {[], [], []} ->
 				   {file, ?TRACE_FILE};
+                               {[file], [], []} ->
+                                   {file, ?TRACE_FILE};
+                               {[{file,[]}], [], []} ->
+                                   {file, ?TRACE_FILE};
+                               {[{file, _} = F], [], []} ->
+                                   F;
 			       _ ->
 				   erlang:error(badarg, [Options])
 			   end,
@@ -371,8 +373,8 @@ profile(Option) when is_atom(Option) ->
 profile({Opt, _Val} = Option) when is_atom(Opt) ->
     profile([Option]);
 profile(Options) when is_list(Options) ->
-    case getopts(Options, [start, stop, file, dump, append]) of
-	{[Start, [], File, Dump, Append], []} ->
+    case getopts(Options, [start, stop, file_drv, file, dump, append]) of
+	{[Start, [], FileDrv, File, Dump, Append], []} ->
 	    {Target, Flags} = 
 		case {Dump, Append} of
 		    {[], []} ->
@@ -392,13 +394,32 @@ profile(Options) when is_list(Options) ->
 		    _ ->
 			erlang:error(badarg, [Options])
 		end,
-	    case {Start, File} of
-		{[start], []} ->
+	    case {Start, FileDrv, File} of
+		{[start], [], []} ->
 		    call(#profile_start{group_leader = group_leader(),
 					dump = Target,
 					flags = Flags});
-		{[], _} ->
-		    Src = 
+		{[], _, []} ->
+		    Src =
+			case FileDrv of
+			    [] ->
+				?TRACE_FILE;
+			    [file_drv] ->
+				?TRACE_FILE;
+			    [{file_drv, []}] ->
+				?TRACE_FILE;
+			    [{file_drv, F}] ->
+				F;
+			    _ ->
+				erlang:error(badarg, [Options])
+			end,
+		    call(#profile{src = Src,
+                                  type = file_drv,
+				  group_leader = group_leader(),
+				  dump = Target,
+				  flags = Flags});
+                {[], [], _} ->
+		    Src =
 			case File of
 			    [] ->
 				?TRACE_FILE;
@@ -411,7 +432,8 @@ profile(Options) when is_list(Options) ->
 			    _ ->
 				erlang:error(badarg, [Options])
 			end,
-		    call(#profile{src = Src,
+                    call(#profile{src = Src,
+                                  type = file,
 				  group_leader = group_leader(),
 				  dump = Target,
 				  flags = Flags});
@@ -811,7 +833,6 @@ try_pending_stop(State) ->
 %%------------------
 %% Server handle_req			    
 %%------------------
-
 handle_req(#trace_start{procs = Procs,
 			mode = Mode,
 			type = file,
@@ -819,8 +840,32 @@ handle_req(#trace_start{procs = Procs,
     case {get(trace_state), get(pending_stop)} of
 	{idle, []} ->
 	    trace_off(),
+            erlang:display({start, Mode, Filename}),
+	    Ref = trace_file_nif:start(Filename),
+	    case trace_on(Procs, {tracer, trace_file_nif, Ref}, Mode) of
+		ok ->
+		    put(trace_state, running),
+		    put(trace_type, nif),
+		    put(trace_ref, Ref),
+		    reply(Tag, ok),
+		    State;
+		Error ->
+		    reply(Tag, Error),
+		    State
+	    end;
+	_ ->
+	    reply(Tag, {error, already_tracing}),
+	    State
+    end;
+handle_req(#trace_start{procs = Procs,
+			mode = Mode,
+			type = file_drv,
+			dest = Filename}, Tag, State) ->
+    case {get(trace_state), get(pending_stop)} of
+	{idle, []} ->
+	    trace_off(),
 	    Port = open_dbg_trace_port(file, Filename),
-	    case trace_on(Procs, Port, Mode) of
+	    case trace_on(Procs, {tracer, Port}, Mode) of
 		ok ->
 		    put(trace_state, running),
 		    put(trace_type, file),
@@ -842,7 +887,7 @@ handle_req(#trace_start{procs = Procs,
     case {get(trace_state), get(pending_stop)} of
 	{idle, []} ->
 	    trace_off(),
-	    case trace_on(Procs, Tracer, Mode) of
+	    case trace_on(Procs, {tracer, Tracer}, Mode) of
 		ok ->
 		    put(trace_state, running),
 		    put(trace_type, tracer),
@@ -864,6 +909,12 @@ handle_req(#trace_stop{}, Tag, State) ->
 	    TracePid = get(trace_pid),
 	    trace_off(),
 	    case erase(trace_type) of
+                nif ->
+                    trace_file_nif:stop(get(trace_ref)),
+		    put(trace_state, idle),
+                    erase(trace_ref),
+                    reply(Tag, ok),
+                    State;
 		file ->
 		    catch erlang:port_close(TracePid),
 		    put(trace_state, stopping),
@@ -887,8 +938,39 @@ handle_req(#trace_stop{}, Tag, State) ->
 	    reply(Tag, {error, not_tracing}),
 	    State
     end;
-
 handle_req(#profile{src = Filename,
+                    type = file,
+		    group_leader = GroupLeader,
+		    dump = Dump,
+		    flags = Flags}, Tag, State) ->
+    case {get(profile_state), get(pending_stop)} of
+	{{idle, _}, []} ->
+            case ensure_open(Dump, [write | Flags]) of
+		{already_open, DumpPid} ->
+		    put(profile_dump, DumpPid),
+		    put(profile_close_dump, false);
+		{ok, DumpPid} ->
+		    put(profile_dump, DumpPid),
+		    put(profile_close_dump, true);
+		{error, _} = Error ->
+		    reply(Tag, Error),
+		    State
+	    end,
+            Table = ets:new(?MODULE, [set, public, {keypos, #clocks.id}]),
+            Pid = spawn_link_nif_trace_client(Filename, Table, GroupLeader,
+                                              get(profile_dump)),
+            put(profile_state, running),
+	    put(profile_type, file),
+	    put(profile_pid, Pid),
+	    put(profile_tag, Tag),
+	    put(profile_table, Table),
+            State;
+        _ ->
+	    reply(Tag, {error, already_profiling}),
+	    State
+    end;
+handle_req(#profile{src = Filename,
+                    type = file_drv,
 		    group_leader = GroupLeader,
 		    dump = Dump,
 		    flags = Flags}, Tag, State) ->
@@ -919,7 +1001,6 @@ handle_req(#profile{src = Filename,
 	    reply(Tag, {error, already_profiling}),
 	    State
     end;
-	    
 handle_req(#profile_start{group_leader = GroupLeader,
 			  dump = Dump,
 			  flags = Flags}, Tag, State) ->
@@ -1289,12 +1370,11 @@ trace_on(Procs, Tracer, {V, CT}) ->
 	     wallclock -> ok
 	 end
 	of ok ->
-	    MatchSpec = [{'_', [], [{message, {{cp, {caller}}}}]}],
-	    erlang:trace_pattern(on_load, MatchSpec, [local]),
-	    erlang:trace_pattern({'_', '_', '_'}, MatchSpec, [local]),
+	    erlang:trace_pattern(on_load, [], [local]),
+	    erlang:trace_pattern({'_', '_', '_'}, [], [local]),
 	    lists:foreach(
 	      fun (P) ->
-		      erlang:trace(P, true, [{tracer, Tracer} | trace_flags(V)])
+		      erlang:trace(P, true, [Tracer | trace_flags(V)])
 	      end,
 	      Procs),
 	    ok;
@@ -1307,12 +1387,12 @@ trace_on(Procs, Tracer, {V, CT}) ->
 trace_flags(normal) ->
     [call, return_to, 
      running, procs, garbage_collection, 
-     arity, timestamp, set_on_spawn];
+     arity, monotonic_timestamp, set_on_spawn];
 trace_flags(verbose) ->
     [call, return_to, 
      send, 'receive',
      running, procs, garbage_collection, 
-     timestamp, set_on_spawn].
+     monotonic_timestamp, set_on_spawn].
 
 
 
@@ -1337,9 +1417,25 @@ spawn_link_dbg_trace_client(File, Table, GroupLeader, Dump) ->
 	Other ->
 	    exit(Other)
     end.
-			  
 
+spawn_link_nif_trace_client(File, Table, GroupLeader, Dump) ->
+    spawn_link_3step(
+      fun() ->
+	      {self(),go}
+      end,
+      fun(Ack) ->
+	      Ack
+      end,
+      fun(go) ->
+	      Init = {init, GroupLeader, Table, Dump},
+              Events = trace_file_nif:parse(File),
+	      tracer_nif_loop(Events, fun handler/2, Init)
+      end).
 
+tracer_nif_loop([E|T], Handler, State) ->
+    tracer_nif_loop(T, Handler, Handler(E, State));
+tracer_nif_loop([], Handler, State) ->
+    Handler(end_of_trace, State).
 
 spawn_link_trace_client(Table, GroupLeader, Dump) ->
     Parent = self(),
@@ -2222,7 +2318,10 @@ clock_add(Table, Id, Clock, T) ->
 	    ets:insert(Table, #clocks{id = Id}),
 	    X = ets:update_counter(Table, Id, {Clock, T}),
 	    if X >= 0 -> ok;
-	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p~n",
+	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p,"
+                            "One reason why you may get this is if you "
+                            "use cpu_time. See the warnings in the fprof "
+                            "documentation for more details.~n",
 			  [X, Id, Clock, T])
 	    end,
 	    ok
@@ -2258,7 +2357,10 @@ clocks_sum(#clocks{id = _Id1,
 ts_sub({A, B, C} = _T, {A0, B0, C0} = _T0) ->
     X = ((((A-A0)*1000000) + (B-B0))*1000000) + C - C0,
     if X >= 0 -> ok;
-       true -> ?dbg(9, "Negative counter value ~p ~p ~p~n",
+       true -> ?dbg(9, "Negative counter value ~p ~p ~p, "
+                    "One reason why you may get this is if you "
+                    "use cpu_time. See the warnings in the fprof "
+                    "documentation for more details.~n",
 		    [X, _T, _T0])
     end,
     X;

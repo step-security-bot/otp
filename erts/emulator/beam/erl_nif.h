@@ -93,6 +93,8 @@ extern "C" {
 
 typedef ErlNapiUInt64 ErlNifUInt64;
 typedef ErlNapiSInt64 ErlNifSInt64;
+typedef ErlNapiUInt32 ErlNifUInt32;
+typedef ErlNapiSInt32 ErlNifSInt32;
 typedef ErlNapiUInt ErlNifUInt;
 typedef ErlNapiSInt ErlNifSInt;
 
