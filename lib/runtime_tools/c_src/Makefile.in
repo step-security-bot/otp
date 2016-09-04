@@ -33,13 +33,14 @@ VSN=$(RUNTIME_TOOLS_VSN)
 # be set for that system only.
 # ----------------------------------------------------
 CC = $(DED_CC)
-CFLAGS = $(DED_CFLAGS) -I./
+CFLAGS = $(DED_CFLAGS) -I./ -I$(ERL_TOP)/erts/emulator/$(TARGET)/$(TYPE)/smp/ -I$(ERL_TOP)/erts/emulator/hipe -DERTS_SMP
+
 LD = $(DED_LD)
 SHELL = /bin/sh
 LIBS = $(DED_LIBS)
 LDFLAGS += $(DED_LDFLAGS)
 
-TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
+TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv trace_file_nif
 
 SYSINCLUDE = $(DED_SYS_INCLUDE)
 
