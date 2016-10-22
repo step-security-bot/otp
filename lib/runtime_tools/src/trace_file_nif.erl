@@ -6,10 +6,20 @@
 -export([start/1, stop/1]).
 
 -export([trace/5,
-         trace_call/5]).
+         trace_call/5,
+         trace_garbage_collection/5,
+         trace_return_to/5,
+         trace_procs/5,
+         trace_running_procs/5
+        ]).
 
--export([enabled_call/3,
-         enabled/3]).
+-export([enabled/3,
+         enabled_call/3,
+         enabled_garbage_collection/3,
+         enabled_return_to/3,
+         enabled_procs/3,
+         enabled_running_procs/3
+        ]).
 
 
 -on_load(on_load/0).
@@ -37,16 +47,11 @@ on_load() ->
     case Status of
         ok -> ok;
         {error, {E, Str}} ->
-	    case erlang:system_info(dynamic_trace) of
-		none ->
-		    ok;
-		_ ->
-		    error_logger:error_msg(
-                      "Unable to load trace_file_nif library."
-                      "Failed with error:~n\"~p, ~s\"~n",
-                      [E,Str]),
-		    Status
-	    end
+            error_logger:error_msg(
+              "Unable to load trace_file_nif library."
+              "Failed with error:~n\"~p, ~s\"~n",
+              [E,Str]),
+            Status
     end.
 
 start(_) ->
@@ -61,8 +66,32 @@ trace(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
 trace_call(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+trace_garbage_collection(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_return_to(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_running_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
 enabled(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
 enabled_call(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_garbage_collection(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_return_to(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_procs(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_running_procs(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).

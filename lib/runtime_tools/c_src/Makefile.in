@@ -38,7 +38,7 @@ CFLAGS = $(DED_CFLAGS) -I./ -I$(ERL_TOP)/erts/emulator/$(TARGET)/$(TYPE)/smp/ -I
 LD = $(DED_LD)
 SHELL = /bin/sh
 LIBS = $(DED_LIBS)
-LDFLAGS += $(DED_LDFLAGS)
+LDFLAGS += $(DED_LDFLAGS) /usr/local/lib/libarchive.a
 
 TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv trace_file_nif
 

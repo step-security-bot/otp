@@ -22,6 +22,9 @@
  * Purpose:  Dynamically loadable NIF library for DTrace
  */
 
+#include <archive.h>
+#include <archive_entry.h>
+
 #include "erl_nif.h"
 #include "config.h"
 #include "sys.h"
@@ -54,12 +57,28 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_return_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_return_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"start", 1, start},
     {"stop", 1, stop},
     {"trace_call", 5, trace_call},
     {"enabled_call", 3, enabled_call},
+    {"trace_garbage_collection", 5, trace_garbage_collection},
+    {"enabled_garbage_collection", 3, enabled_garbage_collection},
+    {"trace_return_to", 5, trace_return_to},
+    {"enabled_return_to", 3, enabled_return_to},
+    {"trace_procs", 5, trace_procs},
+    {"enabled_procs", 3, enabled_procs},
+    {"trace_running_procs", 5, trace_running_procs},
+    {"enabled_running_procs", 3, enabled_running_procs},
     {"enabled", 3, enabled},
     {"trace", 5, trace}
 };
@@ -67,10 +86,19 @@ static ErlNifFunc nif_funcs[] = {
 
 ERL_NIF_INIT(trace_file_nif, nif_funcs, load, NULL, NULL, NULL);
 
-#define ATOMS                                      \
-    ATOM_DECL(true);                               \
-    ATOM_DECL(discard);                            \
-    ATOM_DECL(trace);                              \
+#define ATOMS                   \
+    ATOM_DECL(true);            \
+    ATOM_DECL(discard);         \
+    ATOM_DECL(extra);           \
+    ATOM_DECL(spawned);         \
+    ATOM_DECL(exit);            \
+    ATOM_DECL(gc_minor_start);  \
+    ATOM_DECL(gc_minor_end);    \
+    ATOM_DECL(gc_major_start);  \
+    ATOM_DECL(gc_major_end);    \
+    ATOM_DECL(trace);           \
+    ATOM_DECL(out);             \
+    ATOM_DECL(in);              \
     ATOM_DECL(ok);
 
 #define ATOM_DECL(A) static ERL_NIF_TERM atom_##A
@@ -91,20 +119,39 @@ ATOMS
 
 #define QUEUE_SIZE (1024*1024)
 
+typedef enum {
+    TRACE_CALL = 0,
+    TRACE_RETURN_TO = 1,
+    TRACE_SPAWNED = 2,
+    TRACE_EXIT = 3,
+    TRACE_IN = 4,
+    TRACE_OUT = 5,
+    TRACE_GC_MINOR_START = 6,
+    TRACE_GC_MINOR_END = 7,
+    TRACE_GC_MAJOR_START = 8,
+    TRACE_GC_MAJOR_END = 9
+} TraceType;
+
 typedef struct mfa {
     ERL_NIF_TERM m;
     ERL_NIF_TERM f;
     ERL_NIF_TERM a;
 } MFA;
 
+typedef struct entry {
+    TraceType type;
+    ERL_NIF_TERM pid;
+    ERL_NIF_TERM ts;
+    MFA mfa;
+} TraceEntry;
+
 typedef struct trace_queue {
     volatile ErlNifUInt64 head;
     volatile ErlNifUInt64 tail;
     ErlNifUInt64 dropped;
-    ErlNifUInt64 cnt;
     char *__align[64 - sizeof(ErlNifUInt64) * 4];
-    MFA q[QUEUE_SIZE];
-    char *__align2[64 - ((sizeof(MFA) * QUEUE_SIZE) % 64)];
+    TraceEntry q[QUEUE_SIZE];
+    char *__align2[64 - ((sizeof(TraceEntry) * QUEUE_SIZE) % 64)];
 } TraceQueue;
 
 static ErlNifSysInfo sys_info;
@@ -115,11 +162,30 @@ static int flush = 0;
 static ErlNifPid flush_pid;
 
 void *loop(void *arg);
-
 void *loop(void *arg)
 {
     int schedulers = sys_info.scheduler_threads;
-    FILE *fd = fopen("/tmp/log.trace","w");
+    struct archive *a;
+    struct archive_entry *entry;
+    const char *filename = "/tmp/log.tar.gz";
+    char tracename[255];
+    struct stat st;
+    int file_cnt = 1;
+    int page_cnt = 0;
+
+    a = archive_write_new();
+    if (archive_write_set_format_filter_by_ext(a, filename) != ARCHIVE_OK) {
+        archive_write_add_filter_gzip(a);
+        archive_write_set_format_ustar(a);
+    }
+    archive_write_open_filename(a, filename);
+    entry = archive_entry_new();
+    st.st_mode = S_IFREG;
+    st.st_size = 1024 * sizeof(q->q);
+    archive_entry_copy_stat(entry, &st);
+    archive_entry_set_pathname(entry, "trace.log.0");
+    archive_write_header(a, entry);
+
     ethr_event_init(&evt);
     while (1) {
         int found = 1, i;
@@ -130,16 +196,23 @@ void *loop(void *arg)
                 ErlNifUInt64 head = q[i].head, tail = q[i].tail;
                 if (head < tail) {
                     int elems = tail - head;
-                    size_t res;
                     if ((head + elems) / QUEUE_SIZE != head / QUEUE_SIZE)
                         elems = QUEUE_SIZE - head % QUEUE_SIZE;
                     /* needs memory barrier? */
                     __sync_synchronize();
-                    res = fwrite((void*)q[i].q+head % QUEUE_SIZE,
-                                 sizeof(MFA), elems, fd);
-                    if (elems != res) {
-                        printf("write failed %d\r\n", ferror(fd));
-                        abort();
+                    TraceEntry *curr_q = q[i].q+(head % QUEUE_SIZE);
+                    if (page_cnt + elems > 1024)
+                        elems = page_cnt - elems;
+                    archive_write_data(a, curr_q , sizeof(TraceEntry) * elems);
+                    page_cnt += elems;
+                    if (page_cnt > 1024) {
+                        archive_entry_free(entry);
+                        entry = archive_entry_new();
+                        archive_entry_copy_stat(entry, &st);
+                        sprintf(tracename, "trace.log.%d", file_cnt++);
+                        archive_entry_set_pathname(entry, tracename);
+                        archive_write_header(a, entry);
+                        page_cnt = 0;
                     }
                     q[i].head += elems;
                     found = 1;
@@ -150,9 +223,12 @@ void *loop(void *arg)
         __sync_synchronize();
         if (flush) {
             ErlNifEnv *env = enif_alloc_env();
-            fflush(fd);
+            archive_entry_free(entry);
+            archive_write_free(a);
             enif_send(env, &flush_pid, NULL, atom_ok);
-            flush = 0;
+            enif_free(q);
+            q = NULL;
+            enif_thread_exit(0);
         }
     }
 }
@@ -172,7 +248,6 @@ static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enif_self(env, &flush_pid);
-    flush = 1;
     ethr_event_set(&evt);
     return atom_ok;
 }
@@ -187,8 +262,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return atom_trace;
 }
 
-static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+static ERL_NIF_TERM check_queue(ErlNifEnv* env) {
     Uint scheduler_id = env->proc->scheduler_data->no - 1;
     if (q[scheduler_id].tail - q[scheduler_id].head == QUEUE_SIZE) {
         q[scheduler_id].dropped++;
@@ -197,23 +271,133 @@ static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return atom_trace;
 }
 
-static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    const ERL_NIF_TERM *mfa;
-    int arity;
+    return check_queue(env);
+}
+
+static ERL_NIF_TERM enabled_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return check_queue(env);
+}
+
+static ERL_NIF_TERM enabled_return_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return check_queue(env);
+}
+
+static ERL_NIF_TERM enabled_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return check_queue(env);
+}
+
+static ERL_NIF_TERM enabled_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return check_queue(env);
+}
+
+static void enqueue(ErlNifEnv* env, TraceType type, ERL_NIF_TERM pid, const ERL_NIF_TERM *mfa) {
     Uint scheduler_id = erts_get_scheduler_data()->no - 1;
-    enif_get_tuple(env, argv[3], &arity, &mfa);
+    TraceEntry *te;
 
     /* needs memory barrier? */
     __sync_synchronize();
 
-    memcpy(q[scheduler_id].q+(q[scheduler_id].tail % QUEUE_SIZE),
-           mfa, sizeof(MFA));
+    te = q[scheduler_id].q+(q[scheduler_id].tail % QUEUE_SIZE);
+    te->ts = enif_monotonic_time(ERL_NIF_NSEC);
+    te->type = type;
+    te->pid = pid;
+    if (mfa)
+        memcpy(&te->mfa, mfa, sizeof(MFA));
+    else
+        memset(&te->mfa, 0, sizeof(MFA));
+
     q[scheduler_id].tail++;
-    q[scheduler_id].cnt++;
 
     if (q[scheduler_id].tail - q[scheduler_id].head > 10)
         ethr_event_set(&evt);
+
+}
+
+static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    const ERL_NIF_TERM *mfa;
+    int arity;
+
+    enif_get_tuple(env, argv[3], &arity, &mfa);
+
+    enqueue(env, TRACE_CALL, argv[2], mfa);
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc,
+                                             const ERL_NIF_TERM argv[])
+{
+    TraceType type = TRACE_GC_MAJOR_START;
+    if (enif_is_identical(argv[1], atom_gc_major_start)) {
+        type = TRACE_GC_MAJOR_START;
+    } else if (enif_is_identical(argv[1], atom_gc_major_end)) {
+        type = TRACE_GC_MAJOR_END;
+    } else if (enif_is_identical(argv[1], atom_gc_minor_start)) {
+        type = TRACE_GC_MINOR_START;
+    } else if (enif_is_identical(argv[1], atom_gc_minor_end)) {
+        type = TRACE_GC_MINOR_END;
+    }
+
+    enqueue(env, type, argv[2], NULL);
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM trace_return_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    const ERL_NIF_TERM *mfa;
+    int arity;
+
+    enif_get_tuple(env, argv[3], &arity, &mfa);
+
+    enqueue(env, TRACE_RETURN_TO, argv[2], mfa);
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+
+    if (enif_is_identical(argv[1], atom_spawned)) {
+        ERL_NIF_TERM value;
+        const ERL_NIF_TERM *mfa;
+        int arity;
+
+        enif_get_map_value(env, argv[4], atom_extra, &value);
+        enif_get_tuple(env, value, &arity, &mfa);
+
+        enqueue(env, TRACE_SPAWNED, argv[2], mfa);
+    } else if (enif_is_identical(argv[1], atom_exit)) {
+        enqueue(env, TRACE_EXIT, argv[2], NULL);
+    }
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    TraceType type = TRACE_IN;
+    ERL_NIF_TERM value;
+    const ERL_NIF_TERM *mfa = NULL;
+    int arity;
+
+    if (enif_is_identical(argv[1], atom_in)) {
+        type = TRACE_IN;
+    } else if (enif_is_identical(argv[1], atom_out)) {
+        type = TRACE_OUT;
+    }
+
+    enif_get_map_value(env, argv[4], atom_extra, &value);
+    enif_get_tuple(env, value, &arity, &mfa);
+
+    enqueue(env, type, argv[2], mfa);
 
     return atom_ok;
 }

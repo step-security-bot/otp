@@ -1307,12 +1307,12 @@ trace_on(Procs, Tracer, {V, CT}) ->
 trace_flags(normal) ->
     [call, return_to, 
      running, procs, garbage_collection, 
-     arity, timestamp, set_on_spawn];
+     arity, monotonic_timestamp, set_on_spawn];
 trace_flags(verbose) ->
     [call, return_to, 
      send, 'receive',
      running, procs, garbage_collection, 
-     timestamp, set_on_spawn].
+     monotonic_timestamp, set_on_spawn].
 
 
 
@@ -1337,9 +1337,6 @@ spawn_link_dbg_trace_client(File, Table, GroupLeader, Dump) ->
 	Other ->
 	    exit(Other)
     end.
-			  
-
-
 
 spawn_link_trace_client(Table, GroupLeader, Dump) ->
     Parent = self(),
