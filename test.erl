@@ -4,21 +4,25 @@
 
 test(P,N) ->
     trace_file_nif:start(ok),
+    receive ok -> ok end,
     L = lists:seq(1,P),
+    erlang:trace(self(), true, [call, return_to,
+                                running, procs, garbage_collection,
+                                arity, monotonic_timestamp, set_on_spawn,
+                                {tracer, trace_file_nif, []}]),
+    erlang:trace_pattern({?MODULE,'_','_'},[]),
     [spawn_monitor(fun() -> loop(Pn, N, self(), self()) end) || Pn <- L],
     [receive _ -> ok end || _ <- L],
+    erlang:trace(all, false, [call, return_to,
+                              running, procs, garbage_collection,
+                              arity, monotonic_timestamp, set_on_spawn]),
     trace_file_nif:stop(ok),
     receive ok -> ok end.
 
 loop(_P, 0, _S, _C) ->
     ok;
 loop(P, N, S, C) ->
-    case trace_file_nif:enabled_call(call, S, C) of
-        trace ->
-            trace_file_nif:trace_call(call, S, C, {a, b, N}, #{});
-        _ ->
-            ok
-    end,
+    lists:seq(1,100),
     loop(P, N-1, S, C).
 
 test2(P,N) ->

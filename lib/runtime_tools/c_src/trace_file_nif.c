@@ -167,26 +167,31 @@ void *loop(void *arg)
     int schedulers = sys_info.scheduler_threads;
     struct archive *a;
     struct archive_entry *entry;
-    const char *filename = "/tmp/log.tar.gz";
+    const char *filename = "log.tar.gz";
     char tracename[255];
     struct stat st;
     int file_cnt = 1;
     int page_cnt = 0;
+    unsigned int cnt = 0;
+    ErlNifEnv *env = enif_alloc_env();
 
     a = archive_write_new();
-    if (archive_write_set_format_filter_by_ext(a, filename) != ARCHIVE_OK) {
-        archive_write_add_filter_gzip(a);
-        archive_write_set_format_ustar(a);
-    }
+    archive_write_add_filter_gzip(a);
+    archive_write_set_format_ustar(a);
     archive_write_open_filename(a, filename);
-    entry = archive_entry_new();
+    memset(&st, 0, sizeof(st));
     st.st_mode = S_IFREG;
-    st.st_size = 1024 * sizeof(q->q);
+    st.st_size = sizeof(TraceEntry) * QUEUE_SIZE;
+    entry = archive_entry_new();
     archive_entry_copy_stat(entry, &st);
     archive_entry_set_pathname(entry, "trace.log.0");
     archive_write_header(a, entry);
 
     ethr_event_init(&evt);
+
+    enif_send(env, &flush_pid, NULL, atom_ok);
+    enif_free_env(env);
+
     while (1) {
         int found = 1, i;
         ethr_event_wait(&evt);
@@ -196,16 +201,16 @@ void *loop(void *arg)
                 ErlNifUInt64 head = q[i].head, tail = q[i].tail;
                 if (head < tail) {
                     int elems = tail - head;
+                    TraceEntry *curr_q = q[i].q+(head % QUEUE_SIZE);
                     if ((head + elems) / QUEUE_SIZE != head / QUEUE_SIZE)
                         elems = QUEUE_SIZE - head % QUEUE_SIZE;
                     /* needs memory barrier? */
                     __sync_synchronize();
-                    TraceEntry *curr_q = q[i].q+(head % QUEUE_SIZE);
-                    if (page_cnt + elems > 1024)
-                        elems = page_cnt - elems;
-                    archive_write_data(a, curr_q , sizeof(TraceEntry) * elems);
+                    if (page_cnt + elems > QUEUE_SIZE)
+                        elems = QUEUE_SIZE - page_cnt;
+                    cnt += archive_write_data(a, curr_q , sizeof(TraceEntry) * elems);
                     page_cnt += elems;
-                    if (page_cnt > 1024) {
+                    if (page_cnt == QUEUE_SIZE) {
                         archive_entry_free(entry);
                         entry = archive_entry_new();
                         archive_entry_copy_stat(entry, &st);
@@ -228,6 +233,7 @@ void *loop(void *arg)
             enif_send(env, &flush_pid, NULL, atom_ok);
             enif_free(q);
             q = NULL;
+            flush = 0;
             enif_thread_exit(0);
         }
     }
@@ -237,6 +243,7 @@ void *loop(void *arg)
 static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     if (q == NULL) {
+        enif_self(env, &flush_pid);
         enif_system_info(&sys_info, sizeof(ErlNifSysInfo));
         q = enif_alloc(sizeof(TraceQueue) * sys_info.scheduler_threads);
         memset(q, 0, sizeof(TraceQueue) * sys_info.scheduler_threads);
@@ -248,6 +255,7 @@ static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enif_self(env, &flush_pid);
+    flush = 1;
     ethr_event_set(&evt);
     return atom_ok;
 }
@@ -263,7 +271,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ERL_NIF_TERM check_queue(ErlNifEnv* env) {
-    Uint scheduler_id = env->proc->scheduler_data->no - 1;
+    Uint scheduler_id = erts_get_scheduler_data()->no - 1;
     if (q[scheduler_id].tail - q[scheduler_id].head == QUEUE_SIZE) {
         q[scheduler_id].dropped++;
         return atom_discard;
@@ -384,7 +392,6 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     TraceType type = TRACE_IN;
-    ERL_NIF_TERM value;
     const ERL_NIF_TERM *mfa = NULL;
     int arity;
 
@@ -394,8 +401,7 @@ static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_
         type = TRACE_OUT;
     }
 
-    enif_get_map_value(env, argv[4], atom_extra, &value);
-    enif_get_tuple(env, value, &arity, &mfa);
+    enif_get_tuple(env, argv[3], &arity, &mfa);
 
     enqueue(env, type, argv[2], mfa);
 
