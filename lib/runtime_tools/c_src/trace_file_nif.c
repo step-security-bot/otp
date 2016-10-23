@@ -120,16 +120,17 @@ ATOMS
 #define QUEUE_SIZE (1024*1024)
 
 typedef enum {
-    TRACE_CALL = 0,
-    TRACE_RETURN_TO = 1,
-    TRACE_SPAWNED = 2,
-    TRACE_EXIT = 3,
-    TRACE_IN = 4,
-    TRACE_OUT = 5,
-    TRACE_GC_MINOR_START = 6,
-    TRACE_GC_MINOR_END = 7,
-    TRACE_GC_MAJOR_START = 8,
-    TRACE_GC_MAJOR_END = 9
+    TRACE_NONE = 0,
+    TRACE_CALL = 1,
+    TRACE_RETURN_TO = 2,
+    TRACE_SPAWNED = 3,
+    TRACE_EXIT = 4,
+    TRACE_IN = 5,
+    TRACE_OUT = 6,
+    TRACE_GC_MINOR_START = 7,
+    TRACE_GC_MINOR_END = 8,
+    TRACE_GC_MAJOR_START = 9,
+    TRACE_GC_MAJOR_END = 10
 } TraceType;
 
 typedef struct mfa {
@@ -228,6 +229,22 @@ void *loop(void *arg)
         __sync_synchronize();
         if (flush) {
             ErlNifEnv *env = enif_alloc_env();
+            archive_entry_free(entry);
+
+            entry = archive_entry_new();
+            archive_entry_copy_stat(entry, &st);
+            archive_entry_set_pathname(entry, "atoms");
+            archive_write_header(a, entry);
+
+            i = atom_table_size();
+            while (--i >= 0) {
+                Atom *ap = atom_tab(i);
+                ERL_NIF_TERM atom = make_atom(i);
+                archive_write_data(a, &atom, sizeof(atom));
+                archive_write_data(a, &ap->len, sizeof(ap->len));
+                archive_write_data(a, ap->name, ap->len);
+            }
+
             archive_entry_free(entry);
             archive_write_free(a);
             enif_send(env, &flush_pid, NULL, atom_ok);

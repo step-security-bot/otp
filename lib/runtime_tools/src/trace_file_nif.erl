@@ -3,7 +3,7 @@
 %%% @doc A low overhead nif to trace to file
 %%%
 
--export([start/1, stop/1]).
+-export([start/1, stop/1, parse/1]).
 
 -export([trace/5,
          trace_call/5,
@@ -59,6 +59,76 @@ start(_) ->
 
 stop(_) ->
     erlang:nif_error(nif_not_loaded).
+
+-define(TRACE_CALL,1).
+-define(TRACE_RETURN_TO,2).
+-define(TRACE_SPAWNED,3).
+-define(TRACE_EXIT,4).
+-define(TRACE_IN,5).
+-define(TRACE_OUT,6).
+-define(TRACE_GC_MINOR_START,7).
+-define(TRACE_GC_MINOR_END,8).
+-define(TRACE_GC_MAJOR_START,9).
+-define(TRACE_GC_MAJOR_END,10).
+
+parse(Filename) ->
+    {ok, Files} = erl_tar:extract(Filename, [compressed, memory]),
+    Atoms = parse_atoms(proplists:get_value("atoms",Files)),
+    lists:flatmap(
+      fun({"atoms", _Data}) -> [];
+         ({_, Data}) -> parse_file(Data, Atoms)
+      end,
+      Files).
+
+parse_file(<<?TRACE_CALL:64/native, Pid:64/native, TS:64/native,
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), call, make_mfa(M,F,A,Atoms), TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_RETURN_TO:64/native, Pid:64/native, TS:64/native,
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), return_to, make_mfa(M,F,A,Atoms), TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_SPAWNED:64/native, Pid:64/native, TS:64/native,
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), spawned, undefined, make_mfa(M,F,A,Atoms), TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_EXIT:64/native, Pid:64/native, TS:64/native,
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), exit, undefined, TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_IN:64/native, Pid:64/native, TS:64/native,
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), in, make_mfa(M,F,A,Atoms), TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_OUT:64/native, Pid:64/native, TS:64/native,
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), out, make_mfa(M,F,A,Atoms), TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_GC_MINOR_START:64/native, Pid:64/native, TS:64/native,
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), gc_minor_start, undefined, TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_GC_MINOR_END:64/native, Pid:64/native, TS:64/native,
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), gc_minor_end, undefined, TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_GC_MAJOR_START:64/native, Pid:64/native, TS:64/native,
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), gc_major_start, undefined, TS} | parse_file(Rest,Atoms)];
+parse_file(<<?TRACE_GC_MAJOR_END:64/native, Pid:64/native, TS:64/native,
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+    [{trace_ts, make_pid(Pid), gc_major_end, undefined, TS} | parse_file(Rest,Atoms)];
+parse_file(<<>>, _Atoms) ->
+    [];
+parse_file(<<0:64/native,_/binary>>, _Atoms) ->
+    [].
+
+parse_atoms(<<0:64/native,_/binary>>) ->
+    [];
+parse_atoms(<<>>) ->
+    [];
+parse_atoms(<<Tag:64/native, Sz:16/native, Str:Sz/binary, Rest/binary>>) ->
+    [{Tag, list_to_atom(binary_to_list(Str))} | parse_atoms(Rest)].
+
+make_mfa(M,F,A,Atoms) ->
+    {proplists:get_value(M,Atoms),proplists:get_value(F,Atoms),A bsr 4}.
+
+make_pid(Pid) ->
+    3 = Pid band 3,
+    PidData = (Pid bsr 35) band 16#0fffffff,
+    {0,PidData band 16#7fff,(PidData bsr 15) band 16#7fff}.
 
 trace(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
