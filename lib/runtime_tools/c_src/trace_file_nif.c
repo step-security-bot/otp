@@ -181,6 +181,7 @@ void *loop(void *arg)
 
     a = archive_write_new();
     archive_write_add_filter_gzip(a);
+    archive_write_set_filter_option(a, "gzip", "compression-level", "1");
     archive_write_set_format_ustar(a);
     archive_write_open_filename(a, filename);
     memset(&st, 0, sizeof(st));
@@ -347,7 +348,7 @@ static void enqueue(ErlNifEnv* env, TraceType type, ERL_NIF_TERM pid, const ERL_
     TraceEntry *te;
 
     te = q[scheduler_id].q+(q[scheduler_id].tail % QUEUE_SIZE);
-    te->ts = enif_monotonic_time(ERL_NIF_NSEC) + enif_time_offset(ERL_NIF_NSEC);
+    te->ts = enif_monotonic_time(ERL_NIF_NSEC);
     te->type = type;
     te->pid = pid;
     if (mfa)
