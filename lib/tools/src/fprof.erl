@@ -1352,9 +1352,8 @@ trace_on(Procs, Tracer, {V, CT}) ->
 	     wallclock -> ok
 	 end
 	of ok ->
-	    MatchSpec = [{'_', [], [{message, {{cp, {caller}}}}]}],
-	    erlang:trace_pattern(on_load, MatchSpec, [local]),
-	    erlang:trace_pattern({'_', '_', '_'}, MatchSpec, [local]),
+	    erlang:trace_pattern(on_load, [], [local]),
+	    erlang:trace_pattern({'_', '_', '_'}, [], [local]),
 	    lists:foreach(
 	      fun (P) ->
 		      erlang:trace(P, true, [Tracer | trace_flags(V)])
