@@ -51,8 +51,8 @@
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
-static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM do_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM do_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -67,8 +67,8 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
-    {"start", 1, start},
-    {"stop", 1, stop},
+    {"do_start", 2, do_start},
+    {"do_stop", 1, do_stop},
     {"trace_call", 5, trace_call},
     {"enabled_call", 3, enabled_call},
     {"trace_garbage_collection", 5, trace_garbage_collection},
@@ -160,7 +160,12 @@ static ethr_event evt;
 static ErlNifTid tid;
 static TraceQueue *q = NULL;
 static int flush = 0;
-static ErlNifPid flush_pid;
+
+static char *filename;
+static ErlNifEnv *reply_env;
+static ErlNifPid reply_pid;
+static ERL_NIF_TERM reply;
+static ErlNifPid reply_pid;
 
 void *loop(void *arg);
 void *loop(void *arg)
@@ -168,13 +173,11 @@ void *loop(void *arg)
     int schedulers = sys_info.scheduler_threads;
     struct archive *a;
     struct archive_entry *entry;
-    const char *filename = "log.tar.gz";
     char tracename[255];
     struct stat st;
     int file_cnt = 1;
     int page_cnt = 0;
     unsigned int cnt = 0;
-    ErlNifEnv *env = enif_alloc_env();
 
     a = archive_write_new();
     archive_write_add_filter_gzip(a);
@@ -190,8 +193,9 @@ void *loop(void *arg)
 
     ethr_event_init(&evt);
 
-    enif_send(env, &flush_pid, NULL, atom_ok);
-    enif_free_env(env);
+    enif_send(NULL, &reply_pid, reply_env, reply);
+    enif_free_env(reply_env);
+    reply_env = NULL;
 
     while (1) {
         int found = 1, i;
@@ -205,8 +209,7 @@ void *loop(void *arg)
                     TraceEntry *curr_q = q[i].q+(head % QUEUE_SIZE);
                     if ((head + elems) / QUEUE_SIZE != head / QUEUE_SIZE)
                         elems = QUEUE_SIZE - head % QUEUE_SIZE;
-                    /* needs memory barrier? */
-                    __sync_synchronize();
+
                     if (page_cnt + elems > QUEUE_SIZE)
                         elems = QUEUE_SIZE - page_cnt;
                     cnt += archive_write_data(a, curr_q , sizeof(TraceEntry) * elems);
@@ -228,7 +231,6 @@ void *loop(void *arg)
         ethr_event_reset(&evt);
         __sync_synchronize();
         if (flush) {
-            ErlNifEnv *env = enif_alloc_env();
             archive_entry_free(entry);
 
             entry = archive_entry_new();
@@ -247,7 +249,14 @@ void *loop(void *arg)
 
             archive_entry_free(entry);
             archive_write_free(a);
-            enif_send(env, &flush_pid, NULL, atom_ok);
+
+            enif_send(NULL, &reply_pid, reply_env, reply);
+            enif_free_env(reply_env);
+            reply_env = NULL;
+
+            enif_free(filename);
+            filename = NULL;
+
             enif_free(q);
             q = NULL;
             flush = 0;
@@ -257,10 +266,20 @@ void *loop(void *arg)
 }
 // trace_file_nif:start(ok),trace_file_nif:trace_call(call, self(), self(), {a,b,1}, #{}).
 
-static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM do_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ErlNifBinary bin;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &bin))
+        return enif_make_badarg(env);
     if (q == NULL) {
-        enif_self(env, &flush_pid);
+        reply_env = enif_alloc_env();
+        reply = enif_make_copy(reply_env, argv[1]);
+        enif_self(env, &reply_pid);
+
+        filename = enif_alloc(bin.size+1);
+        memcpy(filename, bin.data, bin.size);
+        filename[bin.size] = '\0';
+
         enif_system_info(&sys_info, sizeof(ErlNifSysInfo));
         q = enif_alloc(sizeof(TraceQueue) * sys_info.scheduler_threads);
         memset(q, 0, sizeof(TraceQueue) * sys_info.scheduler_threads);
@@ -269,9 +288,11 @@ static ERL_NIF_TERM start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return atom_ok;
 }
 
-static ERL_NIF_TERM stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM do_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    enif_self(env, &flush_pid);
+    reply_env = enif_alloc_env();
+    reply = enif_make_copy(reply_env, argv[0]);
+    enif_self(env, &reply_pid);
     flush = 1;
     ethr_event_set(&evt);
     return atom_ok;
@@ -325,11 +346,8 @@ static void enqueue(ErlNifEnv* env, TraceType type, ERL_NIF_TERM pid, const ERL_
     Uint scheduler_id = erts_get_scheduler_data()->no - 1;
     TraceEntry *te;
 
-    /* needs memory barrier? */
-    __sync_synchronize();
-
     te = q[scheduler_id].q+(q[scheduler_id].tail % QUEUE_SIZE);
-    te->ts = enif_monotonic_time(ERL_NIF_NSEC);
+    te->ts = enif_monotonic_time(ERL_NIF_NSEC) + enif_time_offset(ERL_NIF_NSEC);
     te->type = type;
     te->pid = pid;
     if (mfa)
@@ -360,13 +378,13 @@ static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc,
                                              const ERL_NIF_TERM argv[])
 {
     TraceType type = TRACE_GC_MAJOR_START;
-    if (enif_is_identical(argv[1], atom_gc_major_start)) {
+    if (enif_is_identical(argv[0], atom_gc_major_start)) {
         type = TRACE_GC_MAJOR_START;
-    } else if (enif_is_identical(argv[1], atom_gc_major_end)) {
+    } else if (enif_is_identical(argv[0], atom_gc_major_end)) {
         type = TRACE_GC_MAJOR_END;
-    } else if (enif_is_identical(argv[1], atom_gc_minor_start)) {
+    } else if (enif_is_identical(argv[0], atom_gc_minor_start)) {
         type = TRACE_GC_MINOR_START;
-    } else if (enif_is_identical(argv[1], atom_gc_minor_end)) {
+    } else if (enif_is_identical(argv[0], atom_gc_minor_end)) {
         type = TRACE_GC_MINOR_END;
     }
 
@@ -390,7 +408,7 @@ static ERL_NIF_TERM trace_return_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 
-    if (enif_is_identical(argv[1], atom_spawned)) {
+    if (enif_is_identical(argv[0], atom_spawned)) {
         ERL_NIF_TERM value;
         const ERL_NIF_TERM *mfa;
         int arity;
@@ -399,7 +417,7 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         enif_get_tuple(env, value, &arity, &mfa);
 
         enqueue(env, TRACE_SPAWNED, argv[2], mfa);
-    } else if (enif_is_identical(argv[1], atom_exit)) {
+    } else if (enif_is_identical(argv[0], atom_exit)) {
         enqueue(env, TRACE_EXIT, argv[2], NULL);
     }
 
@@ -412,9 +430,9 @@ static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_
     const ERL_NIF_TERM *mfa = NULL;
     int arity;
 
-    if (enif_is_identical(argv[1], atom_in)) {
+    if (enif_is_identical(argv[0], atom_in)) {
         type = TRACE_IN;
-    } else if (enif_is_identical(argv[1], atom_out)) {
+    } else if (enif_is_identical(argv[0], atom_out)) {
         type = TRACE_OUT;
     }
 

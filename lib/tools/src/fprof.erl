@@ -58,6 +58,7 @@
 -define(NR_WIDTH, 15).
 
 -define(TRACE_FILE, "fprof.trace").
+-define(TRACE_NIF_FILE, "fprof.trace.tar.gz").
 -define(DUMP_FILE, "fprof.dump").
 -define(PROFILE_FILE, "fprof.profile").
 -define(ANALYSIS_FILE, "fprof.analysis").
@@ -304,22 +305,24 @@ trace(Option) when is_atom(Option) ->
     trace([Option]);
 trace(Options) when is_list(Options) ->
     case getopts(Options, 
-		 [start, stop, procs, verbose, file, tracer, cpu_time]) of
+		 [start, stop, procs, verbose, file, nif, tracer, cpu_time]) of
 	{[[], [stop], [], [], [], [], []], []} ->
 	    call(#trace_stop{});
-	{[[start], [], Procs, Verbose, File, Tracer, CpuTime], []} ->
-	    {Type, Dest} = case {File, Tracer} of
-			       {[], [{tracer, Pid} = T]} 
+	{[[start], [], Procs, Verbose, File, Nif, Tracer, CpuTime], []} ->
+	    {Type, Dest} = case {Nif, File, Tracer} of
+			       {[], [], [{tracer, Pid} = T]} 
 			       when is_pid(Pid); is_port(Pid) ->
 				   T;
-			       {[file], []} ->
+			       {[], [file], []} ->
 				   {file, ?TRACE_FILE};
-			       {[{file, []}], []} ->
+			       {[], [{file, []}], []} ->
 				   {file, ?TRACE_FILE};
-			       {[{file, _} = F], []} ->
+			       {[], [{file, _} = F], []} ->
 				   F;
-			       {[], []} ->
+			       {[], [], []} ->
 				   {file, ?TRACE_FILE};
+                               {[nif], [], []} ->
+                                   {nif, ?TRACE_NIF_FILE};
 			       _ ->
 				   erlang:error(badarg, [Options])
 			   end,
@@ -371,8 +374,8 @@ profile(Option) when is_atom(Option) ->
 profile({Opt, _Val} = Option) when is_atom(Opt) ->
     profile([Option]);
 profile(Options) when is_list(Options) ->
-    case getopts(Options, [start, stop, file, dump, append]) of
-	{[Start, [], File, Dump, Append], []} ->
+    case getopts(Options, [start, stop, file, nif, dump, append]) of
+	{[Start, [], File, Nif, Dump, Append], []} ->
 	    {Target, Flags} = 
 		case {Dump, Append} of
 		    {[], []} ->
@@ -392,12 +395,12 @@ profile(Options) when is_list(Options) ->
 		    _ ->
 			erlang:error(badarg, [Options])
 		end,
-	    case {Start, File} of
-		{[start], []} ->
+	    case {Start, File, Nif} of
+		{[start], [], []} ->
 		    call(#profile_start{group_leader = group_leader(),
 					dump = Target,
 					flags = Flags});
-		{[], _} ->
+		{[], _, []} ->
 		    Src = 
 			case File of
 			    [] ->
@@ -412,6 +415,11 @@ profile(Options) when is_list(Options) ->
 				erlang:error(badarg, [Options])
 			end,
 		    call(#profile{src = Src,
+				  group_leader = group_leader(),
+				  dump = Target,
+				  flags = Flags});
+                {[], [], [nif]} ->
+                    call(#profile{src = ?TRACE_NIF_FILE,
 				  group_leader = group_leader(),
 				  dump = Target,
 				  flags = Flags});
@@ -811,7 +819,29 @@ try_pending_stop(State) ->
 %%------------------
 %% Server handle_req			    
 %%------------------
-
+handle_req(#trace_start{procs = Procs,
+			mode = Mode,
+			type = nif,
+			dest = Filename}, Tag, State) ->
+    case {get(trace_state), get(pending_stop)} of
+	{idle, []} ->
+	    trace_off(),
+            erlang:display({start, Mode, Filename}),
+	    trace_file_nif:start(Filename),
+	    case trace_on(Procs, {tracer, trace_file_nif, []}, Mode) of
+		ok ->
+		    put(trace_state, running),
+		    put(trace_type, nif),
+		    reply(Tag, ok),
+		    State;
+		Error ->
+		    reply(Tag, Error),
+		    State
+	    end;
+	_ ->
+	    reply(Tag, {error, already_tracing}),
+	    State
+    end;
 handle_req(#trace_start{procs = Procs,
 			mode = Mode,
 			type = file,
@@ -820,7 +850,7 @@ handle_req(#trace_start{procs = Procs,
 	{idle, []} ->
 	    trace_off(),
 	    Port = open_dbg_trace_port(file, Filename),
-	    case trace_on(Procs, Port, Mode) of
+	    case trace_on(Procs, {tracer, Port}, Mode) of
 		ok ->
 		    put(trace_state, running),
 		    put(trace_type, file),
@@ -842,7 +872,7 @@ handle_req(#trace_start{procs = Procs,
     case {get(trace_state), get(pending_stop)} of
 	{idle, []} ->
 	    trace_off(),
-	    case trace_on(Procs, Tracer, Mode) of
+	    case trace_on(Procs, {tracer, Tracer}, Mode) of
 		ok ->
 		    put(trace_state, running),
 		    put(trace_type, tracer),
@@ -864,6 +894,11 @@ handle_req(#trace_stop{}, Tag, State) ->
 	    TracePid = get(trace_pid),
 	    trace_off(),
 	    case erase(trace_type) of
+                nif ->
+                    trace_file_nif:stop(TracePid),
+		    put(trace_state, idle),
+                    reply(Tag, ok),
+                    State;
 		file ->
 		    catch erlang:port_close(TracePid),
 		    put(trace_state, stopping),
@@ -887,7 +922,36 @@ handle_req(#trace_stop{}, Tag, State) ->
 	    reply(Tag, {error, not_tracing}),
 	    State
     end;
-
+handle_req(#profile{src = ?TRACE_NIF_FILE = Filename,
+		    group_leader = GroupLeader,
+		    dump = Dump,
+		    flags = Flags}, Tag, State) ->
+    case {get(profile_state), get(pending_stop)} of
+	{{idle, _}, []} ->
+            case ensure_open(Dump, [write | Flags]) of
+		{already_open, DumpPid} ->
+		    put(profile_dump, DumpPid),
+		    put(profile_close_dump, false);
+		{ok, DumpPid} ->
+		    put(profile_dump, DumpPid),
+		    put(profile_close_dump, true);
+		{error, _} = Error ->
+		    reply(Tag, Error),
+		    State
+	    end,
+            Table = ets:new(?MODULE, [set, public, {keypos, #clocks.id}]),
+            Pid = spawn_link_nif_trace_client(Filename, Table, GroupLeader,
+                                              get(profile_dump)),
+            put(profile_state, running),
+	    put(profile_type, file),
+	    put(profile_pid, Pid),
+	    put(profile_tag, Tag),
+	    put(profile_table, Table),
+            State;
+        _ ->
+	    reply(Tag, {error, already_profiling}),
+	    State
+    end;
 handle_req(#profile{src = Filename,
 		    group_leader = GroupLeader,
 		    dump = Dump,
@@ -919,7 +983,6 @@ handle_req(#profile{src = Filename,
 	    reply(Tag, {error, already_profiling}),
 	    State
     end;
-	    
 handle_req(#profile_start{group_leader = GroupLeader,
 			  dump = Dump,
 			  flags = Flags}, Tag, State) ->
@@ -1294,7 +1357,7 @@ trace_on(Procs, Tracer, {V, CT}) ->
 	    erlang:trace_pattern({'_', '_', '_'}, MatchSpec, [local]),
 	    lists:foreach(
 	      fun (P) ->
-		      erlang:trace(P, true, [{tracer, Tracer} | trace_flags(V)])
+		      erlang:trace(P, true, [Tracer | trace_flags(V)])
 	      end,
 	      Procs),
 	    ok;
@@ -1337,6 +1400,25 @@ spawn_link_dbg_trace_client(File, Table, GroupLeader, Dump) ->
 	Other ->
 	    exit(Other)
     end.
+
+spawn_link_nif_trace_client(File, Table, GroupLeader, Dump) ->
+    spawn_link_3step(
+      fun() ->
+	      {self(),go}
+      end,
+      fun(Ack) ->
+	      Ack
+      end,
+      fun(go) ->
+	      Init = {init, GroupLeader, Table, Dump},
+              Events = trace_file_nif:parse(File),
+	      tracer_nif_loop(Events, fun handler/2, Init)
+      end).
+
+tracer_nif_loop([E|T], Handler, State) ->
+    tracer_nif_loop(T, Handler, Handler(E, State));
+tracer_nif_loop([], Handler, State) ->
+    Handler(end_of_trace, State).
 
 spawn_link_trace_client(Table, GroupLeader, Dump) ->
     Parent = self(),

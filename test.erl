@@ -3,21 +3,21 @@
 -export([test/2, test2/2, test3/2]).
 
 test(P,N) ->
-    trace_file_nif:start(ok),
-    receive ok -> ok end,
+    Ref = trace_file_nif:start("dump.tar.gz"),
     L = lists:seq(1,P),
     erlang:trace(self(), true, [call, return_to,
                                 running, procs, garbage_collection,
                                 arity, monotonic_timestamp, set_on_spawn,
                                 {tracer, trace_file_nif, []}]),
-    erlang:trace_pattern({?MODULE,'_','_'},[]),
+    erlang:trace_pattern({?MODULE,'_','_'},
+                         [{'_', [], [{message, {{cp, {caller}}}}]}],
+                         [local]),
     [spawn_monitor(fun() -> loop(Pn, N, self(), self()) end) || Pn <- L],
     [receive _ -> ok end || _ <- L],
     erlang:trace(all, false, [call, return_to,
                               running, procs, garbage_collection,
                               arity, monotonic_timestamp, set_on_spawn]),
-    trace_file_nif:stop(ok),
-    receive ok -> ok end.
+    trace_file_nif:stop(Ref).
 
 loop(_P, 0, _S, _C) ->
     ok;
