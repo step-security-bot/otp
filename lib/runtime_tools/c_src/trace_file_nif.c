@@ -358,7 +358,7 @@ static void enqueue(ErlNifEnv* env, TraceType type, ERL_NIF_TERM pid, const ERL_
 
     q[scheduler_id].tail++;
 
-    if (q[scheduler_id].tail - q[scheduler_id].head > 10)
+    if (q[scheduler_id].tail % (QUEUE_SIZE / 8)  == 0)
         ethr_event_set(&evt);
 
 }
