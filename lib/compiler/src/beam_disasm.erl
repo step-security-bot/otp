@@ -264,8 +264,8 @@ disasm_literals(<<>>, _) -> [].
 beam_disasm_lines(none, _Source, _Atoms, _Literals) ->
     none;
 beam_disasm_lines(LinesBin, Source, Atoms, Literals) ->
-    <<_Ver:32,_Bits:32,_NumLineInstrs:32,NumLines:32,NumFnames:32,
-      Lines:NumLines/binary,_Fnames:NumFnames/binary>> = LinesBin,
+    <<_Ver:32,_Bits:32,_NumLineInstrs:32,NumLines:32,_NumFnames:32,
+      Lines:NumLines/binary,_Fnames/binary>> = LinesBin,
     gb_trees:from_orddict(
       [{0, []} | decode_lines(1, binary_to_list(Lines), Source, Atoms, Literals)]).
 
