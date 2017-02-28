@@ -17,6 +17,12 @@
 %%
 %% %CopyrightEnd%
 %%
+
+
+%% Maybe it would be a better idea to do this all on core erlang?
+%% That way we can use the inliner written there, we just have
+%% to introduce some special call instructions that can
+%% call local functions in other modules.
 -module(code_opt).
 
 -include_lib("compiler/src/beam_opcodes.hrl").
@@ -44,16 +50,19 @@ test(File) ->
 opt(File) ->
     Module = beam_disasm:file(File),
     Code = fixup_code(Module#beam_file.code),
-    NewCode = optimize(Code),
 
     BeamInfo = {Module#beam_file.module,
                 [{F,A} || {F,A,_Lbl} <- Module#beam_file.labeled_exports],
                 Module#beam_file.attributes,
-                NewCode, num_labels(NewCode) + 1},
+                Code, num_labels(Code) + 1},
+    {ok, AfterA} = beam_a:module(BeamInfo, []),
+
+    NewCode = optimize(Code),
+    {ok, {_, _, _, Is, _} = AfterBlocks} = beam_block:module(AfterA, []),
+    io:format("~p",[beam_utils:live_opt((hd(Is))#function.code)]),
     beam_validator:module(BeamInfo, []),
     {ok, BeamAsm} =
-        beam_asm:module(BeamInfo,
-                        [{<<"Abst">>,[]}],
+        beam_asm:module(BeamInfo, [{<<"Abst">>,[]}],
                         proplists:get_value(source, Module#beam_file.compile_info),
                         proplists:get_value(options, Module#beam_file.compile_info),
                         proplists:get_value(options, Module#beam_file.compile_info)),
@@ -62,11 +71,22 @@ opt(File) ->
 optimize(Functions) ->
     [optimize_function(F, Functions) || F <- Functions].
 
-optimize_function(F, Functions) ->
-    inline(F, Functions).
+optimize_function(#function{ code = Is } = F, Functions) ->
+    Is0 = lists:flatten(inline(Is, Functions)),
+    IsN = if
+              Is0 =/= Is ->
+                  %% Only check liveness if something was changed
+                  Is1 = live_opt(Is0),
+                  dce(Is1);
+              true ->
+                  Is0
+          end,
+    F#function{ code = IsN }.
 
-inline(#function{ code = Code } = F, Functions) ->
-    F#function{ code = lists:flatten(inline(Code, Functions)) };
+%% Optimize the code by inlining small functions
+%% Current heuristic only allows local calls to be
+%% inlined where the inlined function does not contain
+%% any labels or function calls.
 inline([{CallOp, _N, Lbl} = Op|T], Functions) when CallOp =:= call; CallOp =:= call_only ->
     case may_inline(Lbl, Functions) of
         no ->
@@ -101,27 +121,29 @@ may_inline_Is([I | Is], Acc) ->
 may_inline_Is(_, _Acc) ->
     no.
 
-%% to_map(Functions) ->
-%%     Code = to_map(Functions, #{}),
-%%     FInfo = [#{ name => Name, arity => Arity,
-%%                 start => Entry - 1, entry => Entry}
-%%              || #function{ name = Name, arity = Arity,
-%%                            entry = Entry} <- Functions],
-%%     #{ functions => FInfo, code => Code }.
 
-%% to_map([#function{ code = Code }|T], Labels) ->
-%%     to_map(T, index_labels(Code, Labels));
-%% to_map([], Labels) ->
-%%     Labels.
+%% Go through the instructions from the back and reallocate registers.
 
-%% index_labels([{label,N}|T], Labels) ->
-%%     index_labels(T,Labels#{ N => T });
-%% index_labels([_|T], Labels) ->
-%%     index_labels(T,Labels);
-%% index_labels([], Labels) ->
-%%     Labels.
+live_opt(Is) ->
+    io:format("~p~n",[Is]),
+    Is.
+
+%%     live_opt(lists:reverse(Is), sets:new(), [], #{}).
+
+%% live_opt([return | Is], LiveSet, NewIs, LiveInfo) ->
+%%     true = sets:size(LiveNow) == 0,
+%%     live_opt(Is, sets:add_element({x,0}, LiveSet), [return | NewIs], LiveInfo);
+%% live_opt([{deallocate,N} = I| Is], LiveSet, NewIs, LiveInfo) ->
+%%     live_opt(Is, sets:union(LiveNow, sets:from_list([{y,I} || I <- lists:seq(1,N)])),
+%%              [I | NewIs], LiveInfo);
+%% live_opt() ->
+
+%% Go through the instruction and remove any dead instructions
+dce(Is) ->
+    Is.
 
 
+%% Get the number of the highest label
 num_labels(Functions) ->
     lists:foldl(fun(#function{ code = Code }, Max) ->
                         lists:foldl(fun({label,N}, M) when N > M ->
@@ -131,6 +153,8 @@ num_labels(Functions) ->
                                     end, Max, Code)
                 end, 0, Functions).
 
+
+%% Fix the code given by beam_disasm to look like what beam_asm expects.
 fixup_code(Functions) ->
     fixup_code(Functions, Functions).
 fixup_code([#function { code = Code } = F | T], Functions) ->
@@ -138,6 +162,8 @@ fixup_code([#function { code = Code } = F | T], Functions) ->
 fixup_code([], _Functions) ->
     [].
 
+fixup_make_fun2([{line,_}|R], Functions)  ->
+    fixup_make_fun2(R, Functions);
 fixup_make_fun2([{Op,Live,{M,F,A}}|R], Functions) when Op == call; Op == call_only ->
     Function = find_function({M,F,A}, Functions),
     [{call, Live, {f, Function#function.entry}} | fixup_make_fun2(R, Functions)];
