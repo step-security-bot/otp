@@ -22,49 +22,7 @@
 -include_lib("compiler/src/beam_opcodes.hrl").
 -include_lib("compiler/src/beam_disasm.hrl").
 
--export([load/1,opt/1]).
-
-
-%% (<0.80.0>) call beam_asm:module({test,[{module_info,0},{module_info,1},{test,1}],
-%%       [],
-%%       [{function,test,1,2,
-%%                  [{label,1},
-%%                   {line,[{location,"test.erl",5}]},
-%%                   {func_info,{atom,test},{atom,test},1},
-%%                   {label,2},
-%%                   {allocate,1,1},
-%%                   {move,{x,0},{y,0}},
-%%                   {make_fun2,{f,8},0,0,0},
-%%                   {move,{y,0},{x,2}},
-%%                   {move,{integer,0},{x,1}},
-%%                   {line,[{location,"test.erl",6}]},
-%%                   {call_ext_last,3,{extfunc,lists,foldl,3},1}]},
-%%        {function,module_info,0,4,
-%%                  [{label,3},
-%%                   {line,[]},
-%%                   {func_info,{atom,test},{atom,module_info},0},
-%%                   {label,4},
-%%                   {move,{atom,test},{x,0}},
-%%                   {line,[]},
-%%                   {call_ext_only,1,{extfunc,erlang,get_module_info,1}}]},
-%%        {function,module_info,1,6,
-%%                  [{label,5},
-%%                   {line,[]},
-%%                   {func_info,{atom,test},{atom,module_info},1},
-%%                   {label,6},
-%%                   {move,{x,0},{x,1}},
-%%                   {move,{atom,test},{x,0}},
-%%                   {line,[]},
-%%                   {call_ext_only,2,{extfunc,erlang,get_module_info,2}}]},
-%%        {function,'-test/1-fun-0-',2,8,
-%%                  [{label,7},
-%%                   {line,[{location,"test.erl",6}]},
-%%                   {func_info,{atom,test},{atom,'-test/1-fun-0-'},2},
-%%                   {label,8},
-%%                   {line,[{location,"test.erl",7}]},
-%%                   {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}},
-%%                   return]}],
-%%       9},[{<<"Abst">>,[]}],"/home/eluklar/git/otp/test.erl",[{outdir,"."}],[report_errors,report_warnings,{outdir,"."}])
+-export([load/1,opt/1,test/1]).
 
 load(File) ->
     {ok, Module, Asm} = opt(File),
@@ -77,29 +35,101 @@ load(File) ->
             Success
     end.
 
+test(File) ->
+    Module = beam_disasm:file(File),
+    Code = fixup_code(Module#beam_file.code),
+    NewCode = optimize(Code),
+    {Code, NewCode}.
+
 opt(File) ->
     Module = beam_disasm:file(File),
+    Code = fixup_code(Module#beam_file.code),
+    NewCode = optimize(Code),
+
+    BeamInfo = {Module#beam_file.module,
+                [{F,A} || {F,A,_Lbl} <- Module#beam_file.labeled_exports],
+                Module#beam_file.attributes,
+                NewCode, num_labels(NewCode) + 1},
+    beam_validator:module(BeamInfo, []),
     {ok, BeamAsm} =
-        beam_asm:module({Module#beam_file.module,
-                         Module#beam_file.labeled_exports,
-                         Module#beam_file.attributes,
-                         fixup_code(Module#beam_file.code),
-                         num_labels(Module) + 1},
+        beam_asm:module(BeamInfo,
                         [{<<"Abst">>,[]}],
                         proplists:get_value(source, Module#beam_file.compile_info),
                         proplists:get_value(options, Module#beam_file.compile_info),
                         proplists:get_value(options, Module#beam_file.compile_info)),
     {ok, Module#beam_file.module, BeamAsm}.
 
-num_labels(#beam_file{ code = Module } ) ->
+optimize(Functions) ->
+    [optimize_function(F, Functions) || F <- Functions].
+
+optimize_function(F, Functions) ->
+    inline(F, Functions).
+
+inline(#function{ code = Code } = F, Functions) ->
+    F#function{ code = lists:flatten(inline(Code, Functions)) };
+inline([{CallOp, _N, Lbl} = Op|T], Functions) when CallOp =:= call; CallOp =:= call_only ->
+    case may_inline(Lbl, Functions) of
+        no ->
+            [Op | inline(T, Functions)];
+        Code ->
+            [Code | inline(T, Functions)]
+    end;
+inline([Op|T], Functions) ->
+    [Op | inline(T, Functions)];
+inline([], _Functions) ->
+    [].
+
+may_inline({f, Lbl}, [#function{ entry = Lbl, code = Is }|_T]) ->
+    InlineIs = beam_utils:code_at(Lbl, beam_utils:index_labels(Is)),
+    may_inline_Is(InlineIs, []);
+may_inline(Lbl, [_F | T]) ->
+    may_inline(Lbl, T);
+may_inline(_, []) ->
+    no.
+
+
+may_inline_Is([I | _Is], _Acc)
+  when element(1,I) =:= call;
+       element(1,I) =:= call_only;
+       element(1,I) =:= call_last;
+       element(1,I) =:= label ->
+    no;
+may_inline_Is([return | _Is], Acc) ->
+    lists:reverse(Acc);
+may_inline_Is([I | Is], Acc) ->
+    may_inline_Is(Is, [I | Acc]);
+may_inline_Is(_, _Acc) ->
+    no.
+
+%% to_map(Functions) ->
+%%     Code = to_map(Functions, #{}),
+%%     FInfo = [#{ name => Name, arity => Arity,
+%%                 start => Entry - 1, entry => Entry}
+%%              || #function{ name = Name, arity = Arity,
+%%                            entry = Entry} <- Functions],
+%%     #{ functions => FInfo, code => Code }.
+
+%% to_map([#function{ code = Code }|T], Labels) ->
+%%     to_map(T, index_labels(Code, Labels));
+%% to_map([], Labels) ->
+%%     Labels.
+
+%% index_labels([{label,N}|T], Labels) ->
+%%     index_labels(T,Labels#{ N => T });
+%% index_labels([_|T], Labels) ->
+%%     index_labels(T,Labels);
+%% index_labels([], Labels) ->
+%%     Labels.
+
+
+num_labels(Functions) ->
     lists:foldl(fun(#function{ code = Code }, Max) ->
                         lists:foldl(fun({label,N}, M) when N > M ->
                                             N;
                                        (_, M) ->
                                             M
                                     end, Max, Code)
-                end, 0, Module).
-
+                end, 0, Functions).
 
 fixup_code(Functions) ->
     fixup_code(Functions, Functions).
@@ -108,6 +138,12 @@ fixup_code([#function { code = Code } = F | T], Functions) ->
 fixup_code([], _Functions) ->
     [].
 
+fixup_make_fun2([{Op,Live,{M,F,A}}|R], Functions) when Op == call; Op == call_only ->
+    Function = find_function({M,F,A}, Functions),
+    [{call, Live, {f, Function#function.entry}} | fixup_make_fun2(R, Functions)];
+fixup_make_fun2([{call_last,Live,{M,F,A},D}|R], Functions) ->
+    Function = find_function({M,F,A}, Functions),
+    [{call_last, Live, {f, Function#function.entry}, D} | fixup_make_fun2(R, Functions)];
 fixup_make_fun2([{make_fun2,{M,F,A},OldIndex,OldUniq,NumFree}|R], Functions) ->
     Function = find_function({M,F,A}, Functions),
     [{make_fun2, {f, Function#function.entry}, OldIndex, OldUniq,NumFree}
