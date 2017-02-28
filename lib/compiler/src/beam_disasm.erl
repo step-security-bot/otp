@@ -40,6 +40,7 @@
 
 -type index()        :: non_neg_integer().
 -type literals()     :: 'none' | gb_trees:tree(index(), term()).
+-type lines()        :: 'none' | gb_trees:tree(index(), {location,string(),non_neg_integer()}).
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -177,24 +178,31 @@ process_chunks(F) ->
 	{ok,{Module,
 	     [{atoms,AtomsList},{"Code",CodeBin},{"StrT",StrBin},
 	      {indexed_imports,ImportsList},{labeled_exports,Exports}]}} ->
-	    Atoms = mk_atoms(AtomsList),
-	    LambdaBin = optional_chunk(F, "FunT"),
-	    Lambdas = beam_disasm_lambdas(LambdaBin, Atoms),
-	    LiteralBin = optional_chunk(F, "LitT"),
-	    Literals = beam_disasm_literals(LiteralBin),
-	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
-				    StrBin, Lambdas, Literals, Module),
-	    Attributes =
-		case optional_chunk(F, attributes) of
-		    none -> [];
-		    Atts when is_list(Atts) -> Atts
-		end,
-	    CompInfo = 
+
+            CompInfo =
 		case optional_chunk(F, "CInf") of
 		    none -> [];
 		    CompInfoBin when is_binary(CompInfoBin) ->
 			binary_to_term(CompInfoBin)
 		end,
+
+            Source = proplists:get_value(source, CompInfo),
+
+	    Atoms = mk_atoms(AtomsList),
+	    LambdaBin = optional_chunk(F, "FunT"),
+	    Lambdas = beam_disasm_lambdas(LambdaBin, Atoms),
+	    LiteralBin = optional_chunk(F, "LitT"),
+	    Literals = beam_disasm_literals(LiteralBin),
+            LinesBin = optional_chunk(F, "Line"),
+            Lines = beam_disasm_lines(LinesBin, Source, Atoms, Literals),
+	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
+				    StrBin, Lambdas, Literals, Lines, Module),
+	    Attributes =
+		case optional_chunk(F, attributes) of
+		    none -> [];
+		    Atts when is_list(Atts) -> Atts
+		end,
+
 	    #beam_file{module = Module,
 		       labeled_exports = Exports,
 		       attributes = Attributes,
@@ -246,6 +254,32 @@ disasm_literals(<<Sz:32,Ext:Sz/binary,T/binary>>, Index) ->
     [{Index,binary_to_term(Ext)}|disasm_literals(T, Index+1)];
 disasm_literals(<<>>, _) -> [].
 
+
+%%-----------------------------------------------------------------------
+%% Disassembles the lines table of a BEAM file.
+%%-----------------------------------------------------------------------
+
+-spec beam_disasm_lines('none' | binary(), string(), term(), literals()) -> lines().
+
+beam_disasm_lines(none, _Source, _Atoms, _Literals) ->
+    none;
+beam_disasm_lines(LinesBin, Source, Atoms, Literals) ->
+    <<_Ver:32,_Bits:32,_NumLineInstrs:32,NumLines:32,NumFnames:32,
+      Lines:NumLines/binary,_Fnames:NumFnames/binary>> = LinesBin,
+    gb_trees:from_orddict(
+      [{0, []} | decode_lines(1, binary_to_list(Lines), Source, Atoms, Literals)]).
+
+decode_lines(_Index, [], _Source, _Atoms, _Literals) ->
+    [];
+decode_lines(Index, Bytes, Source, Atoms, Literals) ->
+    case decode_arg(Bytes, Atoms, Literals) of
+        {{i, Line}, Rest} ->
+            [{Index, [{location, Source, Line}]}
+             | decode_lines(Index+1, Rest, Source, Atoms, Literals)]
+    end.
+
+
+
 %%-----------------------------------------------------------------------
 %% Disassembles the code chunk of a BEAM file:
 %%   - The code is first disassembled into a long list of instructions.
@@ -257,7 +291,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 		  _OM:32,  % Opcode Max
 		  _L:32,_F:32,
 		  CodeBin/binary>>, Atoms, Imports,
-		 Str, Lambdas, Literals, M) ->
+		 Str, Lambdas, Literals, Lines, M) ->
     Code = binary_to_list(CodeBin),
     try disasm_code(Code, Atoms, Literals) of
 	DisasmCode ->
@@ -265,7 +299,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 	    Labels = mk_labels(local_labels(Functions)),
 	    [function__code_update(Function,
 				   resolve_names(Is, Imports, Str,
-						 Labels, Lambdas, Literals, M))
+						 Labels, Lambdas, Literals, Lines, M))
 	     || Function = #function{code=Is} <- Functions]
     catch
 	error:Rsn ->
@@ -643,8 +677,8 @@ decode_tag(?tag_z) -> z.
 %%  representation means it is simpler to iterate over all args, etc.
 %%-----------------------------------------------------------------------
 
-resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
-    [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, M) || Instr <- Fun].
+resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, Lines, M) ->
+    [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, Lines, M) || Instr <- Fun].
 
 %%
 %% New make_fun2/4 instruction added in August 2001 (R8).
@@ -652,12 +686,14 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
 %% the clause for every instruction.
 %%
 
-resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
+resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, _, M) ->
     [OldIndex] = resolve_args(Args),
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
-resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
+resolve_inst({line,[Index]}, _, _, _, _, _, Lines, _M) ->
+    {line, lookup(resolve_arg(Index), Lines)};
+resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _Lines, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
 
@@ -1131,12 +1167,6 @@ resolve_inst({recv_mark,[Lbl]},_,_,_) ->
     {recv_mark,Lbl};
 resolve_inst({recv_set,[Lbl]},_,_,_) ->
     {recv_set,Lbl};
-
-%%
-%% R15A.
-%%
-resolve_inst({line,[Index]},_,_,_) ->
-    {line,resolve_arg(Index)};
 
 %%
 %% 17.0
