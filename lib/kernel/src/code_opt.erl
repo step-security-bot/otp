@@ -28,26 +28,9 @@
 -include_lib("compiler/src/beam_opcodes.hrl").
 -include_lib("compiler/src/beam_disasm.hrl").
 
--export([load/1,opt/1,test/1]).
+-export([ssa/1]).
 
-load(File) ->
-    {ok, Module, Asm} = opt(File),
-    case erlang:load_module(Module, Asm) of
-        {error, not_purged} ->
-            erlang:check_process_code(self(), Module),
-            true = erlang:purge_module(Module),
-            erlang:load_module(Module, Asm);
-        Success ->
-            Success
-    end.
-
-test(File) ->
-    Module = beam_disasm:file(File),
-    Code = fixup_code(Module#beam_file.code),
-    NewCode = optimize(Code),
-    {Code, NewCode}.
-
-opt(File) ->
+ssa(File) ->
     Module = beam_disasm:file(File),
     Code = fixup_code(Module#beam_file.code),
 
@@ -56,91 +39,127 @@ opt(File) ->
                 Module#beam_file.attributes,
                 Code, num_labels(Code) + 1},
     {ok, AfterA} = beam_a:module(BeamInfo, []),
+    {ok, AfterBlocks} = beam_block:module(AfterA, []),
+    module(AfterBlocks, []).
 
-    NewCode = optimize(Code),
-    {ok, {_, _, _, Is, _} = AfterBlocks} = beam_block:module(AfterA, []),
-    io:format("~p",[beam_utils:live_opt((hd(Is))#function.code)]),
-    beam_validator:module(BeamInfo, []),
-    {ok, BeamAsm} =
-        beam_asm:module(BeamInfo, [{<<"Abst">>,[]}],
-                        proplists:get_value(source, Module#beam_file.compile_info),
-                        proplists:get_value(options, Module#beam_file.compile_info),
-                        proplists:get_value(options, Module#beam_file.compile_info)),
-    {ok, Module#beam_file.module, BeamAsm}.
+module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
+    Fs = [function(F) || F <- Fs0],
+    {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-optimize(Functions) ->
-    [optimize_function(F, Functions) || F <- Functions].
+function({function,Name,Arity,CLabel,Is0} = F)
+  when Name =/= test; Arity =/= 2 ->
+    F;
+function({function,Name,Arity,CLabel,Is0}) ->
+    try
+        io:format("~p~n",[Is0]),
+	Is1 = to_ssa(Is0, CLabel, Arity),
+        io:format("~p~n",[Is1]),
 
-optimize_function(#function{ code = Is } = F, Functions) ->
-    Is0 = lists:flatten(inline(Is, Functions)),
-    IsN = if
-              Is0 =/= Is ->
-                  %% Only check liveness if something was changed
-                  Is1 = live_opt(Is0),
-                  dce(Is1);
-              true ->
-                  Is0
-          end,
-    F#function{ code = IsN }.
+	{function,Name,Arity,CLabel,Is1}
+    catch
+	Class:Error ->
+	    Stack = erlang:get_stacktrace(),
+	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+	    erlang:raise(Class, Error, Stack)
+    end.
 
-%% Optimize the code by inlining small functions
-%% Current heuristic only allows local calls to be
-%% inlined where the inlined function does not contain
-%% any labels or function calls.
-inline([{CallOp, _N, Lbl} = Op|T], Functions) when CallOp =:= call; CallOp =:= call_only ->
-    case may_inline(Lbl, Functions) of
-        no ->
-            [Op | inline(T, Functions)];
-        Code ->
-            [Code | inline(T, Functions)]
-    end;
-inline([Op|T], Functions) ->
-    [Op | inline(T, Functions)];
-inline([], _Functions) ->
-    [].
+to_ssa([{label, N} | Is], CLabel, Arity) ->
+    Args = maps:from_list([{{x,I},{var,{block,0},I}} || I <- lists:seq(0,Arity-1)]),
+    Labels = maps:from_list([{{f,N+I},{block,I}} || I <- lists:seq(0,CLabel+1)]),
+    to_ssa(Is, {block, 0}, Arity, [], maps:merge(Args, Labels),
+           #{ bid => maps:size(Labels) }).
 
-may_inline({f, Lbl}, [#function{ entry = Lbl, code = Is }|_T]) ->
-    InlineIs = beam_utils:code_at(Lbl, beam_utils:index_labels(Is)),
-    may_inline_Is(InlineIs, []);
-may_inline(Lbl, [_F | T]) ->
-    may_inline(Lbl, T);
-may_inline(_, []) ->
-    no.
+to_ssa([{label, N} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
 
+    NextBid = maps:get({f,N}, Maps),
 
-may_inline_Is([I | _Is], _Acc)
-  when element(1,I) =:= call;
-       element(1,I) =:= call_only;
-       element(1,I) =:= call_last;
-       element(1,I) =:= label ->
-    no;
-may_inline_Is([return | _Is], Acc) ->
-    lists:reverse(Acc);
-may_inline_Is([I | Is], Acc) ->
-    may_inline_Is(Is, [I | Acc]);
-may_inline_Is(_, _Acc) ->
-    no.
+    case Is =/= [] andalso (is_test(hd(Is)) orelse is_return(hd(Is))) of
+        true ->
+            Is1 = Is;
+        false ->
+            Is1 = [{test, jump, [], NextBid} | Is]
+    end,
+    to_ssa(IsT, NextBid, VarId, [], Maps,
+           Blocks#{ CurrBid => {lists:reverse(Is1), Maps} });
+to_ssa([{func_info, _M, _F, _A} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa(IsT, Bid, VarId, Is, Maps, Blocks);
+to_ssa([{block, BIs} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa(BIs ++ IsT, Bid, VarId, Is, Maps, Blocks);
+to_ssa([{deallocate, _N} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa(IsT, Bid, VarId, Is, Maps, Blocks);
+to_ssa([{set, Write, Read, {alloc,_,_}} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa(IsT, Bid, VarId, Is, Maps, Blocks);
 
 
-%% Go through the instructions from the back and reallocate registers.
+to_ssa([{set, Write, Read, {get_tuple_element,N}} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa([{set, Write, Read ++ [N], get_tuple_element} | IsT],
+            Bid, VarId, Is, Maps, Blocks);
+to_ssa([{set, Write, [], {put_tuple,N}} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    {Puts, T} = lists:split(N, IsT),
+    MergedRead = [Reg || {set, [], [Reg], put} <- Puts],
+    true = length(Puts) == length(MergedRead),
+    to_ssa([{set, Write, [N] ++ MergedRead, put_tuple} | T],
+            Bid, VarId, Is, Maps, Blocks);
+to_ssa([{set, Write, Read, move} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NumNewVars = length(Write),
+    SSAMap = maps:merge(Maps,
+                        maps:from_list(
+                          lists:zip(Write, gen_vars(Bid, VarId, NumNewVars)))),
+    to_ssa(IsT, Bid, VarId + NumNewVars, Is, SSAMap, Blocks);
+to_ssa([{set, Write, Read, Op} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NumNewVars = length(Write),
+    SSAMap = maps:merge(Maps,
+                        maps:from_list(
+                          lists:zip(Write, gen_vars(Bid, VarId, NumNewVars)))),
+    NewI = {set, map_vars(Write, SSAMap), map_vars(Read, Maps), Op},
+    to_ssa(IsT, Bid, VarId + NumNewVars, [NewI|Is], SSAMap, Blocks);
 
-live_opt(Is) ->
-    io:format("~p~n",[Is]),
-    Is.
+to_ssa([{test, Op, Fail, Args} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
+    NewBid = {block, maps:get(bid, Blocks)},
+    NewI = {test, Op, map_vars(Args, Maps), [NewBid] ++ map_vars([Fail], Maps)},
+    to_ssa(IsT, NewBid, VarId, [], Maps,
+           Blocks#{ bid => maps:get(bid, Blocks) + 1,
+                    CurrBid => {lists:reverse([NewI|Is]), Maps}});
+to_ssa([{jump, To} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
+    to_ssa(IsT, CurrBid, VarId, [{test, jump, [], map_vars([To],Maps)} | Is], Maps, Blocks);
+to_ssa([{select, select_val, Val, Fail, Dests} | IsT], Bid, VarId, Is, Maps, Blocks) ->
 
-%%     live_opt(lists:reverse(Is), sets:new(), [], #{}).
+    {val, Vs, Ds} = lists:foldl(fun(V,{val,Vs,Ds}) ->
+                                         {dest,[V|Vs],Ds};
+                                    (D,{dest,Vs,Ds}) ->
+                                         {val,Vs,[D|Ds]}
+                                 end,{val,[],[]}, Dests),
 
-%% live_opt([return | Is], LiveSet, NewIs, LiveInfo) ->
-%%     true = sets:size(LiveNow) == 0,
-%%     live_opt(Is, sets:add_element({x,0}, LiveSet), [return | NewIs], LiveInfo);
-%% live_opt([{deallocate,N} = I| Is], LiveSet, NewIs, LiveInfo) ->
-%%     live_opt(Is, sets:union(LiveNow, sets:from_list([{y,I} || I <- lists:seq(1,N)])),
-%%              [I | NewIs], LiveInfo);
-%% live_opt() ->
+    NewI = {test, select_val, map_vars([Val|Vs], Maps), map_vars([Fail | Ds], Maps)},
 
-%% Go through the instruction and remove any dead instructions
-dce(Is) ->
-    Is.
+    to_ssa(IsT, Bid, VarId, [NewI | Is], Maps, Blocks);
+
+to_ssa([{call, Arity, To} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NewI = {set, [{x,0}], [{x,I} || I <- lists:seq(0,Arity-1)], {call, To}},
+    to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
+to_ssa([return | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NewI = {set, [], [{x,0}], return},
+    to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
+
+to_ssa([I | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    to_ssa(IsT, Bid, VarId, [I | Is], Maps, Blocks);
+to_ssa([], CurrBid, VarId, Is, Maps, Blocks) ->
+    Blocks#{ CurrBid => {lists:reverse(Is), Maps}}.
+
+gen_vars(Bid, Offset, Num) ->
+    [{var,Bid, Offset + I} || I <- lists:seq(0, Num - 1)].
+map_vars(Values, Map) ->
+    [maps:get(Value, Map, Value) || Value <- Values].
+
+is_test({test, _, _, _}) ->
+    true;
+is_test(_) ->
+    false.
+
+is_return({set, _, _, return}) ->
+    true;
+is_return(_) ->
+    false.
 
 
 %% Get the number of the highest label
