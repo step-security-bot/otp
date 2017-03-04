@@ -47,7 +47,7 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 function({function,Name,Arity,CLabel,Is0} = F)
-  when Name =/= test; Arity =/= 2 ->
+  when Name =/= test ->
     F;
 function({function,Name,Arity,CLabel,Is0}) ->
     try
@@ -67,7 +67,8 @@ to_ssa([{label, N} | Is], CLabel, Arity) ->
     Args = maps:from_list([{{x,I},{var,{block,0},I}} || I <- lists:seq(0,Arity-1)]),
     Labels = maps:from_list([{{f,N+I},{block,I}} || I <- lists:seq(0,CLabel+1)]),
     to_ssa(Is, {block, 0}, Arity, [], maps:merge(Args, Labels),
-           #{ bid => maps:size(Labels) }).
+           #{ bid => maps:size(Labels),
+              {block, 0} => #{ regs => [], in => #{ {block, entry} => Args }} }).
 
 to_ssa([{label, N} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
 
@@ -79,8 +80,18 @@ to_ssa([{label, N} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
         false ->
             Is1 = [{test, jump, [], NextBid} | Is]
     end,
-    to_ssa(IsT, NextBid, VarId, [], Maps,
-           Blocks#{ CurrBid => {lists:reverse(Is1), Maps} });
+
+    case Is =/= [] andalso (is_return(hd(Is))) of
+        true ->
+            NextBids = [];
+        false ->
+            NextBids = [NextBid]
+    end,
+
+    NewBlocks = close_block(Blocks, CurrBid, Is1, Maps, NextBids),
+    {Phis, {NextMaps, NewVarId}} = init_block(NextBid, VarId, Maps, NewBlocks),
+
+    to_ssa(IsT, NextBid, NewVarId, Phis, NextMaps, NewBlocks);
 to_ssa([{func_info, _M, _F, _A} | IsT], Bid, VarId, Is, Maps, Blocks) ->
     to_ssa(IsT, Bid, VarId, Is, Maps, Blocks);
 to_ssa([{block, BIs} | IsT], Bid, VarId, Is, Maps, Blocks) ->
@@ -104,7 +115,7 @@ to_ssa([{set, Write, Read, move} | IsT], Bid, VarId, Is, Maps, Blocks) ->
     NumNewVars = length(Write),
     SSAMap = maps:merge(Maps,
                         maps:from_list(
-                          lists:zip(Write, gen_vars(Bid, VarId, NumNewVars)))),
+                          lists:zip(Write, map_vars(Read, Maps)))),
     to_ssa(IsT, Bid, VarId + NumNewVars, Is, SSAMap, Blocks);
 to_ssa([{set, Write, Read, Op} | IsT], Bid, VarId, Is, Maps, Blocks) ->
     NumNewVars = length(Write),
@@ -116,13 +127,27 @@ to_ssa([{set, Write, Read, Op} | IsT], Bid, VarId, Is, Maps, Blocks) ->
 
 to_ssa([{test, Op, Fail, Args} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
     NewBid = {block, maps:get(bid, Blocks)},
-    NewI = {test, Op, map_vars(Args, Maps), [NewBid] ++ map_vars([Fail], Maps)},
-    to_ssa(IsT, NewBid, VarId, [], Maps,
-           Blocks#{ bid => maps:get(bid, Blocks) + 1,
-                    CurrBid => {lists:reverse([NewI|Is]), Maps}});
-to_ssa([{jump, To} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
-    to_ssa(IsT, CurrBid, VarId, [{test, jump, [], map_vars([To],Maps)} | Is], Maps, Blocks);
-to_ssa([{select, select_val, Val, Fail, Dests} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NextBids = [NewBid] ++ map_vars([Fail], Maps),
+    NewI = {test, Op, map_vars(Args, Maps), NextBids},
+
+    NewBlocks = close_block(Blocks, CurrBid, [NewI|Is], Maps, NextBids),
+
+    {Phis, {NextMaps, NewVarId}} = init_block(NewBid, VarId, Maps, NewBlocks),
+
+    to_ssa(IsT, NewBid, NewVarId, Phis, NextMaps,
+           NewBlocks#{ bid => maps:get(bid, Blocks) + 1 } );
+to_ssa([{jump, To}, {label, N} | IsT], CurrBid, VarId, Is, Maps, Blocks) ->
+    NextBid = map_value({f,N}, Maps),
+    NextBids = map_vars([To], Maps),
+    NewI = {test, jump, [], NextBids},
+
+    NewBlocks = close_block(Blocks, CurrBid, [NewI | Is], Maps, NextBids),
+    {Phis, {NextMaps, NewVarId}} = init_block(NextBid, VarId, Maps, NewBlocks),
+
+    to_ssa(IsT, NextBid, NewVarId, Phis, NextMaps, NewBlocks);
+to_ssa([{select, select_val, Val, Fail, Dests}, {label, N} | IsT],
+       CurrBid, VarId, Is, Maps, Blocks) ->
+    NextBid = map_value({f,N}, Maps),
 
     {val, Vs, Ds} = lists:foldl(fun(V,{val,Vs,Ds}) ->
                                          {dest,[V|Vs],Ds};
@@ -130,12 +155,20 @@ to_ssa([{select, select_val, Val, Fail, Dests} | IsT], Bid, VarId, Is, Maps, Blo
                                          {val,Vs,[D|Ds]}
                                  end,{val,[],[]}, Dests),
 
-    NewI = {test, select_val, map_vars([Val|Vs], Maps), map_vars([Fail | Ds], Maps)},
+    NextBids = map_vars([Fail | Ds], Maps),
 
-    to_ssa(IsT, Bid, VarId, [NewI | Is], Maps, Blocks);
+    NewI = {test, select_val, map_vars([Val|Vs], Maps), NextBids},
+
+    NewBlocks = close_block(Blocks, CurrBid, [NewI | Is], Maps, NextBids),
+    {Phis, {NextMaps, NewVarId}} = init_block(NextBid, VarId, Maps, NewBlocks),
+
+    to_ssa(IsT, NextBid, NewVarId, Phis, NextMaps, NewBlocks);
 
 to_ssa([{call, Arity, To} | IsT], Bid, VarId, Is, Maps, Blocks) ->
     NewI = {set, [{x,0}], [{x,I} || I <- lists:seq(0,Arity-1)], {call, To}},
+    to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
+to_ssa([{make_fun2, Lbl, _OldIndex, _OldUniq, _NumFree} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NewI = {set, [{x,0}], [], {make_fun2, Lbl}},
     to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
 to_ssa([return | IsT], Bid, VarId, Is, Maps, Blocks) ->
     NewI = {set, [], [{x,0}], return},
@@ -144,12 +177,54 @@ to_ssa([return | IsT], Bid, VarId, Is, Maps, Blocks) ->
 to_ssa([I | IsT], Bid, VarId, Is, Maps, Blocks) ->
     to_ssa(IsT, Bid, VarId, [I | Is], Maps, Blocks);
 to_ssa([], CurrBid, VarId, Is, Maps, Blocks) ->
-    Blocks#{ CurrBid => {lists:reverse(Is), Maps}}.
+    close_block(Blocks, CurrBid, Is, Maps, []).
+
+close_block(Blocks, CurrBid, Is, Maps, NextBids) ->
+    Block = maps:get(CurrBid, Blocks),
+    NewBlocks = update_succs(CurrBid, Blocks, Maps, NextBids),
+    NewBlocks#{ CurrBid := Block#{ regs := lists:usort(lists:flatten(maps:get(regs, Block))),
+                                   is => lists:reverse(Is),
+                                   out => Maps,
+                                   succs => NextBids} }.
+
+update_succs(PredBid, Blocks, Maps, [Bid | T]) ->
+    Block = #{ regs := Regs, in := In } = maps:get(Bid, Blocks, #{ regs => [], in => #{ } }),
+    NewBlock = Block#{ regs := [get_regs(Maps)|Regs], in := In#{ PredBid => Maps } },
+    update_succs(PredBid, Blocks#{ Bid => NewBlock }, Maps, T);
+update_succs(_, Blocks, _, []) ->
+    Blocks.
+
+init_block(Bid, VarId, Maps, Blocks) ->
+    #{ regs := Regs, in := In } = maps:get(Bid, Blocks),
+    lists:mapfoldl(
+      fun(Reg, {Map, VId}) ->
+              {PhiId, Phi} = create_phi(Reg, In, Bid, VId),
+              {Phi, {Map#{ Reg => PhiId }, VId + 1}}
+      end,{labels(Maps), VarId}, lists:usort(lists:flatten(Regs))).
+
+create_phi(Reg, In, Bid, VId) ->
+    PhiId = {var, Bid, VId},
+    {PhiId, {phi, [PhiId], create_incoming(Reg, In)}}.
+
+create_incoming(Reg, In) ->
+    maps:map(fun(Bid, Map) ->
+                     map_value(Reg, Map)
+             end, In).
 
 gen_vars(Bid, Offset, Num) ->
     [{var,Bid, Offset + I} || I <- lists:seq(0, Num - 1)].
 map_vars(Values, Map) ->
-    [maps:get(Value, Map, Value) || Value <- Values].
+    [map_value(Value, Map) || Value <- Values].
+map_value(Value, Map) ->
+    maps:get(Value, Map, Value).
+
+get_regs(Maps) ->
+    [R || {Tag,_} = R <- maps:keys(Maps),
+          Tag =:= x orelse Tag =:= y].
+get_labels(Maps) ->
+    [R || {Tag,_} = R <- maps:keys(Maps), Tag =:= f].
+labels(Maps) ->
+    maps:from_list([{K, maps:get(K, Maps)} || {f, _} = K <- maps:keys(Maps)]).
 
 is_test({test, _, _, _}) ->
     true;
