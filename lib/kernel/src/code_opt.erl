@@ -53,7 +53,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
     try
         io:format("~p~n",[Is0]),
 	Is1 = to_ssa(Is0, CLabel, Arity),
-        io:format("~p~n",[Is1]),
+        dump_is(Is1),
 
 	{function,Name,Arity,CLabel,Is1}
     catch
@@ -173,6 +173,9 @@ to_ssa([{make_fun2, Lbl, _OldIndex, _OldUniq, _NumFree} | IsT], Bid, VarId, Is, 
 to_ssa([return | IsT], Bid, VarId, Is, Maps, Blocks) ->
     NewI = {set, [], [{x,0}], return},
     to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
+to_ssa([{case_end, Val} | IsT], Bid, VarId, Is, Maps, Blocks) ->
+    NewI = {set, [], [Val], case_end},
+    to_ssa([NewI | IsT], Bid, VarId, Is, Maps, Blocks);
 
 to_ssa([I | IsT], Bid, VarId, Is, Maps, Blocks) ->
     to_ssa(IsT, Bid, VarId, [I | Is], Maps, Blocks);
@@ -235,6 +238,26 @@ is_return({set, _, _, return}) ->
     true;
 is_return(_) ->
     false.
+
+
+dump_is(Blocks) when is_map(Blocks) ->
+    dump_is(lists:sort(maps:to_list(Blocks)));
+dump_is([{{block, _} = BlockId,Block}|T]) ->
+    io:format("~p: % preds = ~p~n",[BlockId, maps:keys(maps:get(in, Block))]),
+    dump_is(maps:get(is, Block), "  "),
+    io:format("~n"),
+    dump_is(T);
+dump_is([_|T]) ->
+    dump_is(T);
+dump_is([]) ->
+    ok.
+dump_is([I | Is], Indent) ->
+    io:format("~s~p~n",[Indent, I]),
+    dump_is(Is, Indent);
+dump_is([], _) ->
+    ok.
+
+
 
 
 %% Get the number of the highest label
