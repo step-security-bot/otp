@@ -1561,56 +1561,12 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      DO_OUTLINED_ARITH_2(mixed_minus, MinusOp1, MinusOp2);
  }
 
-    {
-	Eterm is_eq_exact_lit_val;
-
-    OpCase(i_is_eq_exact_literal_fxc):
-	is_eq_exact_lit_val = xb(Arg(1));
-	goto do_is_eq_exact_literal;
-
-    OpCase(i_is_eq_exact_literal_fyc):
-	is_eq_exact_lit_val = yb(Arg(1));
-	goto do_is_eq_exact_literal;
-
-    do_is_eq_exact_literal:
-	if (!eq(Arg(2), is_eq_exact_lit_val)) {
-	    ClauseFail();
-	}
-	Next(3);
-    }
-
-    {
-	Eterm is_ne_exact_lit_val;
-
-    OpCase(i_is_ne_exact_literal_fxc):
-	is_ne_exact_lit_val = xb(Arg(1));
-	goto do_is_ne_exact_literal;
-
-    OpCase(i_is_ne_exact_literal_fyc):
-	is_ne_exact_lit_val = yb(Arg(1));
-	goto do_is_ne_exact_literal;
-
-    do_is_ne_exact_literal:
-	if (eq(Arg(2), is_ne_exact_lit_val)) {
-	    ClauseFail();
-	}
-	Next(3);
-    }
-
- OpCase(i_move_call_only_fc): {
-     r(0) = Arg(1);
- }
- /* FALL THROUGH */
  OpCase(i_call_only_f): {
      SET_I((BeamInstr *) Arg(0));
      DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
 
- OpCase(i_move_call_last_fPc): {
-     r(0) = Arg(2);
- }
- /* FALL THROUGH */
  OpCase(i_call_last_fP): {
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
@@ -1619,11 +1575,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      Dispatch();
  }
 
- OpCase(i_move_call_cf): {
-     r(0) = Arg(0);
-     I++;
- }
- /* FALL THROUGH */
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
      SET_I((BeamInstr *) Arg(0));
@@ -1631,10 +1582,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      Dispatch();
  }
 
- OpCase(i_move_call_ext_last_ePc): {
-     r(0) = Arg(2);
- }
- /* FALL THROUGH */
  OpCase(i_call_ext_last_eP):
     RESTORE_CP(E);
     E = ADD_BYTE_OFFSET(E, Arg(1));
@@ -1647,20 +1594,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
- OpCase(i_move_call_ext_ce): {
-     r(0) = Arg(0);
-     I++;
- }
- /* FALL THROUGH */
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();
 
- OpCase(i_move_call_ext_only_ec): {
-     r(0) = Arg(1);
- }
- /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
     DTRACE_GLOBAL_CALL_FROM_EXPORT(c_p, Arg(0));
     Dispatchx();

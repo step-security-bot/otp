@@ -276,16 +276,7 @@ i_wait_error_locked
 
 send
 
-i_is_eq_exact_literal f x c
-i_is_eq_exact_literal f y c
-
-i_is_ne_exact_literal f x c
-i_is_ne_exact_literal f y c
-
-is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
-%macro: is_eq_exact EqualExact -fail_action -pack
-is_eq_exact f x x
-is_eq_exact f x y
+%macro: is_eq_exact EqualExact -fail_action
 is_eq_exact f s s
 
 %macro: is_lt IsLessThan -fail_action
@@ -838,10 +829,6 @@ call_ext_only Ar=u Bif=u$is_bif => \
 # with call instructions.
 #
 
-move S=c x==0 | call_ext Ar=u Func=u$is_not_bif => i_move_call_ext S Func
-move S=c x==0 | call_ext_last Ar=u Func=u$is_not_bif D => i_move_call_ext_last Func D S
-move S=c x==0 | call_ext_only Ar=u Func=u$is_not_bif => i_move_call_ext_only Func S
-
 call_ext Ar Func        => i_call_ext Func
 call_ext_last Ar Func D => i_call_ext_last Func D
 call_ext_only Ar Func   => i_call_ext_only Func
@@ -904,38 +891,6 @@ i_bif2_body b s s d
 # Internal calls.
 #
 
-move S=c x==0 | call Ar P=f => i_move_call S P
-move S=s x==0 | call Ar P=f => move_call S P
-
-i_move_call c f
-
-%macro:move_call MoveCall -arg_f -size -nonext
-move_call/2
-
-move_call x f
-move_call y f
-
-move S=c x==0 | call_last Ar P=f D => i_move_call_last P D S
-move S x==0 | call_last Ar P=f D => move_call_last S P D
-
-i_move_call_last f P c
-
-%macro:move_call_last MoveCallLast -arg_f -nonext -pack
-
-move_call_last/3
-move_call_last x f Q
-move_call_last y f Q
-
-move S=c x==0 | call_only Ar P=f => i_move_call_only P S
-move S=x x==0 | call_only Ar P=f => move_call_only S P
-
-i_move_call_only f c
-
-%macro:move_call_only MoveCallOnly -arg_f -nonext
-move_call_only/2
-
-move_call_only x f
-
 call Ar Func        => i_call Func
 call_last Ar Func D => i_call_last Func D
 call_only Ar Func   => i_call_only Func
@@ -947,10 +902,6 @@ i_call_only f
 i_call_ext e
 i_call_ext_last e P
 i_call_ext_only e
-
-i_move_call_ext c e
-i_move_call_ext_last e P c
-i_move_call_ext_only e c
 
 # Fun calls.
 
