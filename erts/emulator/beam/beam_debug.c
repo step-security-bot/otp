@@ -635,19 +635,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_val_bins_xfI:
-    case op_i_select_val_bins_yfI:
-	{
-	    int n = ap[-1];
-
-	    while (n > 0) {
-		erts_print(to, to_arg, "%T f(" HEXF ") ", (Eterm) ap[0], ap[1]);
-		ap += 2;
-		size += 2;
-		n--;
-	    }
-	}
-	break;
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
         {
@@ -672,28 +659,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_xfII:
-    case op_i_jump_on_val_yfII:
-	{
-	    int n;
-	    for (n = ap[-2]; n > 0; n--) {
-		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
-		ap++;
-		size++;
-	    }
-	}
-	break;
-    case op_i_jump_on_val_zero_xfI:
-    case op_i_jump_on_val_zero_yfI:
-	{
-	    int n;
-	    for (n = ap[-1]; n > 0; n--) {
-		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
-		ap++;
-		size++;
-	    }
-	}
-	break;
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
     case op_new_map_dII:
