@@ -736,12 +736,7 @@ i_bs_match_string x f I I
 bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm x I f I d
-i_bs_get_integer_imm x I I f I d
 i_bs_get_integer f I I s s d
-i_bs_get_integer_8 x f d
-i_bs_get_integer_16 x f d
-i_bs_get_integer_32 x f I d
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \

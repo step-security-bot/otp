@@ -2799,86 +2799,19 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 		 GenOpArg Flags, GenOpArg Dst)
 {
     GenOp* op;
-    UWord bits;
 
     NEW_GENOP(stp, op);
-
     NATIVE_ENDIAN(Flags);
-    if (Size.type == TAG_i) {
-	if (!safe_mul(Size.val, Unit.val, &bits)) {
-	    goto error;
-	} else if ((Flags.val & BSF_SIGNED) != 0) {
-	    goto generic;
-	} else if (bits == 8) {
-	    op->op = genop_i_bs_get_integer_8_3;
-	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Dst;
-	} else if (bits == 16 && (Flags.val & BSF_LITTLE) == 0) {
-	    op->op = genop_i_bs_get_integer_16_3;
-	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Dst;
-	} else if (bits == 32 && (Flags.val & BSF_LITTLE) == 0) {
-	    op->op = genop_i_bs_get_integer_32_4;
-	    op->arity = 4;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Live;
-	    op->a[3] = Dst;
-	} else {
-	generic:
-	    if (bits < SMALL_BITS) {
-		op->op = genop_i_bs_get_integer_small_imm_5;
-		op->arity = 5;
-		op->a[0] = Ms;
-		op->a[1].type = TAG_u;
-		op->a[1].val = bits;
-		op->a[2] = Fail;
-		op->a[3] = Flags;
-		op->a[4] = Dst;
-	    } else {
-		op->op = genop_i_bs_get_integer_imm_6;
-		op->arity = 6;
-		op->a[0] = Ms;
-		op->a[1].type = TAG_u;
-		op->a[1].val = bits;
-		op->a[2] = Live;
-		op->a[3] = Fail;
-		op->a[4] = Flags;
-		op->a[5] = Dst;
-	    }
-	}
-    } else if (Size.type == TAG_q) {
-	Eterm big = stp->literals[Size.val].term;
-	Uint bigval;
 
-	if (!term_to_Uint(big, &bigval)) {
-	error:
-	    op->op = genop_jump_1;
-	    op->arity = 1;
-	    op->a[0] = Fail;
-	} else {
-	    if (!safe_mul(bigval, Unit.val, &bits)) {
-		goto error;
-	    }
-	    goto generic;
-	}
-    } else {
-	op->op = genop_i_bs_get_integer_6;
-	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Live;
-	op->a[2].type = TAG_u;
-	op->a[2].val = (Unit.val << 3) | Flags.val;
-	op->a[3] = Ms;
-	op->a[4] = Size;
-	op->a[5] = Dst;
-	op->next = NULL;
-	return op;
-    }
+    op->op = genop_i_bs_get_integer_6;
+    op->arity = 6;
+    op->a[0] = Fail;
+    op->a[1] = Live;
+    op->a[2].type = TAG_u;
+    op->a[2].val = (Unit.val << 3) | Flags.val;
+    op->a[3] = Ms;
+    op->a[4] = Size;
+    op->a[5] = Dst;
     op->next = NULL;
     return op;
 }
