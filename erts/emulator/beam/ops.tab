@@ -163,11 +163,7 @@ i_get_tuple_element s P d
 
 %macro: is_number IsNumber -fail_action
 %cold
-is_number f x
-is_number f y
-%hot
-is_number Fail=f i =>
-is_number Fail=f na => jump Fail
+is_number f s
 is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
