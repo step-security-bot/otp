@@ -749,7 +749,6 @@ bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 i_bs_get_binary_imm2 f x I I I d
 i_bs_get_binary2 f x I s I d
 i_bs_get_binary_all2 f x I I d
-i_bs_get_binary_all_reuse x f I
 
 # Fetching float from binaries.
 bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \

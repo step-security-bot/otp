@@ -4235,44 +4235,28 @@ do {						\
 	 context_to_binary_context = xb(Arg(0));
 	 I--;
 
-     if (is_boxed(context_to_binary_context) &&
-	 header_is_bin_matchstate(*boxed_val(context_to_binary_context))) {
-	 ErlBinMatchState* ms;
-	 ms = (ErlBinMatchState *) boxed_val(context_to_binary_context);
-	 mb = &ms->mb;
-	 offs = ms->save_offset[0];
-	 size = mb->size - offs;
-	 goto do_bs_get_binary_all_reuse_common;
-     }
-     Next(2);
-
-     OpCase(i_bs_get_binary_all_reuse_xfI): {
-	 context_to_binary_context = xb(Arg(0));
-	 I++;
-     }
-
-     mb = ms_matchbuffer(context_to_binary_context);
-     size = mb->size - mb->offset;
-     if (size % Arg(1) != 0) {
-	 ClauseFail();
-     }
-     offs = mb->offset;
-
- do_bs_get_binary_all_reuse_common:
-     orig = mb->orig;
-     sb = (ErlSubBin *) boxed_val(context_to_binary_context);
-     hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
-     sb->thing_word = HEADER_SUB_BIN;
-     sb->size = BYTE_OFFSET(size);
-     sb->bitsize = BIT_OFFSET(size);
-     sb->offs = BYTE_OFFSET(offs);
-     sb->bitoffs = BIT_OFFSET(offs);
-     sb->is_writable = 0;
-     sb->orig = orig;
-     if (hole_size) {
-	 sb[1].thing_word = make_pos_bignum_header(hole_size-1);
-     }
-     Next(2);
+         if (is_boxed(context_to_binary_context) &&
+             header_is_bin_matchstate(*boxed_val(context_to_binary_context))) {
+             ErlBinMatchState* ms;
+             ms = (ErlBinMatchState *) boxed_val(context_to_binary_context);
+             mb = &ms->mb;
+             offs = ms->save_offset[0];
+             size = mb->size - offs;
+             orig = mb->orig;
+             sb = (ErlSubBin *) boxed_val(context_to_binary_context);
+             hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
+             sb->thing_word = HEADER_SUB_BIN;
+             sb->size = BYTE_OFFSET(size);
+             sb->bitsize = BIT_OFFSET(size);
+             sb->offs = BYTE_OFFSET(offs);
+             sb->bitoffs = BIT_OFFSET(offs);
+             sb->is_writable = 0;
+             sb->orig = orig;
+             if (hole_size) {
+                 sb[1].thing_word = make_pos_bignum_header(hole_size-1);
+             }
+         }
+         Next(2);
  }
 
  {

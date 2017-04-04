@@ -2830,21 +2830,13 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 
     NATIVE_ENDIAN(Flags);
     if (Size.type == TAG_a && Size.val == am_all) {
-	if (Ms.type == Dst.type && Ms.val == Dst.val) {
-	    op->op = genop_i_bs_get_binary_all_reuse_3;
-	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
-	    op->a[2] = Unit;
-	} else {
-	    op->op = genop_i_bs_get_binary_all2_5;
-	    op->arity = 5;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
-	    op->a[2] = Live;	
-	    op->a[3] = Unit;
-	    op->a[4] = Dst;
-	}
+        op->op = genop_i_bs_get_binary_all2_5;
+        op->arity = 5;
+        op->a[0] = Fail;
+        op->a[1] = Ms;
+        op->a[2] = Live;
+        op->a[3] = Unit;
+        op->a[4] = Dst;
     } else if (Size.type == TAG_i) {
 	op->op = genop_i_bs_get_binary_imm2_6;
 	op->arity = 6;
