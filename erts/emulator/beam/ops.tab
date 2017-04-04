@@ -253,18 +253,13 @@ is_ne f s s
 
 put_tuple Arity Dst => i_put_tuple Dst u
 
-i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
-  put S3 | put S4 | put S5 => \
-	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
-
 i_put_tuple Dst Arity Puts=* | put S => \
 	    tuple_append_put(Arity, Dst, Puts, S)
 
 i_put_tuple/2
 
-%macro:i_put_tuple PutTuple -pack -goto:do_put_tuple
-i_put_tuple x I
-i_put_tuple y I
+%macro:i_put_tuple PutTuple -pack -gen_dest -goto:do_put_tuple
+i_put_tuple d I
 
 #
 # The instruction "put_list Const [] Dst" were generated in rare

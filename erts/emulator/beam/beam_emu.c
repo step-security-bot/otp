@@ -437,10 +437,10 @@ void** beam_ops;
      HEAVY_SWAPIN;						\
   } while (0)
 
-#define PutTuple(Dst, Arity)			\
+#define PutTuple(Dst, Arity, Store)             \
  do {						\
-   Dst = make_tuple(HTOP);			\
-   pt_arity = (Arity);				\
+     Store(make_tuple(HTOP), Dst);              \
+     pt_arity = (Arity);                        \
  } while (0)
 
 /*

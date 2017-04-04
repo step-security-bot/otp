@@ -3671,33 +3671,6 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 }
 
 static GenOp*
-tuple_append_put5(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
-		  GenOpArg* Puts, GenOpArg S1, GenOpArg S2, GenOpArg S3,
-		  GenOpArg S4, GenOpArg S5)
-{
-    GenOp* op;
-    int arity = Arity.val;	/* Arity of tuple, not the instruction */
-    int i;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    GENOP_ARITY(op, arity+2+5);
-    op->op = genop_i_put_tuple_2;
-    op->a[0] = Dst;
-    op->a[1].type = TAG_u;
-    op->a[1].val = arity + 5;
-    for (i = 0; i < arity; i++) {
-	op->a[i+2] = Puts[i];
-    }
-    op->a[arity+2] = S1;
-    op->a[arity+3] = S2;
-    op->a[arity+4] = S3;
-    op->a[arity+5] = S4;
-    op->a[arity+6] = S5;
-    return op;
-}
-
-static GenOp*
 tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 		 GenOpArg* Puts, GenOpArg S)
 {
