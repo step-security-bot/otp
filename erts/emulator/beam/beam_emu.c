@@ -509,8 +509,8 @@ void** beam_ops;
 #  define Dispatchfun() DispatchMacroFun()
 #endif
 
-#define Self(R) R = c_p->common.id
-#define Node(R) R = erts_this_node->sysname
+#define Self(R, Store) Store(c_p->common.id, R)
+#define Node(R, Store) Store(erts_this_node->sysname, R)
 
 #define Arg(N)       I[(N)+1]
 #define Next(N)                \
@@ -1685,16 +1685,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	Eterm element_index;
 	Eterm element_tuple;
 
-    OpCase(i_element_jxsd):
-	element_tuple = xb(Arg(1));
-	goto do_element;
-
-    OpCase(i_element_jysd):
-	element_tuple = yb(Arg(1));
-	goto do_element;
-
-    do_element:
-	GetArg1(2, element_index);
+    OpCase(i_element_jssd):
+	GetArg2(1, element_tuple, element_index);
 	if (is_small(element_index) && is_tuple(element_tuple)) {
 	    Eterm* tp = tuple_val(element_tuple);
 
@@ -1711,29 +1703,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  badarg:
     c_p->freason = BADARG;
     goto lb_Cl_error;
-
-    {
-	Eterm fast_element_tuple;
-
-    OpCase(i_fast_element_jxId):
-     fast_element_tuple = xb(Arg(1));
-     goto do_fast_element;
-
-    OpCase(i_fast_element_jyId):
-     fast_element_tuple = yb(Arg(1));
-     goto do_fast_element;
-
-    do_fast_element:
-	if (is_tuple(fast_element_tuple)) {
-	    Eterm* tp = tuple_val(fast_element_tuple);
-	    Eterm pos = Arg(2);	/* Untagged integer >= 1 */
-	    if (pos <= arityval(*tp)) {
-		Eterm result = tp[pos];
-		StoreBifResult(3, result);
-	    }
-	}
-     goto badarg;
- }
 
  OpCase(catch_yf):
      c_p->catches++;

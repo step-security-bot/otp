@@ -306,25 +306,15 @@ is_tagged_tuple f y A a
 
 is_tuple Fail Literal=q => move Literal x | is_tuple Fail x
 is_tuple Fail=f c => jump Fail
-is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S Arity
-
-%macro:is_tuple_of_arity IsTupleOfArity -fail_action
-
-is_tuple_of_arity f r A
-is_tuple_of_arity f x A
-is_tuple_of_arity f y A
 
 %macro: is_tuple IsTuple -fail_action
-is_tuple f r
-is_tuple f x
-is_tuple f y
+is_tuple f s
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
 test_arity Fail=f c Arity => jump Fail
 
 %macro: test_arity IsArity -fail_action
-test_arity f x A
-test_arity f y A
+test_arity f s A
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
@@ -332,76 +322,39 @@ is_integer Fail=f i =>
 is_integer Fail=f an => jump Fail
 is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
-is_integer Fail=f S=x | allocate Need Regs => is_integer_allocate Fail S Need Regs
-
-%macro: is_integer_allocate IsIntegerAllocate -fail_action
-is_integer_allocate f x I I
-
 %macro: is_integer IsInteger -fail_action
-is_integer f x
-is_integer f y
+is_integer f s
 
 is_list Fail=f n =>
 is_list Fail Literal=q => move Literal x | is_list Fail x
 is_list Fail=f c => jump Fail
 %macro: is_list IsList -fail_action
-is_list f x
-%cold
-is_list f y
-%hot
-
-is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
-
-%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
-is_nonempty_list_allocate f r I t
-is_nonempty_list_allocate f x I t
-
-is_nonempty_list F=f x==0 | test_heap I1 I2 => is_non_empty_list_test_heap F I1 I2
-
-%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action -pack
-is_non_empty_list_test_heap f I t
-
-is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
-  is_nonempty_list_get_list Fail S D1 D2
-
-%macro: is_nonempty_list_get_list IsNonemptyListGetList -fail_action -pack
-is_nonempty_list_get_list f r x x
-is_nonempty_list_get_list f x x x
+is_list f s
 
 %macro: is_nonempty_list IsNonemptyList -fail_action
-is_nonempty_list f x
-is_nonempty_list f y
+is_nonempty_list f s
 
 %macro: is_atom IsAtom -fail_action
-is_atom f x
-%cold
-is_atom f y
-%hot
+is_atom f s
 is_atom Fail=f a =>
 is_atom Fail=f niq => jump Fail
 
 %macro: is_float IsFloat -fail_action
-is_float f x
+is_float f s
 %cold
 is_float f y
 %hot
-is_float Fail=f nai => jump Fail
-is_float Fail Literal=q => move Literal x | is_float Fail x
 
 is_nil Fail=f n =>
 is_nil Fail=f qia => jump Fail
 
 %macro: is_nil IsNil -fail_action
-is_nil f x
-is_nil f y
+is_nil f s
 
 is_binary Fail Literal=q => move Literal x | is_binary Fail x
 is_binary Fail=f c => jump Fail
 %macro: is_binary IsBinary -fail_action
-is_binary f x
-%cold
-is_binary f y
-%hot
+is_binary f s
 
 # XXX Deprecated.
 is_bitstr Fail Term => is_bitstring Fail Term
@@ -409,54 +362,32 @@ is_bitstr Fail Term => is_bitstring Fail Term
 is_bitstring Fail Literal=q => move Literal x | is_bitstring Fail x
 is_bitstring Fail=f c => jump Fail
 %macro: is_bitstring IsBitstring -fail_action
-is_bitstring f x
-%cold
-is_bitstring f y
-%hot
+is_bitstring f s
 
 is_reference Fail=f cq => jump Fail
 %macro: is_reference IsRef -fail_action
-is_reference f x
-%cold
-is_reference f y
-%hot
+is_reference f s
 
 is_pid Fail=f cq => jump Fail
 %macro: is_pid IsPid -fail_action
-is_pid f x
-%cold
-is_pid f y
-%hot
+is_pid f s
 
 is_port Fail=f cq => jump Fail
 %macro: is_port IsPort -fail_action
-is_port f x
-%cold
-is_port f y
-%hot
+is_port f s
 
 is_boolean Fail=f a==am_true =>
 is_boolean Fail=f a==am_false =>
 is_boolean Fail=f ac => jump Fail
 
-%cold
 %macro: is_boolean IsBoolean -fail_action
-is_boolean f x
-is_boolean f y
-%hot
+is_boolean f s
 
 is_function2 Fail=f acq Arity => jump Fail
 is_function2 Fail=f Fun a => jump Fail
 
-is_function2 f s s
 %macro: is_function2 IsFunction2 -fail_action
-
-# Allocating & initializing.
-allocate Need Regs | init Y => allocate_init Need Regs Y
-init Y1 | init Y2 => init2 Y1 Y2
-
-%macro: allocate_init AllocateInit -pack
-allocate_init t I y
+is_function2 f s s
 
 #################################################################
 # External function and bif calls.
@@ -731,21 +662,13 @@ bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
 i_get_hash c I d
 i_get s d
 
-%macro: self Self
-self x
-self y
+%macro: self Self -gen_dest
+self d
 
-%macro: node Node
-node x
-%cold
-node y
-%hot
+%macro: node Node -gen_dest
+node d
 
-i_fast_element j x I d
-i_fast_element j y I d
-
-i_element j x s d
-i_element j y s d
+i_element j s s d
 
 bif1 f b s d
 bif1_body b s d
@@ -784,8 +707,7 @@ i_make_fun I t
 %hot
 
 %macro: is_function IsFunction -fail_action
-is_function f x
-is_function f y
+is_function f s
 is_function Fail=f c => jump Fail
 
 func_info M F A => i_func_info u M F A

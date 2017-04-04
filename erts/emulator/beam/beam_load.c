@@ -2740,21 +2740,11 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     op->arity = 4;
     op->next = NULL;
 
-    if (Index.type == TAG_i && Index.val > 0 &&
-	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
-	op->op = genop_i_fast_element_4;
-	op->a[0] = Fail;
-	op->a[1] = Tuple;
-	op->a[2].type = TAG_u;
-	op->a[2].val = Index.val;
-	op->a[3] = Dst;
-    } else {
-	op->op = genop_i_element_4;
-	op->a[0] = Fail;
-	op->a[1] = Tuple;
-	op->a[2] = Index;
-	op->a[3] = Dst;
-    }
+    op->op = genop_i_element_4;
+    op->a[0] = Fail;
+    op->a[1] = Tuple;
+    op->a[2] = Index;
+    op->a[3] = Dst;
 
     return op;
 }
@@ -4440,6 +4430,7 @@ transform_engine(LoaderState* st)
 	    if (*pc++ != instr->a[ap].val)
 		goto restart;
 	    break;
+#if defined(TOP_is_same_var)
 	case TOP_is_same_var:
 	    ASSERT(ap < instr->arity);
 	    i = *pc++;
@@ -4454,6 +4445,7 @@ transform_engine(LoaderState* st)
 		    goto restart;
 	    }
 	    break;
+#endif
 #if defined(TOP_is_bif)
 	case TOP_is_bif:
 	    {
