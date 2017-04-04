@@ -3515,37 +3515,16 @@ do {						\
      Uint alloc;
      Uint num_bytes;
 
-     OpCase(i_bs_init_bits_heap_IIId): {
-	 num_bits = Arg(0);
-	 alloc = Arg(1);
-	 I++;
-	 goto do_bs_init_bits_known;
-     }
-     
-     OpCase(i_bs_init_bits_IId): {
-	 num_bits = Arg(0);
-	 alloc = 0;
-	 goto do_bs_init_bits_known;
-     }
-
-     OpCase(i_bs_init_bits_fail_heap_sIjId): {
-	 GetArg1(0, num_bits_term);
+     OpCase(i_bs_init_bits_fail_heap_IIjId): {
+	 num_bits_term = make_small(Arg(0));
 	 alloc = Arg(1);
 	 I += 2;
 	 goto do_bs_init_bits;
      }
-
-     OpCase(i_bs_init_bits_fail_yjId): {
-	 num_bits_term = yb(Arg(0));
-	 I++;
-	 alloc = 0;
-	 goto do_bs_init_bits;
-     }
-     OpCase(i_bs_init_bits_fail_xjId): {
-	 num_bits_term = xb(Arg(0));
-	 I++;
-	 alloc = 0;
-     /* FALL THROUGH */
+     OpCase(i_bs_init_bits_fail_heap_sIjId): {
+	 GetArg1(0, num_bits_term);
+	 alloc = Arg(1);
+	 I += 2;
      }
 
      /* num_bits_term = Term for number of bits to build (small/big)
