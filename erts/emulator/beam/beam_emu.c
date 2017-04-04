@@ -1453,17 +1453,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	    Uint live;
 	    Eterm result;
 
-	OpCase(i_increment_rIId):
-	    increment_reg_val = x(0);
-	    I--;
-	    goto do_increment;
-
-	OpCase(i_increment_xIId):
-	    increment_reg_val = xb(Arg(0));
-	    goto do_increment;
-
-	OpCase(i_increment_yIId):
-	    increment_reg_val = yb(Arg(0));
+	OpCase(i_increment_sIId):
+            GetR(0, increment_reg_val);
 	    goto do_increment;
 
 	do_increment:
@@ -1512,16 +1503,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      Eterm PlusOp1, PlusOp2;
      Eterm result;
 
- OpCase(i_plus_jIxxd):
-     PlusOp1 = xb(Arg(2));
-     PlusOp2 = xb(Arg(3));
-     goto do_plus;
-
- OpCase(i_plus_jIxyd):
-     PlusOp1 = xb(Arg(2));
-     PlusOp2 = yb(Arg(3));
-     goto do_plus;
-
  OpCase(i_plus_jIssd):
      GetArg2(2, PlusOp1, PlusOp2);
      goto do_plus;
@@ -1541,11 +1522,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  {
      Eterm MinusOp1, MinusOp2;
      Eterm result;
-
- OpCase(i_minus_jIxxd):
-     MinusOp1 = xb(Arg(2));
-     MinusOp2 = xb(Arg(3));
-     goto do_minus;
 
  OpCase(i_minus_jIssd):
      GetArg2(2, MinusOp1, MinusOp2);
@@ -2708,11 +2684,6 @@ do {						\
  {
      Eterm RemOp1, RemOp2;
 
- OpCase(i_rem_jIxxd):
-     RemOp1 = xb(Arg(2));
-     RemOp2 = xb(Arg(3));
-     goto do_rem;
-
  OpCase(i_rem_jIssd):
      GetArg2(2, RemOp1, RemOp2);
      goto do_rem;
@@ -2730,11 +2701,6 @@ do {						\
 
  {
      Eterm BandOp1, BandOp2;
-
- OpCase(i_band_jIxcd):
-     BandOp1 = xb(Arg(2));
-     BandOp2 = Arg(3);
-     goto do_band;
 
  OpCase(i_band_jIssd):
      GetArg2(2, BandOp1, BandOp2);

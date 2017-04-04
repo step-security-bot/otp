@@ -1026,19 +1026,6 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
    gen_minus Fail Live S1 S2 Dst
 
 #
-# Optimize addition and subtraction of small literals using
-# the i_increment/4 instruction (in bodies, not in guards).
-#
-
-gen_plus p Live Int=i Reg=d Dst => \
-	gen_increment(Reg, Int, Live, Dst)
-gen_plus p Live Reg=d Int=i Dst => \
-	gen_increment(Reg, Int, Live, Dst)
-
-gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
-	gen_increment_from_minus(Reg, Int, Live, Dst)
-
-#
 # GCing arithmetic instructions.
 #
 
@@ -1073,15 +1060,10 @@ gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
 
 gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
-i_increment r I I d
-i_increment x I I d
-i_increment y I I d
+i_increment s I I d
 
-i_plus j I x x d
-i_plus j I x y d
 i_plus j I s s d
 
-i_minus j I x x d
 i_minus j I s s d
 
 i_times j I s s d
@@ -1089,13 +1071,11 @@ i_times j I s s d
 i_m_div j I s s d
 i_int_div j I s s d
 
-i_rem j I x x d
 i_rem j I s s d
 
 i_bsl j I s s d
 i_bsr j I s s d
 
-i_band j I x c d
 i_band j I s s d
 
 i_bor j I s s d
