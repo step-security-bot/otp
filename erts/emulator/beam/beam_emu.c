@@ -3656,27 +3656,16 @@ do {						\
  {
      Eterm BsOp1, BsOp2;
 
+     OpCase(i_bs_init_fail_heap_IIjId):
+         BsOp1 = make_small(Arg(0));
+	 BsOp2 = Arg(1);
+	 I += 2;
+         goto bs_init_fail;
      OpCase(i_bs_init_fail_heap_sIjId): {
 	 GetArg1(0, BsOp1);
 	 BsOp2 = Arg(1);
 	 I += 2;
-	 goto do_bs_init;
-     }
-
-     OpCase(i_bs_init_fail_yjId): {
-	 BsOp1 = yb(Arg(0));
-	 BsOp2 = 0;
-	 I++;
-	 goto do_bs_init;
-     }
-
-     OpCase(i_bs_init_fail_xjId): {
-	 BsOp1 = xb(Arg(0));
-	 BsOp2 = 0;
-	 I++;
-     }
-	 /* FALL THROUGH */
-     do_bs_init:
+     bs_init_fail:
          if (is_small(BsOp1)) {
 	     Sint size = signed_val(BsOp1);
 	     if (size < 0) {
@@ -3696,73 +3685,7 @@ do {						\
 	     BsOp1 = (Eterm) bytes;
 	 }
 	 if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
-	     goto do_heap_bin_alloc;
-	 } else {
-	     goto do_proc_bin_alloc;
-	 }
-
-
-     OpCase(i_bs_init_heap_IIId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = Arg(1);
-	 I++;
-	 goto do_proc_bin_alloc;
-     }
-
-     OpCase(i_bs_init_IId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = 0;
-     }
-     /* FALL THROUGH */
-     do_proc_bin_alloc: {
-	 Binary* bptr;
-	 ProcBin* pb;
-
-	 erts_bin_offset = 0;
-	 erts_writable_bin = 0;
-	 TestBinVHeap(BsOp1 / sizeof(Eterm),
-		      BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
-
-	 /*
-	  * Allocate the binary struct itself.
-	  */
-	 bptr = erts_bin_nrml_alloc(BsOp1);
-	 erts_refc_init(&bptr->refc, 1);
-	 erts_current_bin = (byte *) bptr->orig_bytes;
-
-	 /*
-	  * Now allocate the ProcBin on the heap.
-	  */
-	 pb = (ProcBin *) HTOP;
-	 HTOP += PROC_BIN_SIZE;
-	 pb->thing_word = HEADER_PROC_BIN;
-	 pb->size = BsOp1;
-	 pb->next = MSO(c_p).first;
-	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
-	 pb->val = bptr;
-	 pb->bytes = (byte*) bptr->orig_bytes;
-	 pb->flags = 0;
-	 
-	 OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
-
-	 StoreBifResult(2, make_binary(pb));
-     }
-
-     OpCase(i_bs_init_heap_bin_heap_IIId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = Arg(1);
-	 I++;
-	 goto do_heap_bin_alloc;
-     }
-
-     OpCase(i_bs_init_heap_bin_IId): {
-	 BsOp1 = Arg(0);
-	 BsOp2 = 0;
-     }
-     /* Fall through */
-     do_heap_bin_alloc:
-	 {
-	     ErlHeapBin* hb;
+             ErlHeapBin* hb;
 	     Uint bin_need;
 
 	     bin_need = heap_bin_size(BsOp1);
@@ -3776,7 +3699,40 @@ do {						\
 	     erts_current_bin = (byte *) hb->data;
 	     BsOp1 = make_binary(hb);
 	     StoreBifResult(2, BsOp1);
+	 } else {
+	     Binary* bptr;
+             ProcBin* pb;
+
+             erts_bin_offset = 0;
+             erts_writable_bin = 0;
+             TestBinVHeap(BsOp1 / sizeof(Eterm),
+                          BsOp2 + PROC_BIN_SIZE + ERL_SUB_BIN_SIZE, Arg(1));
+
+             /*
+              * Allocate the binary struct itself.
+              */
+             bptr = erts_bin_nrml_alloc(BsOp1);
+             erts_refc_init(&bptr->refc, 1);
+             erts_current_bin = (byte *) bptr->orig_bytes;
+
+             /*
+              * Now allocate the ProcBin on the heap.
+              */
+             pb = (ProcBin *) HTOP;
+             HTOP += PROC_BIN_SIZE;
+             pb->thing_word = HEADER_PROC_BIN;
+             pb->size = BsOp1;
+             pb->next = MSO(c_p).first;
+             MSO(c_p).first = (struct erl_off_heap_header*) pb;
+             pb->val = bptr;
+             pb->bytes = (byte*) bptr->orig_bytes;
+             pb->flags = 0;
+	 
+             OH_OVERHEAD(&(MSO(c_p)), BsOp1 / sizeof(Eterm));
+
+             StoreBifResult(2, make_binary(pb));
 	 }
+     }
  }
 
  OpCase(bs_add_jssId): {

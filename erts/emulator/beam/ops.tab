@@ -811,33 +811,11 @@ i_bs_validate_unicode_retract j s s
 #
 %cold
 
-bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
-
-bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst | should_gen_heap_bin(Sz) => \
-	i_bs_init_heap_bin Sz Regs Dst
-bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
-
-bs_init2 Fail Sz=u Words Regs Flags Dst | should_gen_heap_bin(Sz) => \
-	i_bs_init_heap_bin_heap Sz Words Regs Dst
-bs_init2 Fail Sz=u Words Regs Flags Dst => \
-   i_bs_init_heap Sz Words Regs Dst
-
-bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
-  i_bs_init_fail Sz Fail Regs Dst
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail x j I d
-i_bs_init_fail y j I d
-
 i_bs_init_fail_heap s I j I d
-
-i_bs_init I I d
-i_bs_init_heap_bin I I d
-
-i_bs_init_heap I I I d
-i_bs_init_heap_bin_heap I I I d
-
+i_bs_init_fail_heap I I j I d
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
 

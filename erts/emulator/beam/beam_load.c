@@ -2852,27 +2852,6 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     return op;
 }
 
-/*
- * Predicate to test whether a heap binary should be generated.
- */
-
-static int
-should_gen_heap_bin(LoaderState* stp, GenOpArg Src)
-{
-    return Src.val <= ERL_ONHEAP_BIN_LIMIT;
-}
-
-/*
- * Predicate to test whether a binary construction is too big.
- */
-
-static int
-binary_too_big(LoaderState* stp, GenOpArg Size)
-{
-    return Size.type == TAG_o ||
-	(Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0));
-}
-
 static GenOp*
 gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
 	       GenOpArg Unit, GenOpArg Flags, GenOpArg Src)
