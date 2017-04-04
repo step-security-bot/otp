@@ -4033,13 +4033,15 @@ do {						\
   * Matching of binaries.
   */
 
- {
+ OpCase(i_bs_start_match2_sfIId): {
      Eterm header;
      BeamInstr *next;
      Uint slots;
      Eterm context;
 
-     do_start_match:
+         GetR(0, context);
+	 I++;
+
 	 slots = Arg(2);
 	 if (!is_boxed(context)) {
 	     ClauseFail();
@@ -4086,16 +4088,6 @@ do {						\
 	 }
 	 NextPF(4, next);
 
-     OpCase(i_bs_start_match2_xfIId): {
-	 context = xb(Arg(0));
-	 I++;
-	 goto do_start_match;
-     }
-     OpCase(i_bs_start_match2_yfIId): {
-	 context = yb(Arg(0));
-	 I++;
-	 goto do_start_match;
-     }
  }
 
  OpCase(bs_test_zero_tail2_fx): {
