@@ -118,13 +118,6 @@ test_heap I t
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
 
-init2 y y
-init3 y y y
-init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
-init Y1 | init Y2 => init2 Y1 Y2
-%macro: init2 Init2 -pack
-%macro: init3 Init3 -pack
-
 # Selecting values
 
 select_val S=sdaiq Fail=f Size=u Rest=* => gen_select_val(S, Fail, Size, Rest)
@@ -298,9 +291,7 @@ is_tagged_tuple Fail=f c Arity Atom  => jump Fail
 
 %macro:is_tagged_tuple IsTaggedTuple -fail_action
 
-is_tagged_tuple f r A a
-is_tagged_tuple f x A a
-is_tagged_tuple f y A a
+is_tagged_tuple f s A a
 
 # Test tuple & arity (head)
 
@@ -341,9 +332,6 @@ is_atom Fail=f niq => jump Fail
 
 %macro: is_float IsFloat -fail_action
 is_float f s
-%cold
-is_float f y
-%hot
 
 is_nil Fail=f n =>
 is_nil Fail=f qia => jump Fail
