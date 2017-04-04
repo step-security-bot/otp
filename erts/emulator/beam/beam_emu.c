@@ -692,20 +692,22 @@ do {                                            \
      SET_I((BeamInstr *) Arg(0));		\
      Goto(*I);
 
-#define GetList(Src, H, T)			\
+#define GetList(Src, H, T, Store)			\
   do {						\
     Eterm* tmp_ptr = list_val(Src);		\
     Eterm hd, tl;				\
     hd = CAR(tmp_ptr);				\
     tl = CDR(tmp_ptr);				\
-    H = hd; T = tl;				\
+    H = hd;                                     \
+    /* StoreResult(hd, H); */                   \
+    Store(tl, T);                               \
   } while (0)
 
-#define GetTupleElement(Src, Element, Dest)		\
+#define GetTupleElement(Src, Element, Dest, Store)      \
   do {							\
     Eterm* src;						\
     src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
-    (Dest) = *src;					\
+    Store(*src, Dest);                                  \
   } while (0)
 
 #define GetTupleElement2(Src, Element, Dest)		\
@@ -2174,15 +2176,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  {
      Eterm select_val;
 
- OpCase(i_select_tuple_arity_xfI):
-     select_val = xb(Arg(0));
-     goto do_select_tuple_arity;
-
- OpCase(i_select_tuple_arity_yfI):
-     select_val = yb(Arg(0));
-     goto do_select_tuple_arity;
-
- do_select_tuple_arity:
+     OpCase(i_select_tuple_arity_sfI):
+       GetR(0, select_val);
      if (is_tuple(select_val)) {
 	 select_val = *tuple_val(select_val);
 	 goto do_linear_search;
@@ -2190,13 +2185,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      SET_I((BeamInstr *) Arg(1));
      Goto(*I);
 
- OpCase(i_select_val_lins_xfI):
-     select_val = xb(Arg(0));
-     goto do_linear_search;
-
- OpCase(i_select_val_lins_yfI):
-     select_val = yb(Arg(0));
-     goto do_linear_search;
+ OpCase(i_select_val_lins_sfI):
+   GetR(0, select_val);
 
  do_linear_search: {
      BeamInstr *vs = &Arg(3);
