@@ -804,22 +804,22 @@ do {                                            \
 
 #define IsMap(Src, Fail) if (!is_map(Src)) { Fail; }
 
-#define GetMapElement(Src, Key, Dst, Fail)	\
-  do {						\
-     Eterm _res = get_map_element(Src, Key);	\
-     if (is_non_value(_res)) {			\
-        Fail;					\
-     }						\
-     Dst = _res;				\
+#define GetMapElement(Src, Key, Dst, Store, Fail)	\
+  do {						        \
+      Eterm _res = get_map_element(Src, Key);           \
+      if (is_non_value(_res)) {                         \
+          Fail;                                         \
+      }                                                 \
+      Store(_res, Dst);                                 \
   } while (0)
 
-#define GetMapElementHash(Src, Key, Hx, Dst, Fail)	\
-  do {							\
-     Eterm _res = get_map_element_hash(Src, Key, Hx);	\
-     if (is_non_value(_res)) {				\
-        Fail;						\
-     }							\
-     Dst = _res;					\
+#define GetMapElementHash(Src, Key, Hx, Dst, Store, Fail)	\
+  do {							        \
+      Eterm _res = get_map_element_hash(Src, Key, Hx);          \
+      if (is_non_value(_res)) {                                 \
+          Fail;                                                 \
+      }                                                         \
+      Store(_res, Dst);                                         \
   } while (0)
 
 #define IsFunction(X, Action)			\
@@ -3554,7 +3554,6 @@ do {						\
       * alloc = Number of extra words to allocate on heap
       * Operands: NotUsed Live Dst
       */
- do_bs_init_bits_known:
      num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
      if (num_bits & 7) {
 	 alloc += ERL_SUB_BIN_SIZE;

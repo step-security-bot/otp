@@ -984,8 +984,7 @@ is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
 
 %macro: is_map IsMap -fail_action
-is_map f x
-is_map f y
+is_map f s
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
@@ -1004,17 +1003,11 @@ i_get_map_elements f s I
 i_get_map_element Fail Src=xy Key=y Dst => \
     move Key x | i_get_map_element Fail Src x Dst
 
-%macro: i_get_map_element_hash GetMapElementHash -fail_action
-i_get_map_element_hash f x c I x
-i_get_map_element_hash f y c I x
-i_get_map_element_hash f x c I y
-i_get_map_element_hash f y c I y
+%macro: i_get_map_element_hash GetMapElementHash -fail_action -gen_dest
+i_get_map_element_hash f s c I d
 
-%macro: i_get_map_element GetMapElement -fail_action
-i_get_map_element f x x x
-i_get_map_element f y x x
-i_get_map_element f x x y
-i_get_map_element f y x y
+%macro: i_get_map_element GetMapElement -fail_action -gen_dest
+i_get_map_element f s s d
 
 #
 # Convert the plus operations to a generic plus instruction.
