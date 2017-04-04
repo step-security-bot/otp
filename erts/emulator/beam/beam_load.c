@@ -2837,40 +2837,6 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
         op->a[2] = Live;
         op->a[3] = Unit;
         op->a[4] = Dst;
-    } else if (Size.type == TAG_i) {
-	op->op = genop_i_bs_get_binary_imm2_6;
-	op->arity = 6;
-	op->a[0] = Fail;
-	op->a[1] = Ms;
-	op->a[2] = Live;
-	op->a[3].type = TAG_u;
-	if (!safe_mul(Size.val, Unit.val, &op->a[3].val)) {
-	    goto error;
-	}
-	op->a[4] = Flags;
-	op->a[5] = Dst;
-    } else if (Size.type == TAG_q) {
-	Eterm big = stp->literals[Size.val].term;
-	Uint bigval;
-
-	if (!term_to_Uint(big, &bigval)) {
-	error:
-	    op->op = genop_jump_1;
-	    op->arity = 1;
-	    op->a[0] = Fail;
-	} else {
-	    op->op = genop_i_bs_get_binary_imm2_6;
-	    op->arity = 6;
-	    op->a[0] = Fail;
-	    op->a[1] = Ms;
-	    op->a[2] = Live;
-	    op->a[3].type = TAG_u;
-	    if (!safe_mul(bigval, Unit.val, &op->a[3].val)) {
-		goto error;
-	    }
-	    op->a[4] = Flags;
-	    op->a[5] = Dst;
-	}
     } else {
 	op->op = genop_i_bs_get_binary2_6;
 	op->arity = 6;

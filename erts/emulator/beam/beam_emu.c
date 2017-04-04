@@ -4090,18 +4090,6 @@ do {						\
 
  }
 
- OpCase(bs_test_zero_tail2_fx): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     
-     PreFetch(2, next);
-     _mb = (ErlBinMatchBuffer*) ms_matchbuffer(xb(Arg(1)));
-     if (_mb->size != _mb->offset) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
- }
-
  OpCase(bs_test_tail_imm2_fxI): {
      BeamInstr *next;
      ErlBinMatchBuffer *_mb;
@@ -4122,17 +4110,6 @@ do {						\
 	 ClauseFail();
      }
      NextPF(3, next);
- }
-
- OpCase(bs_test_unit8_fx): {
-     BeamInstr *next;
-     ErlBinMatchBuffer *_mb;
-     PreFetch(2, next);
-     _mb = ms_matchbuffer(xb(Arg(1)));
-     if ((_mb->size - _mb->offset) & 7) {
-	 ClauseFail();
-     }
-     NextPF(2, next);
  }
 
  /*

@@ -742,11 +742,9 @@ i_bs_get_integer f I I s s d
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-%macro: i_bs_get_binary_imm2 BsGetBinaryImm_2 -fail_action -gen_dest
 %macro: i_bs_get_binary2 BsGetBinary_2 -fail_action -gen_dest
 %macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action -gen_dest
 
-i_bs_get_binary_imm2 f x I I I d
 i_bs_get_binary2 f x I s I d
 i_bs_get_binary_all2 f x I I d
 
@@ -768,20 +766,15 @@ bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
 i_bs_skip_bits_imm2 f x I
 
 %macro: i_bs_skip_bits2 BsSkipBits2 -fail_action
-i_bs_skip_bits2 f x x I
-i_bs_skip_bits2 f x y I
+i_bs_skip_bits2 f x s I
 
 %macro: i_bs_skip_bits_all2 BsSkipBitsAll2 -fail_action
 i_bs_skip_bits_all2 f x I 
 
-bs_test_tail2 Fail=f Ms=x Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=x Bits=u => bs_test_tail_imm2 Fail Ms Bits
-bs_test_zero_tail2 f x
 bs_test_tail_imm2 f x I
 
-bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
 bs_test_unit f x I
-bs_test_unit8 f x
 
 # An y register operand for bs_context_to_binary is rare,
 # but can happen because of inlining.
