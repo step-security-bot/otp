@@ -692,7 +692,7 @@ do {                                            \
      SET_I((BeamInstr *) Arg(0));		\
      Goto(*I);
 
-#define GetList(Src, H, T, Store)			\
+#define GetList(Src, H, T, Store)               \
   do {						\
     Eterm* tmp_ptr = list_val(Src);		\
     Eterm hd, tl;				\

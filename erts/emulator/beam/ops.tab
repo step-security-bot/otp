@@ -164,6 +164,7 @@ i_get_tuple_element s P d
 %macro: is_number IsNumber -fail_action
 %cold
 is_number f s
+%hot
 is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
@@ -195,20 +196,7 @@ move S=n D=y => init D
 move S=c D=y => move S x | move x D
 
 %macro:move Move -pack -gen_dest
-move x x
-move x y
-move y x
-move c x
-move n x
-move y y
-
-# The following move instructions using x(0) are frequently used.
-
-move x r
-move r x
-move y r
-move c r
-move r y
+move s d
 
 # Receive operations.
 
@@ -245,20 +233,10 @@ send
 is_eq_exact f s s
 
 %macro: is_lt IsLessThan -fail_action
-is_lt f x x
-is_lt f x c
-is_lt f c x
-%cold
 is_lt f s s
-%hot
 
 %macro: is_ge IsGreaterEqual -fail_action
-is_ge f x x
-is_ge f x c
-is_ge f c x
-%cold
 is_ge f s s
-%hot
 
 %macro: is_ne_exact NotEqualExact -fail_action
 is_ne_exact f s s
