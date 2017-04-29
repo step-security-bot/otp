@@ -152,8 +152,9 @@ do {                                     \
    (p)->cp = (ip)
 
 #define SET_I(ip) \
-   ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
-   I = (ip)
+    ASSERT(VALID_INSTR(ip));                    \
+    I = (ip);                                   \
+    ArgPF()
 
 /*
  * Register target (X or Y register).
@@ -186,6 +187,7 @@ do {                                     \
     Eterm stb_reg;				\
     stb_reg = Arg(Dst);				\
     I += (Dst) + 2;				\
+    ArgPF();                                    \
     stb_next = (BeamInstr *) *I;		\
     CHECK_TERM(Result);				\
     REG_TARGET(stb_reg) = (Result);		\
@@ -193,6 +195,7 @@ do {                                     \
   } while (0)
 
 #define ClauseFail() goto jump_f
+#define ClauseFailPF() do { ArgPF(); goto jump_f; } while(0);
 
 #define SAVE_CP(X)				\
    do {						\
@@ -476,9 +479,9 @@ void** beam_ops;
 #define DispatchMacrox()					\
   do {								\
      if (FCALLS > 0) {						\
-        Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        dis_next = (Eterm *) *I;				\
+        BeamInstr *dis_next;					\
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);  \
+        dis_next = (BeamInstr*) *I;                                      \
         FCALLS--;						\
         CHECK_ARGS(I);						\
         Goto(dis_next);						\
@@ -511,21 +514,27 @@ void** beam_ops;
 #define Self(R) R = c_p->common.id
 #define Node(R) R = erts_this_node->sysname
 
-#define Arg(N)       I[(N)+1]
+#define ArgPF()  arg0 = I[1]
+
+#define ArgAddr(N)   (I + (N) + 1)
+#define Arg(N)       ((N) == 0 ? arg0 : I[(N)+1])
+
 #define Next(N)                \
     I += (N) + 1;              \
+    ArgPF();                   \
     ASSERT(VALID_INSTR(*I));   \
     Goto(*I)
 
 #define PreFetch(N, Dst) do { Dst = (BeamInstr *) *(I + N + 1); } while (0)
 #define NextPF(N, Dst)         \
     I += N + 1;                \
+    ArgPF();                   \
     ASSERT(VALID_INSTR(Dst));  \
     Goto(Dst)
 
 #define GetR(pos, tr)				\
    do {						\
-     tr = Arg(pos);				\
+       tr = Arg(pos);                           \
      switch (loader_tag(tr)) {			\
      case LOADER_X_REG:				\
         tr = x(loader_x_reg_index(tr));		\
@@ -534,6 +543,9 @@ void** beam_ops;
         ASSERT(loader_y_reg_index(tr) >= 1);	\
         tr = y(loader_y_reg_index(tr));		\
         break;					\
+     default:                                   \
+         /* Literal */                          \
+         break;                                 \
      }						\
      CHECK_TERM(tr);				\
    } while (0)
@@ -634,7 +646,7 @@ void** beam_ops;
       y[4] = xt4;				\
  } while (0)
 
-#define DispatchReturn                          \
+#define DispatchReturn()                        \
 do {                                            \
     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -649,11 +661,11 @@ do {                                            \
 
 #define MoveReturn(Src)				\
     x(0) = (Src);				\
-    I = c_p->cp;				\
-    ASSERT(VALID_INSTR(*c_p->cp));		\
+    SET_I(c_p->cp);				\
+    ASSERT(VALID_INSTR(c_p->cp));               \
     c_p->cp = 0;				\
     CHECK_TERM(r(0));				\
-    DispatchReturn
+    DispatchReturn()
 
 #define DeallocateReturn(Deallocate)       \
   do {                                     \
@@ -661,7 +673,7 @@ do {                                            \
     SET_I((BeamInstr *) cp_val(*E));       \
     E = ADD_BYTE_OFFSET(E, words_to_pop);  \
     CHECK_TERM(r(0));                      \
-    DispatchReturn;                        \
+    DispatchReturn();                      \
   } while (0)
 
 #define MoveDeallocateReturn(Src, Deallocate)	\
@@ -1286,6 +1298,13 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     register FloatDef *freg = f_reg_array;
 
     /*
+     * The Arg(0) of the current instruction.
+     * This is always read by the preceeding
+     * instruction as an optimization.
+     */
+    register BeamInstr arg0 = 0;
+
+    /*
      * For keeping the negative old value of 'reds' when call saving is active.
      */
     int neg_o_reds = 0;
@@ -1621,6 +1640,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  OpCase(i_move_call_cf): {
      r(0) = Arg(0);
      I++;
+     ArgPF();
  }
  /* FALL THROUGH */
  OpCase(i_call_f): {
@@ -1648,7 +1668,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  OpCase(i_move_call_ext_ce): {
      r(0) = Arg(0);
-     I++;
+     SET_I(I+1);
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
@@ -1706,7 +1726,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     c_p->cp = 0;
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
-    DispatchReturn;
+    DispatchReturn();
  }
 
     /*
@@ -1898,7 +1918,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (c_p->msg.mark == (BeamInstr *) (I+1)) {
 	 c_p->msg.save = c_p->msg.saved_last;
      }
-     I++;
+     SET_I(I+1);
      /* Fall through to the loop_rec/2 instruction */
  }
 
@@ -1945,7 +1965,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 {
 	     c_p->flags &= ~F_DELAY_GC;
 	     SET_I((BeamInstr *) Arg(0));
-	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
+             Goto(*I);		/* Jump to a wait or wait_timeout instruction */
 	 }
      }
      if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
@@ -2308,7 +2328,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      goto do_linear_search;
 
  do_linear_search: {
-     BeamInstr *vs = &Arg(3);
+     BeamInstr *vs = ArgAddr(3);
      int ix = 0;
 
      for(;;) {
@@ -2323,7 +2343,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
      SET_I((BeamInstr *) Arg(1));
      Goto(*I);
-   }
+ }
 
  OpCase(i_select_val_bins_xfI):
      select_val = xb(Arg(0));
@@ -2344,7 +2364,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      struct Pairs* mid;
      int bdiff; /* int not long because the arrays aren't that large */
 
-     low = (struct Pairs *) &Arg(3);
+     low = (struct Pairs *) ArgAddr(3);
      high = low + Arg(2);
 
      /* The pointer subtraction (high-low) below must produce
@@ -2397,7 +2417,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (is_small(jump_on_val_zero_index)) {
 	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
 	 if (jump_on_val_zero_index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(3))[jump_on_val_zero_index]);
+	     SET_I((BeamInstr *) (ArgAddr(3))[jump_on_val_zero_index]);
 	     Goto(*I);
 	 }
      }
@@ -2421,7 +2441,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (is_small(jump_on_val_index)) {
 	 jump_on_val_index = (Uint) (signed_val(jump_on_val_index) - Arg(3));
 	 if (jump_on_val_index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(4))[jump_on_val_index]);
+	     SET_I((BeamInstr *) (ArgAddr(4))[jump_on_val_index]);
 	     Goto(*I);
 	 }
      }
@@ -2449,6 +2469,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 }
      } while (--pt_arity != 0);
      HTOP = hp;
+     ArgPF();
      Goto(*I);
  }
 
@@ -2489,7 +2510,7 @@ do {						\
      */
 
     n  = (Uint)Arg(2) / 3;
-    fs = &Arg(3); /* pattern fields and target registers */
+    fs = ArgAddr(3); /* pattern fields and target registers */
 
     if (is_flatmap(map)) {
 	flatmap_t *mp;
@@ -3537,6 +3558,7 @@ do {						\
                            reg, am_undefined_function);
     HEAVY_SWAPIN;
     if (I) {
+        ArgPF();
 	Goto(*I);
     }
 
@@ -3551,6 +3573,7 @@ do {						\
      } else {
 	 ASSERT(!is_value(r(0)));
 	 SWAPIN;
+         ArgPF();
 	 Goto(*I);
      }
  }
@@ -3696,7 +3719,7 @@ do {						\
 		SET_I(c_p->cp);
 		c_p->cp = 0;
 		Goto(*I);
-	    } else if (c_p->freason == TRAP) {
+            } else if (c_p->freason == TRAP) {
 		SET_I(c_p->i);
 		if (c_p->flags & F_HIBERNATE_SCHED) {
 		    c_p->flags &= ~F_HIBERNATE_SCHED;
@@ -3772,7 +3795,7 @@ do {						\
      OpCase(i_bs_init_bits_heap_IIId): {
 	 num_bits = Arg(0);
 	 alloc = Arg(1);
-	 I++;
+	 SET_I(I+1);
 	 goto do_bs_init_bits_known;
      }
      
@@ -3785,19 +3808,19 @@ do {						\
      OpCase(i_bs_init_bits_fail_heap_sIjId): {
 	 GetArg1(0, num_bits_term);
 	 alloc = Arg(1);
-	 I += 2;
+	 SET_I(I+2);
 	 goto do_bs_init_bits;
      }
 
      OpCase(i_bs_init_bits_fail_yjId): {
 	 num_bits_term = yb(Arg(0));
-	 I++;
+	 SET_I(I+1);
 	 alloc = 0;
 	 goto do_bs_init_bits;
      }
      OpCase(i_bs_init_bits_fail_xjId): {
 	 num_bits_term = xb(Arg(0));
-	 I++;
+	 SET_I(I+1);
 	 alloc = 0;
      /* FALL THROUGH */
      }
@@ -3919,14 +3942,14 @@ do {						\
      OpCase(i_bs_init_fail_yjId): {
 	 BsOp1 = yb(Arg(0));
 	 BsOp2 = 0;
-	 I++;
+	 SET_I(I+1);
 	 goto do_bs_init;
      }
 
      OpCase(i_bs_init_fail_xjId): {
 	 BsOp1 = xb(Arg(0));
 	 BsOp2 = 0;
-	 I++;
+	 SET_I(I+1);
      }
 	 /* FALL THROUGH */
      do_bs_init:
@@ -3958,7 +3981,7 @@ do {						\
      OpCase(i_bs_init_heap_IIId): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
-	 I++;
+	 SET_I(I+1);
 	 goto do_proc_bin_alloc;
      }
 
@@ -4003,7 +4026,7 @@ do {						\
      OpCase(i_bs_init_heap_bin_heap_IIId): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
-	 I++;
+	 SET_I(I+1);
 	 goto do_heap_bin_alloc;
      }
 
@@ -4294,7 +4317,7 @@ do {						\
      do_start_match:
 	 slots = Arg(2);
 	 if (!is_boxed(context)) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 PreFetch(4, next);
 	 header = *boxed_val(context);
@@ -4329,12 +4352,12 @@ do {						\
 	     HTOP = HEAP_TOP(c_p);
 	     HEAP_SPACE_VERIFIED(0);
 	     if (is_non_value(result)) {
-		 ClauseFail();
+		 ClauseFailPF();
 	     } else {
 		 StoreResult(result, Arg(3));
 	     }
 	 } else {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 NextPF(4, next);
 
@@ -4405,7 +4428,7 @@ do {						\
 	 I++;
 	 _mb = ms_matchbuffer(bs_get_integer8_context);
 	 if (_mb->size - _mb->offset < 8) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 if (BIT_OFFSET(_mb->offset) != 0) {
 	     _result = erts_bs_get_integer_2(c_p, 8, 0, _mb);
@@ -4429,7 +4452,7 @@ do {						\
 	 Eterm _result;
 	 _mb = ms_matchbuffer(bs_get_integer_16_context);
 	 if (_mb->size - _mb->offset < 16) {
-	     ClauseFail(); 
+	     ClauseFailPF(); 
 	 }
 	 if (BIT_OFFSET(_mb->offset) != 0) {
 	     _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
@@ -4453,7 +4476,7 @@ do {						\
 	 Uint32 _integer;
 	 Eterm _result;
 	 _mb = ms_matchbuffer(bs_get_integer_32_context);
-	 if (_mb->size - _mb->offset < 32) { ClauseFail(); }
+	 if (_mb->size - _mb->offset < 32) { ClauseFailPF(); }
 	 if (BIT_OFFSET(_mb->offset) != 0) {
 	     _integer = erts_bs_get_unaligned_uint32(_mb);
 	 } else {
@@ -4515,7 +4538,7 @@ do {						\
 	 LIGHT_SWAPIN;
 	 HEAP_SPACE_VERIFIED(0);
 	 if (is_non_value(result)) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 StoreBifResult(2, result);
      }
@@ -4579,7 +4602,7 @@ do {						\
      {
 	 Eterm result = erts_bs_get_utf8(ms_matchbuffer(get_utf8_context));
 	 if (is_non_value(result)) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 StoreBifResult(1, result);
      }
@@ -4602,7 +4625,7 @@ do {						\
 	 Eterm result = erts_bs_get_utf16(ms_matchbuffer(get_utf16_context),
 					  Arg(1));
 	 if (is_non_value(result)) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 StoreBifResult(2, result);
      }
@@ -4640,7 +4663,7 @@ do {						\
      mb = ms_matchbuffer(context_to_binary_context);
      size = mb->size - mb->offset;
      if (size % Arg(1) != 0) {
-	 ClauseFail();
+	 ClauseFailPF();
      }
      offs = mb->offset;
 
@@ -4681,15 +4704,15 @@ do {						\
 	 bytes = (byte *) Arg(2);
 	 mb = ms_matchbuffer(match_string_context);
 	 if (mb->size - mb->offset < bits) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 offs = mb->offset & 7;
 	 if (offs == 0 && (bits & 7) == 0) {
 	     if (sys_memcmp(bytes, mb->base+(mb->offset>>3), bits>>3)) {
-		 ClauseFail();
+		 ClauseFailPF();
 	     }
 	 } else if (erts_cmp_bits(bytes, 0, mb->base+(mb->offset>>3), mb->offset & 7, bits)) {
-	     ClauseFail();
+	     ClauseFailPF();
 	 }
 	 mb->offset += bits;
 	 NextPF(3, next);
@@ -4754,6 +4777,8 @@ do {						\
      real_I = erts_generic_breakpoint(c_p, erts_code_to_codeinfo(I), reg);
      HEAVY_SWAPIN;
      ASSERT(VALID_INSTR(real_I));
+
+     /* Don't need ArgPF() as it is already done */
      Goto(real_I);
  }
 
@@ -4987,7 +5012,7 @@ do {						\
 	 SET_I(c_p->cp);
 	 c_p->cp = 0;
 	 Goto(*I);
-       case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
+     case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
 	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
 	 /*fall through*/
        case HIPE_MODE_SWITCH_RES_CALL_BEAM:
@@ -5031,6 +5056,7 @@ do {						\
      ASSERT(hcc != NULL);
      ASSERT(VALID_INSTR(hcc->opcode));
      ++(hcc->count);
+     ArgPF();
      Goto(hcc->opcode);
  }
 #endif /* HIPE */
@@ -5099,6 +5125,7 @@ do {						\
      I = call_error_handler(c_p, erts_code_to_codemfa(I), reg, am_breakpoint);
      HEAVY_SWAPIN;
      if (I) {
+         ArgPF();
 	 Goto(*I);
      }
      goto handle_error;
@@ -5187,17 +5214,18 @@ do {						\
 
   save_calls1:
     {
-	Eterm* dis_next;
-
 	save_calls(c_p, (Export *) Arg(0));
 
 	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
-	dis_next = (Eterm *) *I;
 	FCALLS--;
-	Goto(dis_next);
+	Goto(*I);
     }
 }
+
+/* Redefine Arg to not include arg0 outside of process_main */
+#undef Arg
+#define Arg(N) I[(N)+1]
 
 /*
  * erts_dirty_process_main() is what dirty schedulers execute. Since they handle
@@ -6972,7 +7000,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     flatmap_t *mp;
     ErtsHeapFactory factory;
 
-    ptr = &Arg(4);
+    ptr = ArgAddr(4);
 
     if (n > 2*MAP_SMALL_MAP_LIMIT) {
         Eterm res;
@@ -7037,7 +7065,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm new_key;
     Eterm* kp;
 
-    new_p = &Arg(5);
+    new_p = ArgAddr(5);
     num_updates = Arg(4) / 2;
 
     if (is_not_flatmap(map)) {
@@ -7246,7 +7274,7 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     BeamInstr* new_p;
     Eterm new_key;
 
-    new_p = &Arg(5);
+    new_p = ArgAddr(5);
     n = Arg(4) / 2;		/* Number of values to be updated */
     ASSERT(n > 0);
 

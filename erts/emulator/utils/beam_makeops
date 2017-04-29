@@ -983,27 +983,26 @@ sub basic_generator {
 				   };
 	    /r/    and do { push(@f, "r(0)"); push(@f_types, $_); last SWITCH };
 	    /[xy]/ and do { push(@f, "$_" . "b(Arg($size))");
-			     push(@f_types, $_);
-			     last SWITCH;
-			};
+                            push(@f_types, $_);
+                            last SWITCH; };
 	    /n/    and do { push(@f, "NIL"); push(@f_types, $_); last SWITCH };
 	    /s/    and do { my($tmp) = "targ$tmp_arg_num";
 			    $var_decls .= "Eterm $tmp; ";
 			    $tmp_arg_num++;
 			    push(@f, $tmp);
 			    push(@f_types, $_);
-			    $prefix .= "GetR($size, $tmp);\n";
+                            $prefix .= "GetR($size, $tmp);\n";
 			    last SWITCH; };
 	    /d/    and do { $var_decls .= "Eterm dst; ";
 			    push(@f, "dst");
 			    push(@f_types, $_);
-			    $prefix .= "dst = Arg($size);\n";
-			    $gen_dest_arg = 'StoreResult';
+                            $prefix .= "dst = Arg($size);\n";
+                            $gen_dest_arg = 'StoreResult';
 			    last SWITCH;
 			};
 	    defined($incl_arg{$_})
 		and do { push(@f, "Arg($size)");
-			 push(@f_types, $_);
+                         push(@f_types, $_);
 			 last SWITCH;
 		     };
 
@@ -1188,8 +1187,8 @@ sub do_pack {
 	    $did_some_packing = 1;
 
 	    if ($ap == 0) {
-		$pack_prefix .= "tmp_packed$tmpnum = Arg($size);\n";
-		$up .= "p";
+                $pack_prefix .= "tmp_packed$tmpnum = Arg($size);\n";
+                $up .= "p";
 		$down = "P$down";
 		$this_size = 1;
 	    }
