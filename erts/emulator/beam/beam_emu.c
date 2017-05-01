@@ -56,9 +56,20 @@
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
-#  define Goto(Rel) goto *((void *)Rel)
+#  if defined(ARCH_64)
+#    define ReadDest(Addr) ((BeamInstr*)(Uint64)(((Uint32*)(Addr))[0]))
+#    if defined(WORDS_BIGENDIAN)
+#      define OpCode(OpCode) ((void*)((((Uint64)(&&lb_##OpCode)) << 32) | 0xFFFFFFFFULL))
+#    else
+#      define OpCode(OpCode) ((void*)(((Uint64)(&&lb_##OpCode)) | (0xFFFFFFFFULL << 32)))
+#    endif
+#  else
+#    define ReadDest(Addr) ((BeamInstr*)(Addr))[0]
+#    define OpCode(OpCode)  (&&lb_##OpCode)
+#  endif
+#  define Goto(Rel) goto *((void*)Rel)
+#  define GotoDest(Dest) goto *((void*)ReadDest(Dest))
 #  define LabelAddr(Label) &&Label
-#  define OpCode(OpCode)  (&&lb_##OpCode)
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -148,11 +159,11 @@ do {                                     \
 #endif /* NO_JUMP_TABLE */
 
 #define SET_CP(p, ip)           \
-   ASSERT(VALID_INSTR(*(ip)));  \
-   (p)->cp = (ip)
+    ASSERT(VALID_INSTR(ReadDest(ip)));          \
+    (p)->cp = (ip)
 
 #define SET_I(ip) \
-    ASSERT(VALID_INSTR(ip));                    \
+    ASSERT(VALID_INSTR(ReadDest(ip)));          \
     I = (ip);                                   \
     ArgPF()
 
@@ -185,10 +196,10 @@ do {                                     \
   do {						\
     BeamInstr* stb_next;			\
     Eterm stb_reg;				\
-    stb_reg = Arg(Dst);				\
+    stb_reg = Arg(Dst);                         \
     I += (Dst) + 2;				\
     ArgPF();                                    \
-    stb_next = (BeamInstr *) *I;		\
+    stb_next = ReadDest(I);                     \
     CHECK_TERM(Result);				\
     REG_TARGET(stb_reg) = (Result);		\
     Goto(stb_next);				\
@@ -452,8 +463,7 @@ void** beam_ops;
 
 #define DispatchMacro()				\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr* dis_next = (BeamInstr *) ReadDest(I);              \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -465,8 +475,7 @@ void** beam_ops;
 
 #define DispatchMacroFun()			\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr* dis_next = (BeamInstr *) ReadDest(I);              \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -479,9 +488,9 @@ void** beam_ops;
 #define DispatchMacrox()					\
   do {								\
      if (FCALLS > 0) {						\
-        BeamInstr *dis_next;					\
+        Eterm* dis_next;					\
         SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);  \
-        dis_next = (BeamInstr*) *I;                                      \
+        dis_next = (Eterm *) ReadDest(I);                            \
         FCALLS--;						\
         CHECK_ARGS(I);						\
         Goto(dis_next);						\
@@ -522,10 +531,10 @@ void** beam_ops;
 #define Next(N)                \
     I += (N) + 1;              \
     ArgPF();                   \
-    ASSERT(VALID_INSTR(*I));   \
-    Goto(*I)
+    ASSERT(VALID_INSTR(ReadDest(I)));           \
+    GotoDest(I)
 
-#define PreFetch(N, Dst) do { Dst = (BeamInstr *) *(I + N + 1); } while (0)
+#define PreFetch(N, Dst) do { Dst = ReadDest(I + N + 1); } while (0)
 #define NextPF(N, Dst)         \
     I += N + 1;                \
     ArgPF();                   \
@@ -650,7 +659,7 @@ void** beam_ops;
 do {                                            \
     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
-        Goto(*I);                               \
+        GotoDest(I);                            \
     }                                           \
     else {					\
         c_p->current = NULL;                    \
@@ -662,7 +671,7 @@ do {                                            \
 #define MoveReturn(Src)				\
     x(0) = (Src);				\
     SET_I(c_p->cp);				\
-    ASSERT(VALID_INSTR(c_p->cp));               \
+    ASSERT(VALID_INSTR(ReadDest(c_p->cp)));     \
     c_p->cp = 0;				\
     CHECK_TERM(r(0));				\
     DispatchReturn()
@@ -701,7 +710,7 @@ do {                                            \
 #define MoveJump(Src)				\
      r(0) = (Src);				\
      SET_I((BeamInstr *) Arg(0));		\
-     Goto(*I);
+     GotoDest(I);
 
 #define GetList(Src, H, T)			\
   do {						\
@@ -1425,7 +1434,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
-	next = (BeamInstr *) *I;
+	next = (BeamInstr *) ReadDest(I);
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
@@ -1965,7 +1974,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 {
 	     c_p->flags &= ~F_DELAY_GC;
 	     SET_I((BeamInstr *) Arg(0));
-             Goto(*I);		/* Jump to a wait or wait_timeout instruction */
+             GotoDest(I);		/* Jump to a wait or wait_timeout instruction */
 	 }
      }
      if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
@@ -2297,7 +2306,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  select_val2_fail:
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
  }
 
  {
@@ -2317,7 +2326,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 goto do_linear_search;
      }
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
 
  OpCase(i_select_val_lins_xfI):
      select_val = xb(Arg(0));
@@ -2342,7 +2351,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      }
 
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
  }
 
  OpCase(i_select_val_bins_xfI):
@@ -2394,11 +2403,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	     low = mid + 1;
 	 } else {
 	     SET_I(mid->addr);
-	     Goto(*I);
+	     GotoDest(I);
 	 }
      }
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
  }
  }
 
@@ -2418,11 +2427,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
 	 if (jump_on_val_zero_index < Arg(2)) {
 	     SET_I((BeamInstr *) (ArgAddr(3))[jump_on_val_zero_index]);
-	     Goto(*I);
+	     GotoDest(I);
 	 }
      }
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
  }
 
  {
@@ -2442,11 +2451,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 jump_on_val_index = (Uint) (signed_val(jump_on_val_index) - Arg(3));
 	 if (jump_on_val_index < Arg(2)) {
 	     SET_I((BeamInstr *) (ArgAddr(4))[jump_on_val_index]);
-	     Goto(*I);
+	     GotoDest(I);
 	 }
      }
      SET_I((BeamInstr *) Arg(1));
-     Goto(*I);
+     GotoDest(I);
  }
 
  do_put_tuple: {
@@ -2470,7 +2479,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      } while (--pt_arity != 0);
      HTOP = hp;
      ArgPF();
-     Goto(*I);
+     GotoDest(I);
  }
 
  OpCase(new_map_dII): {
@@ -2639,7 +2648,7 @@ do {						\
 	    StoreBifResult(3, result);
 	}
 	SET_I((BeamInstr *) Arg(0));
-	Goto(*I);
+	GotoDest(I);
     }
 
     /*
@@ -2706,7 +2715,7 @@ do {						\
 	}
 	if (Arg(0) != 0) {
 	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
+	    GotoDest(I);
 	}
 	x(0) = x(live);
 	I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
@@ -2749,7 +2758,7 @@ do {						\
 	}
 	if (Arg(0) != 0) {
 	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
+	    GotoDest(I);
 	}
 	live--;
 	x(0) = x(live);
@@ -2794,7 +2803,7 @@ do {						\
 	}
 	if (Arg(0) != 0) {
 	    SET_I((BeamInstr *) Arg(0));
-	    Goto(*I);
+	    GotoDest(I);
 	}
 	live -= 2;
 	x(0) = x(live);
@@ -2832,7 +2841,7 @@ do {						\
 	    StoreBifResult(4, result);
 	}
 	SET_I((BeamInstr *) Arg(0));
-	Goto(*I);
+	GotoDest(I);
     }
 
  /*
@@ -3035,7 +3044,7 @@ do {						\
 	 OpCase(jump_f): {
 	 jump_f:
 	     SET_I((BeamInstr *) Arg(0));
-	     Goto(*I);
+	     GotoDest(I);
 	 }
      }
      ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
@@ -3559,7 +3568,7 @@ do {						\
     HEAVY_SWAPIN;
     if (I) {
         ArgPF();
-	Goto(*I);
+	GotoDest(I);
     }
 
  /* Fall through */
@@ -3574,7 +3583,7 @@ do {						\
 	 ASSERT(!is_value(r(0)));
 	 SWAPIN;
          ArgPF();
-	 Goto(*I);
+	 GotoDest(I);
      }
  }
 
@@ -3718,7 +3727,7 @@ do {						\
 		CHECK_TERM(r(0));
 		SET_I(c_p->cp);
 		c_p->cp = 0;
-		Goto(*I);
+		GotoDest(I);
             } else if (c_p->freason == TRAP) {
 		SET_I(c_p->i);
 		if (c_p->flags & F_HIBERNATE_SCHED) {
@@ -4768,7 +4777,7 @@ do {						\
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[2]));
      E += 3;
-     Goto(*I);
+     GotoDest(I);
  }
 
  OpCase(i_generic_breakpoint): {
@@ -4790,7 +4799,7 @@ do {						\
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[1]));
      E += 2;
-     Goto(*I);
+     GotoDest(I);
  }
 
  OpCase(i_return_to_trace): {
@@ -4814,7 +4823,7 @@ do {						\
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[0]));
      E += 1;
-     Goto(*I);
+     GotoDest(I);
  }
 
  /*
@@ -5011,7 +5020,7 @@ do {						\
 	 ASSERT(is_value(reg[0]));
 	 SET_I(c_p->cp);
 	 c_p->cp = 0;
-	 Goto(*I);
+	 GotoDest(I);
      case HIPE_MODE_SWITCH_RES_CALL_EXPORTED:
 	 c_p->i = c_p->hipe.u.callee_exp->addressv[erts_active_code_ix()];
 	 /*fall through*/
@@ -5126,7 +5135,7 @@ do {						\
      HEAVY_SWAPIN;
      if (I) {
          ArgPF();
-	 Goto(*I);
+	 GotoDest(I);
      }
      goto handle_error;
  }
@@ -5174,7 +5183,18 @@ do {						\
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
-     
+
+#if defined(ARCH_64)
+     for (i = 0; i < NUMBER_OF_OPCODES; i++) { 
+#if defined(WORDS_BIGENDIAN)
+         ((Uint64*)beam_ops)[i] <<= 32;
+         ((Uint64*)beam_ops)[i] |= 0xFFFFFFFFULL;
+#else
+         ((Uint64*)beam_ops)[i] |= 0xFFFFFFFFULL << 32;
+#endif
+     }
+#endif
+
      em_call_error_handler = OpCode(call_error_handler);
      em_apply_bif = OpCode(apply_bif);
      em_call_nif = OpCode(call_nif);
@@ -5219,7 +5239,7 @@ do {						\
 	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
 	FCALLS--;
-	Goto(*I);
+	GotoDest(I);
     }
 }
 
