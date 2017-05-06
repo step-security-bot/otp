@@ -1677,7 +1677,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  OpCase(i_move_call_ext_ce): {
      r(0) = Arg(0);
-     SET_I(I+1);
+     I++;
+     ArgPF();
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
@@ -1927,7 +1928,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (c_p->msg.mark == (BeamInstr *) (I+1)) {
 	 c_p->msg.save = c_p->msg.saved_last;
      }
-     SET_I(I+1);
+     I++;
+     ArgPF();
      /* Fall through to the loop_rec/2 instruction */
  }
 
@@ -3804,7 +3806,8 @@ do {						\
      OpCase(i_bs_init_bits_heap_IIId): {
 	 num_bits = Arg(0);
 	 alloc = Arg(1);
-	 SET_I(I+1);
+	 I++;
+         ArgPF();
 	 goto do_bs_init_bits_known;
      }
      
@@ -3817,20 +3820,23 @@ do {						\
      OpCase(i_bs_init_bits_fail_heap_sIjId): {
 	 GetArg1(0, num_bits_term);
 	 alloc = Arg(1);
-	 SET_I(I+2);
+	 I += 2;
+         ArgPF();
 	 goto do_bs_init_bits;
      }
 
      OpCase(i_bs_init_bits_fail_yjId): {
 	 num_bits_term = yb(Arg(0));
-	 SET_I(I+1);
 	 alloc = 0;
+	 I++;
+         ArgPF();
 	 goto do_bs_init_bits;
      }
      OpCase(i_bs_init_bits_fail_xjId): {
 	 num_bits_term = xb(Arg(0));
-	 SET_I(I+1);
 	 alloc = 0;
+	 I++;
+         ArgPF();
      /* FALL THROUGH */
      }
 
@@ -3951,14 +3957,16 @@ do {						\
      OpCase(i_bs_init_fail_yjId): {
 	 BsOp1 = yb(Arg(0));
 	 BsOp2 = 0;
-	 SET_I(I+1);
+	 I++;
+         ArgPF();
 	 goto do_bs_init;
      }
 
      OpCase(i_bs_init_fail_xjId): {
 	 BsOp1 = xb(Arg(0));
 	 BsOp2 = 0;
-	 SET_I(I+1);
+	 I++;
+         ArgPF();
      }
 	 /* FALL THROUGH */
      do_bs_init:
@@ -3990,7 +3998,8 @@ do {						\
      OpCase(i_bs_init_heap_IIId): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
-	 SET_I(I+1);
+	 I++;
+         ArgPF();
 	 goto do_proc_bin_alloc;
      }
 
@@ -4035,7 +4044,8 @@ do {						\
      OpCase(i_bs_init_heap_bin_heap_IIId): {
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
-	 SET_I(I+1);
+	 I++;
+         ArgPF();
 	 goto do_heap_bin_alloc;
      }
 
