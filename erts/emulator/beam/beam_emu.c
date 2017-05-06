@@ -167,6 +167,12 @@ do {                                     \
     I = (ip);                                   \
     ArgPF()
 
+#if 1
+#define CALL_I(arg) SET_I(I + 1 + (arg) + (Sint)(Arg(arg)))
+#else
+#define CALL_I(arg) SET_I((BeamInstr*)(Arg(offset)))
+#endif
+
 /*
  * Register target (X or Y register).
  */
@@ -692,24 +698,24 @@ do {                                            \
 #define MoveCall(Src, CallDest, Size)		\
     x(0) = (Src);				\
     SET_CP(c_p, I+Size+1);			\
-    SET_I((BeamInstr *) CallDest);		\
+    CALL_I(CallDest);                           \
     Dispatch();
 
 #define MoveCallLast(Src, CallDest, Deallocate)	\
     x(0) = (Src);				\
     RESTORE_CP(E);				\
     E = ADD_BYTE_OFFSET(E, (Deallocate));	\
-    SET_I((BeamInstr *) CallDest);		\
+    CALL_I(CallDest);                           \
     Dispatch();
 
 #define MoveCallOnly(Src, CallDest)		\
     x(0) = (Src);				\
-    SET_I((BeamInstr *) CallDest);		\
+    CALL_I(CallDest);                           \
     Dispatch();
 
 #define MoveJump(Src)				\
      r(0) = (Src);				\
-     SET_I((BeamInstr *) Arg(0));		\
+     CALL_I(0);                                 \
      GotoDest(I);
 
 #define GetList(Src, H, T)			\
@@ -1629,7 +1635,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  }
  /* FALL THROUGH */
  OpCase(i_call_only_f): {
-     SET_I((BeamInstr *) Arg(0));
+     CALL_I(0);
      DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
@@ -1641,7 +1647,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  OpCase(i_call_last_fP): {
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
-     SET_I((BeamInstr *) Arg(0));
+     CALL_I(0);
      DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
@@ -1654,7 +1660,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  /* FALL THROUGH */
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
-     SET_I((BeamInstr *) Arg(0));
+     CALL_I(0);
      DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
      Dispatch();
  }
@@ -1975,7 +1981,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #endif
 	 {
 	     c_p->flags &= ~F_DELAY_GC;
-	     SET_I((BeamInstr *) Arg(0));
+	     CALL_I(0);
              GotoDest(I);		/* Jump to a wait or wait_timeout instruction */
 	 }
      }
@@ -2113,7 +2119,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
      ASSERT(c_p->flags & F_DELAY_GC);
 
-     SET_I((BeamInstr *) Arg(0));
+     CALL_I(0);
      SAVE_MESSAGE(c_p);
      if (FCALLS > 0 || FCALLS > neg_o_reds) {
 	 FCALLS--;
@@ -2211,7 +2217,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 		 goto do_schedule;
 	     }
 #endif
-	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
+	     c_p->i = (BeamInstr *) I + 1 + (Sint)Arg(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
 
@@ -2307,7 +2313,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      }
 
  select_val2_fail:
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
  }
 
@@ -2327,7 +2333,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 select_val = *tuple_val(select_val);
 	 goto do_linear_search;
      }
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
 
  OpCase(i_select_val_lins_xfI):
@@ -2352,7 +2358,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 I += ix + Arg(2) + 2;
      }
 
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
  }
 
@@ -2404,11 +2410,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 } else if (select_val > mid->val) {
 	     low = mid + 1;
 	 } else {
-	     SET_I(mid->addr);
+	     CALL_I(&mid->val - I);
 	     GotoDest(I);
 	 }
      }
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
  }
  }
@@ -2428,11 +2434,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (is_small(jump_on_val_zero_index)) {
 	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
 	 if (jump_on_val_zero_index < Arg(2)) {
-	     SET_I((BeamInstr *) (ArgAddr(3))[jump_on_val_zero_index]);
+	     CALL_I(3+jump_on_val_zero_index);
 	     GotoDest(I);
 	 }
      }
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
  }
 
@@ -2452,11 +2458,11 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      if (is_small(jump_on_val_index)) {
 	 jump_on_val_index = (Uint) (signed_val(jump_on_val_index) - Arg(3));
 	 if (jump_on_val_index < Arg(2)) {
-	     SET_I((BeamInstr *) (ArgAddr(4))[jump_on_val_index]);
+	     CALL_I(4 + jump_on_val_index);
 	     GotoDest(I);
 	 }
      }
-     SET_I((BeamInstr *) Arg(1));
+     CALL_I(1);
      GotoDest(I);
  }
 
@@ -2649,7 +2655,7 @@ do {						\
 	if (is_value(result)) {
 	    StoreBifResult(3, result);
 	}
-	SET_I((BeamInstr *) Arg(0));
+	CALL_I(0);
 	GotoDest(I);
     }
 
@@ -2716,7 +2722,7 @@ do {						\
 	    StoreBifResult(4, result);
 	}
 	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
+	    CALL_I(0);
 	    GotoDest(I);
 	}
 	x(0) = x(live);
@@ -2759,7 +2765,7 @@ do {						\
 	    StoreBifResult(5, result);
 	}
 	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
+	    CALL_I(0);
 	    GotoDest(I);
 	}
 	live--;
@@ -2804,7 +2810,7 @@ do {						\
 	    StoreBifResult(5, result);
 	}
 	if (Arg(0) != 0) {
-	    SET_I((BeamInstr *) Arg(0));
+	    CALL_I(0);
 	    GotoDest(I);
 	}
 	live -= 2;
@@ -2842,7 +2848,7 @@ do {						\
 	if (is_value(result)) {
 	    StoreBifResult(4, result);
 	}
-	SET_I((BeamInstr *) Arg(0));
+	CALL_I(0);
 	GotoDest(I);
     }
 
@@ -3045,7 +3051,7 @@ do {						\
      if (Arg(0) != 0) {
 	 OpCase(jump_f): {
 	 jump_f:
-	     SET_I((BeamInstr *) Arg(0));
+	     CALL_I(0);
 	     GotoDest(I);
 	 }
      }

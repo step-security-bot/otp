@@ -535,6 +535,7 @@ static void new_genop(LoaderState* stp);
 static int get_tag_and_value(LoaderState* stp, Uint len_code,
 			     unsigned tag, BeamInstr* result);
 static int new_label(LoaderState* stp);
+static void register_label_patch(LoaderState* stp, BeamInstr* code, int ci, BeamInstr val);
 static void new_literal_patch(LoaderState* stp, int pos);
 static void new_string_patch(LoaderState* stp, int pos);
 static Uint new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size);
@@ -2396,16 +2397,14 @@ load_code(LoaderState* stp)
 		break;
 	    case 'f':		/* Destination label */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
+                register_label_patch(stp, code, ci, tmp_op->a[arg].val);
 		ci++;
 		break;
 	    case 'j':		/* 'f' or 'p' */
 		if (tag == TAG_p) {
 		    code[ci] = 0;
 		} else if (tag == TAG_f) {
-		    code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		    stp->labels[tmp_op->a[arg].val].patches = ci;
+                    register_label_patch(stp, code, ci, tmp_op->a[arg].val);
 		} else {
 		    LoadError3(stp, "bad tag %d; expected %d or %d",
 			       tag, TAG_f, TAG_p);
@@ -2527,8 +2526,7 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_f:
 		CodeNeed(1);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
+                register_label_patch(stp, code, ci, tmp_op->a[arg].val);
 		ci++;
 		break;
 	    case TAG_x:
@@ -2600,9 +2598,8 @@ load_code(LoaderState* stp)
                    the size of the ops.tab i_func_info instruction is not
                    the same as FUNC_INFO_SZ */
 		ASSERT(stp->labels[last_label].value == ci - FUNC_INFO_SZ);
-		stp->hdr->functions[function_number] = (ErtsCodeInfo*) stp->labels[last_label].patches;
-		offset = function_number;
-		stp->labels[last_label].patches = offset;
+		stp->hdr->functions[function_number] =
+                    (ErtsCodeInfo*) stp->labels[last_label].value;
 		function_number++;
 		if (stp->arity > MAX_ARG) {
 		    LoadError1(stp, "too many arguments: %d", stp->arity);
@@ -4745,9 +4742,17 @@ freeze_code(LoaderState* stp)
 	    ASSERT(this_patch < stp->ci);
 	    next_patch = codev[this_patch];
 	    ASSERT(next_patch < stp->ci);
-	    codev[this_patch] = (BeamInstr) (codev + value);
+	    codev[this_patch] = (BeamInstr) (value - this_patch);
 	    this_patch = next_patch;
 	}
+    }
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
+
+    /* Resolve all func info labels */
+    for (i = 0; i < stp->num_functions; i++) {
+        ASSERT(((BeamInstr)(stp->hdr->functions[i])) < stp->ci);
+        code_hdr->functions[i] = (ErtsCodeInfo*) (codev + (BeamInstr)(stp->hdr->functions[i]));
+        ASSERT_MFA(&code_hdr->functions[i]->mfa);
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
@@ -4790,7 +4795,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     while (index != 0) {
 	BeamInstr next = codev[index];
 	codev[index] = BeamOpCode(op_catch_yf);
-	catches = beam_catches_cons((BeamInstr *)codev[index+2], catches);
+	catches = beam_catches_cons((BeamInstr *)(codev + index + 2 + codev[index+2]), catches);
 	codev[index+2] = make_catch(catches);
 	index = next;
     }
@@ -5456,6 +5461,13 @@ new_label(LoaderState* stp)
     stp->labels[num].value = 0;
     stp->labels[num].patches = -1;
     return num;
+}
+
+static void
+register_label_patch(LoaderState* stp, BeamInstr* code, int ci, BeamInstr val)
+{
+    code[ci] = stp->labels[val].patches;
+    stp->labels[val].patches = ci;
 }
 
 static void

@@ -1000,11 +1000,18 @@ sub basic_generator {
                             $gen_dest_arg = 'StoreResult';
 			    last SWITCH;
 			};
-	    defined($incl_arg{$_})
-		and do { push(@f, "Arg($size)");
-                         push(@f_types, $_);
-			 last SWITCH;
-		     };
+
+            /f/ and defined($incl_arg{$_}) and do {
+                push(@f, "$size");
+                push(@f_types, $_);
+                last SWITCH;
+            };
+
+	    defined($incl_arg{$_}) and do {
+                push(@f, "Arg($size)");
+                push(@f_types, $_);
+                last SWITCH;
+            };
 
 	    /[fp]/ and do { $fail_type = $_; last SWITCH };
 
