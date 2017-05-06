@@ -965,6 +965,7 @@ sub basic_generator {
 
     if ($flags =~ /-pack/ && $hot) {
         ($prefix, $pack_spec, @args) = &do_pack(@args);
+        printf STDERR "%s, %s, %s", $name, $prefix, $pack_spec;
     }
 
     #
@@ -974,8 +975,21 @@ sub basic_generator {
 
     foreach (@args) {
 	my($this_size) = $arg_size{$_};
+        printf STDERR " %s", $_;
       SWITCH:
 	{
+            /^pack:(\d):(f.*)/ and
+                do { my($arg1) = $1;
+                     my($arg2) = $2;
+                     if($flags =~ /-fail_action/) {
+                         $fail_type = $arg2;
+                         $this_size = $arg1;
+                     } else {
+                         push(@f, $arg2);
+                         push(@f_types, 'packed');
+                         $this_size = $arg1;
+                     }
+                     last SWITCH; };
 	    /^pack:(\d):(.*)/ and do { push(@f, $2);
 				       push(@f_types, 'packed');
 				       $this_size = $1;
@@ -1037,6 +1051,8 @@ sub basic_generator {
 	    }
 	} elsif ($fail_type eq 'f') {
 	    push(@f, "ClauseFail()");
+        } elsif ($fail_type =~ /^f/) {
+	    push(@f, "ClauseFailPacked($fail_type)");
 	} else {
 	    my($i);
 	    for ($i = 0; $i < @f_types; $i++) {
@@ -1095,6 +1111,7 @@ sub basic_generator {
     # Return the size and code for the macro (if any).
     $size++;
     ($size, $code, $pack_spec);
+    printf STDERR "\n";
 }
 
 sub do_pack {
@@ -1108,7 +1125,7 @@ sub do_pack {
     # Count the number of packable arguments.  If we encounter any 's' or 'd'
     # arguments, packing is not possible.
     #
-    my $packable_types = "xytQ";
+    my $packable_types = "xytQf";
     foreach my $arg (@args) {
 	if ($arg =~ /^[$packable_types]/) {
 	    $packable_args++;

@@ -167,6 +167,9 @@ do {                                     \
     I = (ip);                                   \
     ArgPF()
 
+#define ADD_I(offset)                           \
+    SET_I(I + (offset))
+
 /*
  * Register target (X or Y register).
  */
@@ -205,6 +208,7 @@ do {                                     \
     Goto(stb_next);				\
   } while (0)
 
+#define ClauseFailPacked(Arg) arg0 = Arg; ClauseFail()
 #define ClauseFail() goto jump_f
 #define ClauseFailPF() do { ArgPF(); goto jump_f; } while(0);
 
@@ -301,6 +305,7 @@ void** beam_ops;
      PROCESS_MAIN_CHK_LOCKS((P));					\
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
 
+#define fb(N) (N)
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
@@ -2273,39 +2278,48 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  {
      Eterm select_val2;
+     BeamInstr tmp_packed;
+     Sint32 offs;
 
  OpCase(i_select_tuple_arity2_yfAAff):
-     select_val2 = yb(Arg(0));
+     tmp_packed = Arg(0);
+     select_val2 = yb(tmp_packed&BEAM_WIDE_MASK);
      goto do_select_tuple_arity2;
 
  OpCase(i_select_tuple_arity2_xfAAff):
-     select_val2 = xb(Arg(0));
+     tmp_packed = Arg(0);
+     select_val2 = xb(tmp_packed&BEAM_WIDE_MASK);
      goto do_select_tuple_arity2;
 
  do_select_tuple_arity2:
      if (is_not_tuple(select_val2)) {
+         offs = (tmp_packed>>BEAM_WIDE_SHIFT)&BEAM_WIDE_MASK;
 	 goto select_val2_fail;
      }
      select_val2 = *tuple_val(select_val2);
      goto do_select_val2;
 
  OpCase(i_select_val2_yfccff):
-     select_val2 = yb(Arg(0));
+     tmp_packed = Arg(0);
+     select_val2 = yb(tmp_packed&BEAM_WIDE_MASK);
      goto do_select_val2;
 
  OpCase(i_select_val2_xfccff):
-     select_val2 = xb(Arg(0));
+     tmp_packed = Arg(0);
+     select_val2 = xb(tmp_packed&BEAM_WIDE_MASK);
      goto do_select_val2;
 
  do_select_val2:
-     if (select_val2 == Arg(2)) {
-	 I += 3;
-     } else if (select_val2 == Arg(3)) {
-	 I += 4;
-     }
 
+     if (select_val2 == Arg(1)) {
+	 offs = ((Uint32*)(I + 1 + 3))[0];
+     } else if (select_val2 == Arg(2)) {
+	 offs = ((Uint32*)(I + 1 + 3))[1];
+     } else {
+         offs = (tmp_packed>>BEAM_WIDE_SHIFT)&BEAM_WIDE_MASK;
+     }
  select_val2_fail:
-     SET_I((BeamInstr *) Arg(1));
+     ADD_I(offs);
      GotoDest(I);
  }
 
