@@ -287,11 +287,10 @@ void** beam_ops;
      PROCESS_MAIN_CHK_LOCKS((P));					\
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
 
-#define db(N) (N)
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
-#define fb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
+#define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)
 #define x(N) reg[N]
@@ -4835,9 +4834,9 @@ do {						\
      targ1 = REG_TARGET(Arg(0));
      PreFetch(2, next);
      if (is_small(targ1)) {
-	 fb(fr) = (double) signed_val(targ1);
+	 lb(fr) = (double) signed_val(targ1);
      } else if (is_big(targ1)) {
-	 if (big_to_double(targ1, &fb(fr)) < 0) {
+	 if (big_to_double(targ1, &lb(fr)) < 0) {
 	     goto fbadarith;
 	 }
      } else if (is_float(targ1)) {
@@ -4881,8 +4880,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) + fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) + lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fsub_lll): {
@@ -4890,8 +4889,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) - fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) - lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fmul_lll): {
@@ -4899,8 +4898,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) * fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) * lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fdiv_lll): {
@@ -4908,8 +4907,8 @@ do {						\
 
      PreFetch(3, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(2)) = fb(Arg(0)) / fb(Arg(1));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(2)), goto fbadarith);
+     lb(Arg(2)) = lb(Arg(0)) / lb(Arg(1));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(2)), goto fbadarith);
      NextPF(3, next);
  }
  OpCase(i_fnegate_ll): {
@@ -4917,8 +4916,8 @@ do {						\
 
      PreFetch(2, next);
      ERTS_NO_FPE_CHECK_INIT(c_p);
-     fb(Arg(1)) = -fb(Arg(0));
-     ERTS_NO_FPE_ERROR(c_p, fb(Arg(1)), goto fbadarith);
+     lb(Arg(1)) = -lb(Arg(0));
+     ERTS_NO_FPE_ERROR(c_p, lb(Arg(1)), goto fbadarith);
      NextPF(2, next);
 
  fbadarith:
