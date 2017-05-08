@@ -4750,8 +4750,8 @@ freeze_code(LoaderState* stp)
 
     /* Resolve all func info labels */
     for (i = 0; i < stp->num_functions; i++) {
-        ASSERT(((BeamInstr)(stp->hdr->functions[i])) < stp->ci);
-        code_hdr->functions[i] = (ErtsCodeInfo*) (codev + (BeamInstr)(stp->hdr->functions[i]));
+        ASSERT(((BeamInstr)(code_hdr->functions[i])) < stp->ci);
+        code_hdr->functions[i] = (ErtsCodeInfo*) (codev + (BeamInstr)(code_hdr->functions[i]));
         ASSERT_MFA(&code_hdr->functions[i]->mfa);
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
