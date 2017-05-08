@@ -3813,7 +3813,6 @@ do {						\
 	 num_bits = Arg(0);
 	 alloc = Arg(1);
 	 I++;
-         ArgPF();
 	 goto do_bs_init_bits_known;
      }
      
@@ -4005,7 +4004,6 @@ do {						\
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
 	 I++;
-         ArgPF();
 	 goto do_proc_bin_alloc;
      }
 
@@ -4051,7 +4049,6 @@ do {						\
 	 BsOp1 = Arg(0);
 	 BsOp2 = Arg(1);
 	 I++;
-         ArgPF();
 	 goto do_heap_bin_alloc;
      }
 
@@ -5081,7 +5078,6 @@ do {						\
      ASSERT(hcc != NULL);
      ASSERT(VALID_INSTR(hcc->opcode));
      ++(hcc->count);
-     ArgPF();
      Goto(hcc->opcode);
  }
 #endif /* HIPE */
