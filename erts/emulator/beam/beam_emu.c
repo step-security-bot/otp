@@ -168,10 +168,11 @@ do {                                     \
     ArgPF()
 
 #if 1
-#define CALL_I(arg) SET_I(I + 1 + (arg) + (Sint)(Arg(arg)))
+#define READ_F_TARGET(arg) (I + 1 + (arg) + (Sint)(Arg(arg)))
 #else
-#define CALL_I(arg) SET_I((BeamInstr*)(Arg(offset)))
+#define READ_F_TARGET(arg) ((BeamInstr*)(Arg(arg)))
 #endif
+#define CALL_I(arg) SET_I(READ_F_TARGET(arg))
 
 /*
  * Register target (X or Y register).
@@ -203,8 +204,7 @@ do {                                     \
     BeamInstr* stb_next;			\
     Eterm stb_reg;				\
     stb_reg = Arg(Dst);                         \
-    I += (Dst) + 2;				\
-    ArgPF();                                    \
+    SET_I(I + (Dst) + 2);                       \
     stb_next = ReadDest(I);                     \
     CHECK_TERM(Result);				\
     REG_TARGET(stb_reg) = (Result);		\
@@ -2217,7 +2217,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 		 goto do_schedule;
 	     }
 #endif
-	     c_p->i = (BeamInstr *) I + 1 + (Sint)Arg(0); /* L1 */
+	     c_p->i = READ_F_TARGET(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
 
