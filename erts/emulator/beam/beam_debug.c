@@ -616,8 +616,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_lins_xfI:
-    case op_i_select_val_lins_yfI:
+    case op_i_select_val_lins_fxI:
+    case op_i_select_val_lins_fyI:
 	{
 	    int n = ap[-1];
 	    int ix = n;
@@ -635,8 +635,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_val_bins_xfI:
-    case op_i_select_val_bins_yfI:
+    case op_i_select_val_bins_fxI:
+    case op_i_select_val_bins_fyI:
 	{
 	    int n = ap[-1];
 
@@ -648,8 +648,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_tuple_arity_xfI:
-    case op_i_select_tuple_arity_yfI:
+    case op_i_select_tuple_arity_fxI:
+    case op_i_select_tuple_arity_fyI:
         {
             int n = ap[-1];
             int ix = n - 1; /* without sentinel */
@@ -672,8 +672,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_xfII:
-    case op_i_jump_on_val_yfII:
+    case op_i_jump_on_val_fxII:
+    case op_i_jump_on_val_fyII:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
@@ -683,8 +683,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_xfI:
-    case op_i_jump_on_val_zero_yfI:
+    case op_i_jump_on_val_zero_fxI:
+    case op_i_jump_on_val_zero_fyI:
 	{
 	    int n;
 	    for (n = ap[-1]; n > 0; n--) {

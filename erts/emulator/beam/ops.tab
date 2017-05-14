@@ -160,26 +160,26 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins x f I
-i_select_val_bins y f I
+i_select_val_bins f x I
+i_select_val_bins f y I
 
-i_select_val_lins x f I
-i_select_val_lins y f I
+i_select_val_lins f x I
+i_select_val_lins f y I
 
-i_select_val2 x f c c f f
-i_select_val2 y f c c f f
+i_select_val2 f x c c f f
+i_select_val2 f y c c f f
 
-i_select_tuple_arity x f I
-i_select_tuple_arity y f I
+i_select_tuple_arity f x I
+i_select_tuple_arity f y I
 
-i_select_tuple_arity2 x f A A f f
-i_select_tuple_arity2 y f A A f f
+i_select_tuple_arity2 f x A A f f
+i_select_tuple_arity2 f y A A f f
 
-i_jump_on_val_zero x f I
-i_jump_on_val_zero y f I
+i_jump_on_val_zero f x I
+i_jump_on_val_zero f y I
 
-i_jump_on_val x f I I
-i_jump_on_val y f I I
+i_jump_on_val f x I I
+i_jump_on_val f y I I
 
 %macro: get_list GetList -pack
 get_list x x x
@@ -1103,37 +1103,37 @@ i_bif2_body b s s d
 # Internal calls.
 #
 
-move S=c x==0 | call Ar P=f => i_move_call S P
-move S=s x==0 | call Ar P=f => move_call S P
+move S=c x==0 | call Ar P=f => i_move_call P S
+move S=s x==0 | call Ar P=f => move_call P S
 
-i_move_call c f
+i_move_call f c
 
 %macro:move_call MoveCall -arg_f -size -nonext
 move_call/2
 
-move_call x f
-move_call y f
+move_call f x
+move_call f y
 
 move S=c x==0 | call_last Ar P=f D => i_move_call_last P D S
-move S x==0 | call_last Ar P=f D => move_call_last S P D
+move S x==0 | call_last Ar P=f D => move_call_last P S D
 
 i_move_call_last f P c
 
 %macro:move_call_last MoveCallLast -arg_f -nonext -pack
 
 move_call_last/3
-move_call_last x f Q
-move_call_last y f Q
+move_call_last f x Q
+move_call_last f y Q
 
 move S=c x==0 | call_only Ar P=f => i_move_call_only P S
-move S=x x==0 | call_only Ar P=f => move_call_only S P
+move S=x x==0 | call_only Ar P=f => move_call_only P S
 
 i_move_call_only f c
 
 %macro:move_call_only MoveCallOnly -arg_f -nonext
 move_call_only/2
 
-move_call_only x f
+move_call_only f x
 
 call Ar Func        => i_call Func
 call_last Ar Func D => i_call_last Func D
@@ -1179,9 +1179,9 @@ func_info M F A => i_func_info u M F A
 
 %cold
 bs_start_match2 Fail=f ica X Y D => jump Fail
-bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 x f I I d
-i_bs_start_match2 y f I I d
+bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Fail Bin X Y D
+i_bs_start_match2 f x I I d
+i_bs_start_match2 f y I I d
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
 i_bs_save2 x I
@@ -1190,20 +1190,20 @@ bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
 i_bs_restore2 x I
 
 # Matching integers
-bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
+bs_match_string Fail Ms Bits Val => i_bs_match_string Fail Ms Bits Val
 
-i_bs_match_string x f I I
+i_bs_match_string f x I I
 
 # Fetching integers from binaries.
 bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm x I f I d
-i_bs_get_integer_imm x I I f I d
+i_bs_get_integer_small_imm f x I I d
+i_bs_get_integer_imm f x I I I d
 i_bs_get_integer f I I s s d
-i_bs_get_integer_8 x f d
-i_bs_get_integer_16 x f d
-i_bs_get_integer_32 x f I d
+i_bs_get_integer_8 f x d
+i_bs_get_integer_16 f x d
+i_bs_get_integer_32 f x I d
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
@@ -1216,7 +1216,7 @@ bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 i_bs_get_binary_imm2 f x I I I d
 i_bs_get_binary2 f x I s I d
 i_bs_get_binary_all2 f x I I d
-i_bs_get_binary_all_reuse x f I
+i_bs_get_binary_all_reuse f x I
 
 # Fetching float from binaries.
 bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
@@ -1261,15 +1261,15 @@ bs_context_to_binary x
 #
 # Utf8/utf16/utf32 support. (R12B-5)
 #
-bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f d
+bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Fail Ms Dst
+i_bs_get_utf8 f x d
 
-bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
+bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Fail Ms x
 
-bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
-bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
+bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Fail Ms Flags Dst
+bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Fail Ms Flags x
 
-i_bs_get_utf16 x f I d
+i_bs_get_utf16 f x I d
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \

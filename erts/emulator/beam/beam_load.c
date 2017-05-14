@@ -2558,7 +2558,7 @@ load_code(LoaderState* stp)
 	switch (stp->specific_op) {
 	case op_i_func_info_IaaI:
 	    {
-		Sint offset;
+                //	Sint offset;
 		if (function_number >= stp->num_functions) {
 		    LoadError1(stp, "too many functions in module (header said %u)",
 			       stp->num_functions); 
@@ -2619,7 +2619,7 @@ load_code(LoaderState* stp)
 	    stp->on_load = ci;
 	    break;
 	case op_bs_put_string_II:
-	case op_i_bs_match_string_xfII:
+	case op_i_bs_match_string_fxII:
 	    new_string_patch(stp, ci-1);
 	    break;
 
@@ -2950,20 +2950,20 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	} else if (bits == 8) {
 	    op->op = genop_i_bs_get_integer_8_3;
 	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
+	    op->a[0] = Fail;
+	    op->a[1] = Ms;
 	    op->a[2] = Dst;
 	} else if (bits == 16 && (Flags.val & BSF_LITTLE) == 0) {
 	    op->op = genop_i_bs_get_integer_16_3;
 	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
+	    op->a[0] = Fail;
+	    op->a[1] = Ms;
 	    op->a[2] = Dst;
 	} else if (bits == 32 && (Flags.val & BSF_LITTLE) == 0) {
 	    op->op = genop_i_bs_get_integer_32_4;
 	    op->arity = 4;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
+	    op->a[0] = Fail;
+	    op->a[1] = Ms;
 	    op->a[2] = Live;
 	    op->a[3] = Dst;
 	} else {
@@ -2971,20 +2971,20 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    if (bits < SMALL_BITS) {
 		op->op = genop_i_bs_get_integer_small_imm_5;
 		op->arity = 5;
-		op->a[0] = Ms;
-		op->a[1].type = TAG_u;
-		op->a[1].val = bits;
-		op->a[2] = Fail;
+		op->a[0] = Fail;
+		op->a[1] = Ms;
+		op->a[2].type = TAG_u;
+		op->a[2].val = bits;
 		op->a[3] = Flags;
 		op->a[4] = Dst;
 	    } else {
 		op->op = genop_i_bs_get_integer_imm_6;
 		op->arity = 6;
-		op->a[0] = Ms;
-		op->a[1].type = TAG_u;
-		op->a[1].val = bits;
-		op->a[2] = Live;
-		op->a[3] = Fail;
+		op->a[0] = Fail;
+		op->a[1] = Ms;
+		op->a[2].type = TAG_u;
+		op->a[2].val = bits;
+		op->a[3] = Live;
 		op->a[4] = Flags;
 		op->a[5] = Dst;
 	    }
@@ -3038,8 +3038,8 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	if (Ms.type == Dst.type && Ms.val == Dst.val) {
 	    op->op = genop_i_bs_get_binary_all_reuse_3;
 	    op->arity = 3;
-	    op->a[0] = Ms;
-	    op->a[1] = Fail;
+	    op->a[0] = Fail;
+	    op->a[1] = Ms;
 	    op->a[2] = Unit;
 	} else {
 	    op->op = genop_i_bs_get_binary_all2_5;
@@ -3553,8 +3553,8 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->next = NULL;
 	op->op = genop_i_select_tuple_arity2_6;
 	GENOP_ARITY(op, arity - 1);
-	op->a[0] = S;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = S;
 	op->a[2].type = TAG_u;
 	op->a[2].val  = Rest[0].val;
 	op->a[3].type = TAG_u;
@@ -3581,8 +3581,8 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->next = NULL;
     op->op = genop_i_select_tuple_arity_3;
     GENOP_ARITY(op, arity);
-    op->a[0] = S;
-    op->a[1] = Fail;
+    op->a[0] = Fail;
+    op->a[1] = S;
     op->a[2].type = TAG_u;
     op->a[2].val = size;
 
@@ -3651,9 +3651,9 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg TypeFail,
     op1->op = genop_select_val_3;
     GENOP_ARITY(op1, 3 + Size.val);
     op1->arity = 3;
-    op1->a[0] = S;
-    op1->a[1].type = TAG_f;
-    op1->a[1].val = label->a[0].val;
+    op1->a[0].type = TAG_f;
+    op1->a[0].val = label->a[0].val;
+    op1->a[1] = S;
     op1->a[2].type = TAG_u;
     op1->a[2].val = 0;
 
@@ -3661,8 +3661,8 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg TypeFail,
     op2->op = genop_select_val_3;
     GENOP_ARITY(op2, 3 + Size.val);
     op2->arity = 3;
-    op2->a[0] = S;
-    op2->a[1] = Fail;
+    op2->a[0] = Fail;
+    op2->a[1] = S;
     op2->a[2].type = TAG_u;
     op2->a[2].val = 0;
 
@@ -3785,8 +3785,8 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
     }
     arity = fixed_args + size;
     GENOP_ARITY(op, arity);
-    op->a[0] = S;
-    op->a[1] = Fail;
+    op->a[0] = Fail;
+    op->a[1] = S;
     op->a[2].type = TAG_u;
     op->a[2].val = size;
     op->a[3].type = TAG_u;
@@ -3850,8 +3850,8 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->next = NULL;
 	op->op = genop_i_select_val2_6;
 	GENOP_ARITY(op, arity - 1);
-	op->a[0] = S;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = S;
 	op->a[2] = Rest[0];
 	op->a[3] = Rest[2];
 	op->a[4] = Rest[1];
@@ -3867,8 +3867,8 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->next = NULL;
 	op->op = genop_i_select_val_bins_3;
 	GENOP_ARITY(op, arity);
-	op->a[0] = S;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = S;
 	op->a[2].type = TAG_u;
 	op->a[2].val = size;
 	for (i = 3; i < arity; i++) {
@@ -3900,8 +3900,8 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->next = NULL;
     op->op = genop_i_select_val_lins_3;
     GENOP_ARITY(op, arity);
-    op->a[0] = S;
-    op->a[1] = Fail;
+    op->a[0] = Fail;
+    op->a[1] = S;
     op->a[2].type = TAG_u;
     op->a[2].val = size;
 
