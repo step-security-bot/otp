@@ -336,8 +336,17 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    goto L_done;
 
 	if (is_CP(obj)) {
+            ErtsCodeMFA* cmfa = find_function_from_pc(cp_val(obj));
 	    PRINT_STRING(res, fn, arg, "<cp/header:");
-	    PRINT_POINTER(res, fn, arg, cp_val(obj));
+            if (cmfa) {
+                res += print_atom_name(fn, arg, cmfa->module, dcount);
+                PRINT_STRING(res, fn, arg, ":");
+                res += print_atom_name(fn, arg, cmfa->function, dcount);
+                PRINT_STRING(res, fn, arg, "/");
+                PRINT_SWORD(res, fn, arg, 'd', 0, 1, (ErlPfSWord) cmfa->arity);
+            } else {
+                PRINT_POINTER(res, fn, arg, cp_val(obj));
+            }
 	    PRINT_CHAR(res, fn, arg, '>');
 	    goto L_done;
 	}
