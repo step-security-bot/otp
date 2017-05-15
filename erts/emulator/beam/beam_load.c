@@ -3651,9 +3651,9 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg TypeFail,
     op1->op = genop_select_val_3;
     GENOP_ARITY(op1, 3 + Size.val);
     op1->arity = 3;
-    op1->a[0].type = TAG_f;
-    op1->a[0].val = label->a[0].val;
-    op1->a[1] = S;
+    op1->a[0] = S;
+    op1->a[1].type = TAG_f;
+    op1->a[1].val = label->a[0].val;
     op1->a[2].type = TAG_u;
     op1->a[2].val = 0;
 
@@ -3661,8 +3661,8 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg TypeFail,
     op2->op = genop_select_val_3;
     GENOP_ARITY(op2, 3 + Size.val);
     op2->arity = 3;
-    op2->a[0] = Fail;
-    op2->a[1] = S;
+    op2->a[0] = S;
+    op2->a[1] = Fail;
     op2->a[2].type = TAG_u;
     op2->a[2].val = 0;
 
