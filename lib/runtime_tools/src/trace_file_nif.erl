@@ -34,13 +34,12 @@ on_load() ->
                      ArchLibDir = 
                          filename:join([PrivDir, "lib", 
                                         erlang:system_info(system_architecture)]),
-                     Candidate =
+                     Candidates =
                          filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
-                     case Candidate of
+                     case Candidates of
                          [] -> Error1;
-                         _ ->
-                             ArchLib = filename:join([ArchLibDir, LibName]),
-                             erlang:load_nif(ArchLib, 0)
+                         [Candidate|_] ->
+                             erlang:load_nif(filename:rootname(Candidate), 0)
                      end;
                  Error1 -> Error1
              end,
