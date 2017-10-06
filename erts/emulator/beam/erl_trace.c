@@ -1137,36 +1137,39 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
         }
     }
 
-    /*
-     * Because of the delayed sub-binary creation optimization introduced in
-     * R12B, (at most) one of arguments can be a match context instead of
-     * a binary. Since we don't want to handle match contexts in utility functions
-     * such as size_object() and copy_struct(), we must make sure that we
-     * temporarily convert any match contexts to sub binaries.
-     */
     arity = info->mfa.arity;
-    for (i = 0; i < arity; i++) {
-	Eterm arg = args[i];
-	if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
-	    ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(arg);
-	    ErlBinMatchBuffer* mb = &ms->mb;
-	    Uint bit_size;
-            ErlSubBin *sub_bin_heap = (ErlSubBin *)HAlloc(p, ERL_SUB_BIN_SIZE);
 
-	    bit_size = mb->size - mb->offset;
-	    sub_bin_heap->thing_word = HEADER_SUB_BIN;
-	    sub_bin_heap->size = BYTE_OFFSET(bit_size);
-	    sub_bin_heap->bitsize = BIT_OFFSET(bit_size);
-	    sub_bin_heap->offs = BYTE_OFFSET(mb->offset);
-	    sub_bin_heap->bitoffs = BIT_OFFSET(mb->offset);
-	    sub_bin_heap->is_writable = 0;
-	    sub_bin_heap->orig = mb->orig;
+    if (!(*tracee_flags & F_TRACE_ARITY_ONLY) || match_spec) {
+        /*
+         * Because of the delayed sub-binary creation optimization introduced in
+         * R12B, (at most) one of arguments can be a match context instead of
+         * a binary. Since we don't want to handle match contexts in utility functions
+         * such as size_object() and copy_struct(), we must make sure that we
+         * temporarily convert any match contexts to sub binaries.
+         */
+        for (i = 0; i < arity; i++) {
+            Eterm arg = args[i];
+            if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
+                ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(arg);
+                ErlBinMatchBuffer* mb = &ms->mb;
+                Uint bit_size;
+                ErlSubBin *sub_bin_heap = (ErlSubBin *)HAlloc(p, ERL_SUB_BIN_SIZE);
 
-	    arg = make_binary(sub_bin_heap);
-	}
-	transformed_args[i] = arg;
+                bit_size = mb->size - mb->offset;
+                sub_bin_heap->thing_word = HEADER_SUB_BIN;
+                sub_bin_heap->size = BYTE_OFFSET(bit_size);
+                sub_bin_heap->bitsize = BIT_OFFSET(bit_size);
+                sub_bin_heap->offs = BYTE_OFFSET(mb->offset);
+                sub_bin_heap->bitoffs = BIT_OFFSET(mb->offset);
+                sub_bin_heap->is_writable = 0;
+                sub_bin_heap->orig = mb->orig;
+
+                arg = make_binary(sub_bin_heap);
+            }
+            transformed_args[i] = arg;
+        }
+        args = transformed_args;
     }
-    args = transformed_args;
 
     /*
      * If there is a PAM program, run it.  Return if it fails.
