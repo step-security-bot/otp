@@ -128,6 +128,8 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
+extern void erts_nif_funcs_dec(struct erl_module_nif*);
+extern void erts_nif_funcs_inc(struct erl_module_nif*);
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);
