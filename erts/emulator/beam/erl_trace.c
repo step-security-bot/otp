@@ -385,7 +385,7 @@ send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
                    Eterm tag, Eterm msg, Eterm extra,
                    Eterm pam_result);
 static ERTS_INLINE Eterm
-call_enabled_tracer(const ErtsTracer tracer,
+call_enabled_tracer(Process *c_p, const ErtsTracer tracer,
                     ErtsTracerNif **tnif_ref,
                     enum ErtsTracerOpt topt,
                     Eterm tag, Eterm t_p_id);
@@ -440,7 +440,7 @@ erts_set_system_seq_tracer(Process *c_p, ErtsProcLocks c_p_locks, ErtsTracer new
 
     if (!ERTS_TRACER_IS_NIL(new)) {
         Eterm nif_result = call_enabled_tracer(
-            new, NULL, TRACE_FUN_ENABLED, am_trace_status, am_undefined);
+            NULL, new, NULL, TRACE_FUN_ENABLED, am_trace_status, am_undefined);
         switch (nif_result) {
         case am_trace: break;
         default:
@@ -472,7 +472,7 @@ erts_get_system_seq_tracer(void)
     erts_rwmtx_runlock(&sys_trace_rwmtx);
 
     if (st != erts_tracer_nil &&
-        call_enabled_tracer(st, NULL, TRACE_FUN_ENABLED,
+        call_enabled_tracer(NULL, st, NULL, TRACE_FUN_ENABLED,
                             am_trace_status, am_undefined) == am_remove) {
         st = erts_set_system_seq_tracer(NULL, 0, erts_tracer_nil);
         ERTS_TRACER_CLEAR(&st);
@@ -493,7 +493,7 @@ get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
 	*default_trace_flags &= ~TRACEE_FLAGS;
     } else {
         Eterm nif_res;
-        nif_res = call_enabled_tracer(*default_tracer,
+        nif_res = call_enabled_tracer(NULL, *default_tracer,
                                       NULL, TRACE_FUN_ENABLED,
                                       am_trace_status, am_undefined);
         switch (nif_res) {
@@ -828,7 +828,7 @@ seq_trace_update_send(Process *p)
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
     if (have_no_seqtrace(SEQ_TRACE_TOKEN(p)) ||
         (seq_tracer != NIL &&
-         call_enabled_tracer(seq_tracer, NULL,
+         call_enabled_tracer(NULL, seq_tracer, NULL,
                              TRACE_FUN_ENABLED, am_seq_trace,
                              p ? p->common.id : am_undefined) != am_trace)
 #ifdef USE_VM_PROBES
@@ -876,7 +876,7 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
     ASSERT(is_tuple(token) || is_nil(token));
     if (token == NIL || (process && ERTS_TRACE_FLAGS(process) & F_SENSITIVE) ||
         ERTS_TRACER_IS_NIL(seq_tracer) ||
-        call_enabled_tracer(seq_tracer,
+        call_enabled_tracer(NULL, seq_tracer,
                             NULL, TRACE_FUN_ENABLED,
                             am_seq_trace,
                             process ? process->common.id : am_undefined) != am_trace) {
@@ -1100,7 +1100,10 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
 	 */
 	tracee_flags = &ERTS_TRACE_FLAGS(p);
         /* Is is not ideal at all to call this check twice,
-           it should be optimized so that only one call is made. */
+           it should be optimized so that only one call is made.
+           The reason why we do it twice is because only the
+           am_trace_status call is allowed to remove the tracer
+           from the calling process.*/
         if (!is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
                                TRACE_FUN_ENABLED, am_trace_status)
             || !is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
@@ -1119,14 +1122,14 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
         }
 	meta_flags = F_TRACE_CALLS | F_NOW_TS;
 	tracee_flags = &meta_flags;
-        switch (call_enabled_tracer(*tracer,
+        switch (call_enabled_tracer(NULL, *tracer,
                                     &tnif, TRACE_FUN_ENABLED,
                                     am_trace_status, p->common.id)) {
         default:
         case am_remove: *tracer = erts_tracer_nil;
         case am_discard: return 0;
         case am_trace:
-            switch (call_enabled_tracer(*tracer,
+            switch (call_enabled_tracer(NULL, *tracer,
                                         &tnif, TRACE_FUN_T_CALL,
                                         am_call, p->common.id)) {
             default:
@@ -2763,7 +2766,8 @@ send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
 }
 
 static ERTS_INLINE Eterm
-call_enabled_tracer(const ErtsTracer tracer,
+call_enabled_tracer(Process *c_p,
+                    const ErtsTracer tracer,
                     ErtsTracerNif **tnif_ret,
                     enum ErtsTracerOpt topt,
                     Eterm tag, Eterm t_p_id) {
@@ -2775,7 +2779,7 @@ call_enabled_tracer(const ErtsTracer tracer,
         ASSERT(topt < NIF_TRACER_TYPES);
         ASSERT(tnif->tracers[topt].cb != NULL);
         if (tnif_ret) *tnif_ret = tnif;
-        ret = erts_nif_call_function(NULL, NULL, tnif->nif_mod,
+        ret = erts_nif_call_function(c_p, NULL, tnif->nif_mod,
                                      tnif->tracers[topt].cb,
                                      tnif->tracers[topt].arity,
                                      argv);
@@ -2809,7 +2813,7 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
     }
 #endif
 
-    nif_result = call_enabled_tracer(t_p->tracer, tnif_ret, topt, tag, t_p->id);
+    nif_result = call_enabled_tracer(c_p, t_p->tracer, tnif_ret, topt, tag, t_p->id);
     switch (nif_result) {
     case am_discard: return 0;
     case am_trace: return 1;
@@ -2853,7 +2857,7 @@ int erts_is_tracer_enabled(const ErtsTracer tracer, ErtsPTabElementCommon *t_p)
 {
     ErtsTracerNif *tnif = lookup_tracer_nif(tracer);
     if (tnif) {
-        Eterm nif_result = call_enabled_tracer(tracer, &tnif,
+        Eterm nif_result = call_enabled_tracer(NULL, tracer, &tnif,
                                                TRACE_FUN_ENABLED,
                                                am_trace_status,
                                                t_p->id);
