@@ -54,24 +54,39 @@ on_load() ->
     end.
 
 start(Filename) ->
-    Ref = make_ref(),
-    do_start(Filename, Ref),
+    TracerRef = do_start([Filename,0]),
     receive
-        Ref ->
-            Ref
+        TracerRef ->
+            TracerRef
     end.
 
-do_start(_Filename, _Ref) ->
+do_start(_Filename) ->
     erlang:nif_error(nif_not_loaded).
 
-stop(Ref) ->
-    do_stop(Ref),
+stop(TracerRef) ->
+    TracerRef = do_stop(TracerRef),
     receive
-        Ref ->
-            ok
+        TracerRef ->
+            write_metadata(TracerRef)
     end.
 
-do_stop(_Ref) ->
+do_stop(_TracerRef) ->
+    erlang:nif_error(nif_not_loaded).
+
+write_metadata(Archive) ->
+    Endian = endianess(),
+    Atoms = erlang:system_info(atoms),
+    do_write_metadata(Archive, Endian, Atoms).
+
+endianess() ->
+    case <<32:32/native>> of
+        <<32:32/big>> ->
+            big;
+        <<32:32/little>> ->
+            little
+    end.
+
+do_write_metadata(_Archive, _Endian, _Atoms) ->
     erlang:nif_error(nif_not_loaded).
 
 -define(TRACE_CALL,1).

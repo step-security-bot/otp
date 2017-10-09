@@ -53,6 +53,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 static ERL_NIF_TERM do_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM do_write_metadata(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -67,8 +68,9 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
-    {"do_start", 2, do_start},
+    {"do_start", 1, do_start},
     {"do_stop", 1, do_stop},
+    {"do_write_metadata", 2, do_write_metadata},
     {"trace_call", 5, trace_call},
     {"enabled_call", 3, enabled_call},
     {"trace_garbage_collection", 5, trace_garbage_collection},
@@ -105,17 +107,11 @@ ERL_NIF_INIT(trace_file_nif, nif_funcs, load, NULL, NULL, NULL);
 ATOMS
 #undef ATOM_DECL
 
-static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{
+static ErlNifSysInfo sys_info;
+static ErlNifResourceType *tracer_resource;
+static struct stat st;
 
-#define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
-ATOMS
-#undef ATOM_DECL
-
-    *priv_data = NULL;
-
-    return 0;
-}
+static void tracer_resource_dtor(ErlNifEnv* env, void* obj);
 
 #define QUEUE_SIZE (1024*1024)
 
@@ -141,8 +137,11 @@ typedef struct mfa {
 
 typedef struct entry {
     TraceType type;
-    ERL_NIF_TERM pid;
-    ERL_NIF_TERM ts;
+    struct {
+        ErlNifUInt32 id;
+        ErlNifUInt32 serial;
+    } pid[2];
+    ErlNifTime ts;
     MFA mfa;
 } TraceEntry;
 
@@ -155,48 +154,83 @@ typedef struct trace_queue {
     char *__align2[64 - ((sizeof(TraceEntry) * QUEUE_SIZE) % 64)];
 } TraceQueue;
 
-static ErlNifSysInfo sys_info;
-static ethr_event evt;
-static ErlNifTid tid;
-static TraceQueue *q = NULL;
-static int flush = 0;
+typedef struct tracer {
+    ethr_event evt;
+    ErlNifTid tid;
+    TraceQueue *q;
+    int flush;
+    struct archive *a;
 
-static char *filename;
-static ErlNifEnv *reply_env;
-static ErlNifPid reply_pid;
-static ERL_NIF_TERM reply;
-static ErlNifPid reply_pid;
+    /* Used during startup */
+    ErlNifEnv *env;
+    ErlNifPid pid;
+    ERL_NIF_TERM ref;
+} Tracer;
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+
+#define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
+ATOMS
+#undef ATOM_DECL
+
+    *priv_data = NULL;
+
+    enif_system_info(&sys_info, sizeof(ErlNifSysInfo));
+
+    tracer_resource = enif_open_resource_type(
+        env, NULL, "tracer_resource",
+        &tracer_resource_dtor,
+        ERL_NIF_RT_CREATE,
+        NULL
+        );
+
+    memset(&st, 0, sizeof(st));
+    st.st_mode = S_IFREG;
+    st.st_size = sizeof(TraceEntry) * QUEUE_SIZE;
+
+    return 0;
+}
+
+static void tracer_resource_dtor(ErlNifEnv* env, void* obj)
+{
+    Tracer *tracer = (Tracer*)obj;
+    if (!tracer->flush) {
+        /* dtor called without flush first being called,
+           tell tracer thread to stop and cleanup */
+        enif_free_env(tracer->env);
+        tracer->flush = 2;
+        ethr_event_set(&tracer->evt);
+    } else {
+        enif_free(tracer->q);
+    }
+}
 
 void *loop(void *arg);
 void *loop(void *arg)
 {
+    Tracer *tracer = (Tracer*)arg;
     int schedulers = sys_info.scheduler_threads;
-    struct archive *a;
     struct archive_entry *entry;
     char tracename[255];
-    struct stat st;
     int file_cnt = 1;
     int page_cnt = 0;
     unsigned int cnt = 0;
 
-    a = archive_write_new();
-    archive_write_add_filter_gzip(a);
-    archive_write_set_filter_option(a, "gzip", "compression-level", "1");
-    archive_write_set_format_ustar(a);
-    archive_write_open_filename(a, filename);
-    memset(&st, 0, sizeof(st));
-    st.st_mode = S_IFREG;
-    st.st_size = sizeof(TraceEntry) * QUEUE_SIZE;
+    /* tracer may be de allocated while we are running,
+       so use local copies of q and a */
+    TraceQueue *q = tracer->q;
+    struct archive *a = tracer->a;
+    ethr_event evt = tracer->evt;
+
     entry = archive_entry_new();
     archive_entry_copy_stat(entry, &st);
     archive_entry_set_pathname(entry, "trace.log.0");
     archive_write_header(a, entry);
 
-    ethr_event_init(&evt);
-
-    enif_send(NULL, &reply_pid, reply_env, reply);
-    enif_free_env(reply_env);
-    reply_env = NULL;
+    enif_send(NULL, &tracer->pid, tracer->env,
+              enif_make_resource(tracer->env, tracer));
+    enif_clear_env(tracer->env);
 
     while (1) {
         int found = 1, i;
@@ -231,36 +265,21 @@ void *loop(void *arg)
         }
         ethr_event_reset(&evt);
         __sync_synchronize();
-        if (flush) {
+        if (tracer->flush) {
             archive_entry_free(entry);
 
-            entry = archive_entry_new();
-            archive_entry_copy_stat(entry, &st);
-            archive_entry_set_pathname(entry, "atoms");
-            archive_write_header(a, entry);
+            if (tracer->flush == 1) {
+                enif_send(NULL, &tracer->pid, tracer->env,
+                          enif_make_resource(tracer->env, tracer));
 
-            i = atom_table_size();
-            while (--i >= 0) {
-                Atom *ap = atom_tab(i);
-                ERL_NIF_TERM atom = make_atom(i);
-                archive_write_data(a, &atom, sizeof(atom));
-                archive_write_data(a, &ap->len, sizeof(ap->len));
-                archive_write_data(a, ap->name, ap->len);
+                enif_free_env(tracer->env);
+            } else if (tracer->flush == 2) {
+                /* The resource dtor was called before flush,
+                   close archive and de-allocate queue */
+                archive_write_free(a);
+                enif_free(q);
             }
 
-            archive_entry_free(entry);
-            archive_write_free(a);
-
-            enif_send(NULL, &reply_pid, reply_env, reply);
-            enif_free_env(reply_env);
-            reply_env = NULL;
-
-            enif_free(filename);
-            filename = NULL;
-
-            enif_free(q);
-            q = NULL;
-            flush = 0;
             enif_thread_exit(0);
         }
     }
@@ -270,33 +289,91 @@ void *loop(void *arg)
 static ERL_NIF_TERM do_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary bin;
+    Tracer *tracer;
+    ERL_NIF_TERM ret;
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &bin))
         return enif_make_badarg(env);
-    if (q == NULL) {
-        reply_env = enif_alloc_env();
-        reply = enif_make_copy(reply_env, argv[1]);
-        enif_self(env, &reply_pid);
 
-        filename = enif_alloc(bin.size+1);
-        memcpy(filename, bin.data, bin.size);
-        filename[bin.size] = '\0';
+    tracer = enif_alloc_resource(tracer_resource, sizeof(Tracer));
 
-        enif_system_info(&sys_info, sizeof(ErlNifSysInfo));
-        q = enif_alloc(sizeof(TraceQueue) * sys_info.scheduler_threads);
-        memset(q, 0, sizeof(TraceQueue) * sys_info.scheduler_threads);
-        enif_thread_create("trace_file_nif", &tid, loop, NULL, NULL);
-    }
-    return atom_ok;
+    tracer->flush = 0;
+    ethr_event_init(&tracer->evt);
+    tracer->env = enif_alloc_env();
+    enif_self(env, &tracer->pid);
+    ret = enif_make_resource(env, tracer);
+
+    tracer->a = archive_write_new();
+    archive_write_add_filter_gzip(tracer->a);
+    archive_write_set_filter_option(tracer->a, "gzip", "compression-level", "1");
+    archive_write_set_format_ustar(tracer->a);
+    archive_write_open_filename(tracer->a, (char*)bin.data);
+
+    tracer->q = enif_alloc(sizeof(TraceQueue) * sys_info.scheduler_threads);
+    memset(tracer->q, 0, sizeof(TraceQueue) * sys_info.scheduler_threads);
+
+    enif_thread_create("trace_file_nif", &tracer->tid, loop, tracer, NULL);
+
+    ret = enif_make_resource(env, tracer);
+    enif_release_resource(tracer);
+
+    return ret;
 }
 
 static ERL_NIF_TERM do_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    reply_env = enif_alloc_env();
-    reply = enif_make_copy(reply_env, argv[0]);
-    enif_self(env, &reply_pid);
-    flush = 1;
-    ethr_event_set(&evt);
-    return atom_ok;
+    Tracer *tracer;
+    if (!enif_get_resource(env, argv[0], tracer_resource, (void**)&tracer))
+        return enif_make_badarg(env);
+
+    enif_self(env, &tracer->pid);
+    tracer->flush = 1;
+    ethr_event_set(&tracer->evt);
+    return argv[0];
+}
+
+static ERL_NIF_TERM do_write_metadata(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Tracer *tracer;
+    ERL_NIF_TERM hd, tl;
+    char atom_buf[255];
+    struct archive_entry *entry;
+
+    if (!enif_get_resource(env, argv[0], tracer_resource, (void**)&tracer) ||
+        !enif_get_atom(env, argv[1], atom_buf, sizeof(atom_buf), ERL_NIF_LATIN1) ||
+        !enif_get_list_cell(env, argv[2], &hd, &tl))
+        return enif_make_badarg(env);
+
+    /* Write info about layout of TraceEntry struct */
+    entry = archive_entry_new();
+    archive_entry_copy_stat(entry, &st);
+    archive_entry_set_pathname(entry, "meta");
+    archive_write_header(tracer->a, entry);
+
+//    archive_write_int(tracer->a, "ERL_NIF_TERM", sizeof(ERL_NIF_TERM));
+//    archive_write_int(tracer->a, "ERL_NIF_TERM", sizeof(ERL_NIF_TERM));
+
+    archive_entry_free(entry);
+
+    /* Dump all atoms */
+    entry = archive_entry_new();
+    archive_entry_copy_stat(entry, &st);
+    archive_entry_set_pathname(entry, "atoms");
+    archive_write_header(tracer->a, entry);
+
+    while (!enif_is_empty_list(env, hd)) {
+        if (enif_get_atom(env, hd, atom_buf, sizeof(atom_buf), ERL_NIF_LATIN1)) {
+            ErlNifUInt64 len = strlen(atom_buf);
+            archive_write_data(tracer->a, &hd, sizeof(hd));
+            archive_write_data(tracer->a, &len, sizeof(len));
+            archive_write_data(tracer->a, atom_buf, len);
+        }
+        enif_get_list_cell(env, tl, &hd, &tl);
+    }
+
+    archive_entry_free(entry);
+
+    archive_write_free(tracer->a);
 }
 
 static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -350,7 +427,7 @@ static void enqueue(ErlNifEnv* env, TraceType type, ERL_NIF_TERM pid, const ERL_
     te = q[scheduler_id].q+(q[scheduler_id].tail % QUEUE_SIZE);
     te->ts = enif_monotonic_time(ERL_NIF_NSEC);
     te->type = type;
-    te->pid = pid;
+    enif_inspect_pid(env, pid, NULL, &te->pid.id, &te->pid.serial, NULL);
     if (mfa)
         memcpy(&te->mfa, mfa, sizeof(MFA));
     else

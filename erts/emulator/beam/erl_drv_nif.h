@@ -120,19 +120,22 @@ typedef signed long long ErlNapiSInt64;
 #  error No 64-bit integer type
 #endif
 
+#if SIZEOF_LONG == 4
+typedef unsigned long ErlNapiUInt32;
+typedef signed long ErlNapiSInt32;
+#elif SIZEOF_INT == 4
+typedef unsigned int ErlNapiUInt32;
+typedef signed int ErlNapiSInt32;
+#else
+#    error No 32-bit integer type
+#endif
+
 #if SIZEOF_VOID_P == 8
 typedef ErlNapiUInt64 ErlNapiUInt;
 typedef ErlNapiSInt64 ErlNapiSInt;
 #elif SIZEOF_VOID_P == 4
-#  if SIZEOF_LONG == SIZEOF_VOID_P
-typedef unsigned long ErlNapiUInt;
-typedef signed long ErlNapiSInt;
-#  elif SIZEOF_INT == SIZEOF_VOID_P
-typedef unsigned int ErlNapiUInt;
-typedef signed int ErlNapiSInt;
-#  else
-#    error No 32-bit integer type
-#  endif
+typedef ErlNapiUInt32 ErlNapiUInt;
+typedef ErlNapiSInt32 ErlNapiSInt;
 #else
 #  error Not support arch
 #endif
