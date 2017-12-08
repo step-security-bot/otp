@@ -773,11 +773,11 @@ void erts_monitor_tree_insert(ErtsMonitor **root, ErtsMonitor *mon);
  *
  * @param[in]     old           Monitor to remove from the tree
  *
- * @param[in]     new           Monitor to insert into the tree
+ * @param[in]     new_           Monitor to insert into the tree
  *
  */
 void erts_monitor_tree_replace(ErtsMonitor **root, ErtsMonitor *old,
-                               ErtsMonitor *new);
+                               ErtsMonitor *new_);
 
 /**
  *
@@ -1376,7 +1376,7 @@ extern size_t erts_monitor_node_key_offset;
 ERTS_GLB_INLINE ErtsMonitorData *
 erts_monitor_to_data(ErtsMonitor *mon)
 {
-    ErtsMonitorData *mdp = erts_ml_node_to_main_struct__((ErtsMonLnkNode *) mon);
+    ErtsMonitorData *mdp = (ErtsMonitorData *)erts_ml_node_to_main_struct__((ErtsMonLnkNode *) mon);
 
 #ifdef ERTS_ML_DEBUG
     ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TARGET));
@@ -1611,7 +1611,7 @@ ErtsLink *erts_link_tree_lookup_insert(ErtsLink **root, ErtsLink *lnk);
  *
  */
 ErtsLink *erts_link_tree_lookup_create(ErtsLink **root, int *created,
-                                       Uint16 type, Eterm this, Eterm other);
+                                       Uint16 type, Eterm this_, Eterm other);
 
 /**
  *
@@ -1646,7 +1646,7 @@ void erts_link_tree_insert(ErtsLink **root, ErtsLink *lnk);
  * @param[in]     new           Link to insert into the tree
  *
  */
-void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new);
+void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new_);
 
 /**
  *

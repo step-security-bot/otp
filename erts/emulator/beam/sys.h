@@ -78,7 +78,7 @@
 #  define ERTS_INLINE
 #endif
 
-#if ERTS_CAN_INLINE
+#if ERTS_CAN_INLINE && !defined __cplusplus
 #define ERTS_GLB_FORCE_INLINE static ERTS_FORCE_INLINE
 #define ERTS_GLB_INLINE static ERTS_INLINE
 #else
@@ -86,7 +86,7 @@
 #define ERTS_GLB_INLINE
 #endif
 
-#if ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF) 
+#if (ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)) && !defined __cplusplus
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
 #else
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
@@ -992,7 +992,7 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 {
     erts_aint_t val = erts_atomic_read_nob((erts_atomic_t *) refcp);
     while (1) {
-        erts_aint_t exp, new;
+        erts_aint_t exp, new_value;
 #ifdef ERTS_REFC_DEBUG
         if (val < min_val)
             erts_exit(ERTS_ABORT_EXIT,
@@ -1001,11 +1001,11 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 #endif
         if (val == unless_val)
             return val;
-        new = val + 1;
+        new_value = val + 1;
         exp = val;
-        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new, exp);
+        val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new_value, exp);
         if (val == exp)
-            return new;
+            return new_value;
     }
 }
 

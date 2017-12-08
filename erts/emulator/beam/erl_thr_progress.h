@@ -155,7 +155,7 @@ ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current_to_later__(ErtsThrPrgrV
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(ErtsSchedulerData *);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current(void);
 ERTS_GLB_INLINE int erts_thr_progress_has_passed__(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);
-ERTS_GLB_INLINE int erts_thr_progress_has_reached_this(ErtsThrPrgrVal this, ErtsThrPrgrVal val);
+ERTS_GLB_INLINE int erts_thr_progress_has_reached_this(ErtsThrPrgrVal this_, ErtsThrPrgrVal val);
 ERTS_GLB_INLINE int erts_thr_progress_equal(ErtsThrPrgrVal val1,
 					    ErtsThrPrgrVal val2);
 ERTS_GLB_INLINE int erts_thr_progress_cmp(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);

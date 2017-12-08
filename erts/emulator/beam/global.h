@@ -889,7 +889,7 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 
-void erts_write_bif_wrapper(Export *export, BeamInstr *address);
+void erts_write_bif_wrapper(Export *export_, BeamInstr *address);
 
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,

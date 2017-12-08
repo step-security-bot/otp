@@ -2375,7 +2375,7 @@ erl_start(int argc, char **argv)
 
 
 
-__decl_noreturn void erts_thr_fatal_error(int err, char *what)
+__decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     char *errstr = err ? strerror(err) : NULL;
     erts_fprintf(stderr,

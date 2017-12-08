@@ -374,7 +374,7 @@ typedef struct {
 #endif
 } erts_rwlock_t;
 
-__decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *); 
+__decl_noreturn void  __noreturn erts_thr_fatal_error(int, const char *);
                                  /* implemented in erl_init.c */
 
 #define ERTS_THR_INIT_DATA_DEF_INITER	ETHR_INIT_DATA_DEFAULT_INITER
@@ -575,9 +575,9 @@ do {									\
     Type act = ReadOp((VarP));						\
     while (1) {								\
 	Type exp = act;							\
-	Type new = exp & ~(Mask);					\
-	new |= ((Mask) & (Set));					\
-	act = CmpxchgOp((VarP), new, exp);				\
+	Type new_value = exp & ~(Mask);					\
+	new_value |= ((Mask) & (Set));					\
+	act = CmpxchgOp((VarP), new_value, exp);				\
 	if (act == exp)							\
 	    return act;							\
     }									\
@@ -1233,7 +1233,7 @@ erts_atomic64_xchg_ ## BARRIER(erts_atomic64_t *var,			\
 			       erts_aint64_t val);			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_cmpxchg_ ## BARRIER(erts_atomic64_t *var,			\
-				  erts_aint64_t new,			\
+				  erts_aint64_t new_value,			\
 				  erts_aint64_t exp);			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_read_bset_ ## BARRIER(erts_atomic64_t *var,		\
@@ -1286,10 +1286,10 @@ ethr_dw_atomic_read_nob(ethr_dw_atomic_t *var,
 
 static ERTS_INLINE int
 ethr_dw_atomic_cmpxchg_nob(ethr_dw_atomic_t *var,
-			   ethr_dw_sint_t *new,
+			   ethr_dw_sint_t *new_value,
 			   ethr_dw_sint_t *xchg)
 {
-    return ethr_dw_atomic_cmpxchg(var, new, xchg);
+    return ethr_dw_atomic_cmpxchg(var, new_value, xchg);
 }
 
 #undef ERTS_ATOMIC64_OPS_IMPL__
@@ -1362,36 +1362,36 @@ erts_atomic64_read_ ## BARRIER(erts_atomic64_t *var)			\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_inc_read_ ## BARRIER(erts_atomic64_t *var)		\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + 1);			\
-    return new;								\
+				    var, xchg, new_value,               \
+				    new_value = xchg + 1);              \
+    return new_value;                                                   \
 }									\
 									\
 ERTS_GLB_INLINE erts_aint64_t						\
 erts_atomic64_dec_read_ ## BARRIER(erts_atomic64_t *var)		\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg - 1);			\
-    return new;								\
+				    var, xchg, new_value,               \
+				    new_value = xchg - 1);              \
+    return new_value;                                                   \
 }									\
 									\
 ERTS_GLB_INLINE void							\
 erts_atomic64_inc_ ## BARRIER(erts_atomic64_t *var)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
-				    var, xchg, new,			\
-				    new = xchg + 1);			\
+				    var, xchg, new_value,               \
+				    new_value = xchg + 1);              \
 }									\
 									\
 ERTS_GLB_INLINE void							\
 erts_atomic64_dec_ ## BARRIER(erts_atomic64_t *var)			\
 {									\
-    erts_aint64_t xchg, new;						\
+    erts_aint64_t xchg, new_value;                                      \
     ERTS_ATOMIC64_DW_CMPXCHG_IMPL__(ethr_dw_atomic_cmpxchg_ ## BARRIER,	\
 				    var, xchg, new,			\
 				    new = xchg - 1);			\
