@@ -32,7 +32,7 @@
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
 	 port_please/3, names/0, names/1,
-	 register_node/2, register_node/3, open/0, open/1, open/2]).
+	 register_node/2, register_node/3, address_please/2, open/0, open/1, open/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -115,6 +115,9 @@ register_node(Name, PortNo, inet6_tcp) ->
     register_node(Name, PortNo, inet6);
 register_node(Name, PortNo, Family) ->
     gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
+
+address_please(Address, AddressFamily) ->
+	inet:getaddr(Address, AddressFamily).
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server

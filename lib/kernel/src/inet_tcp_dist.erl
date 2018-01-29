@@ -283,10 +283,11 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
     AddressFamily = Driver:family(),
-    case inet:getaddr(Address, AddressFamily) of
+    ErlEpmd = net_kernel:epmd_module(),
+    {ARMod, ARFun} = get_address_resolver(ErlEpmd),
+    case ARMod:ARFun(Address, AddressFamily) of
 	{ok, Ip} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
 		    ?trace("port_please(~p) -> version ~p~n", 
@@ -428,6 +429,16 @@ get_tcp_address(Driver, Socket) ->
 		  protocol = tcp,
 		  family = Driver:family()
 		 }.
+
+%% ------------------------------------------------------------
+%% Determine if EPMD module supports address resolving. Default
+%% is to use inet:getaddr/2.
+%% ------------------------------------------------------------
+get_address_resolver(EpmdModule) ->
+    case erlang:function_exported(EpmdModule, address_please, 2) of
+        true -> {EpmdModule, address_please};
+        _    -> {inet, getaddr}
+    end.
 
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our
