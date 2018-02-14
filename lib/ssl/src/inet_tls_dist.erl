@@ -522,12 +522,12 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
     Timer = trace(dist_util:start_timer(SetupTime)),
     case ARMod:ARFun(Address) of
-    {ok, _, TcpPort, Version} ->
-        do_setup_connect(Driver, Kernel, Node, Address, TcpPort, Version, Type, MyNode, Timer);
+    {ok, Ip, TcpPort, Version} ->
+        do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
 	{ok, Ip} ->
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-                do_setup_connect(Driver, Kernel, Node, Address, TcpPort, Version, Type, MyNode, Timer);
+                do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
 		Other ->
 		    ?shutdown2(
                        Node,
@@ -540,7 +540,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                trace({getaddr_failed, Driver, Address, Other}))
     end.
 
-do_setup_connect(Driver, Kernel, Node, Address, TcpPort, Version, Type, MyNode, Timer) ->
+do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
     Opts =
         trace(
             connect_options(
