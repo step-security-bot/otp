@@ -13,8 +13,16 @@
 main(Args) ->
     case getopt:parse(options(), Args) of
         {ok, {ArgOpts, Rest}} ->
-            Opts = maps:merge(opts_from_list(ArgOpts), parse_rest(Rest)),
-            run_benchmarks(Opts);
+            case maps:merge(opts_from_list(ArgOpts), parse_rest(Rest)) of
+                #{ list := true } = Opts ->
+                    [begin
+                         io:format("Class: ~s~n",[Class]),
+                         [io:format("  ~s~n", [BM]) || BM <- BMs]
+                     end || {Class, BMs} <- benchmarks(Opts), BMs =/= []];
+                Opts ->
+                    run_commands(Opts)
+            end,
+            erlang:halt(0);
         Error ->
             io:format(standard_error, "~s~n",[getopt:format_error(options(), Error)]),
             getopt:usage(options(), ?MODULE_STRING, "Title=Command..."),
@@ -28,32 +36,139 @@ main(Args) ->
 
 options() ->
     [
-     {iterations, $i, "iter", {integer, 1}, "Number of iterations"},
+     {iterations, $i, "iter", {integer, 3}, "Number of iterations"},
      {class, $c, "class", {string, "all"}, "Which class of benchmarks to run"},
-     {benchmark, $b, "benchmark", undefined, "Which benchmark to run"}
+     {class_directory, undefined, "class_directory", {string,"priv"},
+      "Directory to look for benchmark classes in."},
+     {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run"},
      {list, $l, "list", undefined, "List all benchmarks"}
     ].
 
 opts_from_list(OptList) ->
-    lists:foldl(fun({class = Key, Val}, M) ->
-                        Classes = maps:get(Key, M, []),
-                        M#{ Key => [Val | Classes]};
+    lists:foldl(fun({Key, Val}, M) when Key =:= class; Key =:= benchmark ->
+                        M#{ Key => [Val | maps:get(Key, M, [])]};
                    ({Key, Val}, M) ->
-                        M#{ Key => Val }
+                        M#{ Key => Val };
+                   (Key, M) ->
+                        M#{ Key => true }
                 end, #{}, OptList).
 
+classes(#{ class_directory := CD, class := Class }) ->
+    [filename:basename(D) || D <- filelib:wildcard(filename:join(CD,"*")),
+                             Class =:= ["all"] orelse lists:member(filename:basename(D), Class)].
+
+benchmarks(Opts) ->
+    benchmarks(classes(Opts), Opts).
+
+benchmarks([Class|T], Opts = #{ benchmark := BM }) ->
+    compile_class(Class, Opts),
+    Modules = filelib:wildcard(filename:join(class_ebin_dir(Class, Opts),"*.beam")),
+    BMs = lists:flatmap(
+            fun(M) ->
+                    RootName = filename:rootname(M),
+                    BaseRootName = filename:basename(RootName),
+                    [BaseRootName || is_benchmark(RootName),
+                                     BM =:= ["all"] orelse lists:member(BaseRootName, BM)]
+            end, Modules),
+    [{Class, BMs} | benchmarks(T, Opts)];
+benchmarks([], _) ->
+    [].
+
+is_benchmark(ModulePath) ->
+    case code:load_abs(ModulePath) of
+        {module, M} ->
+            lists:member({main,1}, M:module_info(exports));
+        _E ->
+            false
+    end.
 
 parse_rest(Args) ->
-    Commands = lists:map(
-                 fun(Arg) ->
-                         [Title | Cmd] = string:lexemes(Arg, "="),
-                         {Title, Cmd}
-                 end, Args),
-    #{ commands => Commands }.
+    #{ commands =>
+           lists:map(
+             fun(Arg) ->
+                     [Title | Cmd] = string:lexemes(Arg, "="),
+                     [Erl | Opts] = string:lexemes(Cmd, " "),
+                     {Title, Erl, lists:join(" ", Opts)}
+             end, Args) }.
+
+run_commands(Opts = #{ commands := Cmds }) ->
+    TSOpts = Opts#{ ts => calendar:local_time() },
+    Classes = benchmarks(Opts),
+    [run_command(Title, Erl, CmdOpts, Classes, TSOpts) || {Title, Erl, CmdOpts} <- Cmds].
+
+run_command(Title, Erl, CmdOpts, Classes, Opts) ->
+    io:format("Benchmarking: ~s ~s~n",[Erl, CmdOpts]),
+    [run_class(Title, Erl, CmdOpts, Class, BMs, Opts) || {Class, BMs} <- Classes].
+
+run_class(Title, Erl, CmdOpts, Class, BMs, Opts = #{ ts := Ts }) ->
+    ERL_PATH = filename:dirname(os:find_executable(Erl)),
+    compile_class(Class, ERL_PATH, Opts),
+    io:format("  Class: ~s~n", [Class]),
+    Fd = open(filename:join([".", "results", Title, ts2str(Ts), Class])),
+    [run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) || BM <- BMs].
+
+run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) ->
+    Rebar3Path = os:cmd("rebar3 path"),
+    io:format("    Running: ~s...", [BM]),
+    Name = [Title,"-",Class,"-",BM],
+    Cmd = lists:concat(
+            [Erl, " ", CmdOpts, " -noshell"
+             " -pz ", Rebar3Path,
+             " -pa ", class_ebin_dir(Class, Opts), " ", class_priv_dir(Class, Opts),
+             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
+             BM, " -s init stop"]),
+    io:format(Fd, "~p.~n",[parse(os:cmd(Cmd))]),
+    io:format("done~n").
 
 print(Term) ->
     io:format("~p~n",[Term]).
 
-run_benchmarks(Opts) ->
-    print(Opts),
-    erlang:halt(0).
+class_dir(Class, #{ class_directory := CD }) ->
+    filename:join(CD, Class).
+
+class_lib_dir(Class, Opts) ->
+    filename:join([class_dir(Class, Opts), "_build", "default", "lib", Class]).
+
+class_priv_dir(Class, Opts) ->
+    filename:join(class_lib_dir(Class, Opts), "priv").
+
+class_ebin_dir(Class, Opts) ->
+    filename:join(class_lib_dir(Class, Opts), "ebin").
+
+compile_class(Class, Opts) ->
+    compile_class(Class, "", Opts).
+compile_class(Class, Path, Opts) ->
+    os:cmd("cd " ++ class_dir(Class, Opts) ++ " && rebar3 clean && "
+           "PATH=$PATH:" ++ Path ++ " rebar3 compile").
+
+open(Filename) ->
+    mkdir(string:lexemes(filename:dirname(Filename),"/"), []),
+    {ok, Fd} = file:open(Filename, [write]),
+    Fd.
+
+mkdir(["."|T], []) ->
+    mkdir(T, ["."]);
+mkdir([D|T], Pre) ->
+    DirName = filename:join(Pre, D),
+    case file:read_file_info(DirName) of
+        {error, _} ->
+            ok = file:make_dir(DirName);
+        _ ->
+            ok
+    end,
+    mkdir(T, DirName);
+mkdir([], _) ->
+    ok.
+
+ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
+
+parse(String) ->
+    try
+        {ok, Tokens, _} = erl_scan:string(String),
+        {ok, Term} = erl_parse:parse_term(Tokens),
+        Term
+    catch _:_ ->
+            io:format("Failed to parse: ~p~n",[String]),
+            erlang:halt(1)
+    end.
