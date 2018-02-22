@@ -3,6 +3,9 @@
 %% API exports
 -export([main/1]).
 
+%% Exported to silence warning
+-export([print/1]).
+
 -mode(compile).
 
 %%====================================================================
@@ -11,16 +14,19 @@
 
 %% escript Entry point
 main(Args) ->
+    io:setopts([{encoding, unicode}]),
     case getopt:parse(options(), Args) of
         {ok, {ArgOpts, Rest}} ->
-            case maps:merge(opts_from_list(ArgOpts), parse_rest(Rest)) of
+            case opts_from_list(ArgOpts) of
                 #{ list := true } = Opts ->
                     [begin
                          io:format("Class: ~s~n",[Class]),
                          [io:format("  ~s~n", [BM]) || BM <- BMs]
                      end || {Class, BMs} <- benchmarks(Opts), BMs =/= []];
+                #{ analyze := _ } = Opts->
+                    analyze(maps:merge(Opts, parse_analyze_rest(Rest)));
                 Opts ->
-                    run_commands(Opts)
+                    run_commands(maps:merge(Opts, parse_cmd_rest(Rest)))
             end,
             erlang:halt(0);
         Error ->
@@ -41,7 +47,10 @@ options() ->
      {class_directory, undefined, "class_directory", {string,"priv"},
       "Directory to look for benchmark classes in."},
      {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run"},
-     {list, $l, "list", undefined, "List all benchmarks"}
+     {list, $l, "list", undefined, "List all benchmarks"},
+     {analyze, $a, "analyze", undefined, "Analyze a benchmark run"},
+     {type, undefined, "type", {string,"eministat"},
+      "Which tool that should be used to do the analysis"}
     ].
 
 opts_from_list(OptList) ->
@@ -82,7 +91,7 @@ is_benchmark(ModulePath) ->
             false
     end.
 
-parse_rest(Args) ->
+parse_cmd_rest(Args) ->
     #{ commands =>
            lists:map(
              fun(Arg) ->
@@ -96,14 +105,28 @@ run_commands(Opts = #{ commands := Cmds }) ->
     Classes = benchmarks(Opts),
     [run_command(Title, Erl, CmdOpts, Classes, TSOpts) || {Title, Erl, CmdOpts} <- Cmds].
 
-run_command(Title, Erl, CmdOpts, Classes, Opts) ->
+run_command(Title, Erl, CmdOpts, Classes, Opts = #{ ts := Ts }) ->
     io:format("Benchmarking: ~s ~s~n",[Erl, CmdOpts]),
+    Latest = filename:join([".", "results", Title, "latest"]),
+    TSDir = filename:join([".", "results", Title, ts2str(Ts)]),
+    mkdir(TSDir),
+    case file:read_link_info(Latest) of
+        {ok, _} ->
+            ok = file:delete(Latest);
+        _E ->
+            ok
+    end,
+    ok = file:make_symlink(lists:flatten(ts2str(Ts)), Latest),
     [run_class(Title, Erl, CmdOpts, Class, BMs, Opts) || {Class, BMs} <- Classes].
 
 run_class(Title, Erl, CmdOpts, Class, BMs, Opts = #{ ts := Ts }) ->
     ERL_PATH = filename:dirname(os:find_executable(Erl)),
     compile_class(Class, ERL_PATH, Opts),
     io:format("  Class: ~s~n", [Class]),
+    file:write_file(filename:join([".", "results", Title, ts2str(Ts), "METADATA"]),
+                    io_lib:format("~p.~n~p.",
+                                  [erlang:system_info(system_version),
+                                   lists:join(" ",erlang:system_info(emu_args))])),
     Fd = open(filename:join([".", "results", Title, ts2str(Ts), Class])),
     [run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) || BM <- BMs].
 
@@ -117,7 +140,7 @@ run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) ->
              " -pa ", class_ebin_dir(Class, Opts), " ", class_priv_dir(Class, Opts),
              " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
              BM, " -s init stop"]),
-    io:format(Fd, "~p.~n",[parse(os:cmd(Cmd))]),
+    io:format(Fd, "{~p,~p}.~n",[BM, parse(os:cmd(Cmd))]),
     io:format("done~n").
 
 print(Term) ->
@@ -142,10 +165,12 @@ compile_class(Class, Path, Opts) ->
            "PATH=$PATH:" ++ Path ++ " rebar3 compile").
 
 open(Filename) ->
-    mkdir(string:lexemes(filename:dirname(Filename),"/"), []),
+    mkdir(filename:dirname(Filename)),
     {ok, Fd} = file:open(Filename, [write]),
     Fd.
 
+mkdir(Dir) ->
+    mkdir(string:lexemes(Dir,"/"), []).
 mkdir(["."|T], []) ->
     mkdir(T, ["."]);
 mkdir([D|T], Pre) ->
@@ -172,3 +197,71 @@ parse(String) ->
             io:format("Failed to parse: ~p~n",[String]),
             erlang:halt(1)
     end.
+
+
+parse_analyze_rest(Args) ->
+    #{ tags =>
+           lists:map(
+             fun(Arg) ->
+                     case string:lexemes(Arg, "=") of
+                         [Title] ->
+                             {Title,"latest"};
+                         [Title, Tag] ->
+                             {Title, Tag}
+                     end
+             end, Args) }.
+
+analyze(Opts = #{ tags := Tags, type := Type }) ->
+    Classes = benchmarks(Opts),
+    TagData = [read_tag(Tag, Classes) || Tag <- Tags],
+    analyze(Type, TagData, Opts).
+
+read_tag({Title,Tag}, Classes) ->
+    TagDir = filename:join(["results", Title, Tag]),
+    ClassData = lists:flatmap(fun({Class,BMs}) ->
+                           read_tag_class(TagDir, Class, BMs)
+                   end, Classes),
+    {Title, Tag, ClassData}.
+
+read_tag_class(TagDir, Class, BMs) ->
+    case file:consult(filename:join(TagDir, Class)) of
+        {ok, BMData} ->
+            [{Class, [{BM, DS} || {BM, DS} <- BMData, lists:member(BM, BMs)]}];
+        {error, enoent} ->
+            []
+    end.
+
+
+analyze("eministat", TagData, Opts) ->
+    tdforeach(fun(_Class, _BM, Data) ->
+                      [BaseDS | RestDS] = [DS || {_, DS} <- Data],
+                      eministat:x(95.0, BaseDS, RestDS)
+              end, TagData, Opts).
+
+tdforeach(Fun, TagData, Opts) ->
+    maps:map(
+      fun(Class, BMs) ->
+              maps:map(
+                fun(BM, DSs) ->
+                        DS = lists:map(
+                               fun(Tag) ->
+                                       lists:keyfind(Tag, 1, DSs)
+                               end, maps:get(tags, Opts)),
+                        Fun(Class, BM, DS)
+                end, BMs)
+      end, tdinvert(TagData)).
+
+tdinvert(TagData) ->
+    tdinvert(TagData, #{}).
+
+tdinvert([{Title, Tag, Classes} | T], Acc) ->
+    tdinvert(T, tdinvert({Title,Tag}, Classes, Acc));
+tdinvert([], Acc) ->
+    Acc.
+tdinvert(TT, [{Class, BMs}|T], Acc) when is_list(BMs) ->
+    BMAcc = maps:get(Class, Acc, #{}),
+    tdinvert(TT, T, Acc#{ Class => tdinvert(TT, BMs, BMAcc) });
+tdinvert(TT, [{BM, DS}|T], Acc) ->
+    tdinvert(TT, T, Acc#{ BM => [{TT, DS} | maps:get(BM, Acc, [])]});
+tdinvert(_TT, [], Acc) ->
+    Acc.
