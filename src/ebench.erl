@@ -50,7 +50,9 @@ options() ->
      {list, $l, "list", undefined, "List all benchmarks"},
      {analyze, $a, "analyze", undefined, "Analyze a benchmark run"},
      {type, undefined, "type", {string,"eministat"},
-      "Which tool that should be used to do the analysis"}
+      "Which tool that should be used to do the analysis"},
+     {output, $o, "output", {string,"benchmark.png"},
+      "The file to output the analysis to"}
     ].
 
 opts_from_list(OptList) ->
@@ -164,41 +166,6 @@ compile_class(Class, Path, Opts) ->
     os:cmd("cd " ++ class_dir(Class, Opts) ++ " && rebar3 clean && "
            "PATH=$PATH:" ++ Path ++ " rebar3 compile").
 
-open(Filename) ->
-    mkdir(filename:dirname(Filename)),
-    {ok, Fd} = file:open(Filename, [write]),
-    Fd.
-
-mkdir(Dir) ->
-    mkdir(string:lexemes(Dir,"/"), []).
-mkdir(["."|T], []) ->
-    mkdir(T, ["."]);
-mkdir([D|T], Pre) ->
-    DirName = filename:join(Pre, D),
-    case file:read_file_info(DirName) of
-        {error, _} ->
-            ok = file:make_dir(DirName);
-        _ ->
-            ok
-    end,
-    mkdir(T, DirName);
-mkdir([], _) ->
-    ok.
-
-ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
-    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
-
-parse(String) ->
-    try
-        {ok, Tokens, _} = erl_scan:string(String),
-        {ok, Term} = erl_parse:parse_term(Tokens),
-        Term
-    catch _:_ ->
-            io:format("Failed to parse: ~p~n",[String]),
-            erlang:halt(1)
-    end.
-
-
 parse_analyze_rest(Args) ->
     #{ tags =>
            lists:map(
@@ -236,7 +203,38 @@ analyze("eministat", TagData, Opts) ->
     tdforeach(fun(_Class, _BM, Data) ->
                       [BaseDS | RestDS] = [DS || {_, DS} <- Data],
                       eministat:x(95.0, BaseDS, RestDS)
-              end, TagData, Opts).
+              end, TagData, Opts);
+analyze("gnuplot", TagData, Opts) ->
+    [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
+
+    DataFile = string:trim(os:cmd("mktemp")),
+    {ok, D} = file:open(DataFile, [write]),
+
+    io:format(D, "Benchmarks", []),
+    [io:format(D, " ~s ~s-min ~s-max", [Title, Title, Title]) || {Title, _} <- maps:get(tags,Opts)],
+    io:format(D, "~n", []),
+
+    tdforeach(fun(Class, BM, Data) ->
+                      io:format(D, "~s/~s",[Class, BM]),
+                      [io:format(D, " ~f ~f ~f",[eministat_ds:median(DS),
+                                                 eministat_ds:min(DS),
+                                                 eministat_ds:max(DS)])
+                       || {_, DS} <- Data],
+                      io:format(D, "~n", [])
+              end, TagData, Opts),
+    file:close(D),
+    Cmd = ["gnuplot -e \""
+           "data='", DataFile, "';"
+           "out='", maps:get(output, Opts), "';"
+           "tags=",integer_to_list(length(maps:get(tags,Opts))),
+           "\" gnuplot_scripts/multitag_histo.gnuplot"],
+    case os:cmd(Cmd) of
+        [] ->
+            ok;
+        Output ->
+            abort("~s~n~s~n",[Cmd, Output])
+    end,
+    file:delete(DataFile).
 
 tdforeach(Fun, TagData, Opts) ->
     maps:map(
@@ -265,3 +263,44 @@ tdinvert(TT, [{BM, DS}|T], Acc) ->
     tdinvert(TT, T, Acc#{ BM => [{TT, DS} | maps:get(BM, Acc, [])]});
 tdinvert(_TT, [], Acc) ->
     Acc.
+
+
+open(Filename) ->
+    mkdir(filename:dirname(Filename)),
+    {ok, Fd} = file:open(Filename, [write]),
+    Fd.
+
+mkdir(Dir) ->
+    mkdir(string:lexemes(Dir,"/"), []).
+mkdir(["."|T], []) ->
+    mkdir(T, ["."]);
+mkdir([D|T], Pre) ->
+    DirName = filename:join(Pre, D),
+    case file:read_file_info(DirName) of
+        {error, _} ->
+            ok = file:make_dir(DirName);
+        _ ->
+            ok
+    end,
+    mkdir(T, DirName);
+mkdir([], _) ->
+    ok.
+
+ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
+
+parse(String) ->
+    try
+        {ok, Tokens, _} = erl_scan:string(String),
+        {ok, Term} = erl_parse:parse_term(Tokens),
+        Term
+    catch _:_ ->
+            io:format("Failed to parse: ~p~n",[String]),
+            erlang:halt(1)
+    end.
+
+abort(String) ->
+    abort("~s~n",[String]).
+abort(Format, Args) ->
+    io:format(standard_error, Format, Args),
+    erlang:halt(1).
