@@ -51,7 +51,7 @@ options() ->
      {analyze, $a, "analyze", undefined, "Analyze a benchmark run"},
      {type, undefined, "type", {string,"eministat"},
       "Which tool that should be used to do the analysis"},
-     {output, $o, "output", {string,"benchmark.png"},
+     {output, $o, "output", {string,"benchmark.svg"},
       "The file to output the analysis to"}
     ].
 
@@ -142,7 +142,7 @@ run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) ->
              " -pa ", class_ebin_dir(Class, Opts), " ", class_priv_dir(Class, Opts),
              " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
              BM, " -s init stop"]),
-    io:format(Fd, "{~p,~p}.~n",[BM, parse(os:cmd(Cmd))]),
+    io:format(Fd, "{~p,~p}.~n",[BM, parse(Cmd, os:cmd(Cmd))]),
     io:format("done~n").
 
 print(Term) ->
@@ -289,14 +289,13 @@ mkdir([], _) ->
 ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
     io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
 
-parse(String) ->
+parse(Cmd, String) ->
     try
         {ok, Tokens, _} = erl_scan:string(String),
         {ok, Term} = erl_parse:parse_term(Tokens),
         Term
     catch _:_ ->
-            io:format("Failed to parse: ~p~n",[String]),
-            erlang:halt(1)
+            abort("Failed to parse: ~p~nCmd: ~s~n",[String, Cmd])
     end.
 
 abort(String) ->
