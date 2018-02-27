@@ -1,12 +1,14 @@
 -module(ebench).
 
 %% API exports
--export([main/1]).
+-export([main/1, benchmarks/1, parse_and_check/3, benchmark_options/0]).
+
+%% Utility function export
+-export([mkdir/1, open/1, compile_class/3, class_ebin_dir/2, class_priv_dir/2,
+        read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1]).
 
 %% Exported to silence warning
 -export([print/1]).
-
--mode(compile).
 
 %%====================================================================
 %% API functions
@@ -15,54 +17,83 @@
 %% escript Entry point
 main(Args) ->
     io:setopts([{encoding, unicode}]),
-    case getopt:parse(options(), Args) of
-        {ok, {ArgOpts, Rest}} ->
-            case opts_from_list(ArgOpts) of
-                #{ list := true } = Opts ->
-                    [begin
-                         io:format("Class: ~s~n",[Class]),
-                         [io:format("  ~s~n", [BM]) || BM <- BMs]
-                     end || {Class, BMs} <- benchmarks(Opts), BMs =/= []];
-                #{ analyze := _ } = Opts->
-                    analyze(maps:merge(Opts, parse_analyze_rest(Rest)));
-                Opts ->
-                    run_commands(maps:merge(Opts, parse_cmd_rest(Rest)))
-            end,
+    case parse_action(Args) of
+        {"run", RunArgs} ->
+            ebench_run:main(RunArgs);
+        {"plot", PlotArgs} ->
+            ebench_plot:main(PlotArgs);
+        {"eministat", StatArgs} ->
+            ebench_eministat:main(StatArgs);
+        {"list", ListArgs} ->
+            ebench_list(ListArgs);
+        {"help", _HelpArgs} ->
+            ok;
+        {Unknown, _} ->
+            format_error({error,{invalid_option,Unknown}}, fun usage/1, global_options()),
+            erlang:halt(1)
+    end,
+    init:stop().
+
+parse_and_check(Args, Opts, UsageFun) ->
+    AllOpts = Opts ++ global_options(),
+    case opts_from_list(getopt:parse_and_check(AllOpts, Args)) of
+        {ok, {#{ help := true }, _Rest}} ->
+            UsageFun(AllOpts),
             erlang:halt(0);
+        {ok, {ArgOpts, Rest}} ->
+            {ok, ArgOpts, Rest};
         Error ->
-            io:format(standard_error, "~s~n",[getopt:format_error(options(), Error)]),
-            getopt:usage(options(), ?MODULE_STRING, "Title=Command..."),
-            io:format("Example:~n"
-                      "  ./" ?MODULE_STRING " -c small BASE=erl \"BOUND=erl +sbtdb\"~n")
+            format_error(Error, UsageFun, AllOpts),
+            erlang:halt(1)
     end.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-options() ->
-    [
-     {iterations, $i, "iter", {integer, 3}, "Number of iterations"},
-     {class, $c, "class", {string, "all"}, "Which class of benchmarks to run"},
+parse_action([]) ->
+    parse_action(["help"]);
+parse_action(["-h" | T]) ->
+    parse_action(["help" | T]);
+parse_action([Action | T]) ->
+    {Action, T}.
+
+benchmark_options() ->
+    [{class, $c, "class", {string, "all"}, "Which class of benchmarks to run"},
      {class_directory, undefined, "class_directory", {string,"priv"},
       "Directory to look for benchmark classes in."},
-     {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run"},
-     {list, $l, "list", undefined, "List all benchmarks"},
-     {analyze, $a, "analyze", undefined, "Analyze a benchmark run"},
-     {type, undefined, "type", {string,"eministat"},
-      "Which tool that should be used to do the analysis"},
-     {output, $o, "output", {string,"benchmark.svg"},
-      "The file to output the analysis to"}
-    ].
+     {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run"}].
 
-opts_from_list(OptList) ->
-    lists:foldl(fun({Key, Val}, M) when Key =:= class; Key =:= benchmark ->
-                        M#{ Key => [Val | maps:get(Key, M, [])]};
-                   ({Key, Val}, M) ->
-                        M#{ Key => Val };
-                   (Key, M) ->
-                        M#{ Key => true }
-                end, #{}, OptList).
+global_options() ->
+    [{help, $h, "help", {boolean, false}, "Show help for the given action"}].
+
+usage(Opts) ->
+    getopt:usage(Opts, "ebench <action>").
+
+format_error(Error, UsageFun, Opts) ->
+    io:format(standard_error, "~s~n",[getopt:format_error(Opts, Error)]),
+    UsageFun(Opts).
+
+opts_from_list({ok, {OptList, Rest}}) ->
+    OptMap = lists:foldl(
+               fun({Key, Val}, M) when Key =:= class; Key =:= benchmark ->
+                       M#{ Key => [Val | maps:get(Key, M, [])]};
+                  ({Key, Val}, M) ->
+                       M#{ Key => Val };
+                  (Key, M) ->
+                       M#{ Key => true }
+               end, #{}, OptList),
+    {ok, {OptMap, Rest}};
+opts_from_list(Error) ->
+    Error.
+
+
+ebench_list(Args) ->
+    {ok, Opts, _Rest} = ebench:parse_and_check(Args, benchmark_options(), fun usage/1),
+    [begin
+         io:format("Class: ~s~n",[Class]),
+         [io:format("  ~s~n", [BM]) || BM <- BMs]
+     end || {Class, BMs} <- benchmarks(Opts), BMs =/= []].
 
 classes(#{ class_directory := CD, class := Class }) ->
     [filename:basename(D) || D <- filelib:wildcard(filename:join(CD,"*")),
@@ -81,7 +112,12 @@ benchmarks([Class|T], Opts = #{ benchmark := BM }) ->
                     [BaseRootName || is_benchmark(RootName),
                                      BM =:= ["all"] orelse lists:member(BaseRootName, BM)]
             end, Modules),
-    [{Class, BMs} | benchmarks(T, Opts)];
+    case BMs of
+        [] ->
+            benchmarks(T, Opts);
+        _ ->
+            [{Class, BMs} | benchmarks(T, Opts)]
+    end;
 benchmarks([], _) ->
     [].
 
@@ -92,58 +128,6 @@ is_benchmark(ModulePath) ->
         _E ->
             false
     end.
-
-parse_cmd_rest(Args) ->
-    #{ commands =>
-           lists:map(
-             fun(Arg) ->
-                     [Title | Cmd] = string:lexemes(Arg, "="),
-                     [Erl | Opts] = string:lexemes(Cmd, " "),
-                     {Title, Erl, lists:join(" ", Opts)}
-             end, Args) }.
-
-run_commands(Opts = #{ commands := Cmds }) ->
-    TSOpts = Opts#{ ts => calendar:local_time() },
-    Classes = benchmarks(Opts),
-    [run_command(Title, Erl, CmdOpts, Classes, TSOpts) || {Title, Erl, CmdOpts} <- Cmds].
-
-run_command(Title, Erl, CmdOpts, Classes, Opts = #{ ts := Ts }) ->
-    io:format("Benchmarking: ~s ~s~n",[Erl, CmdOpts]),
-    Latest = filename:join([".", "results", Title, "latest"]),
-    TSDir = filename:join([".", "results", Title, ts2str(Ts)]),
-    mkdir(TSDir),
-    case file:read_link_info(Latest) of
-        {ok, _} ->
-            ok = file:delete(Latest);
-        _E ->
-            ok
-    end,
-    ok = file:make_symlink(lists:flatten(ts2str(Ts)), Latest),
-    [run_class(Title, Erl, CmdOpts, Class, BMs, Opts) || {Class, BMs} <- Classes].
-
-run_class(Title, Erl, CmdOpts, Class, BMs, Opts = #{ ts := Ts }) ->
-    ERL_PATH = filename:dirname(os:find_executable(Erl)),
-    compile_class(Class, ERL_PATH, Opts),
-    io:format("  Class: ~s~n", [Class]),
-    file:write_file(filename:join([".", "results", Title, ts2str(Ts), "METADATA"]),
-                    io_lib:format("~p.~n~p.",
-                                  [erlang:system_info(system_version),
-                                   lists:join(" ",erlang:system_info(emu_args))])),
-    Fd = open(filename:join([".", "results", Title, ts2str(Ts), Class])),
-    [run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) || BM <- BMs].
-
-run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) ->
-    Rebar3Path = os:cmd("rebar3 path"),
-    io:format("    Running: ~s...", [BM]),
-    Name = [Title,"-",Class,"-",BM],
-    Cmd = lists:concat(
-            [Erl, " ", CmdOpts, " -noshell"
-             " -pz ", Rebar3Path,
-             " -pa ", class_ebin_dir(Class, Opts), " ", class_priv_dir(Class, Opts),
-             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
-             BM, " -s init stop"]),
-    io:format(Fd, "{~p,~p}.~n",[BM, parse(Cmd, os:cmd(Cmd))]),
-    io:format("done~n").
 
 print(Term) ->
     io:format("~p~n",[Term]).
@@ -166,23 +150,20 @@ compile_class(Class, Path, Opts) ->
     os:cmd("cd " ++ class_dir(Class, Opts) ++ " && rebar3 clean && "
            "PATH=$PATH:" ++ Path ++ " rebar3 compile").
 
-parse_analyze_rest(Args) ->
+parse_tag_rest(Args) ->
     #{ tags =>
            lists:map(
              fun(Arg) ->
                      case string:lexemes(Arg, "=") of
                          [Title] ->
-                             {Title,"latest"};
+                             {Title, "latest"};
                          [Title, Tag] ->
                              {Title, Tag}
                      end
              end, Args) }.
 
-analyze(Opts = #{ tags := Tags, type := Type }) ->
-    Classes = benchmarks(Opts),
-    TagData = [read_tag(Tag, Classes) || Tag <- Tags],
-    analyze(Type, TagData, Opts).
-
+read_tags(Tags, Classes) ->
+    [read_tag(Tag, Classes) || Tag <- Tags].
 read_tag({Title,Tag}, Classes) ->
     TagDir = filename:join(["results", Title, Tag]),
     ClassData = lists:flatmap(fun({Class,BMs}) ->
@@ -197,44 +178,6 @@ read_tag_class(TagDir, Class, BMs) ->
         {error, enoent} ->
             []
     end.
-
-
-analyze("eministat", TagData, Opts) ->
-    tdforeach(fun(_Class, _BM, Data) ->
-                      [BaseDS | RestDS] = [DS || {_, DS} <- Data],
-                      eministat:x(95.0, BaseDS, RestDS)
-              end, TagData, Opts);
-analyze("gnuplot", TagData, Opts) ->
-    [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
-
-    DataFile = string:trim(os:cmd("mktemp")),
-    {ok, D} = file:open(DataFile, [write]),
-
-    io:format(D, "Benchmarks", []),
-    [io:format(D, " ~s ~s-min ~s-max", [Title, Title, Title]) || {Title, _} <- maps:get(tags,Opts)],
-    io:format(D, "~n", []),
-
-    tdforeach(fun(Class, BM, Data) ->
-                      io:format(D, "~s/~s",[Class, BM]),
-                      [io:format(D, " ~f ~f ~f",[eministat_ds:median(DS),
-                                                 eministat_ds:min(DS),
-                                                 eministat_ds:max(DS)])
-                       || {_, DS} <- Data],
-                      io:format(D, "~n", [])
-              end, TagData, Opts),
-    file:close(D),
-    Cmd = ["gnuplot -e \""
-           "data='", DataFile, "';"
-           "out='", maps:get(output, Opts), "';"
-           "tags=",integer_to_list(length(maps:get(tags,Opts))),
-           "\" gnuplot_scripts/multitag_histo.gnuplot"],
-    case os:cmd(Cmd) of
-        [] ->
-            ok;
-        Output ->
-            abort("~s~n~s~n",[Cmd, Output])
-    end,
-    file:delete(DataFile).
 
 tdforeach(Fun, TagData, Opts) ->
     maps:map(
@@ -285,18 +228,6 @@ mkdir([D|T], Pre) ->
     mkdir(T, DirName);
 mkdir([], _) ->
     ok.
-
-ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
-    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
-
-parse(Cmd, String) ->
-    try
-        {ok, Tokens, _} = erl_scan:string(String),
-        {ok, Term} = erl_parse:parse_term(Tokens),
-        Term
-    catch _:_ ->
-            abort("Failed to parse: ~p~nCmd: ~s~n",[String, Cmd])
-    end.
 
 abort(String) ->
     abort("~s~n",[String]).
