@@ -87,7 +87,7 @@ run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
     io:format("  ~s...~*.s", [BM,10 - length(BM), ""]),
     Name = [Title,"-",Class,"-",BM],
     CmdLine = lists:concat(
-            [Cmd, " ", CmdOpts, " -noshell"
+            [Cmd, " ", escape(lists:join(" ", CmdOpts)), " -noshell"
              " -pz ", Rebar3Path,
              " -pa ", ebench:class_ebin_dir(Class, Opts), " ", ebench:class_priv_dir(Class, Opts),
              " -s ebench_runner init ", Title, " ", Class, " ",BM, " \"",
