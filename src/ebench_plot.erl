@@ -1,7 +1,7 @@
 -module(ebench_plot).
 
 %% API exports
--export([main/1]).
+-export([main/1, slogan/0]).
 
 -import(ebench, [abort/1, abort/2]).
 
@@ -11,7 +11,10 @@
 
 main(Args) ->
     {ok, Opts, Rest} = ebench:parse_and_check(Args, options(), fun usage/1),
-    plot(maps:merge(Opts, ebench:parse_tag_rest(Rest))).
+    plot(Opts, Rest).
+
+slogan() ->
+    "Plot the results of benchmarks using gnuplot".
 
 %%====================================================================
 %% Internal functions
@@ -21,26 +24,30 @@ options() ->
     [{type, undefined, "type", {string,"histogram"},
       "What type of plot should be done"},
      {output, $o, "output", {string,"benchmark.svg"},
-      "The file to output the analysis to"} |
-     ebench:benchmark_options()].
+      "The file to output the analysis to"},
+     {base, undefined, undefined, undefined,
+      "The base benchmark file to compare with."}
+     | ebench:benchmark_options()].
 
 usage(Opts) ->
-    getopt:usage(Opts, "ebench plot", "[Title[=Tag]...]"),
-    io:format("Example:~n"
-              "  ./ebench plot -c small BASE BOUND=latest~n").
+    getopt:usage(Opts, "ebench plot", "<base> <compare...>"),
+    io:format("Compare two benchmark runs using gnuplot.~n"
+              "~n"
+              "Example:~n"
+              "  ./ebench plot BASE BOUND~n").
 
-plot(Opts = #{ tags := Tags, type := Type }) ->
-    TagData = ebench:read_tags(Tags, ebench:benchmarks(Opts)),
-    plot(Type, TagData, Opts).
+plot(Opts = #{ base := Base, type := Type }, Rest) ->
+    TagData = ebench:read_tags([Base | Rest], ebench:benchmarks(Opts)),
+    plot(Type, TagData, [Base | Rest], Opts).
 
-plot("histogram", TagData, Opts) ->
+plot("histogram", TagData, Titles, Opts) ->
     [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
 
     DataFile = string:trim(os:cmd("mktemp")),
     {ok, D} = file:open(DataFile, [write]),
 
     io:format(D, "Benchmarks", []),
-    [io:format(D, " ~s ~s-min ~s-max", [Title, Title, Title]) || {Title, _} <- maps:get(tags,Opts)],
+    [io:format(D, " ~s ~s-min ~s-max", [Title, Title, Title]) || Title <- Titles],
     io:format(D, "~n", []),
 
     ebench:tdforeach(
@@ -51,17 +58,17 @@ plot("histogram", TagData, Opts) ->
                                          eministat_ds:max(DS)])
                || {_, DS} <- Data],
               io:format(D, "~n", [])
-      end, TagData, Opts),
+      end, TagData, Titles),
 
     file:close(D),
     Cmd = ["gnuplot -e \""
            "data='", DataFile, "';"
            "out='", maps:get(output, Opts), "';"
-           "tags=",integer_to_list(length(maps:get(tags,Opts))),
+           "tags=",integer_to_list(length(Titles)),
            "\" gnuplot_scripts/multitag_histo.gnuplot"],
     case os:cmd(Cmd) of
         [] ->
-            ok;
+            io:format("plotted ~s~n", [maps:get(output, Opts)]);
         Output ->
             abort("~s~n~s~n",[Cmd, Output])
     end,

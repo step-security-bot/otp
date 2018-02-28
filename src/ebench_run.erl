@@ -1,7 +1,9 @@
 -module(ebench_run).
 
 %% API exports
--export([main/1]).
+-export([main/1, slogan/0]).
+
+-include_lib("eministat/src/eministat.hrl").
 
 -import(ebench, [abort/1, abort/2]).
 
@@ -11,75 +13,143 @@
 
 main(Args) ->
     {ok, Opts, Rest} = ebench:parse_and_check(Args, options(), fun usage/1),
-    run_commands(maps:merge(Opts, parse_cmd_rest(Rest))).
+    run_command(Opts, Rest).
+
+slogan() ->
+    "Run the selected benchmarks".
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
 options() ->
-    [{iterations, $i, "iter", {integer, 3}, "Number of iterations"} |
-     ebench:benchmark_options()].
+    [{iterations, $i, "iter", {integer, 3}, "Number of iterations."},
+     {latest, $l, "latest", {string, "${TITLE}.term"}, "Name of latest symlink. "
+      "Set to empty string to not create any latest link."},
+     {title, $t, "title", {string, "BASE"}, "Title of the benchmark."},
+     {output, $o, "output", {string,"${TITLE}-${TS}.term"}, "File to place output into."},
+     {command, undefined, undefined, undefined,
+      "Command with arguments to start emulator. [default: erl]"}
+     | ebench:benchmark_options()].
 
 usage(Opts) ->
-    getopt:usage(Opts, "ebench run", "Title=Command..."),
-    io:format("Example:~n"
-              "  ./ebench run -c small BASE=erl \"BOUND=erl +sbtdb\"~n").
+    getopt:usage(Opts, "ebench run", "-- [<command>]"),
+    io:format("Run one or more benchmarks. The benchmarks to run are selected~n"
+              "using the -c and -b options. See 'ebench list -h' for more details.~n"
+              "The results of the benchmarks are put in the file set by -o. These~n"
+              "files can later be passed to 'ebench plot' or 'ebench eministat' for~n"
+              "further analysis.~n"
+              "~n"
+              "A symlink called ${TITLE}.term will be updated each time a~n"
+              "benchmark run is completed to point to the latest run.~n"
+              "~n"
+              "Example:~n"
+              "  ./ebench run -c small -t BASE erl~n"
+              "  ./ebench run -c small -t BOUND erl +sbtdb~n"
+             ).
 
-parse_cmd_rest(Args) ->
-    #{ commands =>
-           lists:map(
-             fun(Arg) ->
-                     [Title | Cmd] = string:lexemes(Arg, "="),
-                     [Erl | Opts] = string:lexemes(Cmd, " "),
-                     {Title, Erl, lists:join(" ", Opts)}
-             end, Args) }.
+run_command(Opts, []) ->
+    run_command(Opts, ["erl"]);
+run_command(Opts = #{ title := Title }, [Cmd | CmdOpts]) ->
+    TsOpts = Opts#{ ts => calendar:local_time() },
+    Output = make_output(TsOpts),
+    D = ebench:open(Output),
 
-run_commands(Opts = #{ commands := Cmds }) ->
-    TSOpts = Opts#{ ts => calendar:local_time() },
-    Classes = ebench:benchmarks(Opts),
-    [run_command(Title, Erl, CmdOpts, Classes, TSOpts) || {Title, Erl, CmdOpts} <- Cmds].
+    OutputOpts = TsOpts#{ output_file => Output },
 
-run_command(Title, Erl, CmdOpts, Classes, Opts = #{ ts := Ts }) ->
-    io:format("Benchmarking: ~s ~s~n",[Erl, CmdOpts]),
-    Latest = filename:join([".", "results", Title, "latest"]),
-    TSDir = filename:join([".", "results", Title, ts2str(Ts)]),
-    ebench:mkdir(TSDir),
+    io:format(D, "~p.~n",[{metadata,
+                           OutputOpts#{
+                              system_version => erlang:system_info(system_version),
+                              emu_args => lists:join(" ",erlang:system_info(emu_args))}}]),
+
+    Classes = ebench:benchmarks(OutputOpts),
+    io:format("Benchmarking using ~s ~s~n",[Cmd, lists:join(" ", CmdOpts)]),
+    make_latest(OutputOpts),
+    [run_class(D, Title, Cmd, CmdOpts, Class, BMs, OutputOpts) || {Class, BMs} <- Classes],
+    io:format("Results saved into ~s~n",[Output]),
+    file:close(D).
+
+run_class(D, Title, Cmd, CmdOpts, Class, BMs, Opts) ->
+    ERL_PATH = filename:dirname(os:find_executable(Cmd)),
+    ebench:compile_class(Class, ERL_PATH, Opts),
+    io:format(" Class: ~s~n", [Class]),
+    [run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) || BM <- BMs].
+
+run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
+    Rebar3Path = os:cmd("rebar3 path"),
+    io:format("  ~s...~*.s", [BM,10 - length(BM), ""]),
+    Name = [Title,"-",Class,"-",BM],
+    CmdLine = lists:concat(
+            [Cmd, " ", CmdOpts, " -noshell"
+             " -pz ", Rebar3Path,
+             " -pa ", ebench:class_ebin_dir(Class, Opts), " ", ebench:class_priv_dir(Class, Opts),
+             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
+             BM, " -s init stop"]),
+    BMData = parse(CmdLine, os:cmd(CmdLine)),
+    io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
+    {Factor, Unit} = case eministat_ds:mean(BMData) of
+                         Mean when Mean > 1000 * 1000 ->
+                             {1000 * 1000, "s"};
+                         Mean when Mean > 1000 ->
+                             {1000, "ms"};
+                         _Mean ->
+                             {1, "µs"}
+                     end,
+    io:format(" ~13g ± ~.4f ~s",
+              [eministat_ds:mean(BMData) / Factor,
+               eministat_ds:std_dev(BMData) / Factor,
+               Unit]),
+
+    %% We use eministat to calculate the useability of the data set
+    %% python perf uses: > 10% stddev, > 50% min/max.
+
+    {_, Severity} = eministat_analysis:outlier_variance(
+                      eministat_ds:mean(BMData),
+                      eministat_ds:std_dev(BMData),
+                      BMData#dataset.n),
+
+    case Severity of
+        severe -> io:format(" WARNING: Severe outlier variance, the data set is probably unusable.");
+        _ -> io:format(", ~p outlier variance.", [Severity])
+    end,
+    io:format("~n").
+
+make_output(#{ output := Output, title := Title, ts := TS }) ->
+    keyword_replace(Output,
+                    [{"TITLE", Title}, {"TS", ts2str(TS)}]).
+
+make_latest(#{ latest := "" }) ->
+    ok;
+make_latest(#{ latest := LatestTemplate, output_file := Output, title := Title }) ->
+    Latest = keyword_replace(LatestTemplate, [{"TITLE", Title}]),
     case file:read_link_info(Latest) of
         {ok, _} ->
             ok = file:delete(Latest);
         _E ->
             ok
     end,
-    ok = file:make_symlink(lists:flatten(ts2str(Ts)), Latest),
-    [run_class(Title, Erl, CmdOpts, Class, BMs, Opts) || {Class, BMs} <- Classes].
+    ok = file:make_symlink(Output, Latest).
 
-run_class(Title, Erl, CmdOpts, Class, BMs, Opts = #{ ts := Ts }) ->
-    ERL_PATH = filename:dirname(os:find_executable(Erl)),
-    ebench:compile_class(Class, ERL_PATH, Opts),
-    io:format("  Class: ~s~n", [Class]),
-    file:write_file(filename:join([".", "results", Title, ts2str(Ts), "METADATA"]),
-                    io_lib:format("~p.~n~p.",
-                                  [erlang:system_info(system_version),
-                                   lists:join(" ",erlang:system_info(emu_args))])),
-    Fd = ebench:open(filename:join([".", "results", Title, ts2str(Ts), Class])),
-    [run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) || BM <- BMs].
+%% Replace ${KEY} with value from proplist
+keyword_replace(String, Keywords) ->
+    keyword_replace(String, Keywords, undefined).
 
-run_benchmark(Title, Erl, CmdOpts, Class, BM, Fd, Opts) ->
-    Rebar3Path = os:cmd("rebar3 path"),
-    io:format("    Running: ~s...", [BM]),
-    Name = [Title,"-",Class,"-",BM],
-    Cmd = lists:concat(
-            [Erl, " ", CmdOpts, " -noshell"
-             " -pz ", Rebar3Path,
-             " -pa ", ebench:class_ebin_dir(Class, Opts), " ", ebench:class_priv_dir(Class, Opts),
-             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
-             BM, " -s init stop"]),
-    io:format(Fd, "{~p,~p}.~n",[BM, parse(Cmd, os:cmd(Cmd))]),
-    io:format("done~n").
+keyword_replace("${" ++ T, Keywords, undefined) ->
+    keyword_replace(T, Keywords, "");
+keyword_replace([H|T], Keywords, undefined) ->
+    [H | keyword_replace(T, Keywords, undefined)];
+keyword_replace("}" ++ T, Keywords, Keyword) ->
+    [proplists:get_value(lists:reverse(Keyword), Keywords)
+     | keyword_replace(T, Keywords, undefined)];
+keyword_replace([H|T], Keywords, Keyword) ->
+    keyword_replace(T, Keywords, [H|Keyword]);
+keyword_replace([], _, undefined) ->
+    [];
+keyword_replace([], _, Keyword) ->
+    Keyword.
 
 ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
-    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B",[YY,MM,DD,HH,Mi,SS]).
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]).
 
 parse(Cmd, String) ->
     try

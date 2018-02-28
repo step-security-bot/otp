@@ -17,25 +17,46 @@
 %% escript Entry point
 main(Args) ->
     io:setopts([{encoding, unicode}]),
-    case parse_action(Args) of
-        {"run", RunArgs} ->
-            ebench_run:main(RunArgs);
-        {"plot", PlotArgs} ->
-            ebench_plot:main(PlotArgs);
-        {"eministat", StatArgs} ->
-            ebench_eministat:main(StatArgs);
-        {"list", ListArgs} ->
-            ebench_list(ListArgs);
+    case parse_task(Args) of
         {"help", _HelpArgs} ->
-            ok;
-        {Unknown, _} ->
-            format_error({error,{invalid_option,Unknown}}, fun usage/1, global_options()),
-            erlang:halt(1)
+            usage(global_options());
+        {Task, TaskArgs} ->
+            case lists:keyfind(Task, 1, tasks()) of
+                {Task, Callback} ->
+                    Callback:main(TaskArgs);
+                false ->
+                    case Task of
+                        "-" ++ _ ->
+                            format_error({error, {invalid_option, Task}},
+                                         fun usage/1, global_options());
+                        Task ->
+                            format_error({error, {"invalid task", Task}},
+                                         fun usage/1, global_options())
+                    end,
+                    erlang:halt(1)
+            end
     end,
     init:stop().
 
+%%====================================================================
+%% Argument handling functions
+%%====================================================================
+
+parse_task([]) ->
+    parse_task(["help"]);
+parse_task(["-h" | T]) ->
+    parse_task(["help" | T]);
+parse_task([Task | T]) ->
+    {Task, T}.
+
+tasks() ->
+    [{"run", ebench_run},
+     {"plot", ebench_plot},
+     {"eministat", ebench_eministat},
+     {"list", ebench_list}].
+
 parse_and_check(Args, Opts, UsageFun) ->
-    AllOpts = Opts ++ global_options(),
+    AllOpts = sort_options(Opts ++ global_options()),
     case opts_from_list(getopt:parse_and_check(AllOpts, Args)) of
         {ok, {#{ help := true }, _Rest}} ->
             UsageFun(AllOpts),
@@ -47,28 +68,42 @@ parse_and_check(Args, Opts, UsageFun) ->
             erlang:halt(1)
     end.
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
-
-parse_action([]) ->
-    parse_action(["help"]);
-parse_action(["-h" | T]) ->
-    parse_action(["help" | T]);
-parse_action([Action | T]) ->
-    {Action, T}.
-
 benchmark_options() ->
-    [{class, $c, "class", {string, "all"}, "Which class of benchmarks to run"},
+    [{class, $c, "class", {string, "all"}, "Which class of benchmarks to run. "
+      "This option can be given multiple times."},
      {class_directory, undefined, "class_directory", {string,"priv"},
       "Directory to look for benchmark classes in."},
-     {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run"}].
+     {benchmark, $b, "benchmark", {string,"all"}, "Which benchmark to run. "
+      "This option can be given multiple times."}].
 
 global_options() ->
-    [{help, $h, "help", {boolean, false}, "Show help for the given action"}].
+    [{help, $h, "help", {boolean, false}, "Print help for the given task"}].
+
+%% This sort function makes it so that all options with a short opt
+%% is first ordered, the long opt and then no opt.
+sort_options(Options) ->
+    lists:sort(fun({NameA, OptA, LongA, _, _},
+                   {NameB, OptB, LongB, _, _}) ->
+                       if
+                           OptA =/= OptB ->
+                               OptA =< OptB;
+                           LongA =/= LongB and is_list(LongA) and is_list(LongB) ->
+                               LongA =< LongB;
+                           LongA =/= LongB ->
+                               LongA >= LongB;
+                           true ->
+                               NameA =< NameB
+                       end
+               end, Options).
 
 usage(Opts) ->
-    getopt:usage(Opts, "ebench <action>").
+    getopt:usage([{task, undefined, undefined, string, "Task to run"}|Opts],
+                 "ebench"),
+    io:format("ebench is a tool for benchmarking Erlang performance.~n~n"
+              "Several tasks are available:~n~n"),
+    [io:format("~.12s~s~n",[Task,CB:slogan()]) || {Task, CB} <- tasks()],
+    io:format("~n"
+              "Run 'ebench <task> -h' for details about each task.~n").
 
 format_error(Error, UsageFun, Opts) ->
     io:format(standard_error, "~s~n",[getopt:format_error(Opts, Error)]),
@@ -87,14 +122,9 @@ opts_from_list({ok, {OptList, Rest}}) ->
 opts_from_list(Error) ->
     Error.
 
-
-ebench_list(Args) ->
-    {ok, Opts, _Rest} = ebench:parse_and_check(Args, benchmark_options(), fun usage/1),
-    [begin
-         io:format("Class: ~s~n",[Class]),
-         [io:format("  ~s~n", [BM]) || BM <- BMs]
-     end || {Class, BMs} <- benchmarks(Opts), BMs =/= []].
-
+%%====================================================================
+%% Functions to figure out which classes and benchmarks are available
+%%====================================================================
 classes(#{ class_directory := CD, class := Class }) ->
     [filename:basename(D) || D <- filelib:wildcard(filename:join(CD,"*")),
                              Class =:= ["all"] orelse lists:member(filename:basename(D), Class)].
@@ -129,9 +159,6 @@ is_benchmark(ModulePath) ->
             false
     end.
 
-print(Term) ->
-    io:format("~p~n",[Term]).
-
 class_dir(Class, #{ class_directory := CD }) ->
     filename:join(CD, Class).
 
@@ -150,6 +177,9 @@ compile_class(Class, Path, Opts) ->
     os:cmd("cd " ++ class_dir(Class, Opts) ++ " && rebar3 clean && "
            "PATH=$PATH:" ++ Path ++ " rebar3 compile").
 
+%%====================================================================
+%% Functions to work with benchmark result data
+%%====================================================================
 parse_tag_rest(Args) ->
     #{ tags =>
            lists:map(
@@ -164,22 +194,35 @@ parse_tag_rest(Args) ->
 
 read_tags(Tags, Classes) ->
     [read_tag(Tag, Classes) || Tag <- Tags].
-read_tag({Title,Tag}, Classes) ->
-    TagDir = filename:join(["results", Title, Tag]),
-    ClassData = lists:flatmap(fun({Class,BMs}) ->
-                           read_tag_class(TagDir, Class, BMs)
-                   end, Classes),
-    {Title, Tag, ClassData}.
+read_tag(Filename, Classes) ->
+    {ok, Data} =
+        case file:consult(Filename) of
+            {error, enoent} ->
+                file:consult(Filename ++ ".term");
+            D ->
+                D
+        end,
+    {metadata, Metadata} = lists:keyfind(metadata, 1, Data),
+    ClassDataMap = lists:foldl(
+                     fun({Class, BM, BMData}, ClassMap) ->
+                             BMs = maps:get(Class, ClassMap, []),
+                             ClassMap#{ Class => [{BM, BMData} | BMs] };
+                        (_, ClassMap) ->
+                             ClassMap
+                     end, #{}, Data),
+    ClassData = lists:flatmap(fun({Class, BMs}) ->
+                                      case maps:find(Class, ClassDataMap) of
+                                          error ->
+                                              [];
+                                          {ok, BMData} ->
+                                              [{Class, [{BM, DS} || {BM, DS} <- BMData,
+                                                                    lists:member(BM, BMs)]}]
+                                      end
+                              end, Classes),
+    {maps:get(title, Metadata), ClassData}.
 
-read_tag_class(TagDir, Class, BMs) ->
-    case file:consult(filename:join(TagDir, Class)) of
-        {ok, BMData} ->
-            [{Class, [{BM, DS} || {BM, DS} <- BMData, lists:member(BM, BMs)]}];
-        {error, enoent} ->
-            []
-    end.
 
-tdforeach(Fun, TagData, Opts) ->
+tdforeach(Fun, TagData, Titles) ->
     maps:map(
       fun(Class, BMs) ->
               maps:map(
@@ -187,7 +230,7 @@ tdforeach(Fun, TagData, Opts) ->
                         DS = lists:map(
                                fun(Tag) ->
                                        lists:keyfind(Tag, 1, DSs)
-                               end, maps:get(tags, Opts)),
+                               end, Titles),
                         Fun(Class, BM, DS)
                 end, BMs)
       end, tdinvert(TagData)).
@@ -195,8 +238,8 @@ tdforeach(Fun, TagData, Opts) ->
 tdinvert(TagData) ->
     tdinvert(TagData, #{}).
 
-tdinvert([{Title, Tag, Classes} | T], Acc) ->
-    tdinvert(T, tdinvert({Title,Tag}, Classes, Acc));
+tdinvert([{Title, Classes} | T], Acc) ->
+    tdinvert(T, tdinvert(Title, Classes, Acc));
 tdinvert([], Acc) ->
     Acc.
 tdinvert(TT, [{Class, BMs}|T], Acc) when is_list(BMs) ->
@@ -207,7 +250,9 @@ tdinvert(TT, [{BM, DS}|T], Acc) ->
 tdinvert(_TT, [], Acc) ->
     Acc.
 
-
+%%====================================================================
+%% Small convenience functions
+%%====================================================================
 open(Filename) ->
     mkdir(filename:dirname(Filename)),
     {ok, Fd} = file:open(Filename, [write]),
@@ -234,3 +279,6 @@ abort(String) ->
 abort(Format, Args) ->
     io:format(standard_error, Format, Args),
     erlang:halt(1).
+
+print(Term) ->
+    io:format("~p~n",[Term]).
