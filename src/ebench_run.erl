@@ -24,10 +24,13 @@ slogan() ->
 
 options() ->
     [{iterations, $i, "iter", {integer, 3}, "Number of iterations."},
+     {init, undefined, "init", {string, "ok."}, "Expression to run before each benchmark."},
+     {stop, undefined, "stop", {string, "ok."}, "Expression to run after each benchmark."},
      {latest, $l, "latest", {string, "${TITLE}.term"}, "Name of latest symlink. "
       "Set to empty string to not create any latest link."},
      {title, $t, "title", {string, "BASE"}, "Title of the benchmark."},
-     {output, $o, "output", {string,"${TITLE}-${TS}.term"}, "File to place output into."},
+     {output, $o, "output", {string,"${TITLE}-${TS}.term"},
+      "File to place output into."},
      {command, undefined, undefined, undefined,
       "Command with arguments to start emulator. [default: erl]"}
      | ebench:benchmark_options()].
@@ -43,9 +46,13 @@ usage(Opts) ->
               "A symlink called ${TITLE}.term will be updated each time a~n"
               "benchmark run is completed to point to the latest run.~n"
               "~n"
+              "The --init and --stop options can take execute erlang expression.~n"
+              "If the expression returns a fun/3, that fun will be executed as~n"
+              "F(Title, Class, Benchmark).~n"
+              "~n"
               "Example:~n"
-              "  ./ebench run -c small -t BASE erl~n"
-              "  ./ebench run -c small -t BOUND erl +sbtdb~n"
+              "  ./ebench run -c small -t BASE -- erl~n"
+              "  ./ebench run -c small -t BOUND -- erl +sbtdb~n"
              ).
 
 run_command(Opts, []) ->
@@ -83,8 +90,11 @@ run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
             [Cmd, " ", CmdOpts, " -noshell"
              " -pz ", Rebar3Path,
              " -pa ", ebench:class_ebin_dir(Class, Opts), " ", ebench:class_priv_dir(Class, Opts),
-             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ",
-             BM, " -s init stop"]),
+             " -s ebench_runner init ", Title, " ", Class, " ",BM, " \"",
+             escape(maps:get(init, Opts)), "\"",
+             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ", BM,
+             " -s ebench_runner stop ", Title, " ", Class, " ",BM, " \"",
+             escape(maps:get(stop, Opts)), "\""]),
     BMData = parse(CmdLine, os:cmd(CmdLine)),
     io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
     {Factor, Unit} = case eministat_ds:mean(BMData) of
@@ -159,3 +169,10 @@ parse(Cmd, String) ->
     catch _:_ ->
             abort("Failed to parse: ~p~nCmd: ~s~n",[String, Cmd])
     end.
+
+escape([$"|T]) ->
+    [$\\, $"|escape(T)];
+escape([H|T]) ->
+    [H|escape(T)];
+escape([]) ->
+    [].
