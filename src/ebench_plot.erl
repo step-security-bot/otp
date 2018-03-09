@@ -21,8 +21,8 @@ slogan() ->
 %%====================================================================
 
 options() ->
-    [{type, undefined, "type", {string,"histogram"},
-      "What type of plot should be done"},
+    [{type, undefined, "type", {string, "histogram"},
+      "What type of plot should be done, histogram or timeseries."},
      {output, $o, "output", {string,"benchmark.svg"},
       "The file to output the analysis to"},
      {base, undefined, undefined, undefined,
@@ -36,10 +36,12 @@ usage_options(Opts) ->
 
 usage(Opts) ->
     getopt:usage(usage_options(Opts), "ebench plot", "<base> <compare...>"),
-    io:format("Compare two benchmark runs using gnuplot.~n"
+    io:format("Compare two or more benchmark runs using gnuplot.~n"
               "~n"
               "Example:~n"
-              "  ./ebench plot BASE BOUND~n").
+              "  ./ebench plot BASE.term BOUND.term~n"
+              "  ./ebench plot --type timeseries BASE-*.term BOUND-*.term~n"
+             ).
 
 plot(_, []) ->
     ebench:format_error(
@@ -47,22 +49,22 @@ plot(_, []) ->
       fun usage/1, usage_options(options())),
     erlang:halt(1);
 plot(Opts = #{ base := Base, type := Type }, Rest) ->
-    TagData = ebench:read_tags([Base | Rest], ebench:benchmarks(Opts)),
-    plot(Type, TagData, [Base | Rest], Opts);
+    [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
+    plot(Type, [Base | Rest], Opts);
 plot(_, _) ->
     ebench:format_error(
       {error, {missing_required_option, base}},
       fun usage/1, options()),
     erlang:halt(1).
 
-plot("histogram", TagData, Titles, Opts) ->
-    [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
+plot("histogram", Tags, Opts) ->
 
-    DataFile = string:trim(os:cmd("mktemp")),
-    {ok, D} = file:open(DataFile, [write]),
+    TagData = ebench:read_tags(Tags, ebench:benchmarks(Opts)),
+
+    {ok, D, TmpName} = ebench:opentmp(),
 
     io:format(D, "Benchmarks", []),
-    [io:format(D, " ~s ~s-min ~s-max", [Title, Title, Title]) || Title <- Titles],
+    [io:format(D, " ~s ~s-min ~s-max", [Tag, Tag, Tag]) || Tag <- Tags],
     io:format(D, "~n", []),
 
     ebench:tdforeach(
@@ -73,13 +75,13 @@ plot("histogram", TagData, Titles, Opts) ->
                                          eministat_ds:max(DS)])
                || {_, DS} <- Data],
               io:format(D, "~n", [])
-      end, TagData, Titles),
+      end, TagData, Tags),
 
     file:close(D),
     Cmd = ["gnuplot -e \""
-           "data='", DataFile, "';"
+           "data='", TmpName, "';"
            "out='", maps:get(output, Opts), "';"
-           "tags=",integer_to_list(length(Titles)),
+           "tags=",integer_to_list(length(Tags)),
            "\" gnuplot_scripts/multitag_histo.gnuplot"],
     case os:cmd(Cmd) of
         [] ->
@@ -87,4 +89,73 @@ plot("histogram", TagData, Titles, Opts) ->
         Output ->
             abort("~s~n~s~n",[Cmd, Output])
     end,
-    file:delete(DataFile).
+    file:delete(TmpName);
+plot("timeseries", Files, Opts) ->
+
+    ClassBenchmarks = ebench:benchmarks(Opts),
+    TagData = ebench:read_tags(Files, ClassBenchmarks),
+
+    %% Sort on the timestamp
+    TsTagData = lists:sort([{maps:get(ts, MD), Tag, BMs, MD} || {Tag, BMs, MD} <- TagData]),
+
+    %% Get all the tags in all the files
+    Tags = lists:usort([Tag || {Tag, _BMs, _MD} <- TagData]),
+
+    lists:foreach(
+      fun({Class, Benchmarks}) ->
+              lists:foreach(
+                fun(Benchmark) ->
+                        %% Create one datafile per benchmark type
+                        {ok, D, TmpName} = ebench:opentmp(),
+
+                        %% Output the title of the tags used in the given files
+                        io:format(D, "Benchmarks", []),
+                        [io:format(D, " ~s ~s-min ~s-max", [Tag, Tag, Tag]) || Tag <- Tags],
+                        io:format(D, "~n", []),
+
+                        %% Loop over TagData sorted on timestamp
+                        lists:foreach(
+                           fun({TS, Tag, CBMs, _MD}) ->
+
+                                   %% Get the DS for the specific benchmark we are interested in
+                                   case [lists:keyfind(Benchmark, 1, BMs) || {C, BMs} <- CBMs,
+                                                                             C =:= Class] of
+                                       [{Benchmark, DS}] ->
+                                           io:format(D, "~s", [ts2str(TS)]),
+                                           %% For each tag, output either the data or
+                                           %% the data missing tag.
+                                           lists:foreach(
+                                             fun(T) when T =:= Tag ->
+                                                     io:format(D, " ~f ~f ~f",
+                                                               [eministat_ds:median(DS),
+                                                                eministat_ds:min(DS),
+                                                                eministat_ds:max(DS)]);
+                                                (_) ->
+                                                     io:format(D, " - - -", [])
+                                             end, Tags),
+                                           io:format(D, "~n", []);
+                                       _ ->
+                                           ok
+                                   end
+                           end, TsTagData),
+
+                        %% Run the gnuplot command that plots the graph
+                        Cmd = ["gnuplot -e \""
+                               "data='", TmpName, "';"
+                               "out='", Benchmark ++ ".svg", "';"
+                               "tags=",integer_to_list(length(Tags)),
+                               "\" gnuplot_scripts/timeseries.gnuplot"],
+                        case os:cmd(Cmd) of
+                            [] ->
+                                io:format("plotted ~s~n", [Benchmark ++ ".svg"]);
+                            Output ->
+                                abort("~s~n~s~n",[Cmd, Output])
+                        end,
+                        file:delete(TmpName),
+                        ok
+                end, Benchmarks)
+      end, ClassBenchmarks),
+    ok.
+
+ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]).

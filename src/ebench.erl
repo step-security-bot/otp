@@ -4,7 +4,7 @@
 -export([main/1, benchmarks/1, parse_and_check/3, benchmark_options/0]).
 
 %% Utility function export
--export([mkdir/1, open/1, compile_class/3, class_ebin_dir/2, class_priv_dir/2,
+-export([mkdir/1, open/1, opentmp/0, compile_class/3, class_ebin_dir/2, class_priv_dir/2,
          read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1,
          format_error/3, sort_options/1]).
 
@@ -196,7 +196,6 @@ parse_tag_rest(Args) ->
 read_tags(Tags, Classes) ->
     [read_tag(Tag, Classes) || Tag <- Tags].
 read_tag(Filename, Classes) ->
-    print(Filename),
     {ok, Data} =
         case file:consult(Filename) of
             {error, enoent} ->
@@ -227,7 +226,7 @@ read_tag(Filename, Classes) ->
                                                                     lists:member(BM, BMs)]}]
                                       end
                               end, Classes),
-    {maps:get(title, Metadata), ClassData}.
+    {maps:get(title, Metadata), ClassData, Metadata}.
 
 
 tdforeach(Fun, TagData, Titles) ->
@@ -246,7 +245,7 @@ tdforeach(Fun, TagData, Titles) ->
 tdinvert(TagData) ->
     tdinvert(TagData, #{}).
 
-tdinvert([{Title, Classes} | T], Acc) ->
+tdinvert([{Title, Classes, _MD} | T], Acc) ->
     tdinvert(T, tdinvert(Title, Classes, Acc));
 tdinvert([], Acc) ->
     Acc.
@@ -263,8 +262,16 @@ tdinvert(_TT, [], Acc) ->
 %%====================================================================
 open(Filename) ->
     mkdir(filename:dirname(Filename)),
-    {ok, Fd} = file:open(Filename, [write]),
-    Fd.
+    case file:open(Filename, [write]) of
+        {ok, Fd} ->
+            Fd;
+        _Else ->
+            abort("Could not open: ~p~n",[Filename])
+    end.
+
+opentmp() ->
+    Filename = string:trim(os:cmd("mktemp")),
+    {ok, open(Filename), Filename}.
 
 mkdir(Dir) ->
     mkdir(string:lexemes(Dir,"/"), []).
