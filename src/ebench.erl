@@ -5,7 +5,8 @@
 
 %% Utility function export
 -export([mkdir/1, open/1, compile_class/3, class_ebin_dir/2, class_priv_dir/2,
-        read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1]).
+         read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1,
+         format_error/3, sort_options/1]).
 
 %% Exported to silence warning
 -export([print/1]).
@@ -82,19 +83,19 @@ global_options() ->
 %% This sort function makes it so that all options with a short opt
 %% is first ordered, the long opt and then no opt.
 sort_options(Options) ->
-    lists:sort(fun({NameA, OptA, LongA, _, _},
-                   {NameB, OptB, LongB, _, _}) ->
-                       if
-                           OptA =/= OptB ->
-                               OptA =< OptB;
-                           LongA =/= LongB and is_list(LongA) and is_list(LongB) ->
-                               LongA =< LongB;
-                           LongA =/= LongB ->
-                               LongA >= LongB;
-                           true ->
-                               NameA =< NameB
-                       end
-               end, Options).
+    lists:usort(fun({NameA, OptA, LongA, _, _},
+                    {NameB, OptB, LongB, _, _}) ->
+                        if
+                            OptA =/= OptB ->
+                                OptA =< OptB;
+                            LongA =/= LongB and is_list(LongA) and is_list(LongB) ->
+                                LongA =< LongB;
+                            LongA =/= LongB ->
+                                LongA >= LongB;
+                            true ->
+                                NameA =< NameB
+                        end
+                end, Options).
 
 usage(Opts) ->
     getopt:usage([{task, undefined, undefined, string, "Task to run"}|Opts],
@@ -107,7 +108,7 @@ usage(Opts) ->
 
 format_error(Error, UsageFun, Opts) ->
     io:format(standard_error, "~s~n",[getopt:format_error(Opts, Error)]),
-    UsageFun(Opts).
+    UsageFun(sort_options(Opts)).
 
 opts_from_list({ok, {OptList, Rest}}) ->
     OptMap = lists:foldl(
@@ -195,10 +196,17 @@ parse_tag_rest(Args) ->
 read_tags(Tags, Classes) ->
     [read_tag(Tag, Classes) || Tag <- Tags].
 read_tag(Filename, Classes) ->
+    print(Filename),
     {ok, Data} =
         case file:consult(Filename) of
             {error, enoent} ->
-                file:consult(Filename ++ ".term");
+                case file:consult(Filename ++ ".term") of
+                    {error, Reason} ->
+                        abort("Could not open ~s or ~s.term, reason ~p~n",
+                              [Filename, Filename, Reason]);
+                    D ->
+                        D
+                end;
             D ->
                 D
         end,

@@ -29,16 +29,31 @@ options() ->
       "The base benchmark file to compare with."}
      | ebench:benchmark_options()].
 
+usage_options(Opts) ->
+    ebench:sort_options(
+      Opts ++ [{compare, undefined, undefined, undefined,
+                "The benchmark to compare with."}]).
+
 usage(Opts) ->
-    getopt:usage(Opts, "ebench plot", "<base> <compare...>"),
+    getopt:usage(usage_options(Opts), "ebench plot", "<base> <compare...>"),
     io:format("Compare two benchmark runs using gnuplot.~n"
               "~n"
               "Example:~n"
               "  ./ebench plot BASE BOUND~n").
 
+plot(_, []) ->
+    ebench:format_error(
+      {error, {missing_required_option, compare}},
+      fun usage/1, usage_options(options())),
+    erlang:halt(1);
 plot(Opts = #{ base := Base, type := Type }, Rest) ->
     TagData = ebench:read_tags([Base | Rest], ebench:benchmarks(Opts)),
-    plot(Type, TagData, [Base | Rest], Opts).
+    plot(Type, TagData, [Base | Rest], Opts);
+plot(_, _) ->
+    ebench:format_error(
+      {error, {missing_required_option, base}},
+      fun usage/1, options()),
+    erlang:halt(1).
 
 plot("histogram", TagData, Titles, Opts) ->
     [abort("Could not find gnuplot program") || os:find_executable("gnuplot") =:= false],
