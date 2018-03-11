@@ -12,7 +12,7 @@ set xdata time
 set timefmt "%Y-%m-%dT%H:%M:%S"
 set datafile missing "-"
 
-set yrange [0:*]
+set yrange [0:1.5<*]
 
 set output out
 

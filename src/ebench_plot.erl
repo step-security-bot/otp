@@ -113,13 +113,16 @@ plot("timeseries", Files, Opts) ->
                         [io:format(D, " ~s ~s-min ~s-max", [Tag, Tag, Tag]) || Tag <- Tags],
                         io:format(D, "~n", []),
 
+                        [{_, NormalizeDS}] = getdsdata(TsTagData, Class, Benchmark),
+
+                        N = eministat_ds:median(NormalizeDS),
+
                         %% Loop over TagData sorted on timestamp
                         lists:foreach(
-                           fun({TS, Tag, CBMs, _MD}) ->
+                           fun({TS, Tag, _CBMs, _MD} = TD) ->
 
                                    %% Get the DS for the specific benchmark we are interested in
-                                   case [lists:keyfind(Benchmark, 1, BMs) || {C, BMs} <- CBMs,
-                                                                             C =:= Class] of
+                                   case getdsdata(TD, Class, Benchmark) of
                                        [{Benchmark, DS}] ->
                                            io:format(D, "~s", [ts2str(TS)]),
                                            %% For each tag, output either the data or
@@ -127,9 +130,9 @@ plot("timeseries", Files, Opts) ->
                                            lists:foreach(
                                              fun(T) when T =:= Tag ->
                                                      io:format(D, " ~f ~f ~f",
-                                                               [eministat_ds:median(DS),
-                                                                eministat_ds:min(DS),
-                                                                eministat_ds:max(DS)]);
+                                                               [eministat_ds:median(DS) / N,
+                                                                eministat_ds:min(DS) / N,
+                                                                eministat_ds:max(DS) / N]);
                                                 (_) ->
                                                      io:format(D, " - - -", [])
                                              end, Tags),
@@ -156,6 +159,16 @@ plot("timeseries", Files, Opts) ->
                 end, Benchmarks)
       end, ClassBenchmarks),
     ok.
+
+getdsdata([TD|T], Class, Benchmark) ->
+    case getdsdata(TD, Class, Benchmark) of
+        [] ->
+            getdsdata(T, Class, Benchmark);
+        Else ->
+            Else
+    end;
+getdsdata({_TS, _Tag, CBMs, _MD}, Class, Benchmark) ->
+    [lists:keyfind(Benchmark, 1, BMs) || {C, BMs} <- CBMs, C =:= Class].
 
 ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
     io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]).
