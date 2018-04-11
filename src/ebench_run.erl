@@ -24,8 +24,8 @@ slogan() ->
 
 options() ->
     [{iterations, $i, "iter", {integer, 3}, "Number of iterations."},
-     {init, undefined, "init", {string, "ok."}, "Expression to run before each benchmark."},
-     {stop, undefined, "stop", {string, "ok."}, "Expression to run after each benchmark."},
+     {init, undefined, "init", {string, "ok"}, "Expression to run before each benchmark."},
+     {stop, undefined, "stop", {string, "ok"}, "Expression to run after each benchmark."},
      {latest, $l, "latest", {string, "${TITLE}.term"}, "Name of latest symlink. "
       "Set to empty string to not create any latest link."},
      {title, $t, "title", {string, "BASE"}, "Title of the benchmark."},
@@ -82,17 +82,18 @@ run_class(D, Title, Cmd, CmdOpts, Class, BMs, Opts) ->
     io:format(" Class: ~s~n", [Class]),
     [run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) || BM <- BMs].
 
-run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
+run_benchmark(D, Title, Cmd, CmdOpts, Class, {M, F, A} = BM, Opts) ->
     Rebar3Path = string:split(os:cmd("rebar3 path")," ", all),
-    io:format("  ~s...~*.s", [BM,10 - length(BM), ""]),
-    Name = [Title,"-",Class,"-",BM],
+    BMStr = ebench:benchmark2str(BM),
+    io:format("  ~s...~*.s", [BMStr,10 - length(BMStr), ""]),
+    Name = [Title,"-",Class,"-",BMStr],
     CmdLine =
         ["-noshell", "-pz"] ++ Rebar3Path ++
         ["-pa", ebench:class_ebin_dir(Class, Opts),
          ebench:class_priv_dir(Class, Opts),
-         "-s","ebench_runner", "init", Title, Class, BM, maps:get(init, Opts),
-         "-s","ebench_runner", "main", Name, tostr(maps:get(iterations, Opts)) , BM,
-         "-s","ebench_runner", "stop", Title, Class, BM, maps:get(stop, Opts)],
+         "-s","ebench_runner", "init", Title, Class, BMStr, maps:get(init, Opts),
+         "-s","ebench_runner", "main", Name, tostr(maps:get(iterations, Opts)) , M, F, io_lib:format("~p",[A]),
+         "-s","ebench_runner", "stop", Title, Class, BMStr, maps:get(stop, Opts)],
     BMData = parse(CmdLine, spawn_emulator(Cmd, CmdOpts ++ CmdLine)),
     io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
     {Factor, Unit} = case eministat_ds:mean(BMData) of
@@ -171,8 +172,7 @@ parse(Cmd, String) ->
     end.
 
 spawn_emulator(Cmd, Args) ->
-    SpawnArgs = [stderr_to_stdout, stream, in, hide, {args, Args}],
-    io:format("Args ~p~n", [SpawnArgs]),
+    SpawnArgs = [stream, in, hide, {args, Args}],
     Port = open_port({spawn_executable, os:find_executable(Cmd)}, SpawnArgs),
     MonRef = erlang:monitor(port, Port),
     Bytes = get_data(Port, MonRef, []),

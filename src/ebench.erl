@@ -5,7 +5,7 @@
 
 %% Utility function export
 -export([mkdir/1, open/1, opentmp/0, compile_class/3, class_ebin_dir/2, class_priv_dir/2,
-         read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1,
+         benchmark2str/1, read_tags/2, tdforeach/3, abort/1, abort/2, parse_tag_rest/1,
          format_error/3, sort_options/1]).
 
 %% Exported to silence warning
@@ -138,10 +138,13 @@ benchmarks([Class|T], Opts = #{ benchmark := BM }) ->
     Modules = filelib:wildcard(filename:join(class_ebin_dir(Class, Opts),"*.beam")),
     BMs = lists:flatmap(
             fun(M) ->
-                    RootName = filename:rootname(M),
-                    BaseRootName = filename:basename(RootName),
-                    [BaseRootName || is_benchmark(RootName),
-                                     BM =:= ["all"] orelse lists:member(BaseRootName, BM)]
+                    BMs = get_benchmarks(filename:rootname(M)),
+                    if
+                        BM =/= ["all"] ->
+                            [B || B <- BMs, filter_benchmarks(B, BM)];
+                        true ->
+                            BMs
+                    end
             end, Modules),
     case BMs of
         [] ->
@@ -152,13 +155,42 @@ benchmarks([Class|T], Opts = #{ benchmark := BM }) ->
 benchmarks([], _) ->
     [].
 
-is_benchmark(ModulePath) ->
+benchmark2str({Mod, main, [[]]}) ->
+    io_lib:format("~p",[Mod]);
+benchmark2str({Mod, Name, BMArgs}) ->
+    io_lib:format("~p:~p(~s)", [Mod, Name, args2str(BMArgs)]).
+
+args2str(Args) ->
+    lists:join(",", [io_lib:format("~p",[A]) || A <- Args]).
+
+get_benchmarks(ModulePath) ->
     case code:load_abs(ModulePath) of
         {module, M} ->
-            lists:member({main,1}, M:module_info(exports));
+            try M:benchmark_arguments() of
+                BMs -> [{M,B,A} || {B,A} <- BMs]
+            catch _E:_R ->
+                    case lists:member({main,1}, M:module_info(exports)) of
+                        true ->
+                            [{M, main, get_args(M)}];
+                        false ->
+                            []
+                    end
+            end;
         _E ->
-            false
+            []
     end.
+
+get_args(BM) ->
+    try BM:medium() of
+        Args -> [Args]
+    catch _:_ ->
+            [[]]
+    end.
+
+filter_benchmarks(BM, Filters) ->
+    lists:any(fun(RegExpFilter) ->
+                      re:run(benchmark2str(BM), RegExpFilter) =/= nomatch
+              end, Filters).
 
 class_dir(Class, #{ class_directory := CD }) ->
     filename:join(CD, Class).

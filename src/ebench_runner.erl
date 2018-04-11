@@ -8,9 +8,9 @@
 %%====================================================================
 
 %% Entry point
-main([Name, Iters, BM]) ->
-    Args = get_args(BM),
-    run(atom_to_list(Name), list_to_integer(atom_to_list(Iters)), BM, Args).
+main([Name, Iters, M, F, ArgsAtom]) ->
+    {value, Args, _} = eval(ArgsAtom),
+    run(atom_to_list(Name), list_to_integer(atom_to_list(Iters)), M, F, Args).
 
 init([Title, Class, BM, Fun]) ->
     exec_fun(Title, Class, BM, Fun).
@@ -31,9 +31,7 @@ exec_fun(Title, Class, BM, FunAtom) ->
                    erl_eval:add_binding(
                      'Title', Title,
                      erl_eval:new_bindings()))),
-    {ok, Tokens, _} = erl_scan:string(atom_to_list(FunAtom)),
-    {ok, Parsed} = erl_parse:parse_exprs(Tokens),
-    {value, Fun, _} = erl_eval:exprs(Parsed, Bindings),
+    {value, Fun, _} = eval(FunAtom, Bindings),
     if
         is_function(Fun, 3) ->
             Fun(atom_to_list(Title), Class, BM);
@@ -41,21 +39,21 @@ exec_fun(Title, Class, BM, FunAtom) ->
             ok
     end.
 
-get_args(BM) ->
-    try BM:medium() of
-        Args -> Args
-    catch _:_ ->
-            []
-    end.
+eval(Atom) ->
+    eval(Atom, erl_eval:new_bindings()).
+eval(Atom, Bindings) ->
+    {ok, Tokens, _} = erl_scan:string(atom_to_list(Atom) ++ "."),
+    {ok, Parsed} = erl_parse:parse_exprs(Tokens),
+    erl_eval:exprs(Parsed, Bindings).
 
-run(Name, Iters, BM, Args) ->
+run(Name, Iters, M, F, A) ->
     Self = self(),
     Pid = spawn_opt(
       fun() ->
               %% Supress IO
-              {ok, F} = file:open("/dev/null", [write]),
-              group_leader(F, self()),
-              Runner = fun() -> try BM:main(Args)
+              {ok, Fd} = file:open("/dev/null", [write]),
+              group_leader(Fd, self()),
+              Runner = fun() -> try apply(M, F, A)
                                 catch exit:ok -> ok;
                                       E:R ->
                                         io:format(user, "~p:~p ~p~n",[E, R, erlang:get_stacktrace()]),
