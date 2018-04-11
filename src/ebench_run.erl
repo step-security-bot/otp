@@ -83,19 +83,17 @@ run_class(D, Title, Cmd, CmdOpts, Class, BMs, Opts) ->
     [run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) || BM <- BMs].
 
 run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
-    Rebar3Path = os:cmd("rebar3 path"),
+    Rebar3Path = string:split(os:cmd("rebar3 path")," ", all),
     io:format("  ~s...~*.s", [BM,10 - length(BM), ""]),
     Name = [Title,"-",Class,"-",BM],
-    CmdLine = lists:concat(
-            [Cmd, " ", escape(lists:join(" ", CmdOpts)), " -noshell"
-             " -pz ", Rebar3Path,
-             " -pa ", ebench:class_ebin_dir(Class, Opts), " ", ebench:class_priv_dir(Class, Opts),
-             " -s ebench_runner init ", Title, " ", Class, " ",BM, " \"",
-             escape(maps:get(init, Opts)), "\"",
-             " -s ebench_runner main ",Name," ", maps:get(iterations, Opts) ," ", BM,
-             " -s ebench_runner stop ", Title, " ", Class, " ",BM, " \"",
-             escape(maps:get(stop, Opts)), "\""]),
-    BMData = parse(CmdLine, os:cmd(CmdLine)),
+    CmdLine =
+        ["-noshell", "-pz"] ++ Rebar3Path ++
+        ["-pa", ebench:class_ebin_dir(Class, Opts),
+         ebench:class_priv_dir(Class, Opts),
+         "-s","ebench_runner", "init", Title, Class, BM, maps:get(init, Opts),
+         "-s","ebench_runner", "main", Name, tostr(maps:get(iterations, Opts)) , BM,
+         "-s","ebench_runner", "stop", Title, Class, BM, maps:get(stop, Opts)],
+    BMData = parse(CmdLine, spawn_emulator(Cmd, CmdOpts ++ CmdLine)),
     io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
     {Factor, Unit} = case eministat_ds:mean(BMData) of
                          Mean when Mean > 1000 * 1000 ->
@@ -126,7 +124,7 @@ run_benchmark(D, Title, Cmd, CmdOpts, Class, BM, Opts) ->
 
 make_output(#{ output := Output, title := Title, ts := TS }) ->
     keyword_replace(Output,
-                    [{"TITLE", Title}, {"TS", ts2str(TS)}]).
+                    [{"TITLE", Title}, {"TS", tostr(TS)}]).
 
 make_latest(#{ latest := "" }) ->
     ok;
@@ -158,8 +156,10 @@ keyword_replace([], _, undefined) ->
 keyword_replace([], _, Keyword) ->
     Keyword.
 
-ts2str({{YY,MM,DD},{HH,Mi,SS}}) ->
-    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]).
+tostr({{YY,MM,DD},{HH,Mi,SS}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]);
+tostr(Int) when is_integer(Int) ->
+    integer_to_list(Int).
 
 parse(Cmd, String) ->
     try
@@ -170,9 +170,17 @@ parse(Cmd, String) ->
             abort("Failed to parse: ~p~nCmd: ~s~n",[String, Cmd])
     end.
 
-escape([$"|T]) ->
-    [$\\, $"|escape(T)];
-escape([H|T]) ->
-    [H|escape(T)];
-escape([]) ->
-    [].
+spawn_emulator(Cmd, Args) ->
+    SpawnArgs = [stderr_to_stdout, stream, in, hide, {args, Args}],
+    io:format("Args ~p~n", [SpawnArgs]),
+    Port = open_port({spawn_executable, os:find_executable(Cmd)}, SpawnArgs),
+    MonRef = erlang:monitor(port, Port),
+    Bytes = get_data(Port, MonRef, []),
+    demonitor(MonRef, [flush]),
+    Bytes.
+
+get_data(Port, MonRef, Sofar) ->
+    receive
+        {Port, {data, Bytes}} -> get_data(Port, MonRef, [Sofar, Bytes]);
+        {'DOWN', MonRef, _, _, _} -> lists:flatten(Sofar)
+    end.
