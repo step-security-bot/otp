@@ -59,7 +59,59 @@
 
   <section>
     <title>Discovery module</title>
-    <p></p>
+    <p>The discovery module needs to implement the same API as the regular
+    <seealso marker="kernel:erl_epmd">EPMD module</seealso>. However, instead of
+    communicating with EPMD you can connect to any service to find out
+    connection details of other nodes. This works because in Erlang/OTP 21 a
+    function call is added which is
+    <seealso marker="kernel:erl_epmd#address_please-3"><c>address_please/3</c>
+    </seealso>. This makes it possible to skip any DNS lookups for an Erlang
+    node name. After this step the
+    <seealso marker="kernel:erl_epmd#port_please-2"><c>port_please/2</c>
+    </seealso> will be called to get the port number the other Erlang node is
+    listening on.</p>
+  </section>
+
+  <section>
+    <title>Optmization</title>
+    <note><p>
+      This doesn't necessarily work with all distribution modules.
+    </p></note>
+
+    <p>If you use one of the distribution modules that ship with Erlang
+    (<c>inet_tcp_dist</c> and <c>inet_sll_dist</c>) you can avoid one function
+    call. Logically the <c>address_please/3</c> function is called before the
+    <c>port_please/2</c> function. This means that you can also do both actions
+    (getting the IP address and getting the port number) in one single function
+    call. You can do this by returning all the necessary data from
+    <c>address_please/3</c>.</p>
+
+    <p>
+    <c>address_please/3</c> may return <c>{ok, Ip, TcpPort, Version}</c> instead of
+    <c>{ok, Ip}</c>. The values are explained below, but for more details please
+    check out the regular <seealso marker="kernel:erl_epmd">EPMD module</seealso>.
+    </p>
+
+    <taglist>
+      <tag><c>Ip</c></tag>
+      <item>
+        <p>
+    IP address of the remote node
+        </p>
+      </item>
+      <tag><c>TcpPort</c></tag>
+      <item>
+        <p>
+    Port of the remote node
+        </p>
+      </item>
+      <tag><c>Version</c></tag>
+      <item>
+        <p>
+    Version, which has been 5 since Erlang/OTP R6
+        </p>
+      </item>
+    </taglist>
+
   </section>
 </chapter>
-
