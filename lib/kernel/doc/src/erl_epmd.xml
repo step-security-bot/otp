@@ -30,7 +30,7 @@
   </header>
   <module>erl_epmd</module>
   <modulesummary>
-    Erlang interface towards <seealso marker="erts:epmd"><c>epmd</c></seealso>
+    Erlang interface towards epmd
   </modulesummary>
   <description>
     <p>This module communicates with the EPMD daemon, see <seealso
