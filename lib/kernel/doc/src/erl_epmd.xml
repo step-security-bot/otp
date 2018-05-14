@@ -84,18 +84,17 @@
     </func>
 
     <func>
-      <name name="names" arity="0"/>
       <name name="names" arity="1"/>
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
         <p>Called by <seealso marker="net_adm"><c>net_adm:names/0</c></seealso>.
-        <c>Host</c> defaults to the local host. Returns the names and associated
+        <c>Host</c> defaults to the localhost. Returns the names and associated
         port numbers of the Erlang nodes that <c>epmd</c> registered at the
         specified host. Returns <c>{error, address}</c> if <c>epmd</c> is not
         operational.</p>
         <p><em>Example:</em></p>
         <pre>
-(arne@dunn)1> <input>erl_epmd:names().</input>
+(arne@dunn)1> <input>erl_epmd:names(localhost).</input>
 {ok,[{"arne",40262}]}</pre>
       </desc>
     </func>
