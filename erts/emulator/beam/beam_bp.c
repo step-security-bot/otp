@@ -72,6 +72,7 @@ extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
+extern BeamInstr beam_call_trace[1];        /* OpCode(i_call_trace) */
 
 erts_atomic32_t erts_active_bp_index;
 erts_atomic32_t erts_staging_bp_index;
@@ -684,9 +685,11 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
     }
 }
 
-BeamInstr
-erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
+BeamInstr *
+erts_generic_breakpoint(Process* c_p, BeamInstr *I, Eterm* reg,
+                        BeamInstr *real_I)
 {
+    ErtsCodeInfo *info = erts_code_to_codeinfo(I);
     GenericBp* g;
     GenericBpData* bp;
     Uint bp_flags;
@@ -707,15 +710,55 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 		      ERTS_BPF_TIME_TRACE|
 		      ERTS_BPF_TIME_TRACE_ACTIVE);
 	if (bp_flags == 0) {	/* Quick exit */
-	    return g->orig_instr;
+            *real_I = g->orig_instr;
+	    return I;
 	}
     }
 
-    if (bp_flags & ERTS_BPF_LOCAL_TRACE) {
-	ASSERT((bp_flags & ERTS_BPF_GLOBAL_TRACE) == 0);
-	(void) do_call_trace(c_p, info, reg, 1, bp->local_ms, erts_tracer_true);
-    } else if (bp_flags & ERTS_BPF_GLOBAL_TRACE) {
-	(void) do_call_trace(c_p, info, reg, 0, bp->local_ms, erts_tracer_true);
+    if (bp_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
+        ErtsCodeIndex code_ix = erts_active_code_ix();
+        Uint i;
+        Eterm* E = c_p->stop;
+        Uint frame_size = info->mfa.arity + 1 /* small */ + 1 /* frame ptr */;
+        Export *trace_call = erts_find_function(am_erl_tracer,
+                                                ERTS_MAKE_AM("call_trace"),
+                                                0, code_ix);
+        if (E - frame_size < c_p->htop) {
+            (void)erts_garbage_collect(c_p, frame_size, reg, info->mfa.arity);
+        }
+        E = c_p->stop;
+        ASSERT(c_p->htop <= E && E <= c_p->hend);
+        E -= frame_size;
+        E[0] = make_cp(I);
+        E[1] = make_cp(c_p->cp);
+        for (i = 0; i < info->mfa.arity; i++) {
+            Eterm arg = reg[i];
+            if (is_boxed(arg) && header_is_bin_matchstate(*boxed_val(arg))) {
+                ErlBinMatchState* ms = (ErlBinMatchState *) boxed_val(arg);
+                ErlBinMatchBuffer* mb = &ms->mb;
+                Uint bit_size;
+                ErlSubBin *sub_bin_heap = (ErlSubBin *)HAlloc(c_p, ERL_SUB_BIN_SIZE);
+
+                bit_size = mb->size - mb->offset;
+                sub_bin_heap->thing_word = HEADER_SUB_BIN;
+                sub_bin_heap->size = BYTE_OFFSET(bit_size);
+                sub_bin_heap->bitsize = BIT_OFFSET(bit_size);
+                sub_bin_heap->offs = BYTE_OFFSET(mb->offset);
+                sub_bin_heap->bitoffs = BIT_OFFSET(mb->offset);
+                sub_bin_heap->is_writable = 0;
+                sub_bin_heap->orig = mb->orig;
+
+                arg = make_binary(sub_bin_heap);
+            }
+            E[2 + i] = arg;
+        }
+
+        c_p->cp = beam_call_trace;
+        c_p->stop = E;
+
+        I = trace_call->addressv[code_ix];
+        *real_I = BeamCodeAddr(*I);
+        return I;
     }
 
     if (bp_flags & ERTS_BPF_META_TRACE) {
@@ -767,10 +810,11 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_DEBUG) {
-	return BeamOpCodeAddr(op_i_debug_breakpoint);
+        *real_I = BeamOpCodeAddr(op_i_debug_breakpoint);
     } else {
-	return g->orig_instr;
+        *real_I = g->orig_instr;
     }
+    return I;
 }
 
 /*

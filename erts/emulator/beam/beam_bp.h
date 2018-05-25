@@ -144,7 +144,7 @@ void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
 void erts_clear_export_break(Module *modp, ErtsCodeInfo* ci);
 
-BeamInstr erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *ci, Eterm* reg);
+BeamInstr *erts_generic_breakpoint(Process* c_p, BeamInstr *I, Eterm* reg, BeamInstr *real_I);
 BeamInstr erts_trace_break(Process *p, ErtsCodeInfo *ci, Eterm *args,
                            Uint32 *ret_flags, ErtsTracer *tracer);
 

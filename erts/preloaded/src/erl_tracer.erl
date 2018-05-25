@@ -1,6 +1,13 @@
 -module(erl_tracer).
 
--export([enabled/3, trace/5, on_load/0]).
+-export([enabled/3, trace/5,
+         enabled_call/3, trace_call/5,
+         on_load/0]).
+
+-export([call_trace/0]).
+
+%% Bifs
+-export([get_mfa/0]).
 
 -type tracee() :: port() | pid() | undefined.
 
@@ -55,6 +62,11 @@ on_load() ->
 enabled(_, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
+enabled_call(call, _State, _Tracee) ->
+    trace;
+enabled_call(Tag, State, Tracee) ->
+    enabled(Tag, State, Tracee).
+
 -spec trace(Tag :: trace_tag() | seq_trace,
             TracerState :: tracer_state(),
             Tracee :: tracee(),
@@ -63,3 +75,33 @@ enabled(_, _, _) ->
 
 trace(_, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
+
+trace_call(call, State, Tracee, Msg, _Opts) ->
+    State ! {trace, Tracee, call, Msg};
+trace_call(Tag, State, Tracee, Msg, Opts) ->
+    trace(Tag, State, Tracee, Msg, Opts).
+
+call_trace({Tracer,State},MatchSpec) ->
+    case Tracer:enabled(trace_status, State, self()) of
+        trace ->
+            case Tracer:enabled_call(call, State, self()) of
+                trace ->
+                    MFA = erl_tracer:get_mfa(),
+                    Tracer:trace_call(call, State, self(), MFA, #{});
+                discard ->
+                    ok
+            end;
+        _ -> %% remove | discard | _
+            erlang:trace(self(),false,[all])
+    end.
+
+get_mfa() ->
+    erlang:nif_error(undefined).
+
+get_tracer() ->
+    case erlang:trace_info(self(), tracer) of
+        {tracer,Pid} when is_pid(Pid); is_port(Pid) ->
+            {?MODULE,Pid};
+        {tracer,Tracer} ->
+            Tracer
+    end.

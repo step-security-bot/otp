@@ -810,10 +810,31 @@ Eterm trace_info_2(BIF_ALIST_2)
     }
     erts_release_code_write_permission();
 
-    if (is_internal_ref(res))
+    if (!is_non_value(res) && is_internal_ref(res))
         BIF_TRAP1(erts_await_result, BIF_P, res);
 
     BIF_RET(res);
+}
+
+extern BeamInstr beam_call_trace[1];
+
+BIF_RETTYPE erl_tracer_get_mfa_0(BIF_ALIST_0)
+{
+    Uint i;
+    Eterm *E = BIF_P->stop, *hp, res = NIL;
+    ErtsCodeInfo *info;
+    if (cp_val(E[0]) != beam_call_trace) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    while (is_not_CP(*++E));
+    info = erts_code_to_codeinfo(cp_val(E[0]));
+    E++; /* skip stashed CP */
+    hp = HAlloc(BIF_P,4 + info->mfa.arity * 2);
+    for (i = info->mfa.arity; i > 0; i--) {
+        res = CONS(hp, E[i], res);
+        hp += 2;
+    }
+    BIF_RET(TUPLE3(hp, info->mfa.module, info->mfa.function, res));
 }
 
 static Eterm

@@ -173,6 +173,7 @@ BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
 BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
+BeamInstr beam_call_trace[1];        /* OpCode(i_call_trace) */
 
 
 /*
@@ -1033,6 +1034,7 @@ init_emulator_finish(void)
      beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
      beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
      beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+     beam_call_trace[0]        = BeamOpCodeAddr(op_i_call_trace);
 
      /*
       * Enter all BIFs into the export table.

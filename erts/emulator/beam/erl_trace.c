@@ -2398,9 +2398,16 @@ init_sys_msg_dispatcher(void)
 
 #include "erl_nif.h"
 
+typedef enum {
+    ErtsTracerCbModeNone,
+    ErtsTracerCbModeNif,
+    ErtsTracerCbModeErlang
+} ErtsTracerCbMode;
+
 typedef struct {
     char *name;
     Uint arity;
+    ErtsTracerCbMode mode;
     ErlNifFunc *cb;
 } ErtsTracerType;
 
@@ -2413,80 +2420,35 @@ struct ErtsTracerNif_ {
 
 static void init_tracer_template(ErtsTracerNif *tnif) {
 
-    /* default tracer functions */
-    tnif->tracers[TRACE_FUN_DEFAULT].name  = "trace";
-    tnif->tracers[TRACE_FUN_DEFAULT].arity = 5;
-    tnif->tracers[TRACE_FUN_DEFAULT].cb    = NULL;
+#define INIT_TRACER_TYPE(Type,Name,Arity)               \
+    tnif->tracers[Type].name  = Name;                   \
+    tnif->tracers[Type].arity = Arity;                  \
+    tnif->tracers[Type].mode  = ErtsTracerCbModeNone;   \
+    tnif->tracers[Type].cb    = NULL
 
-    tnif->tracers[TRACE_FUN_ENABLED].name  = "enabled";
-    tnif->tracers[TRACE_FUN_ENABLED].arity = 3;
-    tnif->tracers[TRACE_FUN_ENABLED].cb    = NULL;
+    /* default tracer functions */
+    INIT_TRACER_TYPE(TRACE_FUN_DEFAULT,"trace",5);
+    INIT_TRACER_TYPE(TRACE_FUN_ENABLED,"enabled",3);
 
     /* specific tracer functions */
-    tnif->tracers[TRACE_FUN_T_SEND].name  = "trace_send";
-    tnif->tracers[TRACE_FUN_T_SEND].arity = 5;
-    tnif->tracers[TRACE_FUN_T_SEND].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_RECEIVE].name  = "trace_receive";
-    tnif->tracers[TRACE_FUN_T_RECEIVE].arity = 5;
-    tnif->tracers[TRACE_FUN_T_RECEIVE].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_CALL].name  = "trace_call";
-    tnif->tracers[TRACE_FUN_T_CALL].arity = 5;
-    tnif->tracers[TRACE_FUN_T_CALL].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_SCHED_PROC].name  = "trace_running_procs";
-    tnif->tracers[TRACE_FUN_T_SCHED_PROC].arity = 5;
-    tnif->tracers[TRACE_FUN_T_SCHED_PROC].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_SCHED_PORT].name  = "trace_running_ports";
-    tnif->tracers[TRACE_FUN_T_SCHED_PORT].arity = 5;
-    tnif->tracers[TRACE_FUN_T_SCHED_PORT].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_GC].name  = "trace_garbage_collection";
-    tnif->tracers[TRACE_FUN_T_GC].arity = 5;
-    tnif->tracers[TRACE_FUN_T_GC].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_PROCS].name  = "trace_procs";
-    tnif->tracers[TRACE_FUN_T_PROCS].arity = 5;
-    tnif->tracers[TRACE_FUN_T_PROCS].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_T_PORTS].name  = "trace_ports";
-    tnif->tracers[TRACE_FUN_T_PORTS].arity = 5;
-    tnif->tracers[TRACE_FUN_T_PORTS].cb    = NULL;
-
+    INIT_TRACER_TYPE(TRACE_FUN_T_SEND,"trace_send",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_RECEIVE,"trace_receive",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_CALL,"trace_call",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_SCHED_PROC,"trace_running_procs",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_SCHED_PORT,"trace_running_ports",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_GC,"trace_garbage_collection",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_PROCS,"trace_procs",5);
+    INIT_TRACER_TYPE(TRACE_FUN_T_PORTS,"trace_ports",5);
     /* specific enabled functions */
-    tnif->tracers[TRACE_FUN_E_SEND].name  = "enabled_send";
-    tnif->tracers[TRACE_FUN_E_SEND].arity = 3;
-    tnif->tracers[TRACE_FUN_E_SEND].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_RECEIVE].name  = "enabled_receive";
-    tnif->tracers[TRACE_FUN_E_RECEIVE].arity = 3;
-    tnif->tracers[TRACE_FUN_E_RECEIVE].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_CALL].name  = "enabled_call";
-    tnif->tracers[TRACE_FUN_E_CALL].arity = 3;
-    tnif->tracers[TRACE_FUN_E_CALL].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_SCHED_PROC].name  = "enabled_running_procs";
-    tnif->tracers[TRACE_FUN_E_SCHED_PROC].arity = 3;
-    tnif->tracers[TRACE_FUN_E_SCHED_PROC].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_SCHED_PORT].name  = "enabled_running_ports";
-    tnif->tracers[TRACE_FUN_E_SCHED_PORT].arity = 3;
-    tnif->tracers[TRACE_FUN_E_SCHED_PORT].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_GC].name  = "enabled_garbage_collection";
-    tnif->tracers[TRACE_FUN_E_GC].arity = 3;
-    tnif->tracers[TRACE_FUN_E_GC].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_PROCS].name  = "enabled_procs";
-    tnif->tracers[TRACE_FUN_E_PROCS].arity = 3;
-    tnif->tracers[TRACE_FUN_E_PROCS].cb    = NULL;
-
-    tnif->tracers[TRACE_FUN_E_PORTS].name  = "enabled_ports";
-    tnif->tracers[TRACE_FUN_E_PORTS].arity = 3;
-    tnif->tracers[TRACE_FUN_E_PORTS].cb    = NULL;
+    INIT_TRACER_TYPE(TRACE_FUN_E_SEND,"enabled_send",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_RECEIVE,"enabled_receive",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_CALL,"enabled_call",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_SCHED_PROC,"enabled_running_procs",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_SCHED_PORT,"enabled_running_ports",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_GC,"enabled_garbage_collection",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_PROCS,"enabled_procs",3);
+    INIT_TRACER_TYPE(TRACE_FUN_E_PORTS,"enabled_ports",3);
+#undef INIT_TRACER_TYPE
 }
 
 static Hash *tracer_hash = NULL;
@@ -2520,11 +2482,20 @@ load_tracer_nif(const ErtsTracer tracer)
     for(i = 0; i < num_of_funcs; i++) {
         for (j = 0; j < NIF_TRACER_TYPES; j++) {
             if (sys_strcmp(tracers[j].name, funcs[i].name) == 0 && tracers[j].arity == funcs[i].arity) {
+                tracers[j].mode = ErtsTracerCbModeNif;
                 tracers[j].cb = &(funcs[i]);
                 break;
             }
         }
     }
+
+    for (j = 0; j < NIF_TRACER_TYPES; j++)
+        if (tracers[j].mode == ErtsTracerCbModeNone &&
+            erts_find_function(ERTS_TRACER_MODULE(tracer),
+                               am_atom_put(tracers[j].name,sys_strlen(tracers[j].name)),
+                               tracers[j].arity, erts_active_code_ix())) {
+            tracers[j].mode = ErtsTracerCbModeErlang;
+        }
 
     if (tracers[TRACE_FUN_DEFAULT].cb == NULL || tracers[TRACE_FUN_ENABLED].cb == NULL ) {
         return NULL;
