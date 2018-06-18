@@ -6096,6 +6096,21 @@ realloc_thr_pref(ErtsAlcType_t type, Allctr_t *pref_allctr, void *p, Uint size,
     Carrier_t *busy_pcrr_p;
     alcu_atag_t tag = 0;
     int retried;
+    Block_t *blk = UMEM2BLK(p);
+
+#if HAVE_ERTS_MSEG
+    /* Check if we actually should realloc this block */
+    if (!force_move && IS_SBC_BLK(blk)) {
+        Uint old_size = SBC_BLK_SZ(blk) - ABLK_HDR_SZ;
+        if (size < old_size) {
+            Uint shrink_size = old_size - size;
+            /* +M<S>rsbcst <ratio> */
+            if (shrink_size < pref_allctr->mseg_opt.abs_shrink_th
+                && 100*shrink_size < pref_allctr->mseg_opt.rel_shrink_th*old_size)
+                return p;
+        }
+    }
+#endif
 
     if (pref_allctr->atags) {
         tag = determine_alloc_tag(pref_allctr, type);
