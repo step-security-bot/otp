@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%                                                                                                                                   
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.                                                                             
 %% 
-%% The contents of this file are subject to the Erlang Public License,                                                               
-%% Version 1.1, (the "License"); you may not use this file except in                                                                 
-%% compliance with the License. You should have received a copy of the                                                               
-%% Erlang Public License along with this software. If not, it can be                                                                 
-%% retrieved online at http://www.erlang.org/.                                                                                       
+%% Copyright Ericsson AB 2018. All Rights Reserved.
 %% 
-%% Software distributed under the License is distributed on an "AS IS"                                                               
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See                                                               
-%% the License for the specific language governing rights and limitations                                                            
-%% under the License.                                                                                                                
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -27,14 +28,19 @@
 
 -export([bang/1]).
 
--export([benchmark_arguments/0, benchmark_unit/0]).
+-export([benchmark_arguments/0]).
 
 benchmark_arguments() ->
-    [{bang, [N]}|| N <- [250,500,750]].
-
-benchmark_unit() -> "ms".
-%%
-
+    #{ bang =>
+           #{ before_scenario => fun spawn_procs/1,
+              run => fun(Procs) ->
+                             send_procs(Procs, {procs, Procs, self()}),
+                             receive_msgs(Procs),
+                             Procs
+                     end
+            },
+       inputs => [250,500,750]
+     }.
 
 pinger([], [], true) ->
     receive
@@ -45,11 +51,11 @@ pinger([], [], false) ->
     receive {ping, From} -> From ! {pong, self()} end,
     pinger([],[],false);
 pinger([], [], ReportTo) ->
-    ReportTo ! {done, self()},
+    ReportTo ! self(),
     pinger([],[],false);
 pinger([],[Po|Pos] = Pongers, ReportTo) ->
     receive
-	{ping, From} -> 
+	{ping, From} ->
 	    From ! {pong, self()},
 	    pinger([], Pongers, ReportTo);
 	{pong, Po} ->
@@ -75,18 +81,12 @@ send_procs([P|Ps], Msg) ->
 
 receive_msgs([]) ->
     ok;
-receive_msgs([M|Ms]) ->
+receive_msgs([P|Ps]) ->
     receive
-	M ->
-	    receive_msgs(Ms)
+	P ->
+	    receive_msgs(Ps)
     end.
 
+
 bang(N) when is_integer(N) ->
-    Procs = spawn_procs(N),
-    RMsgs = lists:map(fun (P) -> {done, P} end, Procs),
-    Start = now(),
-    send_procs(Procs, {procs, Procs, self()}),
-    receive_msgs(RMsgs),
-    Stop = now(),
-    lists:foreach(fun (P) -> exit(P, normal) end, Procs),
-    timer:now_diff(Stop, Start)/1000.
+    
