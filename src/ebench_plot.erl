@@ -61,27 +61,29 @@ plot("histogram", Tags, Opts) ->
 
     TagData = ebench:read_tags(Tags, ebench:benchmarks(Opts)),
 
+    Titles = [T || {T, _, _} <- TagData],
+
     {ok, D, TmpName} = ebench:opentmp(),
 
     io:format(D, "Benchmarks", []),
-    [io:format(D, " ~s ~s-min ~s-max", [Tag, Tag, Tag]) || Tag <- Tags],
+    [io:format(D, " ~s ~s-min ~s-max", [Tag, Tag, Tag]) || Tag <- Titles],
     io:format(D, "~n", []),
 
     ebench:tdforeach(
-      fun(Class, BM, Data) ->
+      fun(Class, {BM, _, _}, Data) ->
               io:format(D, "~s/~s",[Class, BM]),
               [io:format(D, " ~f ~f ~f",[eministat_ds:median(DS),
                                          eministat_ds:min(DS),
                                          eministat_ds:max(DS)])
                || {_, DS} <- Data],
               io:format(D, "~n", [])
-      end, TagData, Tags),
+      end, TagData, Titles),
 
     file:close(D),
     Cmd = ["gnuplot -e \""
            "data='", TmpName, "';"
            "out='", maps:get(output, Opts), "';"
-           "tags=",integer_to_list(length(Tags)),
+           "tags=",integer_to_list(length(Titles)),
            "\" gnuplot_scripts/multitag_histo.gnuplot"],
     case os:cmd(Cmd) of
         [] ->

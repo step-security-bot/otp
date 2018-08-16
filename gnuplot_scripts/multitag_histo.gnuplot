@@ -13,7 +13,7 @@ set grid ytics
 set boxwidth 0.9 absolute
 set style fill solid 1.00 border -1
 set xtics nomirror rotate by -45
-set yrange [0:1.5<*<3]
+set yrange [0:1.5<*<5]
 set style histogram errorbars gap 1 lw -1
 
 plot for [i=0:tags-1] "<awk -f gnuplot_scripts/calc_average.awk ".data \
