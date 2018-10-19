@@ -149,7 +149,7 @@ static int adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static void sweep_off_heap(Process *p, int fullsweep);
-static void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
+void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 			   Eterm* objv, int nobj);
@@ -2995,7 +2995,7 @@ sweep_off_heap(Process *p, int fullsweep)
  * Offset pointers into the heap (not stack).
  */
 
-static void 
+void
 offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 {
     while (sz--) {
