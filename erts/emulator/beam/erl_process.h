@@ -70,6 +70,8 @@ typedef struct process Process;
 #include "hipe_process.h"
 #endif
 
+#include "zstd.h"
+
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_thr_progress.h"
@@ -677,6 +679,17 @@ struct ErtsSchedulerData_ {
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
 #endif
+
+    struct {
+        struct {
+            ZSTD_CCtx* ctx;
+            ZSTD_CDict* dict;
+        } c;
+        struct {
+            ZSTD_DCtx* ctx;
+            ZSTD_DDict* dict;
+        } d;
+    } zstd;
 };
 
 typedef union {

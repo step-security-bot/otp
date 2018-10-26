@@ -3028,7 +3028,8 @@ static Uint db_size_dbterm_comp(DbTableCommon* tb, Eterm obj, struct db_term_com
                 if (meta->term_sz[i-1] > max_size)
                     max_size = meta->term_sz[i-1];
                 meta->tot_term_sz += meta->term_sz[i-1];
-                size += LZ4_compressBound(meta->term_sz[i-1] * sizeof(Eterm));
+                size += ZSTD_compressBound(meta->term_sz[i-1] * sizeof(Eterm));
+//                size += LZ4_compressBound(meta->term_sz[i-1] * sizeof(Eterm));
             }
         }
     }
@@ -3061,6 +3062,7 @@ static ERTS_INLINE int elemislist(Eterm* tpl, Uint ix)
 static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
 			  Uint alloc_size, struct db_term_comp *meta)
 {
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     ErlOffHeap tmp_offheap;
     Eterm* src = tuple_val(obj);
     Eterm* tpl = dest->tpl;
@@ -3102,9 +3104,25 @@ static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
                 /*     if ((j % 8) == 7) */
                 /*         fprintf(stderr," "); */
                 /* } */
-                res = LZ4_compress((char*)meta->tmp_heap,
+                if (0) {
+                    char buff[255];
+                    FILE *file;
+                    erts_sprintf(buff, "/tmp/dict/%T_%ld_%d.dict",tb->the_name,
+                                 erts_atomic_read_nob(&tb->nitems));
+                    file = fopen(buff,"w+");
+                    fwrite((char*)meta->tmp_heap, meta->term_sz[i-1] * sizeof(Eterm), 1, file);
+                    fclose(file);
+                }
+                res = ZSTD_compress_usingCDict(esdp->zstd.c.ctx,
+                                               (char*)top.cp,
+                                               alloc_size,
+                                               (char*)meta->tmp_heap,
+                                               meta->term_sz[i-1] * sizeof(Eterm),
+                                               esdp->zstd.c.dict);
+                                         
+/*                res = LZ4_compress((char*)meta->tmp_heap,
                                    (char*)top.cp,
-                                   meta->term_sz[i-1] * sizeof(Eterm));
+                                   meta->term_sz[i-1] * sizeof(Eterm));*/
 
 //                fprintf(stderr,"Compressed %d to %d\r\n", meta->term_sz[i-1] * sizeof(Eterm), res);
 
@@ -3284,6 +3302,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 			     ErlOffHeap* off_heap)
 {
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     Eterm* hp = *hpp;
     int i, arity = arityval(bp->tpl[0]);
     ErtsHeapFactory factory;
@@ -3317,8 +3336,14 @@ Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
                         fprintf(stderr," ");
                 }
                 */
-                res = LZ4_decompress_fast(elem2ext(bp->tpl, i), (char*)term_hp,
-                                          sz * sizeof(Eterm));
+
+                res = ZSTD_decompress_usingDDict(esdp->zstd.d.ctx,
+                                                 term_hp, bp->size,
+                                                 elem2ext(bp->tpl, i),
+                                                 sz * sizeof(Eterm),
+                                                 esdp->zstd.d.dict);
+                /* res = LZ4_decompress_fast(elem2ext(bp->tpl, i), (char*)term_hp, */
+                /*                           sz * sizeof(Eterm)); */
 /*
                 offset_heap(term_hp, sz, (Sint)(term_hp - (Eterm*)bp->tpl[1 + arity + 1]),
                             (char*)(bp->tpl[1 + arity + 1]), sz * sizeof(Eterm));

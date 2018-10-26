@@ -741,6 +741,8 @@ release_process(void *vproc)
 {
     erts_proc_dec_refc((Process *) vproc);
 }
+void *ets_zstd_dictbuffer = NULL;
+size_t ets_zstd_dictbuffer_size = 0;
 
 /* initialize the scheduler */
 void
@@ -764,6 +766,17 @@ erts_init_process(int ncpu, int proc_tab_size, int legacy_proc_tab)
 
     last_reductions = 0;
     last_exact_reductions = 0;
+
+    {
+        struct stat info;
+        FILE *file;
+        if (stat("ets.dict", &info) == 0) {
+            ets_zstd_dictbuffer = malloc(info.st_size);
+            ets_zstd_dictbuffer_size = info.st_size;
+            file = fopen("ets.dict", "r");
+            fread(ets_zstd_dictbuffer, ets_zstd_dictbuffer_size, 1, file);
+        }
+    }
 }
 
 void
@@ -5698,6 +5711,13 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     esdp->current_process = NULL;
     esdp->current_port = NULL;
     esdp->current_nif = NULL;
+
+    ASSERT(ets_zstd_dictbuffer);
+    esdp->zstd.c.ctx = ZSTD_createCCtx();
+    /* 3 is the default compression */
+    esdp->zstd.c.dict = ZSTD_createCDict(ets_zstd_dictbuffer, ets_zstd_dictbuffer_size, 1);
+    esdp->zstd.d.ctx = ZSTD_createDCtx();
+    esdp->zstd.d.dict = ZSTD_createDDict(ets_zstd_dictbuffer, ets_zstd_dictbuffer_size);
 
     esdp->virtual_reds = 0;
     esdp->cpu_id = -1;
