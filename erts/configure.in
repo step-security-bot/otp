@@ -330,15 +330,15 @@ AS_HELP_STRING([--disable-lto], [disable using Link-time Optimizations]),
 
 case "$enable_lto" in
      yes|check)
+        AC_CHECK_PROG(GCC_AR,gcc-ar,yes)
+        AC_CHECK_PROG(GCC_RANLIB,gcc-ranlib,yes)
         AC_MSG_CHECKING([for lto support])
         saved_CFLAGS=$CFLAGS
         saved_LDFLAGS=$LDFLAGS
         CFLAGS="-flto $CFLAGS"
         LDFLAGS="-flto -O3 -g $LDFLAGS"
         AC_TRY_COMPILE([],[;], has_lto=yes)
-        AC_CHECK_PROG(GCC_AR,gcc-ar,yes)
-        AC_CHECK_PROG(GCC_RANLIB,gcc-ranlib,yes)
-        case "$enable_lto-$has_to-$GCC_AR-$GCC_RANLIB" in
+        case "$enable_lto-$has_lto-$GCC_AR-$GCC_RANLIB" in
              *-yes-yes-yes)
                 AC_MSG_RESULT([yes])
                 saved_CFLAGS="-flto $CFLAGS"
@@ -803,7 +803,7 @@ dnl some tests below will call this if we haven't already - and autoconf
 dnl can't handle those tests being done conditionally at runtime
 AC_PROG_CPP
 
-AC_CHECK_TOOL([RANLIB], [gcc-ranlib ranlib], [false])
+AC_CHECK_TOOLS([RANLIB], [gcc-ranlib ranlib], [false])
 if test "$ac_cv_prog_RANLIB" = false; then
   AC_MSG_ERROR([No 'ranlib' command found in PATH])
 fi
@@ -816,7 +816,7 @@ fi
 AC_PROG_LN_S
 
 
-AC_CHECK_TOOL([AR], [gcc-ar ar], [false])
+AC_CHECK_TOOLS([AR], [gcc-ar ar], [false])
 if test "$ac_cv_prog_AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
