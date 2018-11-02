@@ -43,12 +43,15 @@
 #  if defined(__GNUC__)
 #    define ERTS_CAN_INLINE 1
 #    define ERTS_INLINE __inline__
+#    define ERTS_NOINLINE __attribute__((noinline))
 #  elif defined(__WIN32__)
 #    define ERTS_CAN_INLINE 1
 #    define ERTS_INLINE __inline
+#    define ERTS_NOINLINE
 #  else
 #    define ERTS_CAN_INLINE 0
 #    define ERTS_INLINE
+#    define ERTS_NOINLINE
 #  endif
 #endif
 

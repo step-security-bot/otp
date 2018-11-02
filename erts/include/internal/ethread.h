@@ -517,7 +517,7 @@ int ethr_tsd_set(ethr_tsd_key, void *);
 void *ethr_tsd_get(ethr_tsd_key);
 
 void *ethr_get_stacklimit(void);
-int ethr_set_stacklimit(void *limit);
+int ETHR_NOINLINE ethr_set_stacklimit(void *limit);
 
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
 #include <signal.h>

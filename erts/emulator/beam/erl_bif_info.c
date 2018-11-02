@@ -4380,7 +4380,7 @@ static erts_atomic_t hipe_test_reschedule_flag;
 
 #if defined(VALGRIND) && defined(__GNUC__)
 /* Force noinline for valgrind suppression */
-static void broken_halt_test(Eterm bif_arg_2) __attribute__((noinline));
+static void broken_halt_test(Eterm bif_arg_2) ERTS_NOINLINE;
 #endif
 
 static void broken_halt_test(Eterm bif_arg_2)

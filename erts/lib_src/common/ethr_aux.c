@@ -338,7 +338,7 @@ int ethr_set_stacklimit(void *limit)
 
 /* internal stacklimit (thread creation) */
 
-void
+void ETHR_NOINLINE
 ethr_set_stacklimit__(char *prev_c, size_t stacksize)
 {
     /*

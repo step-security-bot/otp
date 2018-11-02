@@ -4807,19 +4807,19 @@ erts_calc_stacklimit(char *prev_c, UWord stacksize)
  * inlining.
  */
 
-int
+int ETHR_NOINLINE
 erts_check_below_limit(char *ptr, char *limit)
 {
     return ptr < limit;
 }
 
-int
+int ETHR_NOINLINE
 erts_check_above_limit(char *ptr, char *limit)
 {
     return ptr > limit;
 }
 
-void *
+void *ETHR_NOINLINE
 erts_ptr_id(void *ptr)
 {
     return ptr;
