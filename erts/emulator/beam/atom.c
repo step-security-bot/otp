@@ -108,7 +108,7 @@ more_atom_space(void)
 static byte*
 atom_text_alloc(int bytes)
 {
-    byte *res;
+    byte *res, p;
 
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
     if (atom_text_pos + bytes >= atom_text_end) {

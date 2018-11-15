@@ -1,9 +1,19 @@
 FROM erlang/ubuntu-build:64bit
 
+ARG MAKEFLAGS=-j4
+ARG ERL_TOP=/buildroot/otp_src
+
+ENV MAKEFLAGS=$MAKEFLAGS
+ENV ERL_TOP=$ERL_TOP
+
 ADD ./otp.tar.gz /buildroot/
 
-WORKDIR /buildroot/otp/
+WORKDIR /buildroot/otp_src/
 
-ENV MAKEFLAGS -j4
-
-CMD ./scripts/build-otp
+RUN ./otp_build autoconf
+RUN ./otp_build configure --enable-plain-emulator FOP=$ERL_TOP/make/fakefop
+RUN make emulator
+# RUN ./otp_build boot -a
+# RUN ./otp_build release -a
+# RUN make install
+# RUN cd release/$(erts/autoconf/config.guess)/ && ./Install -minimal `pwd`
