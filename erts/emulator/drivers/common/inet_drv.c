@@ -6503,6 +6503,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_OPT_RCVBUF:    type = SO_RCVBUF; 
 	    DEBUGF(("inet_set_opts(%ld): s=%d, SO_RCVBUF=%d\r\n",
 		    (long)desc->port, desc->s, ival));
+            if (desc->bufsz == INET_DEF_BUFFER) {
+                /* make sure we have desc->bufsz >= SO_RCVBUF */
+                if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
+                    /* For UDP we don't want to automatically
+                       set the buffer size to be larger than
+                       the theoretical max MTU */
+                    desc->bufsz = 1 << 16;
+                else if (ival > desc->bufsz)
+                    desc->bufsz = ival;
+            }
 	    break;
 	case INET_OPT_LINGER:    type = SO_LINGER; 
 	    if (len < 4)
@@ -6748,16 +6758,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	DEBUGF(("inet_set_opts(%ld): s=%d returned %d\r\n",
 		(long)desc->port, desc->s, res));
-	if (type == SO_RCVBUF) {
-	    /* make sure we have desc->bufsz >= SO_RCVBUF */
-            if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
-                /* For UDP we don't want to automatically
-                   set the buffer size to be larger than
-                   the theoretical max MTU */
-                desc->bufsz = 1 << 16;
-	    else if (ival > desc->bufsz)
-		desc->bufsz = ival;
-	}
     }
 
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
