@@ -12007,7 +12007,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
         add2runq(enqueue, enq_prio, c_p, state, NULL);
 }
 
-void
+int
 erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
 {
     Process *c_p = ((ErtsProcExitContext *) vctxt)->c_p;
@@ -12167,9 +12167,10 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt)
         erts_monitor_release_both(mdp);
     else if (mon)
         erts_monitor_release(mon);
+    return 1;
 }
 
-void
+int
 erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt)
 {
     Process *c_p = ((ErtsProcExitContext *) vctxt)->c_p;
@@ -12240,6 +12241,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt)
         erts_link_release_both(ldp);
     else if (lnk)
         erts_link_release(lnk);
+    return 1;
 }
 
 /* this function fishishes a process and propagates exit messages - called

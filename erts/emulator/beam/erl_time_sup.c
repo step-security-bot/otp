@@ -1911,7 +1911,7 @@ typedef struct {
     ErtsTimeOffsetMonitorInfo *to_mon_info;
 } ErtsTimeOffsetMonitorContext;
 
-static void
+static int
 save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
 {
     ErtsTimeOffsetMonitorContext *cntxt;
@@ -1935,7 +1935,7 @@ save_time_offset_monitor(ErtsMonitor *mon, void *vcntxt)
 
     cntxt->to_mon_info[mix].ref
 	= make_internal_ref(&cntxt->to_mon_info[mix].heap[0]);
-
+    return 1;
 }
 
 static void

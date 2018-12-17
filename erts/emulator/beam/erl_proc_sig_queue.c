@@ -3590,9 +3590,10 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
 
 
 int
-erts_proc_sig_handle_exit(Process *c_p, int *redsp)
+erts_proc_sig_handle_exit(Process *c_p, Sint *redsp)
 {
-    int cnt, limit;
+    int cnt;
+    Sint limit;
     ErtsMessage *sig, ***next_nm_sig;
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
@@ -4450,8 +4451,8 @@ void
 erts_proc_sig_debug_foreach_sig(Process *c_p,
                                 void (*msg_func)(ErtsMessage *, void *),
                                 void (*oh_func)(ErlOffHeap *, void *),
-                                void (*mon_func)(ErtsMonitor *, void *),
-                                void (*lnk_func)(ErtsLink *, void *),
+                                int (*mon_func)(ErtsMonitor *, void *),
+                                int (*lnk_func)(ErtsLink *, void *),
                                 void *arg)
 {
     ErtsMessage *queue[] = {c_p->sig_qs.first, c_p->sig_qs.cont, c_p->sig_inq.first};

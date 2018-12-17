@@ -100,16 +100,18 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
     dump_binaries(to, to_arg, all_binaries);
 }
 
-static void
+static int
 monitor_size(ErtsMonitor *mon, void *vsize)
 {
     *((Uint *) vsize) += erts_monitor_size(mon);
+    return 1;
 }
 
-static void
+static int
 link_size(ErtsMonitor *lnk, void *vsize)
 {
     *((Uint *) vsize) += erts_link_size(lnk);
+    return 1;
 }
 
 Uint erts_process_memory(Process *p, int include_sigs_in_transit)
