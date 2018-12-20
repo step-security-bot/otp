@@ -3,7 +3,7 @@
 %%% @doc A low overhead nif to trace to file
 %%%
 
--export([start/1, stop/1, parse/1]).
+-export([start/1, start/2, stop/1, parse/1]).
 
 -export([trace/5,
          trace_call/5,
@@ -54,29 +54,50 @@ on_load() ->
     end.
 
 start(Filename) ->
-    TracerRef = do_start([Filename,0]),
-    receive
+    start(Filename, #{ filter => "gzip",
+                       filter_options => [{"compression-level","1"}]}).
+start(Filename, Opts) ->
+    case open_archive(add_zero(Filename), add_zero(Opts)) of
+        {error, Reason} ->
+            {error, Reason};
         TracerRef ->
-            TracerRef
+            TracerRef = start_tracer(TracerRef),
+            receive
+                {started, TracerRef} ->
+                    TracerRef
+            end
     end.
 
-do_start(_Filename) ->
+add_zero(Map) when is_map(Map) ->
+    maps:map(fun(_Key, Val) -> add_zero(Val) end, Map);
+add_zero([{Key, Val} | T]) ->
+    [{add_zero(Key), add_zero(Val)} | add_zero(T)];
+add_zero([]) -> [];
+add_zero(String) when is_list(String) ->
+    [String,0];
+add_zero(Atom) when is_atom(Atom) ->
+    Atom.
+
+open_archive(_Filename, _Options) ->
+    erlang:nif_error(nif_not_loaded).
+
+start_tracer(_Ref) ->
     erlang:nif_error(nif_not_loaded).
 
 stop(TracerRef) ->
-    TracerRef = do_stop(TracerRef),
+    TracerRef = stop_tracer(TracerRef),
     receive
-        TracerRef ->
-            write_metadata(TracerRef)
+        {stopped, TracerRef} ->
+            close_archive(TracerRef)
     end.
 
-do_stop(_TracerRef) ->
+stop_tracer(_TracerRef) ->
     erlang:nif_error(nif_not_loaded).
 
-write_metadata(Archive) ->
+close_archive(Archive) ->
     Endian = endianess(),
     Atoms = erlang:system_info(atoms),
-    do_write_metadata(Archive, Endian, Atoms).
+    close_archive(Archive, Endian, Atoms).
 
 endianess() ->
     case <<32:32/native>> of
@@ -86,7 +107,7 @@ endianess() ->
             little
     end.
 
-do_write_metadata(_Archive, _Endian, _Atoms) ->
+close_archive(_Archive, _Endian, _Atoms) ->
     erlang:nif_error(nif_not_loaded).
 
 -define(TRACE_CALL,1).
