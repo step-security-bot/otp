@@ -177,7 +177,7 @@ parse_atoms(<<0:64/native,_/binary>>) ->
     [];
 parse_atoms(<<>>) ->
     [];
-parse_atoms(<<Tag:64/native, Sz:16/native, Str:Sz/binary, Rest/binary>>) ->
+parse_atoms(<<Tag:64/native, Sz:64/native, Str:Sz/binary, Rest/binary>>) ->
     [{Tag, list_to_atom(binary_to_list(Str))} | parse_atoms(Rest)].
 
 make_mfa(M,F,A,Atoms) ->

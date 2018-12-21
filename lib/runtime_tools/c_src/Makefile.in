@@ -37,8 +37,8 @@ CC = $(DED_CC)
 LD = $(DED_LD)
 SHELL = /bin/sh
 LIBS = $(DED_LIBS) -larchive
-LDFLAGS += $(DED_LDFLAGS)
-CFLAGS = $(DED_CFLAGS)
+LDFLAGS += $(DED_LDFLAGS) -L/usr/local/opt/libarchive/lib
+CFLAGS = $(DED_CFLAGS) -I/usr/local/opt/libarchive/include
 
 INCLUDES = $(DED_INCLUDES)
 
@@ -55,7 +55,7 @@ TYPE_FLAGS = $(CFLAGS)
 endif
 endif
 
-ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
+ALL_CFLAGS = @DEFS@ $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
 
 ROOTDIR = $(ERL_TOP)/lib
 PRIVDIR = ../priv

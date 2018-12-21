@@ -154,16 +154,19 @@ typedef struct entry {
     } u;
 } TraceEntry;
 
+typedef struct tracer Tracer;
+
 typedef struct trace_queue {
     volatile ErlNifUInt64 head;
     volatile ErlNifUInt64 tail;
     ErlNifUInt64 dropped;
+    Tracer *tracer;
     char *__align[64 - sizeof(ErlNifUInt64) * 4];
     TraceEntry q[QUEUE_SIZE];
     char *__align2[64 - ((sizeof(TraceEntry) * QUEUE_SIZE) % 64)];
 } TraceQueue;
 
-typedef struct tracer {
+struct tracer {
     ErlDrvCond *cond;
     ErlDrvMutex *mtx;
     ErlNifTid tid;
@@ -175,7 +178,9 @@ typedef struct tracer {
     ErlNifEnv *env;
     ErlNifPid pid;
     ERL_NIF_TERM ref;
-} Tracer;
+};
+
+static ErlNifTSDKey q_tsd_key;
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -198,6 +203,7 @@ ATOMS
     memset(&st, 0, sizeof(st));
     st.st_mode = S_IFREG;
     st.st_size = sizeof(TraceEntry) * QUEUE_SIZE;
+    enif_tsd_key_create("trace_file_nif_tsd", &q_tsd_key);
 
     return 0;
 }
@@ -367,6 +373,8 @@ badarg:
 static ERL_NIF_TERM start_tracer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     Tracer *tracer;
+    int i;
+
     if (!enif_get_resource(env, argv[0], tracer_resource, (void**)&tracer))
         return enif_make_badarg(env);
 
@@ -375,6 +383,8 @@ static ERL_NIF_TERM start_tracer(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     tracer->cond = erl_drv_cond_create("trace_file_nif_cond");
     tracer->mtx = erl_drv_mutex_create("trace_file_nif_mtx");
+    for (i = 0; i < sys_info.scheduler_threads; i++)
+        tracer->q[i].tracer = tracer;
 
     enif_self(env, &tracer->pid);
 
@@ -411,16 +421,18 @@ static ERL_NIF_TERM close_archive(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         !enif_get_list_cell(env, argv[2], &hd, &tl))
         return enif_make_badarg(env);
 
+    erl_drv_mutex_lock(tracer->mtx);
+
     /* Write info about layout of TraceEntry struct */
-    entry = archive_entry_new();
-    archive_entry_copy_stat(entry, &st);
-    archive_entry_set_pathname(entry, "meta");
-    archive_write_header(tracer->a, entry);
+//    entry = archive_entry_new();
+//    archive_entry_copy_stat(entry, &st);
+//    archive_entry_set_pathname(entry, "meta");
+//    archive_write_header(tracer->a, entry);
 
 //    archive_write_int(tracer->a, "ERL_NIF_TERM", sizeof(ERL_NIF_TERM));
 //    archive_write_int(tracer->a, "ERL_NIF_TERM", sizeof(ERL_NIF_TERM));
 
-    archive_entry_free(entry);
+//    archive_entry_free(entry);
 
     /* Dump all atoms */
     entry = archive_entry_new();
@@ -428,19 +440,22 @@ static ERL_NIF_TERM close_archive(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     archive_entry_set_pathname(entry, "atoms");
     archive_write_header(tracer->a, entry);
 
-    while (!enif_is_empty_list(env, hd)) {
+    do {
         if (enif_get_atom(env, hd, atom_buf, sizeof(atom_buf), ERL_NIF_LATIN1)) {
             ErlNifUInt64 len = strlen(atom_buf);
             archive_write_data(tracer->a, &hd, sizeof(hd));
             archive_write_data(tracer->a, &len, sizeof(len));
             archive_write_data(tracer->a, atom_buf, len);
         }
-        enif_get_list_cell(env, tl, &hd, &tl);
-    }
+    } while(enif_get_list_cell(env, tl, &hd, &tl));
 
     archive_entry_free(entry);
 
     archive_write_free(tracer->a);
+
+    tracer->a = NULL;
+
+    erl_drv_mutex_unlock(tracer->mtx);
 
     return enif_make_atom(env, "ok");
 }
@@ -458,12 +473,16 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM check_queue(ErlNifEnv* env, ERL_NIF_TERM tracer_term) {
     Uint scheduler_id = erts_get_scheduler_data()->no - 1;
     Tracer *tracer;
+    TraceQueue *q = enif_tsd_get(q_tsd_key);
+    if (!q) {
+        if (!enif_get_resource(env, tracer_term, tracer_resource, (void**)&tracer))
+            return atom_discard;
+        q = &tracer->q[scheduler_id];
+        enif_tsd_set(q_tsd_key, q);
+    }
 
-    if (!enif_get_resource(env, tracer_term, tracer_resource, (void**)&tracer))
-        return atom_discard;
-
-    if (tracer->q[scheduler_id].tail - tracer->q[scheduler_id].head == QUEUE_SIZE) {
-        tracer->q[scheduler_id].dropped++;
+    if (q->tail - q->head == QUEUE_SIZE) {
+        q->dropped++;
         return atom_discard;
     }
     return atom_trace;
@@ -496,15 +515,17 @@ static ERL_NIF_TERM enabled_garbage_collection(ErlNifEnv* env, int argc, const E
 
 static void enqueue(ErlNifEnv* env, ERL_NIF_TERM tracer_term,
                     TraceType type, ERL_NIF_TERM pid, const ERL_NIF_TERM *mfa) {
-    Uint scheduler_id = erts_get_scheduler_data()->no - 1;
     TraceEntry *te;
-    Tracer *tracer;
-    TraceQueue *q;
+    TraceQueue *q = enif_tsd_get(q_tsd_key);
 
-    if (!enif_get_resource(env, tracer_term, tracer_resource, (void**)&tracer))
-        return;
-
-    q = &tracer->q[scheduler_id];
+    if (!q) {
+        Uint scheduler_id = erts_get_scheduler_data()->no - 1;
+        Tracer *tracer;
+        if (!enif_get_resource(env, tracer_term, tracer_resource, (void**)&tracer))
+            return;
+        q = &tracer->q[scheduler_id];
+        enif_tsd_set(q_tsd_key, q);
+    }
 
     if (q->dropped) {
         te = q->q+(q->tail % QUEUE_SIZE);
@@ -527,7 +548,7 @@ static void enqueue(ErlNifEnv* env, ERL_NIF_TERM tracer_term,
     q->tail++;
 
     if (q->tail % (QUEUE_SIZE / 8)  == 0)
-        erl_drv_cond_signal(tracer->cond);
+        erl_drv_cond_signal(q->tracer->cond);
 }
 
 static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
