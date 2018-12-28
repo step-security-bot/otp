@@ -20,7 +20,7 @@ addons:
       - g++
       - xsltproc
       - libxml2-utils
-      - libarchive
+      - libarchive-dev
 
 matrix:
   include:
@@ -34,7 +34,7 @@ matrix:
             - libncurses-dev
             - build-essential
             - libssl-dev
-            - libarchive
+            - libarchive-dev
       script:
         - ./scripts/build-otp
         - ./scripts/run-dialyzer
