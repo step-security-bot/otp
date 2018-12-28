@@ -129,13 +129,15 @@ parse(Filename) ->
                   ({_, Data}) -> parse_file(Data, Atoms)
                end,
                Files),
-    SEvents = lists:sort(fun(E1,E2) ->
-                                 element(size(E1), E1) < element(size(E2), E2)
-                         end, Events),
+    SEvents =
+        lists:sort(
+          fun(E1,E2) ->
+                  element(tuple_size(E1), E1) < element(tuple_size(E2), E2)
+          end, Events),
     lists:map(fun fix_ts/1, SEvents).
 
 fix_ts(E) ->
-    {Mega, S, Micro, _Nano} = element(size(E), E),
+    {Mega, S, Micro, _Nano} = element(tuple_size(E), E),
     setelement(size(E), E, {Mega, S, Micro}).
 
 parse_file(<<?TRACE_CALL:64/native, Pid:64/native, TS:64/native,
