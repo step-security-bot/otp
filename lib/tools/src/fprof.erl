@@ -2300,7 +2300,10 @@ clock_add(Table, Id, Clock, T) ->
 	    ets:insert(Table, #clocks{id = Id}),
 	    X = ets:update_counter(Table, Id, {Clock, T}),
 	    if X >= 0 -> ok;
-	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p~n",
+	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p,"
+                            "One reason why you may get this is if you "
+                            "use cpu_time. See the warnings in the fprof "
+                            "documentation for more details.~n",
 			  [X, Id, Clock, T])
 	    end,
 	    ok
@@ -2336,7 +2339,10 @@ clocks_sum(#clocks{id = _Id1,
 ts_sub({A, B, C} = _T, {A0, B0, C0} = _T0) ->
     X = ((((A-A0)*1000000) + (B-B0))*1000000) + C - C0,
     if X >= 0 -> ok;
-       true -> ?dbg(9, "Negative counter value ~p ~p ~p~n",
+       true -> ?dbg(9, "Negative counter value ~p ~p ~p, "
+                    "One reason why you may get this is if you "
+                    "use cpu_time. See the warnings in the fprof "
+                    "documentation for more details.~n",
 		    [X, _T, _T0])
     end,
     X;
