@@ -2564,30 +2564,13 @@ load_tracer_nif(const ErtsTracer tracer)
     return tnif;
 }
 
-/*
- * This cache works without any synchronization primitives
- * because we are guaranteed to always read an entire word.
- * We just do a single read in the lookup which will either
- * be NULL or a pointer to a valid ErtsTracerNif.
- * The ErtsTracerNif struct will be valid until after a thread
- * progress, so even if the tracer_hash is cleared the
- * memory will still be available.
- * The actual nif code is kept loaded by the ErtsTracerNif
- * entry keeping a refc on the rt_dtor_cnt.
- */
-static ErtsTracerNif *tnif_cache = NULL;
-
 static ERTS_INLINE ErtsTracerNif *
 lookup_tracer_nif(const ErtsTracer tracer)
 {
     ErtsTracerNif tnif_tmpl;
-    ErtsTracerNif *tnif = tnif_cache;
+    ErtsTracerNif *tnif;
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
-    if (tnif && tnif->module == tnif_tmpl.module)
-        return tnif;
-
     erts_rwmtx_rlock(&tracer_mtx);
-
     if ((tnif = hash_get(tracer_hash, &tnif_tmpl)) == NULL) {
         erts_rwmtx_runlock(&tracer_mtx);
         tnif = load_tracer_nif(tracer);
@@ -2595,7 +2578,6 @@ lookup_tracer_nif(const ErtsTracer tracer)
         return tnif;
     }
     erts_rwmtx_runlock(&tracer_mtx);
-    tnif_cache = tnif;
     ASSERT(tnif->nif_mod);
     return tnif;
 }
@@ -3054,8 +3036,6 @@ int erts_tracer_nif_clear()
         erts_rwmtx_runlock(&tracer_mtx);
         erts_rwmtx_rwlock(&tracer_mtx);
 
-        tnif_cache = NULL;
-
         if (tracer_hash)
             hash_delete(tracer_hash);
 
@@ -3081,19 +3061,16 @@ static HashValue tracer_hash_fun(void* obj)
 
 static void *tracer_alloc_fun(void* tmpl)
 {
-    ErtsTracerNif *tnif = erts_alloc(ERTS_ALC_T_TRACER_NIF,
-                                     sizeof(ErtsTracerNif) +
-                                     sizeof(ErtsThrPrgrLaterOp));
-    sys_memcpy(tnif, tmpl, sizeof(*tnif));
-    erts_nif_funcs_inc(tnif->nif_mod);
-    return tnif;
+    ErtsTracerNif *obj = erts_alloc(ERTS_ALC_T_TRACER_NIF,
+                                    sizeof(ErtsTracerNif) +
+                                    sizeof(ErtsThrPrgrLaterOp));
+    sys_memcpy(obj, tmpl, sizeof(*obj));
+    return obj;
 }
 
 static void tracer_free_fun_cb(void* obj)
 {
-    ErtsTracerNif *tnif = (ErtsTracerNif*)obj;
-    erts_nif_funcs_dec(tnif->nif_mod);
-    erts_free(ERTS_ALC_T_TRACER_NIF, tnif);
+    erts_free(ERTS_ALC_T_TRACER_NIF, obj);
 }
 
 static void tracer_free_fun(void* obj)

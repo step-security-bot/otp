@@ -4425,25 +4425,7 @@ erts_unload_nif(struct erl_module_nif* lib)
 	ASSERT(erts_refc_read(&lib->rt_cnt, 1) > 0);
     }
     lib->mod = NULL;   /* orphan lib */
-}
-
-void
-erts_nif_funcs_dec(struct erl_module_nif* lib)
-{
-    if (erts_refc_dectest(&lib->rt_dtor_cnt, 1) == 0) {
-        close_lib(lib);
-        if (erts_refc_read(&lib->rt_cnt, 0) == 0) {
-	    erts_free(ERTS_ALC_T_NIF, lib);
-	    return;
-	}
-    }
-}
-
-void
-erts_nif_funcs_inc(struct erl_module_nif* lib)
-{
-    erts_refc_inc(&lib->rt_dtor_cnt, 1);
-}
+}	
 
 void erl_nif_init()
 {
