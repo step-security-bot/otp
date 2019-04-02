@@ -96,7 +96,8 @@ run_benchmark(D, Title, Cmd, CmdOpts, Class, {M, F, A} = BM, Opts) ->
 	 tostr(M), tostr(F), io_lib:format("~p",[A]),
          "-s","ebench_runner", "stop", Title, Class, BMStr,
 	 maps:get(stop, Opts)],
-    BMData = parse(CmdLine, spawn_emulator(Cmd, CmdOpts ++ CmdLine)),
+    BMData = parse(string:join([Cmd] ++ CmdOpts ++ CmdLine, " "),
+		   spawn_emulator(Cmd, CmdOpts ++ CmdLine)),
     io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
     {Factor, Unit} = case eministat_ds:mean(BMData) of
                          Mean when Mean > 1000 * 1000 ->
