@@ -92,8 +92,10 @@ run_benchmark(D, Title, Cmd, CmdOpts, Class, {M, F, A} = BM, Opts) ->
         ["-pa", ebench:class_ebin_dir(Class, Opts),
          ebench:class_priv_dir(Class, Opts),
          "-s","ebench_runner", "init", Title, Class, BMStr, maps:get(init, Opts),
-         "-s","ebench_runner", "main", Name, tostr(maps:get(iterations, Opts)) , M, F, io_lib:format("~p",[A]),
-         "-s","ebench_runner", "stop", Title, Class, BMStr, maps:get(stop, Opts)],
+         "-s","ebench_runner", "main", Name, tostr(maps:get(iterations, Opts)),
+	 tostr(M), tostr(F), io_lib:format("~p",[A]),
+         "-s","ebench_runner", "stop", Title, Class, BMStr,
+	 maps:get(stop, Opts)],
     BMData = parse(CmdLine, spawn_emulator(Cmd, CmdOpts ++ CmdLine)),
     io:format(D, "{~p,~p,~p}.~n",[Class, BM, BMData]),
     {Factor, Unit} = case eministat_ds:mean(BMData) of
@@ -160,7 +162,10 @@ keyword_replace([], _, Keyword) ->
 tostr({{YY,MM,DD},{HH,Mi,SS}}) ->
     io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B-~2..0B-~2..0B",[YY,MM,DD,HH,Mi,SS]);
 tostr(Int) when is_integer(Int) ->
-    integer_to_list(Int).
+    integer_to_list(Int);
+tostr(Atom) when is_atom(Atom) ->
+    atom_to_list(Atom).
+
 
 parse(Cmd, String) ->
     try
