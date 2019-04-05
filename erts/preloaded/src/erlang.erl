@@ -2666,6 +2666,7 @@ tuple_to_list(_Tuple) ->
       Alloc :: atom();
          (atom_count) -> pos_integer();
          (atom_limit) -> pos_integer();
+         (atoms) -> [atom()];
          (build_type) -> opt | debug | purify | quantify | purecov |
                          gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};

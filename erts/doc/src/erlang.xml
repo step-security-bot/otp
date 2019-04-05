@@ -7836,6 +7836,7 @@ Metadata = #{ pid => pid(),
            <c>System Information</c></seealso></tag>
           <item>
             <p>
+              <seealso marker="#system_info_atoms"><c>atoms</c></seealso>,
               <seealso marker="#system_info_build_type"><c>build_type</c></seealso>,
               <seealso marker="#system_info_c_compiler_used"><c>c_compiler_used</c></seealso>,
               <seealso marker="#system_info_check_io"><c>check_io</c></seealso>,
@@ -7871,7 +7872,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="3" since=""/>   <!-- {allocator, _} -->
       <name name="system_info" arity="1" clause_i="4" since=""/>   <!-- alloc_util_allocators -->
       <name name="system_info" arity="1" clause_i="5" since=""/>   <!-- {allocator_sizes, _} -->
-      <name name="system_info" arity="1" clause_i="27" since=""/>  <!-- elib_malloc -->
+      <name name="system_info" arity="1" clause_i="28" since=""/>  <!-- elib_malloc -->
       <fsummary>Information about the system allocators.</fsummary>
       <type variable="Allocator" name_i="2"/>
       <type variable="Version" name_i="2"/>
@@ -8022,11 +8023,11 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="12"
+      <name name="system_info" arity="1" clause_i="13"
 	    anchor="system_info_cpu_topology" since=""/>           <!-- cpu_topology -->
-      <name name="system_info" arity="1" clause_i="13" since=""/>  <!-- {cpu_topology, _} -->
-      <name name="system_info" arity="1" clause_i="38" since=""/>  <!-- logical_processors -->
-      <name name="system_info" arity="1" clause_i="74" since="OTP R14B"/>  <!-- update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="14" since=""/>  <!-- {cpu_topology, _} -->
+      <name name="system_info" arity="1" clause_i="39" since=""/>  <!-- logical_processors -->
+      <name name="system_info" arity="1" clause_i="75" since="OTP R14B"/>  <!-- update_cpu_info -->
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -8177,16 +8178,16 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="31"
+      <name name="system_info" arity="1" clause_i="32"
 	    anchor="system_info_process" since=""/>  <!-- fullsweep_after -->
-      <name name="system_info" arity="1" clause_i="32" since=""/>  <!-- garbage_collection -->
-      <name name="system_info" arity="1" clause_i="33" since=""/>  <!-- heap_sizes -->
-      <name name="system_info" arity="1" clause_i="34" since=""/>  <!-- heap_type -->
-      <name name="system_info" arity="1" clause_i="40" since="OTP 19.0"/>  <!-- max_heap_size -->
-      <name name="system_info" arity="1" clause_i="41" since="OTP 19.0"/>  <!-- message_queue_data -->
-      <name name="system_info" arity="1" clause_i="42" since="OTP R13B04"/>  <!-- min_heap_size -->
-      <name name="system_info" arity="1" clause_i="43" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="57" since=""/>  <!-- procs -->
+      <name name="system_info" arity="1" clause_i="33" since=""/>  <!-- garbage_collection -->
+      <name name="system_info" arity="1" clause_i="34" since=""/>  <!-- heap_sizes -->
+      <name name="system_info" arity="1" clause_i="35" since=""/>  <!-- heap_type -->
+      <name name="system_info" arity="1" clause_i="41" since="OTP 19.0"/>  <!-- max_heap_size -->
+      <name name="system_info" arity="1" clause_i="42" since="OTP 19.0"/>  <!-- message_queue_data -->
+      <name name="system_info" arity="1" clause_i="43" since="OTP R13B04"/>  <!-- min_heap_size -->
+      <name name="system_info" arity="1" clause_i="44" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="58" since=""/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
@@ -8298,12 +8299,12 @@ Metadata = #{ pid => pid(),
     <func>
       <name name="system_info" arity="1" clause_i="6" anchor="system_info_limits" since="OTP 20.0"/>   <!-- atom_count -->
       <name name="system_info" arity="1" clause_i="7" since="OTP 20.0"/>   <!-- atom_limit -->
-      <name name="system_info" arity="1" clause_i="29" since="OTP 21.1"/>  <!-- ets_count -->
-      <name name="system_info" arity="1" clause_i="30" since="OTP R16B03"/>  <!-- ets_limit -->
-      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_count -->
-      <name name="system_info" arity="1" clause_i="54" since="OTP R16B"/>  <!-- port_limit -->
-      <name name="system_info" arity="1" clause_i="55" since=""/>  <!-- process_count -->
-      <name name="system_info" arity="1" clause_i="56" since=""/>  <!-- process_limit -->
+      <name name="system_info" arity="1" clause_i="30" since="OTP 21.1"/>  <!-- ets_count -->
+      <name name="system_info" arity="1" clause_i="31" since="OTP R16B03"/>  <!-- ets_limit -->
+      <name name="system_info" arity="1" clause_i="54" since="OTP R16B"/>  <!-- port_count -->
+      <name name="system_info" arity="1" clause_i="55" since="OTP R16B"/>  <!-- port_limit -->
+      <name name="system_info" arity="1" clause_i="56" since=""/>  <!-- process_count -->
+      <name name="system_info" arity="1" clause_i="57" since=""/>  <!-- process_limit -->
       <fsummary>Information about various system limits.</fsummary>
       <desc>
         <marker id="system_info_limits"/>
@@ -8376,15 +8377,15 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="26"
+      <name name="system_info" arity="1" clause_i="27"
 	    anchor="system_info_time" since="OTP 18.0"/>  <!-- end_time -->
-      <name name="system_info" arity="1" clause_i="50" since="OTP 18.0"/>  <!-- os_monotonic_time_source -->
-      <name name="system_info" arity="1" clause_i="51" since="OTP 18.0"/>  <!-- os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="63" since="OTP 18.0"/>  <!-- start_time -->
-      <name name="system_info" arity="1" clause_i="69" since="OTP 18.0"/>  <!-- time_correction -->
-      <name name="system_info" arity="1" clause_i="70" since="OTP 18.0"/>  <!-- time_offset -->
-      <name name="system_info" arity="1" clause_i="71" since="OTP 18.0"/>  <!-- time_warp_mode -->
-      <name name="system_info" arity="1" clause_i="72" since="OTP 17.1"/>  <!-- tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="51" since="OTP 18.0"/>  <!-- os_monotonic_time_source -->
+      <name name="system_info" arity="1" clause_i="52" since="OTP 18.0"/>  <!-- os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="64" since="OTP 18.0"/>  <!-- start_time -->
+      <name name="system_info" arity="1" clause_i="70" since="OTP 18.0"/>  <!-- time_correction -->
+      <name name="system_info" arity="1" clause_i="71" since="OTP 18.0"/>  <!-- time_offset -->
+      <name name="system_info" arity="1" clause_i="72" since="OTP 18.0"/>  <!-- time_warp_mode -->
+      <name name="system_info" arity="1" clause_i="73" since="OTP 17.1"/>  <!-- tolerant_timeofday -->
       <fsummary>Information about system time.</fsummary>
       <desc>
         <marker id="system_info_time_tags"/>
@@ -8604,20 +8605,20 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="17"
+      <name name="system_info" arity="1" clause_i="18"
 	    anchor="system_info_scheduler" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers -->
-      <name name="system_info" arity="1" clause_i="18" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers_online -->
-      <name name="system_info" arity="1" clause_i="19" since="OTP 17.0"/>  <!-- dirty_io_schedulers -->
-      <name name="system_info" arity="1" clause_i="45" since=""/>  <!-- multi_scheduling -->
-      <name name="system_info" arity="1" clause_i="46" since=""/>  <!-- multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="49" since="OTP 19.0"/>  <!-- normal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="58" since=""/>  <!-- scheduler_bind_type -->
-      <name name="system_info" arity="1" clause_i="59" since=""/>  <!-- scheduler_bindings -->
-      <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- scheduler_id -->
-      <name name="system_info" arity="1" clause_i="61" since=""/>  <!-- schedulers -->
-      <name name="system_info" arity="1" clause_i="62" since=""/>  <!-- smp_support -->
-      <name name="system_info" arity="1" clause_i="67" since=""/>  <!-- threads -->
-      <name name="system_info" arity="1" clause_i="68" since=""/>  <!-- thread_pool_size -->
+      <name name="system_info" arity="1" clause_i="19" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers_online -->
+      <name name="system_info" arity="1" clause_i="20" since="OTP 17.0"/>  <!-- dirty_io_schedulers -->
+      <name name="system_info" arity="1" clause_i="46" since=""/>  <!-- multi_scheduling -->
+      <name name="system_info" arity="1" clause_i="47" since=""/>  <!-- multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="50" since="OTP 19.0"/>  <!-- normal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="59" since=""/>  <!-- scheduler_bind_type -->
+      <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- scheduler_bindings -->
+      <name name="system_info" arity="1" clause_i="61" since=""/>  <!-- scheduler_id -->
+      <name name="system_info" arity="1" clause_i="62" since=""/>  <!-- schedulers -->
+      <name name="system_info" arity="1" clause_i="63" since=""/>  <!-- smp_support -->
+      <name name="system_info" arity="1" clause_i="68" since=""/>  <!-- threads -->
+      <name name="system_info" arity="1" clause_i="69" since=""/>  <!-- thread_pool_size -->
       <fsummary>Information about system schedulers.</fsummary>
       <desc>
         <marker id="system_info_scheduler_tags"/>
@@ -8904,12 +8905,12 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="14"
+      <name name="system_info" arity="1" clause_i="15"
 	    anchor="system_info_dist" since=""/>  <!-- creation -->
-      <name name="system_info" arity="1" clause_i="16" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
-      <name name="system_info" arity="1" clause_i="20" since=""/>  <!-- dist -->
-      <name name="system_info" arity="1" clause_i="21" since="OTP R14B01"/>  <!-- dist_buf_busy_limit -->
-      <name name="system_info" arity="1" clause_i="22" since=""/>  <!-- dist_ctrl -->
+      <name name="system_info" arity="1" clause_i="17" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
+      <name name="system_info" arity="1" clause_i="21" since=""/>  <!-- dist -->
+      <name name="system_info" arity="1" clause_i="22" since="OTP R14B01"/>  <!-- dist_buf_busy_limit -->
+      <name name="system_info" arity="1" clause_i="23" since=""/>  <!-- dist_ctrl -->
       <fsummary>Information about erlang distribution.</fsummary>
       <desc>
         <marker id="system_info_dist_tags"/>
@@ -8983,82 +8984,89 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="6"/>   atom_count -->
       <!-- <name name="system_info" arity="1" clause_i="7"/>   atom_limit -->
       <name name="system_info" arity="1" clause_i="8"
-	    anchor="system_info_misc" since="OTP R14B"/>   <!-- build_type -->
-      <name name="system_info" arity="1" clause_i="9" since=""/>   <!-- c_compiler_used -->
-      <name name="system_info" arity="1" clause_i="10" since=""/>  <!-- check_io -->
-      <name name="system_info" arity="1" clause_i="11" since=""/>  <!-- compat_rel -->
-      <!-- <name name="system_info" arity="1" clause_i="12"/>  cpu_topology -->
-      <!-- <name name="system_info" arity="1" clause_i="13"/>  {cpu_topology, _} -->
-      <!-- <name name="system_info" arity="1" clause_i="14"/>  creation -->
-      <name name="system_info" arity="1" clause_i="15" since=""/>  <!-- debug_compiled -->
-      <!-- <name name="system_info" arity="1" clause_i="16"/>  delayed_node_table_gc -->
-      <!-- <name name="system_info" arity="1" clause_i="17"/>  dirty_cpu_schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="18"/>  dirty_cpu_schedulers_online -->
-      <!-- <name name="system_info" arity="1" clause_i="19"/>  dirty_io_schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="20"/>  dist -->
-      <!-- <name name="system_info" arity="1" clause_i="21"/>  dist_buf_busy_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="22"/>  dist_ctrl -->
-      <name name="system_info" arity="1" clause_i="23" since=""/>  <!-- driver_version -->
-      <name name="system_info" arity="1" clause_i="24" since="OTP R15B01"/>  <!-- dynamic_trace -->
-      <name name="system_info" arity="1" clause_i="25" since="OTP R15B01"/>  <!-- dynamic_trace_probes -->
-      <!-- <name name="system_info" arity="1" clause_i="26"/>  end_time -->
-      <!-- <name name="system_info" arity="1" clause_i="27"/>  elib_malloc -->
-      <!-- <name name="system_info" arity="1" clause_i="28"/>  eager_check_io, removed -->
-      <!-- <name name="system_info" arity="1" clause_i="29"/>  ets_count -->
-      <!-- <name name="system_info" arity="1" clause_i="30"/>  ets_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="31"/>  fullsweep_after -->
-      <!-- <name name="system_info" arity="1" clause_i="32"/>  garbage_collection -->
-      <!-- <name name="system_info" arity="1" clause_i="33"/>  heap_sizes -->
-      <!-- <name name="system_info" arity="1" clause_i="34"/>  heap_type -->
-      <name name="system_info" arity="1" clause_i="35" since=""/>  <!-- info -->
-      <name name="system_info" arity="1" clause_i="36" since=""/>  <!-- kernel_poll -->
-      <name name="system_info" arity="1" clause_i="37" since=""/>  <!-- loaded -->
-      <!-- <name name="system_info" arity="1" clause_i="38"/>  logical_processors -->
-      <name name="system_info" arity="1" clause_i="39" since=""/>  <!-- machine -->
-      <!-- <name name="system_info" arity="1" clause_i="40"/>  max_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="41"/>  message_queue_data -->
-      <!-- <name name="system_info" arity="1" clause_i="42"/>  min_heap_size -->
-      <!-- <name name="system_info" arity="1" clause_i="43"/>  min_bin_vheap_size -->
-      <name name="system_info" arity="1" clause_i="44" since=""/>  <!-- modified_timing_level -->
-      <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling -->
-      <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="47" since="OTP 17.4"/>  <!-- nif_version -->
-      <!-- n<name name="system_info" arity="1" clause_i="48"/>  ormal_multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="49" since=""/>  <!-- otp_release -->
-      <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
-      <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="52" since="OTP R16B"/>  <!-- port_parallelism -->
-      <!-- <name name="system_info" arity="1" clause_i="53"/>  port_count -->
-      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="55"/>  process_count -->
-      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_limit -->
-      <!-- <name name="system_info" arity="1" clause_i="57"/>  procs -->
-      <!-- <name name="system_info" arity="1" clause_i="58"/>  scheduler_bind_type -->
-      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bindings -->
-      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_id -->
-      <!-- <name name="system_info" arity="1" clause_i="61"/>  schedulers -->
-      <!-- <name name="system_info" arity="1" clause_i="62"/>  smp_support -->
-      <!-- <name name="system_info" arity="1" clause_i="63"/>  start_time -->
-      <name name="system_info" arity="1" clause_i="64" since=""/>  <!-- system_architecture -->
-      <name name="system_info" arity="1" clause_i="65" since="OTP 21.3"/>  <!-- system_logger -->
-      <name name="system_info" arity="1" clause_i="66" since=""/>  <!-- system_version -->
-      <!-- <name name="system_info" arity="1" clause_i="67"/>  threads -->
-      <!-- <name name="system_info" arity="1" clause_i="68"/>  thread_pool_size -->
-      <!-- <name name="system_info" arity="1" clause_i="69"/>  time_correction -->
-      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_offset -->
-      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_warp_mode -->
-      <!-- <name name="system_info" arity="1" clause_i="72"/>  tolerant_timeofday -->
-      <name name="system_info" arity="1" clause_i="73" since=""/>  <!-- trace_control_word -->
-      <!-- <name name="system_info" arity="1" clause_i="74"/>  update_cpu_info -->
-      <name name="system_info" arity="1" clause_i="75" since=""/>  <!-- version -->
-      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="77"/>  overview -->
+	    anchor="system_info_misc" since="OTP @OTP-something@"/>   <!-- atoms -->
+      <name name="system_info" arity="1" clause_i="9" since="OTP R14B"/>   <!-- build_type -->
+      <name name="system_info" arity="1" clause_i="10" since=""/>   <!-- c_compiler_used -->
+      <name name="system_info" arity="1" clause_i="11" since=""/>  <!-- check_io -->
+      <name name="system_info" arity="1" clause_i="12" since=""/>  <!-- compat_rel -->
+      <!-- <name name="system_info" arity="1" clause_i="13"/>  cpu_topology -->
+      <!-- <name name="system_info" arity="1" clause_i="14"/>  {cpu_topology, _} -->
+      <!-- <name name="system_info" arity="1" clause_i="15"/>  creation -->
+      <name name="system_info" arity="1" clause_i="16" since=""/>  <!-- debug_compiled -->
+      <!-- <name name="system_info" arity="1" clause_i="17"/>  delayed_node_table_gc -->
+      <!-- <name name="system_info" arity="1" clause_i="18"/>  dirty_cpu_schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="19"/>  dirty_cpu_schedulers_online -->
+      <!-- <name name="system_info" arity="1" clause_i="20"/>  dirty_io_schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="21"/>  dist -->
+      <!-- <name name="system_info" arity="1" clause_i="22"/>  dist_buf_busy_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="23"/>  dist_ctrl -->
+      <name name="system_info" arity="1" clause_i="24" since=""/>  <!-- driver_version -->
+      <name name="system_info" arity="1" clause_i="25" since="OTP R15B01"/>  <!-- dynamic_trace -->
+      <name name="system_info" arity="1" clause_i="26" since="OTP R15B01"/>  <!-- dynamic_trace_probes -->
+      <!-- <name name="system_info" arity="1" clause_i="27"/>  end_time -->
+      <!-- <name name="system_info" arity="1" clause_i="28"/>  elib_malloc -->
+      <!-- <name name="system_info" arity="1" clause_i="29"/>  eager_check_io, removed -->
+      <!-- <name name="system_info" arity="1" clause_i="30"/>  ets_count -->
+      <!-- <name name="system_info" arity="1" clause_i="31"/>  ets_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="32"/>  fullsweep_after -->
+      <!-- <name name="system_info" arity="1" clause_i="33"/>  garbage_collection -->
+      <!-- <name name="system_info" arity="1" clause_i="34"/>  heap_sizes -->
+      <!-- <name name="system_info" arity="1" clause_i="35"/>  heap_type -->
+      <name name="system_info" arity="1" clause_i="36" since=""/>  <!-- info -->
+      <name name="system_info" arity="1" clause_i="37" since=""/>  <!-- kernel_poll -->
+      <name name="system_info" arity="1" clause_i="38" since=""/>  <!-- loaded -->
+      <!-- <name name="system_info" arity="1" clause_i="39"/>  logical_processors -->
+      <name name="system_info" arity="1" clause_i="40" since=""/>  <!-- machine -->
+      <!-- <name name="system_info" arity="1" clause_i="41"/>  max_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="42"/>  message_queue_data -->
+      <!-- <name name="system_info" arity="1" clause_i="43"/>  min_heap_size -->
+      <!-- <name name="system_info" arity="1" clause_i="44"/>  min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="45" since=""/>  <!-- modified_timing_level -->
+      <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling -->
+      <!-- <name name="system_info" arity="1" clause_i="47"/>  multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="48" since="OTP 17.4"/>  <!-- nif_version -->
+      <!-- n<name name="system_info" arity="1" clause_i="49"/>  ormal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="50" since=""/>  <!-- otp_release -->
+      <!-- <name name="system_info" arity="1" clause_i="51"/>  os_monotonic_time_source -->
+      <!-- <name name="system_info" arity="1" clause_i="52"/>  os_system_time_source -->
+      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_parallelism -->
+      <!-- <name name="system_info" arity="1" clause_i="54"/>  port_count -->
+      <!-- <name name="system_info" arity="1" clause_i="55"/>  port_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="56"/>  process_count -->
+      <!-- <name name="system_info" arity="1" clause_i="57"/>  process_limit -->
+      <!-- <name name="system_info" arity="1" clause_i="58"/>  procs -->
+      <!-- <name name="system_info" arity="1" clause_i="59"/>  scheduler_bind_type -->
+      <!-- <name name="system_info" arity="1" clause_i="60"/>  scheduler_bindings -->
+      <!-- <name name="system_info" arity="1" clause_i="61"/>  scheduler_id -->
+      <!-- <name name="system_info" arity="1" clause_i="62"/>  schedulers -->
+      <!-- <name name="system_info" arity="1" clause_i="63"/>  smp_support -->
+      <!-- <name name="system_info" arity="1" clause_i="64"/>  start_time -->
+      <name name="system_info" arity="1" clause_i="65" since=""/>  <!-- system_architecture -->
+      <name name="system_info" arity="1" clause_i="66" since="OTP 21.3"/>  <!-- system_logger -->
+      <name name="system_info" arity="1" clause_i="67" since=""/>  <!-- system_version -->
+      <!-- <name name="system_info" arity="1" clause_i="68"/>  threads -->
+      <!-- <name name="system_info" arity="1" clause_i="69"/>  thread_pool_size -->
+      <!-- <name name="system_info" arity="1" clause_i="70"/>  time_correction -->
+      <!-- <name name="system_info" arity="1" clause_i="71"/>  time_offset -->
+      <!-- <name name="system_info" arity="1" clause_i="72"/>  time_warp_mode -->
+      <!-- <name name="system_info" arity="1" clause_i="73"/>  tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="74" since=""/>  <!-- trace_control_word -->
+      <!-- <name name="system_info" arity="1" clause_i="75"/>  update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- version -->
+      <name name="system_info" arity="1" clause_i="77" since=""/>  <!-- wordsize -->
+      <!-- <name name="system_info" arity="1" clause_i="78"/>  overview -->
       <fsummary>Information about the system.</fsummary>
       <desc>
         <marker id="system_info_misc_tags"/>
         <p>Returns various information about the current system
           (emulator) as specified by <c><anno>Item</anno></c>:</p>
         <taglist>
+          <tag><marker id="system_info_atoms"/>
+            <c>atoms</c></tag>
+          <item>
+            <p>Returns a list containing all atoms currently existing at the
+            local node.</p>
+          </item>
           <tag><marker id="system_info_build_type"/>
             <c>build_type</c></tag>
           <item>

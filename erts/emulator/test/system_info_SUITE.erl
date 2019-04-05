@@ -37,7 +37,7 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
-         ets_count/1, atom_count/1, system_logger/1]).
+         ets_count/1, atom_count/1, atoms/1, system_logger/1]).
 
 -export([init/1, handle_event/2, handle_call/2]).
 
@@ -48,7 +48,7 @@ suite() ->
 all() -> 
     [process_count, system_version, misc_smoke_tests,
      ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
-     system_logger].
+     atoms, system_logger].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -578,6 +578,19 @@ atom_count(Config) when is_list(Config) ->
     Count2 = erlang:system_info(atom_count),
     true = Limit >= Count2,
     true = Count2 > Count1,
+    ok.
+
+
+%% Verify that system_info(atoms) works.
+atoms(Config) when is_list(Config) ->
+    Before = erlang:system_info(atoms),
+    Atom = list_to_atom(integer_to_list(erlang:unique_integer())),
+    After = erlang:system_info(atoms),
+    false = lists:member(Atom, Before),
+    true = lists:member(Atom, After),
+    true = lists:member(true, After),
+    true = lists:member(false, After),
+    true = lists:member(atoms, After),
     ok.
 
 

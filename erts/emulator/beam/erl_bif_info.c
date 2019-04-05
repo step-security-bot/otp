@@ -3149,6 +3149,13 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
     } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
         BIF_RET(erts_get_system_logger());
+    } else if (ERTS_IS_ATOM_STR("atoms", BIF_ARG_1)) {
+        int max = atom_table_size();
+        Eterm *hp = HAlloc(BIF_P, max * 2);
+        Eterm res = NIL;
+        for (i = 0; i < max; i++, hp+=2)
+            res = CONS(hp, make_atom(i), res);
+        BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);
