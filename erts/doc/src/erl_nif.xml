@@ -3041,6 +3041,17 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name since="OTP-@98765@"><ret>ErlNifUint</ret><nametext>enif_scheduler_id(void)</nametext></name>
+        <fsummary>Get the id of the schedulers that the nif is currently running on.</fsummary>
+        <desc>
+          <p>
+            Get the id of the schedulers that the nif is currently running on.
+            If not running on a normal schedulers this function will return 0.
+          </p>
+        </desc>
+    </func>
+
+    <func>
       <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env,
         const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int
         argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM

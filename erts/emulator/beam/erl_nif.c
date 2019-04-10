@@ -3077,6 +3077,12 @@ enif_thread_type(void)
     }
 }
 
+ErlNifUInt
+enif_scheduler_id(void)
+{
+    return erts_get_scheduler_id();
+}
+
 /* Maps */
 
 int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)
