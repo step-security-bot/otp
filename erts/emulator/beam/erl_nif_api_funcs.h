@@ -217,6 +217,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_pid_undefined,(const ErlNifPid* pid));
 
 ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(ErlNifUInt,enif_scheduler_id,(void));
+ERL_NIF_API_FUNC_DECL(ErlNifUInt,enif_os_perf_counter,(void));
+
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!

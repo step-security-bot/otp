@@ -3083,6 +3083,12 @@ enif_scheduler_id(void)
     return erts_get_scheduler_id();
 }
 
+ErlNifUInt
+enif_os_perf_counter(void)
+{
+    return erts_sys_perf_counter();
+}
+
 /* Maps */
 
 int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)

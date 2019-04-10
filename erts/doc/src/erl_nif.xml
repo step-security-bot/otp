@@ -2816,6 +2816,19 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name since="OTP-@98765@"><ret>ErlNifUInt</ret>
+        <nametext>enif_os_perf_counter(void)</nametext>
+      </name>
+      <fsummary>Get the os perf counter</fsummary>
+      <desc>
+        <p>
+          Get the same timestamp as returned by <seealso marker="os#perf_counter/0">
+          os:perf_counter/0</seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
      <name since="OTP 19.0"><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const
        ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext>
      </name>
