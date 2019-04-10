@@ -26,6 +26,7 @@
 
 #ifdef HAVE_ZSTD
 #include <zstd.h>
+
 #endif
 #include <string.h>
 
@@ -403,6 +404,7 @@ static ERL_NIF_TERM close_tracer(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     char atom_buf[255];
     char meta = 0;
     ssize_t atom_sizes = 0;
+    ErlNifUInt64 clock_frequency;
 #ifdef HAVE_ZSTD
     size_t zres;
     ZSTD_inBuffer in;
@@ -410,7 +412,8 @@ static ERL_NIF_TERM close_tracer(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if (!enif_get_resource(env, argv[0], tracer_resource, (void**)&tracer) ||
         !enif_get_atom(env, argv[1], atom_buf, sizeof(atom_buf), ERL_NIF_LATIN1 ) ||
-        !enif_is_list(env, argv[2]))
+        !enif_get_uint64(env, argv[2], &clock_frequency) ||
+        !enif_is_list(env, argv[3]))
         return enif_make_badarg(env);
 
     tl = argv[2];
@@ -478,13 +481,16 @@ static ERL_NIF_TERM close_tracer(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
        that we can parse it correctly and efficiently */
 #ifdef HAVE_ZSTD
     tracer->out.pos = 0;
-    *(long*)(tracer->out.dst+tracer->out.pos) = atom_sizes;
-    tracer->out.pos += sizeof(long);
+    *(ErlNifUInt64*)(tracer->out.dst+tracer->out.pos) = atom_sizes;
+    tracer->out.pos += sizeof(ErlNifUInt64);
+    *(ErlNifUInt64*)(tracer->out.dst+tracer->out.pos) = clock_frequency;
+    tracer->out.pos += sizeof(ErlNifUInt64);
     *(char*)(tracer->out.dst+tracer->out.pos) = meta;
     tracer->out.pos += sizeof(char);
     write_outbuffer(tracer->file, &tracer->out);
 #else
-    fwrite(&atom_sizes, 1, sizeof(long), tracer->file);
+    fwrite(&atom_sizes, 1, sizeof(ErlNifUInt64), tracer->file);
+    fwrite(&clock_frequency, 1, sizeof(ErlNifUInt64), tracer->file);
     fwrite(&meta, 1, sizeof(char), tracer->file);
     fflush(tracer->file);
 #endif
@@ -599,7 +605,7 @@ static void enqueue(ErlNifEnv* env, ERL_NIF_TERM tracer_term,
 
     if (q->dropped) {
         te = q->q+(q->tail & tracer->queue_mask);
-        te->ts = enif_monotonic_time(ERL_NIF_NSEC);
+        te->ts = enif_os_perf_counter();
         te->type = TRACE_DROPPED;
         te->pid = pid;
         te->u.dropped = q->dropped;
@@ -608,7 +614,7 @@ static void enqueue(ErlNifEnv* env, ERL_NIF_TERM tracer_term,
     }
 
     te = q->q+(q->tail & tracer->queue_mask);
-    te->ts = enif_monotonic_time(ERL_NIF_NSEC);
+    te->ts = enif_os_perf_counter();
     te->pid = pid;
     te->type = type;
 
