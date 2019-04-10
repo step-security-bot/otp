@@ -89,7 +89,7 @@ loop(TRef) ->
             flush_tracer(TRef),
             Endian = endianess(),
             Atoms = erlang:system_info(atoms),
-            close_tracer(TRef, Endian, Atoms),
+            close_tracer(TRef, Endian, erlang:convert_time_unit(1, second, perf_counter), Atoms),
             Pid ! Ref
     end.
 
@@ -120,7 +120,7 @@ get_tracer(_TRef) ->
 flush_tracer(_TRef) ->
     erlang:nif_error(nif_not_loaded).
 
-close_tracer(_TracerRef, _Endian, _Atoms) ->
+close_tracer(_TracerRef, _Endian, _ClockFreq, _Atoms) ->
     erlang:nif_error(nif_not_loaded).
 
 uncompress(_Bin) ->
@@ -146,12 +146,14 @@ parse(Filename) ->
     _Endian = if Little =:= 1 -> little;
                  true -> big
               end,
-    {ok, <<AtomFrameSz:64/native>>} = file:pread(D, Sz - 9, 8),
-    {ok, _} = file:position(D, Sz - 9 - AtomFrameSz),
+    {ok, <<AtomFrameSz:64/native, ClockFreq:64/native>>} = file:pread(D, Sz - 9 - 8, 8 + 8),
+    {ok, _} = file:position(D, Sz - 9 - 8 - AtomFrameSz),
     Atoms = parse_atoms(D, Compressed, AtomFrameSz),
 
     {ok, _} = file:position(D, 0),
-    Events = parse_file(D, Compressed, Sz - 9 - AtomFrameSz, Atoms),
+    Events = parse_file(D, Compressed, Sz - 9 - 8 - AtomFrameSz,
+                        #{ atoms => Atoms,
+                           clock_frequency => ClockFreq }),
 
     %% Sort event list on nano seconds in order to get correct order
     %% of events.
@@ -176,40 +178,40 @@ parse_file(D, 1, Size, Atoms) ->
     parse_file(uncompress(Compressed), Atoms).
 
 parse_file(<<?TRACE_CALL:64/native, Pid:64/native, TS:64/native,
-             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), call, make_mfa(M,F,A,Atoms), {cp, undefined}, make_ts(TS)} | parse_file(Rest,Atoms)];
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), call, make_mfa(M,F,A,Meta), {cp, undefined}, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_RETURN_TO:64/native, Pid:64/native, TS:64/native,
-             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), return_to, make_mfa(M,F,A,Atoms), make_ts(TS)} | parse_file(Rest,Atoms)];
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), return_to, make_mfa(M,F,A,Meta), make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_SPAWNED:64/native, Pid:64/native, TS:64/native,
-             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), spawned, undefined, make_mfa(M,F,A,Atoms), make_ts(TS)} | parse_file(Rest,Atoms)];
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), spawned, undefined, make_mfa(M,F,A,Meta), make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_EXIT:64/native, Pid:64/native, TS:64/native,
-             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), exit, undefined, make_ts(TS)} | parse_file(Rest,Atoms)];
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), exit, undefined, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_IN:64/native, Pid:64/native, TS:64/native,
-             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), in, make_mfa(M,F,A,Atoms), make_ts(TS)} | parse_file(Rest,Atoms)];
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), in, make_mfa(M,F,A,Meta), make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_OUT:64/native, Pid:64/native, TS:64/native,
-             M:64/native, F:64/native, A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), out, make_mfa(M,F,A,Atoms), make_ts(TS)} | parse_file(Rest,Atoms)];
+             M:64/native, F:64/native, A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), out, make_mfa(M,F,A,Meta), make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_GC_MINOR_START:64/native, Pid:64/native, TS:64/native,
-             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), gc_minor_start, undefined, make_ts(TS)} | parse_file(Rest,Atoms)];
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), gc_minor_start, undefined, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_GC_MINOR_END:64/native, Pid:64/native, TS:64/native,
-             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), gc_minor_end, undefined, make_ts(TS)} | parse_file(Rest,Atoms)];
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), gc_minor_end, undefined, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_GC_MAJOR_START:64/native, Pid:64/native, TS:64/native,
-             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), gc_major_start, undefined, make_ts(TS)} | parse_file(Rest,Atoms)];
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), gc_major_start, undefined, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_GC_MAJOR_END:64/native, Pid:64/native, TS:64/native,
-             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
-    [{trace_ts, make_pid(Pid), gc_major_end, undefined, make_ts(TS)} | parse_file(Rest,Atoms)];
+             _M:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
+    [{trace_ts, make_pid(Pid), gc_major_end, undefined, make_ts(TS,Meta)} | parse_file(Rest,Meta)];
 parse_file(<<?TRACE_DROPPED:64/native, _Pid:64/native, _TS:64/native,
-             Dropped:64/native, _F:64/native, _A:64/native, Rest/binary>>, Atoms) ->
+             Dropped:64/native, _F:64/native, _A:64/native, Rest/binary>>, Meta) ->
     io:format("Dropped: ~p~n",[Dropped]),
-    parse_file(Rest,Atoms);
-parse_file(<<>>, _Atoms) ->
+    parse_file(Rest,Meta);
+parse_file(<<>>, _Meta) ->
     [].
 
 parse_atoms(D, 0, Size) ->
@@ -226,7 +228,7 @@ parse_atoms(<<>>) ->
 parse_atoms(<<Tag:64/native, Sz:64/native, Str:Sz/binary, Rest/binary>>) ->
     [{Tag, list_to_atom(binary_to_list(Str))} | parse_atoms(Rest)].
 
-make_mfa(M,F,A,Atoms) ->
+make_mfa(M,F,A,#{ atoms := Atoms}) ->
     {proplists:get_value(M,Atoms),proplists:get_value(F,Atoms),A bsr 4}.
 
 make_pid(Pid) ->
@@ -236,12 +238,13 @@ make_pid(Pid) ->
                                          (PidData bsr 15) band 16#7fff]),
     list_to_pid(lists:flatten(PidList)).
 
-make_ts(TS) ->
-    ErlangSystemTime = TS div 1000, % Convert from ns to us
+make_ts(TS, #{ clock_frequency := ClockFreq }) ->
+    NanoTS = TS div ClockFreq,
+    ErlangSystemTime = NanoTS div 1000, % Convert from ns to us
     MegaSecs = ErlangSystemTime div 1000000000000,
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,
-    {MegaSecs, Secs, MicroSecs, TS rem 1000}.
+    {MegaSecs, Secs, MicroSecs, NanoTS rem 1000}.
 
 trace(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
