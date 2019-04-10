@@ -27,7 +27,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 include ../vsn.mk
 VSN=$(RUNTIME_TOOLS_VSN)
 
-TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv trace_file_nif
+TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
 
 # ----------------------------------------------------
 # The following variables differ between systems.
@@ -36,11 +36,11 @@ TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv trace_file_nif
 CC = $(DED_CC)
 LD = $(DED_LD)
 SHELL = /bin/sh
-LIBS = $(DED_LIBS) @LIBS@ @ZSTD_LIBS@
+LIBS = $(DED_LIBS) @LIBS@
 LDFLAGS += $(DED_LDFLAGS)
 CFLAGS = $(DED_CFLAGS)
 
-INCLUDES = $(DED_INCLUDES) @ZSTD_CFLAGS@
+INCLUDES = $(DED_INCLUDES)
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug

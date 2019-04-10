@@ -42,7 +42,6 @@ MODULES= \
 	runtime_tools_sup \
 	dbg \
 	dyntrace \
-	trace_file_nif \
 	system_information \
 	observer_backend \
 	ttb_autostart\

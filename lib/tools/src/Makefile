@@ -39,6 +39,7 @@ MODULES= \
 	cover                \
 	eprof                \
 	fprof                \
+	fprof_tracer_nif     \
 	cprof                \
 	lcnt                 \
 	instrument           \
