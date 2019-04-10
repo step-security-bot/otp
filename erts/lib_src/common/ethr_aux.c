@@ -155,7 +155,7 @@ x86_init(void)
 	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
 
         /* I got the values below from:
-           http://lxr.free-electrons.com/source/arch/x86/include/asm/cpufeature.h
+           https://elixir.bootlin.com/linux/v4.0.9/source/arch/x86/include/asm/cpufeature.h
            They can be gotten from the intel/amd manual as well.
         */
 
