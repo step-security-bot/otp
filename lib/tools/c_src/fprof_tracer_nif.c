@@ -19,9 +19,7 @@
  */
 
 /*
- * Purpose:  Dynamically loadable NIF library for DTrace
- *
- * TODO: Tracing on dirty schedulers
+ * Purpose:  Dynamically loadable NIF library for fprof
  */
 
 #ifdef HAVE_ZSTD
@@ -80,7 +78,7 @@ static ErlNifFunc nif_funcs[] = {
 };
 
 
-ERL_NIF_INIT(trace_file_nif, nif_funcs, load, NULL, NULL, NULL);
+ERL_NIF_INIT(fprof_tracer_nif, nif_funcs, load, NULL, NULL, NULL);
 
 #define ATOMS                   \
     ATOM_DECL(true);            \

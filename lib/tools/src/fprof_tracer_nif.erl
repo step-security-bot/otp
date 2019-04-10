@@ -1,4 +1,4 @@
--module(trace_file_nif).
+-module(fprof_tracer_nif).
 
 %%% @doc A low overhead nif to trace to file
 %%%
@@ -27,8 +27,8 @@
 -on_load(on_load/0).
 
 on_load() ->
-    PrivDir = code:priv_dir(runtime_tools),
-    LibName = "trace_file_nif",
+    PrivDir = code:priv_dir(tools),
+    LibName = atom_to_list(?MODULE),
     Lib = filename:join([PrivDir, "lib", LibName]),
     Status = case erlang:load_nif(Lib, 0) of
                  ok -> ok;
@@ -49,9 +49,9 @@ on_load() ->
         ok -> ok;
         {error, {E, Str}} ->
             error_logger:error_msg(
-              "Unable to load trace_file_nif library."
+              "Unable to load ~p library."
               "Failed with error:~n\"~p, ~s\"~n",
-              [E,Str]),
+              [?MODULE,E,Str]),
             Status
     end.
 
