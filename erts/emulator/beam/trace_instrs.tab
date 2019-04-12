@@ -44,6 +44,21 @@ i_generic_breakpoint() {
     //| -no_next
 }
 
+i_profile_breakpoint() {
+    ErtsCodeInfo *info = erts_code_to_codeinfo(I);
+    BeamInstr real_I = info->u.gen_bp->orig_instr;
+    if (ARE_TRACE_FLAGS_ON(c_p, F_TRACE_CALLS|F_TRACE_PROFILE)) {
+        ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_CALL, &info->mfa);
+        if (c_p->cp != beam_return_to_profile) {
+            $AH(0, 0, info->mfa.arity);
+            c_p->cp = beam_return_to_trace;
+        }
+
+    }
+    ASSERT(VALID_INSTR(real_I));
+    Goto(real_I);
+}
+
 i_return_time_trace() {
     BeamInstr *pc = (BeamInstr *) (UWord) E[0];
     SWAPOUT;
@@ -57,7 +72,8 @@ i_return_time_trace() {
 }
 
 i_return_to_trace() {
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+    if (ARE_TRACE_FLAGS_ON(c_p, F_TRACE_RETURN_TO|F_TRACE_PROFILE)
+        || IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
         Uint *cpp = (Uint*) E;
         for(;;) {
             ASSERT(is_CP(*cpp));
@@ -66,7 +82,8 @@ i_return_to_trace() {
                     ++cpp;
                 while (is_not_CP(*cpp));
                 cpp += 2;
-            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace)) {
+            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace) ||
+                       IsOpCode(*cp_val(*cpp), i_return_to_profile)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));
@@ -74,11 +91,16 @@ i_return_to_trace() {
                 break;
             }
         }
-        SWAPOUT;		/* Needed for shared heap */
-        ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, cp_val(*cpp));
-        ERTS_REQ_PROC_MAIN_LOCK(c_p);
-        SWAPIN;
+        if (ARE_TRACE_FLAGS_ON(c_p, F_TRACE_PROFILE)) {
+            ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_RETURN_TO,
+                               find_function_from_pc(cp_val(*cpp)));
+        } else {
+            SWAPOUT;		/* Needed for shared heap */
+            ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+            erts_trace_return_to(c_p, cp_val(*cpp));
+            ERTS_REQ_PROC_MAIN_LOCK(c_p);
+            SWAPIN;
+        }
     }
     c_p->cp = NULL;
     SET_I((BeamInstr *) cp_val(E[0]));

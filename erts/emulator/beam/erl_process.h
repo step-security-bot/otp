@@ -618,6 +618,49 @@ typedef enum {
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
+typedef enum {
+    ERTS_PROFILE_EVENT_CALL = 1,
+    ERTS_PROFILE_EVENT_RETURN_TO = 2,
+    ERTS_PROFILE_EVENT_SPAWNED = 3,
+    ERTS_PROFILE_EVENT_EXIT = 4,
+    ERTS_PROFILE_EVENT_IN = 5,
+    ERTS_PROFILE_EVENT_OUT = 6,
+    ERTS_PROFILE_EVENT_GC_MINOR_START = 7,
+    ERTS_PROFILE_EVENT_GC_MINOR_END = 8,
+    ERTS_PROFILE_EVENT_GC_MAJOR_START = 9,
+    ERTS_PROFILE_EVENT_GC_MAJOR_END = 10,
+    ERTS_PROFILE_EVENT_DROPPED = 11
+} ErtsProfileEvent;
+
+typedef struct ErtsProfileBufferEntry_ {
+    ErtsProfileEvent event;
+    Uint64 ts;
+    struct {
+        /* We assume that all atoms are < 32 bit */
+        Uint32 module;
+        Uint32 function;
+        Uint32 arity;
+    } mfa;
+} ErtsProfileBufferEntry;
+
+typedef struct ErtsProfileBuffer_ {
+    ErtsProfileBufferEntry *buff;
+    Uint slot;
+} ErtsProfileBuffer;
+
+#define ERTS_PROFILE_EVENT(PROC, EVENT, MFA)                            \
+    do {                                                                \
+        ErtsCodeMFA *mfa = (MFA);                                       \
+        Process *c_p = (PROC);                                          \
+        ErtsSchedulerData *esdp = c_p->scheduler_data;                  \
+        ErtsProfileBuffer *profile = &esdp->profile;                    \
+        ErtsProfileBufferEntry *entry = &profile->buff[profile->slot++]; \
+        entry->event = EVENT;                                           \
+        entry->ts = erts_sys_perf_counter();                            \
+        entry->mfa.module = mfa->module;                                \
+        entry->mfa.function = mfa->function;                            \
+        entry->mfa.arity = mfa->arity;                                  \
+    } while(0)
 
 struct ErtsSchedulerData_ {
     Uint no;			/* Scheduler number for normal schedulers */
@@ -671,6 +714,7 @@ struct ErtsSchedulerData_ {
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
     ErtsEtsTables ets_tables;
+    ErtsProfileBuffer profile;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
@@ -1426,8 +1470,9 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_PORTS	     F_TRACE_FLAG(19) /* Ports equivalent to F_TRACE_PROCS */
 #define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
 #define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
+#define F_TRACE_PROFILE      F_TRACE_FLAG(22)
 
-#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
+#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 23)
 #ifdef DEBUG
 #  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
 #else
@@ -1445,7 +1490,7 @@ extern int erts_system_profile_ts_type;
 		     | F_TRACE_ARITY_ONLY | F_TRACE_RETURN_TO \
                      | F_TRACE_SILENT | F_TRACE_SCHED_PROCS | F_TRACE_PORTS \
 		     | F_TRACE_SCHED_PORTS | F_TRACE_SCHED_NO \
-		     | F_TRACE_SCHED_EXIT )
+		     | F_TRACE_SCHED_EXIT | F_TRACE_PROFILE )
 
 
 #define ERTS_TRACEE_MODIFIER_FLAGS \

@@ -32,14 +32,17 @@
 
 
 suite() ->
-    [{timetrap,{seconds,240}}].
+    [{timetrap,{minutes,10}}].
 
 all() ->
     [overhead].
 
 init_per_suite(Config) ->
-    case test_server:is_native(fprof_SUITE) of
-        true -> {skip, "Native code"};
+    case test_server:is_native(fprof_SUITE) or
+        lists:any(fun(M) -> test_server:is_native(M) end, modules()) or
+        (whereis(cover_server) =/= undefined)
+    of
+        true -> {skip, "Native or cover code"};
         false -> Config
     end.
 
@@ -106,17 +109,19 @@ cprof_apply(M, F, A) ->
 cover_apply(M, F, A) ->
     cover:start(),
     catch cover:local_only(),
-    application:load(compiler),
-    application:load(parsetools),
-    {ok, CompilerModules} = application:get_key(compiler, modules),
-    %% Only cover compile a subset of the stdlib modules
-    StdlibModules = [erl_parse, erl_expand_records, erl_lint, gb_trees, gb_sets, sofs,
-                     beam_lib, dict, epp, erl_anno, erl_bits,
-                     orddict, ordsets, sets, string, unicode, unicode_util],
-    Modules = CompilerModules ++ StdlibModules,
+    Modules = modules(),
     [code:unstick_mod(Mod) || Mod <- Modules],
     cover:compile_beam(Modules),
     [code:stick_mod(Mod) || Mod <- Modules],
     Res = apply(M, F, A),
     cover:stop(),
     Res.
+
+modules() ->
+    application:load(compiler),
+    {ok, CompilerModules} = application:get_key(compiler, modules),
+    %% Only cover compile a subset of the stdlib modules
+    StdlibModules = [erl_parse, erl_expand_records, erl_lint, gb_trees, gb_sets, sofs,
+                     beam_lib, dict, epp, erl_anno, erl_bits,
+                     orddict, ordsets, sets, string, unicode, unicode_util],
+    CompilerModules ++ StdlibModules.
