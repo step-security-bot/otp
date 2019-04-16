@@ -69,7 +69,6 @@
 #define ERTS_BPF_ALL               0xFF
 
 extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-extern BeamInstr beam_return_to_profile[1]; /* OpCode(i_return_to_profile) */
 extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
@@ -658,8 +657,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
     BeamInstr w = *c_p->cp;
     if (BeamIsOpCode(w, op_return_trace)) {
         cpp = &E[2];
-    } else if (BeamIsOpCode(w, op_i_return_to_trace) ||
-               BeamIsOpCode(w, op_i_return_to_profile)) {
+    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
         *return_to_trace = 1;
         cpp = &E[0];
     } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
@@ -672,8 +670,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
             BeamInstr w = *cp_val(*cpp);
             if (BeamIsOpCode(w, op_return_trace)) {
                 cpp += 3;
-            } else if (BeamIsOpCode(w, op_i_return_to_trace) ||
-                       BeamIsOpCode(w, op_i_return_to_profile)) {
+            } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
                 *return_to_trace = 1;
                 cpp += 1;
             } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
@@ -750,8 +747,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	w = (BeamInstr) *c_p->cp;
 	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
 	       BeamIsOpCode(w, op_return_trace) ||
-               BeamIsOpCode(w, op_i_return_to_trace) ||
-               BeamIsOpCode(w, op_i_return_to_profile)
+               BeamIsOpCode(w, op_i_return_to_trace)
                 ) ) {
 	    Eterm* E = c_p->stop;
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
@@ -884,7 +880,6 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];
-	BeamInstr i_return_to_profile   = beam_return_to_profile[0];
 	BeamInstr i_return_time_trace = beam_return_time_trace[0];
 	Eterm *cpp;
 	/* Maybe advance cp to skip trace stack frames */
@@ -897,7 +892,7 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 		/* Skip stack frame variables */
 		while (is_not_CP(*cpp)) cpp++;
 		cpp += 1; /* Skip return_time_trace parameters */
-	    } else if (*cp == i_return_to_trace || *cp == i_return_to_profile) {
+	    } else if (*cp == i_return_to_trace) {
 		/* A return_to trace message is going to be generated
 		 * by normal means, so we do not have to.
 		 */

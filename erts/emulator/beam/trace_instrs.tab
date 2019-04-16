@@ -48,8 +48,8 @@ i_profile_breakpoint() {
     ErtsCodeInfo *info = erts_code_to_codeinfo(I);
     BeamInstr real_I = info->u.gen_bp->orig_instr;
     if (ARE_TRACE_FLAGS_ON(c_p, F_TRACE_CALLS|F_TRACE_PROFILE)) {
-        ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_CALL, &info->mfa);
-        if (c_p->cp != beam_return_to_profile) {
+        ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_CALL, I);
+        if (c_p->cp != beam_return_to_trace) {
             $AH(0, 0, info->mfa.arity);
             c_p->cp = beam_return_to_trace;
         }
@@ -82,8 +82,7 @@ i_return_to_trace() {
                     ++cpp;
                 while (is_not_CP(*cpp));
                 cpp += 2;
-            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace) ||
-                       IsOpCode(*cp_val(*cpp), i_return_to_profile)) {
+            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));
@@ -92,8 +91,7 @@ i_return_to_trace() {
             }
         }
         if (ARE_TRACE_FLAGS_ON(c_p, F_TRACE_PROFILE)) {
-            ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_RETURN_TO,
-                               find_function_from_pc(cp_val(*cpp)));
+            ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_RETURN_TO, cp_val(*cpp));
         } else {
             SWAPOUT;		/* Needed for shared heap */
             ERTS_UNREQ_PROC_MAIN_LOCK(c_p);

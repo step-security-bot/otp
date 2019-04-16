@@ -170,7 +170,6 @@ BeamInstr beam_continue_exit[1];
 **      will most likely cause chaos.
 */
 BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-BeamInstr beam_return_to_profile[1]; /* OpCode(i_return_to_profile) */
 BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
 BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
@@ -1039,7 +1038,6 @@ init_emulator_finish(void)
      beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
      beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
      beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
-     beam_return_to_profile[0] = BeamOpCodeAddr(op_i_return_to_profile);
      beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
      beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
      beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);

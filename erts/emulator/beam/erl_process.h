@@ -619,47 +619,37 @@ typedef enum {
 } ErtsDirtySchedulerType;
 
 typedef enum {
-    ERTS_PROFILE_EVENT_CALL = 1,
-    ERTS_PROFILE_EVENT_RETURN_TO = 2,
-    ERTS_PROFILE_EVENT_SPAWNED = 3,
-    ERTS_PROFILE_EVENT_EXIT = 4,
-    ERTS_PROFILE_EVENT_IN = 5,
-    ERTS_PROFILE_EVENT_OUT = 6,
-    ERTS_PROFILE_EVENT_GC_MINOR_START = 7,
-    ERTS_PROFILE_EVENT_GC_MINOR_END = 8,
-    ERTS_PROFILE_EVENT_GC_MAJOR_START = 9,
-    ERTS_PROFILE_EVENT_GC_MAJOR_END = 10,
-    ERTS_PROFILE_EVENT_DROPPED = 11
+    ERTS_PROFILE_EVENT_CALL =  0,
+    ERTS_PROFILE_EVENT_RETURN_TO =  1,
+    ERTS_PROFILE_EVENT_SPAWNED =  2,
+    ERTS_PROFILE_EVENT_EXIT =  3,
+    ERTS_PROFILE_EVENT_IN =  4,
+    ERTS_PROFILE_EVENT_OUT =  5,
+    ERTS_PROFILE_EVENT_GC_MINOR_START =  6,
+    ERTS_PROFILE_EVENT_GC_MINOR_END =  7,
+    ERTS_PROFILE_EVENT_GC_MAJOR_START =  8,
+    ERTS_PROFILE_EVENT_GC_MAJOR_END =  9,
+    ERTS_PROFILE_EVENT_DROPPED =  10
 } ErtsProfileEvent;
 
-typedef struct ErtsProfileBufferEntry_ {
-    ErtsProfileEvent event;
-    Uint64 ts;
-    struct {
-        /* We assume that all atoms are < 32 bit */
-        Uint32 module;
-        Uint32 function;
-        Uint32 arity;
-    } mfa;
-} ErtsProfileBufferEntry;
+typedef Uint64 ErtsProfileBufferEntry;
 
 typedef struct ErtsProfileBuffer_ {
     ErtsProfileBufferEntry *buff;
     Uint slot;
 } ErtsProfileBuffer;
 
-#define ERTS_PROFILE_EVENT(PROC, EVENT, MFA)                            \
-    do {                                                                \
-        ErtsCodeMFA *mfa = (MFA);                                       \
-        Process *c_p = (PROC);                                          \
-        ErtsSchedulerData *esdp = c_p->scheduler_data;                  \
-        ErtsProfileBuffer *profile = &esdp->profile;                    \
-        ErtsProfileBufferEntry *entry = &profile->buff[profile->slot++]; \
-        entry->event = EVENT;                                           \
-        entry->ts = erts_sys_perf_counter();                            \
-        entry->mfa.module = mfa->module;                                \
-        entry->mfa.function = mfa->function;                            \
-        entry->mfa.arity = mfa->arity;                                  \
+#define ERTS_PROFILE_EVENT(PROC, EVENT, META)                   \
+    do {                                                        \
+        Process *c_p_ = (PROC);                                 \
+        ErtsProfileEvent evt_ = EVENT;                          \
+        Uint64 meta_ = (Uint64)(META);                          \
+        ErtsSchedulerData *esdp_ = c_p_->scheduler_data;        \
+        ErtsProfileBuffer *profile_ = &esdp_->profile;          \
+        profile_->buff[profile_->slot++] =                       \
+            (((Uint64)evt_) << 60) | erts_sys_perf_counter();   \
+        if (evt_ <= ERTS_PROFILE_EVENT_OUT)                     \
+            profile_->buff[profile_->slot++] = meta_;           \
     } while(0)
 
 struct ErtsSchedulerData_ {
