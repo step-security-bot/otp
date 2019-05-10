@@ -65,11 +65,11 @@
 #define ERTS_BPF_TIME_TRACE        0x20
 #define ERTS_BPF_TIME_TRACE_ACTIVE 0x40
 #define ERTS_BPF_GLOBAL_TRACE      0x80
+#define ERTS_BPF_PROFILE_TRACE     0xF0
 
 #define ERTS_BPF_ALL               0xFF
 
 extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-extern BeamInstr beam_return_to_profile[1]; /* OpCode(i_return_to_profile) */
 extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
@@ -496,9 +496,16 @@ erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, ErtsTracer tracer)
 }
 
 void
-erts_set_call_trace_bif(ErtsCodeInfo *ci, Binary *match_spec, int local)
+erts_set_call_trace_bif(ErtsCodeInfo *ci, Binary *match_spec, int type)
 {
-    Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
+    Uint flags;
+    switch (type) {
+    case 0: flags = ERTS_BPF_LOCAL_TRACE; break;
+    case 1: flags = ERTS_BPF_GLOBAL_TRACE; break;
+    case 2: flags = ERTS_BPF_PROFILE_TRACE; break;
+    default:
+        ERTS_ASSERT(0 && "invalid clear_call_trace_bif type");
+    }
 
     set_function_break(ci, match_spec, flags, 0, erts_tracer_nil);
 }
@@ -548,12 +555,19 @@ erts_clear_trace_break(BpFunctions* f)
 }
 
 void
-erts_clear_call_trace_bif(ErtsCodeInfo *ci, int local)
+erts_clear_call_trace_bif(ErtsCodeInfo *ci, int type)
 {
     GenericBp* g = ci->u.gen_bp;
 
     if (g) {
-	Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
+	Uint flags;
+        switch (type) {
+        case 0: flags = ~ERTS_BPF_LOCAL_TRACE; break;
+        case 1: flags = ~ERTS_BPF_GLOBAL_TRACE; break;
+        case 2: flags = ~ERTS_BPF_PROFILE_TRACE; break;
+        default:
+            ERTS_ASSERT(0 && "invalid clear_call_trace_bif type");
+        }
 	if (g->data[erts_staging_bp_ix()].flags & flags) {
 	    clear_function_break(ci, flags);
 	}
@@ -658,8 +672,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
     BeamInstr w = *c_p->cp;
     if (BeamIsOpCode(w, op_return_trace)) {
         cpp = &E[2];
-    } else if (BeamIsOpCode(w, op_i_return_to_trace) ||
-               BeamIsOpCode(w, op_i_return_to_profile)) {
+    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
         *return_to_trace = 1;
         cpp = &E[0];
     } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
@@ -672,8 +685,7 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
             BeamInstr w = *cp_val(*cpp);
             if (BeamIsOpCode(w, op_return_trace)) {
                 cpp += 3;
-            } else if (BeamIsOpCode(w, op_i_return_to_trace) ||
-                       BeamIsOpCode(w, op_i_return_to_profile)) {
+            } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
                 *return_to_trace = 1;
                 cpp += 1;
             } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
@@ -750,9 +762,8 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	w = (BeamInstr) *c_p->cp;
 	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
 	       BeamIsOpCode(w, op_return_trace) ||
-               BeamIsOpCode(w, op_i_return_to_trace) ||
-               BeamIsOpCode(w, op_i_return_to_profile)
-                ) ) {
+               BeamIsOpCode(w, op_i_return_to_trace))
+            ) {
 	    Eterm* E = c_p->stop;
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 	    if (E - 2 < c_p->htop) {
@@ -824,6 +835,10 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	flags = erts_call_trace(p, &ep->info, bp->local_ms, args,
 				local, &ERTS_TRACER(p));
     }
+    if ((bp_flags & ERTS_BPF_PROFILE_TRACE) && ARE_TRACE_FLAGS_ON(p, F_TRACE_CALLS|F_TRACE_PROFILE)) {
+        ERTS_PROFILE_EVENT(p, ERTS_PROFILE_EVENT_CALL, &ep->info.mfa);
+        flags = MATCH_SET_RETURN_TO_TRACE;
+    }
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	ErtsTracer old_tracer;
 
@@ -884,7 +899,6 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];
-	BeamInstr i_return_to_profile   = beam_return_to_profile[0];
 	BeamInstr i_return_time_trace = beam_return_time_trace[0];
 	Eterm *cpp;
 	/* Maybe advance cp to skip trace stack frames */
@@ -897,7 +911,7 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 		/* Skip stack frame variables */
 		while (is_not_CP(*cpp)) cpp++;
 		cpp += 1; /* Skip return_time_trace parameters */
-	    } else if (*cp == i_return_to_trace || *cp == i_return_to_profile) {
+	    } else if (*cp == i_return_to_trace) {
 		/* A return_to trace message is going to be generated
 		 * by normal means, so we do not have to.
 		 */
@@ -972,20 +986,27 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 	if (flags_meta & MATCH_SET_RX_TRACE) {
 	    erts_trace_return(p, &ep->info.mfa, result, &meta_tracer);
 	}
-	/* MATCH_SET_RETURN_TO_TRACE cannot occur if(meta) */
 	if (flags & MATCH_SET_RX_TRACE) {
 	    erts_trace_return(p, &ep->info.mfa, result, &ERTS_TRACER(p));
 	}
-	if (flags & MATCH_SET_RETURN_TO_TRACE &&
-            IS_TRACED_FL(p, F_TRACE_RETURN_TO)) {
-	    /* can only happen if(local)*/
-	    if (applying) {
-		/* Apply of BIF, cp is in calling function */
-		if (cp) erts_trace_return_to(p, cp);
-	    } else {
-		/* Direct bif call, I points into calling function */
-		erts_trace_return_to(p, I);
-	    }
+	/* MATCH_SET_RETURN_TO_TRACE cannot occur if(meta) */
+	if (flags & MATCH_SET_RETURN_TO_TRACE) {
+            if (applying) {
+                /* Apply of BIF, cp is in calling function */
+                ;
+            } else {
+                /* Direct bif call, I points into calling function */
+                cp = I;
+            }
+            if (IS_TRACED_FL(p, F_TRACE_RETURN_TO)) {
+                /* can only happen if(local)*/
+                if (cp)
+                    erts_trace_return_to(p, cp);
+            } else if (ARE_TRACE_FLAGS_ON(p, F_TRACE_PROFILE)) {
+                if (cp)
+                    ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_RETURN_TO,
+                                       find_function_from_pc(cp));
+            }
 	}
     }
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
@@ -1544,7 +1565,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
      */
 
     common = break_flags & bp->flags;
-    if (common & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
+    if (common & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE|ERTS_BPF_PROFILE_TRACE)) {
 	MatchSetUnref(bp->local_ms);
     } else if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->meta_ms);
@@ -1579,7 +1600,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
      * Initialize the new breakpoint data.
      */
 
-    if (break_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
+    if (break_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE|ERTS_BPF_PROFILE_TRACE)) {
 	MatchSetRef(match_spec);
 	bp->local_ms = match_spec;
     } else if (break_flags & ERTS_BPF_META_TRACE) {
@@ -1649,7 +1670,7 @@ clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
     ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
     common = bp->flags & break_flags;
     bp->flags &= ~break_flags;
-    if (common & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
+    if (common & (ERTS_BPF_PROFILE_TRACE|ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
 	MatchSetUnref(bp->local_ms);
     }
     if (common & ERTS_BPF_META_TRACE) {

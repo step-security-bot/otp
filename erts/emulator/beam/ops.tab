@@ -69,7 +69,6 @@ i_profile_breakpoint
 i_debug_breakpoint
 i_return_time_trace
 i_return_to_trace
-i_return_to_profile
 i_yield
 trace_jump W
 %hot

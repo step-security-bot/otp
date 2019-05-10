@@ -1370,8 +1370,8 @@ trace_on(Procs, Tracer, {V, CT}) ->
 	     wallclock -> ok
 	 end
 	of ok ->
-	    erlang:trace_pattern(on_load, [], [local]),
-	    erlang:trace_pattern({'_', '_', '_'}, [], [local]),
+	    erlang:trace_pattern(on_load, [], [profile,local]),
+	    erlang:trace_pattern({'_', '_', '_'}, [], [profile,local]),
 	    lists:foreach(
 	      fun (P) ->
 		      erlang:trace(P, true, [Tracer | trace_flags(V)])
@@ -1385,13 +1385,13 @@ trace_on(Procs, Tracer, {V, CT}) ->
 
 
 trace_flags(normal) ->
-    [call, return_to, 
-     running, procs, garbage_collection, 
+    [profile, call, return_to,
+     running, procs, garbage_collection,
      arity, monotonic_timestamp, set_on_spawn];
 trace_flags(verbose) ->
-    [call, return_to, 
+    [profile, call, return_to,
      send, 'receive',
-     running, procs, garbage_collection, 
+     running, procs, garbage_collection,
      monotonic_timestamp, set_on_spawn].
 
 

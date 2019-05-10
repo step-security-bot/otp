@@ -129,7 +129,6 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Binary* match_prog_set;
     Eterm l;
     struct trace_pattern_flags flags = erts_trace_pattern_flags_off;
-    int is_global;
     ErtsTracer meta_tracer = erts_tracer_nil;
 
     if (!erts_try_seize_code_write_permission(p)) {
@@ -141,7 +140,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     /*
      * Check and compile the match specification.
      */
-    
+
     if (Pattern == am_false) {
 	match_prog_set = NULL;
 	on = 0;
@@ -163,8 +162,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    goto error;
 	}
     }
-    
-    is_global = 0;
+
     for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
 	if (is_tuple(CAR(list_val(l)))) {
             meta_tracer = erts_term_to_tracer(am_meta, CAR(list_val(l)));
@@ -177,38 +175,26 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	} else {
 	    switch (CAR(list_val(l))) {
 	    case am_local:
-		if (is_global) {
-		    goto error;
-		}
 		flags.breakpoint = 1;
 		flags.local      = 1;
 		break;
 	    case am_meta:
-		if (is_global) {
-		    goto error;
-		}
 		flags.breakpoint = 1;
 		flags.meta       = 1;
                 if (ERTS_TRACER_IS_NIL(meta_tracer))
                     meta_tracer = erts_term_to_tracer(THE_NON_VALUE, p->common.id);
 		break;
 	    case am_global:
-		if (flags.breakpoint) {
-		    goto error;
-		}
-		is_global = !0;
+		flags.global = !0;
+		break;
+            case am_profile:
+		flags.profile = !0;
 		break;
 	    case am_call_count:
-		if (is_global) {
-		    goto error;
-		}
 		flags.breakpoint = 1;
 		flags.call_count = 1;
 		break;
 	    case am_call_time:
-		if (is_global) {
-		    goto error;
-		}
 		flags.breakpoint = 1;
 		flags.call_time = 1;
 		break;
@@ -221,10 +207,20 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     if (l != NIL) {
 	goto error;
     }
-    
+
+    if (((flags.global || flags.profile) && flags.breakpoint) || (flags.global && flags.profile)) {
+        /* Global or profile not allowed to be set together with any generic flags */
+        goto error;
+    }
+
     if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time)) {
 	/* A match prog is not allowed with just call_count or call_time*/
 	goto error;
+    }
+
+    if (match_prog_set && flags.profile) {
+        /* Match programs not allowed with profile */
+        goto error;
     }
 
     /*
@@ -232,7 +228,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
      */
 
     if (MFA == am_on_load) {
-	if (flags.local || (! flags.breakpoint)) {
+	if (flags.local || (!flags.breakpoint)) {
 	    MatchSetUnref(erts_default_match_spec);
 	    erts_default_match_spec = match_prog_set;
 	    MatchSetRef(erts_default_match_spec);
@@ -242,13 +238,13 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    erts_default_meta_match_spec = match_prog_set;
 	    MatchSetRef(erts_default_meta_match_spec);
             erts_tracer_update(&erts_default_meta_tracer, meta_tracer);
-	} else if (! flags.breakpoint) {
+	} else if (!flags.breakpoint) {
 	    MatchSetUnref(erts_default_meta_match_spec);
 	    erts_default_meta_match_spec = NULL;
 	    ERTS_TRACER_CLEAR(&erts_default_meta_tracer);
 	}
 	if (erts_default_trace_pattern_flags.breakpoint &&
-	    flags.breakpoint) { 
+	    flags.breakpoint) {
 	    /* Breakpoint trace -> breakpoint trace */
 	    ASSERT(erts_default_trace_pattern_is_on);
 	    if (on) {
@@ -257,9 +253,9 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		erts_default_trace_pattern_flags.meta
 		    |= flags.meta;
 		erts_default_trace_pattern_flags.call_count
-		    |= (on == 1) ? flags.call_count : 0;
+		    |= flags.call_count;
 		erts_default_trace_pattern_flags.call_time
-		    |= (on == 1) ? flags.call_time : 0;
+		    |= flags.call_time;
 	    } else {
 		erts_default_trace_pattern_flags.local
 		    &= ~flags.local;
@@ -277,21 +273,16 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		    erts_default_trace_pattern_is_on = !!on; /* i.e off */
 		}
 	    }
-	} else if (! erts_default_trace_pattern_flags.breakpoint &&
-		   ! flags.breakpoint) {
-	    /* Global call trace -> global call trace */
-	    erts_default_trace_pattern_is_on = !!on;
-	} else if (erts_default_trace_pattern_flags.breakpoint &&
-		   ! flags.breakpoint) {
-	    /* Breakpoint trace -> global call trace */
-	    if (on) {
-		erts_default_trace_pattern_flags = flags; /* Struct copy */
-		erts_default_trace_pattern_is_on = !!on;
-	    }
+	} else if (flags.global || flags.profile) {
+	    /* Any call trace -> global or profile call trace */
+            if (on) {
+                erts_default_trace_pattern_is_on = !!on;
+                erts_default_trace_pattern_flags = flags; /* Struct copy */
+            }
 	} else {
-	    ASSERT(! erts_default_trace_pattern_flags.breakpoint &&
+	    ASSERT(!erts_default_trace_pattern_flags.breakpoint &&
 		   flags.breakpoint);
-	    /* Global call trace -> breakpoint trace */
+	    /* Global|Profile call trace -> breakpoint trace */
 	    if (on) {
 		if (on != 1) {
 		    flags.call_count = 0;
@@ -331,7 +322,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 					 match_prog_set, match_prog_set,
 					 on, flags, meta_tracer, 0);
     } else if (is_atom(MFA)) {
-        if (is_global || flags.breakpoint || on > ERTS_BREAK_SET) {
+        if (flags.global || flags.profile || flags.breakpoint || on > ERTS_BREAK_SET) {
             goto error;
         }
         matches = erts_set_tracing_event_pattern(MFA, match_prog_set, on);
@@ -1439,7 +1430,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	BeamInstr* pc = erts_codeinfo_to_code(ci);
 	Export* ep = ErtsContainerStruct(ci, Export, info);
 
-	if (on && !flags.breakpoint) {
+	if (on && flags.global) {
 	    /* Turn on global call tracing */
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
@@ -1453,12 +1444,12 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	    if (ep->addressv[code_ix] != pc) {
 		ep->beam[0] = BeamOpCodeAddr(op_i_generic_breakpoint);
 	    }
-	} else if (!on && flags.breakpoint) {
+	} else if (!on && (flags.breakpoint || flags.profile)) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
 	} else {
 	    /*
 	     * Turn off global tracing, either explicitly or implicitly
-	     * before turning on breakpoint tracing.
+	     * before turning on breakpoint|profile tracing.
 	     */
 	    erts_clear_call_trace_bif(ci, 0);
 	    if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
@@ -1498,21 +1489,29 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
             ASSERT(0);
         }
 
-        if (! flags.breakpoint) { /* Export entry call trace */
+        if (flags.global) { /* Export entry call trace */
             if (on) {
-                erts_clear_call_trace_bif(&ep->info, 1);
+                erts_clear_call_trace_bif(&ep->info, 0);
                 erts_clear_mtrace_bif(&ep->info);
                 erts_set_call_trace_bif(&ep->info, match_prog_set, 0);
             } else { /* off */
                 erts_clear_call_trace_bif(&ep->info, 0);
             }
             matches++;
+        } else if (flags.profile) {
+            if (on) {
+                erts_clear_call_trace_bif(&ep->info, 2);
+                erts_clear_mtrace_bif(&ep->info);
+                erts_set_call_trace_bif(&ep->info, match_prog_set, 2);
+            } else {
+                erts_clear_call_trace_bif(&ep->info, 2);
+            }
         } else { /* Breakpoint call trace */
             int m = 0;
 
             if (on) {
                 if (flags.local) {
-                    erts_clear_call_trace_bif(&ep->info, 0);
+                    erts_clear_call_trace_bif(&ep->info, 1);
                     erts_set_call_trace_bif(&ep->info, match_prog_set, 1);
                     m = 1;
                 }
@@ -1528,7 +1527,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
                 }
             } else { /* off */
                 if (flags.local) {
-                    erts_clear_call_trace_bif(&ep->info, 1);
+                    erts_clear_call_trace_bif(&ep->info, 0);
                     m = 1;
                 }
                 if (flags.meta) {

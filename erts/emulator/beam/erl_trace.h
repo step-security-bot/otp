@@ -170,6 +170,8 @@ Eterm erts_seq_trace(Process *process,
 		     int build_result);
 
 struct trace_pattern_flags {
+    unsigned int profile    : 1; /* Set if profile tracing is enabled */
+    unsigned int global     : 1; /* Set if global tracing is enabled */
     unsigned int breakpoint : 1; /* Set if any other is set */
     unsigned int local      : 1; /* Local call trace breakpoint */
     unsigned int meta       : 1; /* Metadata trace breakpoint */
