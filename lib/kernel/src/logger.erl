@@ -108,6 +108,7 @@
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log_event().
 -type primary_config() :: #{level => level() | all | none,
+                            metadata => map(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}]}.
 -type handler_config() :: #{id => handler_id(),
@@ -403,7 +404,9 @@ remove_handler(HandlerId) ->
                         (filter_default,FilterDefault) -> ok | {error,term()} when
       FilterDefault :: log | stop;
                         (filters,Filters) -> ok | {error,term()} when
-      Filters :: [{filter_id(),filter()}].
+      Filters :: [{filter_id(),filter()}];
+                        (metadata,Meta) -> ok | {error,term()} when
+      Meta :: metadata().
 set_primary_config(Key,Value) ->
     logger_server:set_config(primary,Key,Value).
 
@@ -799,6 +802,7 @@ internal_init_logger() ->
         Env = get_logger_env(kernel),
         check_logger_config(kernel,Env),
         ok = logger:set_primary_config(level, get_logger_level()),
+        ok = logger:set_primary_config(metadata, get_primary_metadata()),
         ok = logger:set_primary_config(filter_default,
                                        get_primary_filter_default(Env)),
 
@@ -953,6 +957,14 @@ get_logger_level() ->
             Level;
         Level ->
             throw({logger_level, Level})
+    end.
+
+get_primary_metadata() ->
+    case application:get_env(kernel,logger_default_metadata,#{}) of
+        Meta when is_map(Meta) ->
+            Meta;
+        Meta ->
+            throw({logger_metadata, Meta})
     end.
 
 get_primary_filter_default(Env) ->

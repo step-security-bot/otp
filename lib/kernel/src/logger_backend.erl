@@ -29,8 +29,10 @@
 %%% The default logger backend
 log_allowed(Log, Tid) ->
     {ok,Config} = logger_config:get(Tid,primary),
+    GlobMeta = maps:get(metadata,Config,#{}),
     Filters = maps:get(filters,Config,[]),
-    case apply_filters(primary,Log,Filters,Config) of
+    Log0 = add_metadata(Log,GlobMeta),
+    case apply_filters(primary,Log0,Filters,Config) of
         stop ->
             ok;
         Log1 ->
@@ -134,3 +136,7 @@ handle_filter_failed({Id,_}=Filter,Owner,Log,Reason) ->
 
 filter_stacktrace(Stacktrace) ->
     logger:filter_stacktrace(?MODULE,Stacktrace).
+
+add_metadata(#{meta:=LogMeta}=Log,GlobMeta) ->
+    Merged = maps:merge(GlobMeta,LogMeta),
+    Log#{meta:=Merged}.
