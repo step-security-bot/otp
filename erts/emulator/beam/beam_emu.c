@@ -261,47 +261,47 @@ void** beam_ops;
 
 #define DispatchMacro()				\
   do {						\
-     BeamInstr dis_next;                        \
-     dis_next = *I;                             \
      CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
+     if (FCALLS > 0) {                          \
+         BeamInstr dis_next = *I;               \
+         FCALLS--;				\
+         Goto(dis_next);                        \
+     } else if (FCALLS > neg_o_reds) {          \
+         goto save_calls1;                      \
      } else {					\
-	goto context_switch;			\
+         goto context_switch;			\
      }						\
  } while (0)                                    \
 
 #define DispatchMacroFun()			\
   do {						\
-     BeamInstr dis_next;                        \
-     dis_next = *I;                             \
      CHECK_ARGS(I);				\
-     if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
-        Goto(dis_next);				\
+     if (FCALLS > 0) {                          \
+         BeamInstr dis_next = *I;               \
+         FCALLS--;                              \
+         Goto(dis_next);                        \
+     } else if (FCALLS > neg_o_reds) {          \
+         goto save_calls1;                      \
      } else {					\
-	goto context_switch_fun;		\
+         goto context_switch_fun;		\
      }						\
  } while (0)
 
 #define DispatchMacrox()                                                \
   do {                                                                  \
-     if (FCALLS > 0) {                                                  \
-        BeamInstr dis_next;                                             \
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
-        dis_next = *I;                                                  \
-        FCALLS--;                                                       \
-        CHECK_ARGS(I);                                                  \
-        Goto(dis_next);                                                 \
-     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)                      \
-		&& FCALLS > neg_o_reds) {                               \
-        goto save_calls1;                                               \
-     } else {                                                           \
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
-        CHECK_ARGS(I);                                                  \
-	goto context_switch;                                            \
-     }                                                                  \
+      SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);      \
+      CHECK_ARGS(I);                                                    \
+      if (FCALLS > 0) {                                                 \
+          BeamInstr dis_next;                                           \
+          dis_next = *I;                                                \
+          FCALLS--;                                                     \
+          Goto(dis_next);                                               \
+      } else if (FCALLS > neg_o_reds) {                              \
+          goto save_calls1;                                             \
+      } else {                                                          \
+          CHECK_ARGS(I);                                                \
+          goto context_switch;                                          \
+      }                                                                 \
  } while (0)
 
 #ifdef DEBUG
@@ -354,11 +354,12 @@ do {						\
 
 #define DispatchReturn                          \
 do {                                            \
-    if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
-        FCALLS--;				\
+    if (FCALLS > 0) {                           \
+        FCALLS--;                               \
         Goto(*I);                               \
-    }                                           \
-    else {					\
+    } else if (FCALLS > neg_o_reds) {           \
+        goto save_calls_ret;                     \
+    } else {                                     \
         c_p->current = NULL;                    \
         c_p->arity = 1;                         \
         goto context_switch3;			\
@@ -997,15 +998,20 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #endif
     return;			/* Never executed */
 
+  save_calls_ret:
+    {
+	BeamInstr dis_next = *I;
+        ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_RETURN_TO, I);
+        erts_fprintf(stderr,"%T %T: ret\r\n", c_p->common.id, I);
+	FCALLS--;
+	Goto(dis_next);
+    }
+
   save_calls1:
     {
-	BeamInstr dis_next;
-
-	save_calls(c_p, (Export *) Arg(0));
-
-	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-
-	dis_next = *I;
+	BeamInstr dis_next = *I;
+        ERTS_PROFILE_EVENT(c_p, ERTS_PROFILE_EVENT_CALL, I);
+        erts_fprintf(stderr,"%T %T: call\r\n", c_p->common.id, I);
 	FCALLS--;
 	Goto(dis_next);
     }

@@ -635,7 +635,7 @@ typedef enum {
 typedef Uint64 ErtsProfileBufferEntry;
 
 typedef struct ErtsProfileBuffer_ {
-    ErtsProfileBufferEntry *buff;
+    ErtsProfileBufferEntry buff[256];
     Uint slot;
 } ErtsProfileBuffer;
 
@@ -646,10 +646,10 @@ typedef struct ErtsProfileBuffer_ {
         Uint64 meta_ = (Uint64)(META);                          \
         ErtsSchedulerData *esdp_ = c_p_->scheduler_data;        \
         ErtsProfileBuffer *profile_ = &esdp_->profile;          \
-        profile_->buff[profile_->slot++] =                       \
-            (((Uint64)evt_) << 60) | erts_sys_perf_counter();   \
+        profile_->buff[(profile_->slot++) & 255] =              \
+            (((Uint64)evt_) << 56) | erts_sys_perf_counter();   \
         if (evt_ <= ERTS_PROFILE_EVENT_OUT)                     \
-            profile_->buff[profile_->slot++] = meta_;           \
+            profile_->buff[(profile_->slot++) & 255] = meta_;   \
     } while(0)
 
 struct ErtsSchedulerData_ {
