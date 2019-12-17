@@ -1638,6 +1638,8 @@ proto_error(CleanHalt, Proto, String) ->
 	    erlang:display_string(S)
     end.
 
+set_node(Node, Creation) when Creation < 0 ->
+    set_node(Node, create_creation());
 set_node(Node, Creation) when node() =:= nonode@nohost ->
     case catch erlang:setnode(Node, Creation) of
 	true ->
