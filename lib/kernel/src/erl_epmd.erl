@@ -129,6 +129,8 @@ port_please1(Node, HostName, Timeout) ->
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
     try
+        %% Should come up with a new name for this as ERL_EPMD_PORT describes what
+        %% port epmd runs on which could easily be confused with this.
         {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
         Port = list_to_integer(StringPort),
         {ok, Port}
