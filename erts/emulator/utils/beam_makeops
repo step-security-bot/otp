@@ -23,6 +23,7 @@ use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
+use constant ASM => 3;
 
 # Instructions for packing
 use constant PACK_JUMP => 1;
@@ -98,6 +99,8 @@ my @obsolete;
 my %c_code;                     # C code block, location, arguments.
 my %c_code_used;                # Used or not.
 
+my %asm_code;
+
 # Definitions for instructions combined from micro instructions.
 my %combined_instrs;
 
@@ -128,6 +131,8 @@ my @call_table;
 my %call_table;
 my @pred_table;
 my %pred_table;
+
+my $maybe_needs_wrapper = 1;
 
 # Operand types for generic instructions.
 
@@ -341,7 +346,13 @@ while (<>) {
             $in_c_code = '';
             $block =~ s/^    //mg;
             chomp $block;
-            $c_code{$name} = [$block,$c_code_loc,@c_args];
+            if ($name =~ /x64\./) {
+                # Put any x64 instruction in a special hash
+                $name =~ s/x64\.//mg;
+                $asm_code{$name} = [$block,$c_code_loc,@c_args];
+            } else {
+                $c_code{$name} = [$block,$c_code_loc,@c_args];
+            }
         } else {
             $c_code_block .= $_;
         }
@@ -543,14 +554,12 @@ $num_file_opcodes = @gen_opname;
 #
 # Ensure that all C code implementations have been used.
 #
-{
-    my(@unused) = grep(!$c_code_used{$_}, keys %c_code);
-    foreach my $unused (@unused) {
-        my(undef,$where) = @{$c_code{$unused}};
-        warn "$where: $unused is unused\n";
-    }
-    die "\n" if @unused;
+my(@unused) = grep(!$c_code_used{$_}, keys %c_code);
+foreach my $unused (@unused) {
+    my(undef,$where) = @{$c_code{$unused}};
+    warn "$where: $unused is unused\n";
 }
+die "\n" if @unused;
 
 #
 # Produce output needed by the emulator/loader.
@@ -590,6 +599,30 @@ sub emulator_output {
     # code for them.
     #
     combine_micro_instructions();
+
+    foreach $key (keys %specific_op) {
+	foreach (@{$specific_op{$key}}) {
+	    my($name, $hotness, @args) = @$_;
+	    my $print_name = print_name($name, @args);
+#            print STDOUT "$name: $print_name\n";
+            my $asm_code_ref = $asm_code{$name};
+            if (defined $asm_code_ref) {
+                my %bindings;
+                my($asm_code,$where,@c_args) = @{$asm_code_ref};
+                for (my $i = 0; $i < @c_args; $i++) {
+                    my $var = $c_args[$i];
+                    $bindings{$var} = "(args[$i])";
+                }
+                my $code = eval { expand_all($asm_code,\%bindings, \&get_asm_ref) };
+                push @generated_code, [ASM,"case op_$print_name: {\n$code\n\tbreak;\n}\n\n",($print_name)];
+            }
+        }
+    }
+
+    $name = "$outdir/beamasm_emit.h";
+    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+    comment('C');
+    print_code(ASM);
 
     #
     # Information about opcodes (beam_opcodes.c).
@@ -1174,11 +1207,15 @@ sub combine_instruction_group {
     # Get code for the head of the group (if any).
     my $head_name = "$group.head";
     $c_code_used{$head_name} = 1;
-    my $head_code_ref = $c_code{$head_name};
+    my $head_code_ref = get_code_ref($head_name);
     if (defined $head_code_ref) {
+        my %bindings;
         my($head_code,$where,@c_args) = @{$head_code_ref};
         @c_args and error("$where: no arguments allowed for " .
                           "head function '$head_name()'");
+        $maybe_needs_wrapper = 0;
+        $head_code = eval { expand_all($head_code, \%bindings, \&get_code_ref) };
+        $maybe_needs_wrapper = 1;
         $gcode = $head_code . "\n";
     }
 
@@ -1415,6 +1452,17 @@ sub cg_combined_code {
     }
 }
 
+sub get_code_ref {
+    my $name = shift;
+    return $c_code{$name};
+}
+
+sub get_asm_ref {
+    my $name = shift;
+    return $asm_code{$name} if (defined $asm_code{$name});
+    return $c_code{$name};
+}
+
 sub code_gen {
     my %params = (extra_comments => '',
                   offset => 0,
@@ -1538,7 +1586,7 @@ sub code_gen {
     }
     $bindings{'NEXT_INSTRUCTION'} = "I+" . ($group_size+$offset+1);
     $bindings{'IP_ADJUSTMENT'} = $inc;
-    $c_code = eval { expand_all($c_code, \%bindings) };
+    $c_code = eval { expand_all($c_code, \%bindings, \&get_code_ref) };
     unless (defined $c_code) {
         warn $@;
         error("... from the body of $name at $where");
@@ -1617,7 +1665,7 @@ sub arg_offset {
 }
 
 sub expand_all {
-    my($code,$bindings_ref) = @_;
+    my($code,$bindings_ref,$get_code_ref) = @_;
     my %bindings = %{$bindings_ref};
 
     # Expand all $Var occurrences.
@@ -1631,7 +1679,7 @@ sub expand_all {
         my $after = substr($code, $+[0]);
 
         my $body;
-        ($body,$code) = expand_macro($macro_name, $after, \%bindings);
+        ($body,$code) = expand_macro($macro_name, $after, \%bindings,$get_code_ref);
         $res .= "$keep$body";
     }
 
@@ -1639,9 +1687,9 @@ sub expand_all {
 }
 
 sub expand_macro {
-    my($name,$rest,$bindings_ref) = @_;
+    my($name,$rest,$bindings_ref,$get_code_ref) = @_;
 
-    my $c_code = $c_code{$name};
+    my $c_code = &$get_code_ref($name);
     defined $c_code or
         error("calling undefined macro '$name'...");
     $c_code_used{$name} = 1;
@@ -1695,7 +1743,7 @@ sub expand_macro {
 
     for (my $i = 0; $i < @vars; $i++) {
         my $arg = $args[$i];
-        $arg = eval { expand_all($arg, \%bindings) };
+        $arg = eval { expand_all($arg, \%bindings, $get_code_ref) };
         unless (defined $arg) {
             warn $@;
             die "... from the body of $name at $where\n";
@@ -1703,7 +1751,7 @@ sub expand_macro {
         $new_bindings{$vars[$i]} = $arg;
     }
 
-    $body = eval { expand_all($body, \%new_bindings) };
+    $body = eval { expand_all($body, \%new_bindings, $get_code_ref) };
     unless (defined $body) {
         warn $@;
         die "... from the body of $name at $where\n";
@@ -1731,7 +1779,7 @@ sub expand_macro {
 
     # Wrap body if needed and return result.
     $body = "do {\n$body\n} while (0)"
-        if needs_do_wrapper($body);
+        if $maybe_needs_wrapper && needs_do_wrapper($body);
     ($body,$rest);
 }
 

@@ -87,6 +87,21 @@ GC_TEST(Ns, Nh, Live) {
     HEAP_SPACE_VERIFIED($Nh);
 }
 
+x64.GC_TEST(Ns, Nh, Live) {
+    Uint need = $Ns.getValue() + $Nh.getValue();
+    Label after_gc_check = a.newLabel();
+
+    // Build the GC Test
+    a.mov(TMP1, E);
+    a.sub(TMP1, HTOP);
+    a.cmp(TMP1, need * sizeof(Eterm));
+    a.jg(after_gc_check);
+    a.mov(ARG2,need);
+    a.mov(ARG4,$Live.getValue());
+    a.call((uint64_t)garbage_collect);
+    a.bind(after_gc_check);
+}
+
 GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
     Uint need = $NeedHeap;
     if (ERTS_UNLIKELY(E - HTOP < need)) {
@@ -134,6 +149,13 @@ AH(NeedStack, NeedHeap, Live) {
     $GC_TEST(needed, $NeedHeap, $Live);
     E -= needed;
     *E = NIL;
+}
+
+x64.AH(NeedStack, NeedHeap, Live) {
+    ArgVal needed = ArgVal(ArgVal::TYPE::u,$NeedStack.getValue() + 1);
+    $GC_TEST(needed, $NeedHeap, $Live);
+    alloc(needed);
+    mov(CP,NIL);
 }
 
 
@@ -220,6 +242,18 @@ DISPATCH_RETURN() {
     }
 }
 
+x64.DISPATCH_RETURN() {
+    // If we have to do a yield here, we store the address to
+    // jump to in TMP1
+    a.mov(TMP1,getRef(CP));
+    a.cmp(FCALLS,0);
+    a.jle(labels[0]);
+
+    /* Do the return */
+    a.sub(FCALLS,1);
+    a.jmp(TMP1);
+}
+
 // Save the continuation pointer in the reserved slot at the
 // top of the stack as preparation for doing a function call.
 
@@ -234,6 +268,10 @@ SAVE_CONTINUATION_POINTER(IP) {
 RETURN() {
     SET_I(cp_val(*E));
     *E = NIL;
+}
+
+x64.RETURN() {
+    mov(CP,ArgVal(ArgVal::TYPE::n,0));
 }
 
 NEXT0() {

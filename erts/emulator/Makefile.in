@@ -395,7 +395,7 @@ endif
 
 LIBS += @LIBCARBON@
 
-LIBS += -L$(TTF_DIR)/usr/local/lib/libasmjit.a
+LIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
 DEPLIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
 
 TTF_DIR=$(TARGET)/$(TYPE)/$(FLAVOR)
@@ -655,8 +655,9 @@ asmjit/CMakeLists.txt:
 asmjit/Makefile: asmjit/CMakeLists.txt
 	cd asmjit && cmake -DASMJIT_STATIC=true .
 
-$(TTF_DIR)/usr/local/lib/libasmjit.a $(TTF_DIR)/usr/local/include/asmjit.h: asmjit/Makefile
+$(TTF_DIR)/usr/local/lib/libasmjit.a: asmjit/Makefile
 	cd asmjit && make && make DESTDIR=../$(TTF_DIR) install
+	touch $@
 
 GENERATE += $(TTF_DIR)/usr/local/lib/libasmjit.a
 

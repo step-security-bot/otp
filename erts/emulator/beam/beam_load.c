@@ -369,6 +369,8 @@ typedef struct LoaderState {
     Eterm* fname;		/* List of file names */
     unsigned int num_fnames;	/* Number of filenames in fname table */
     int loc_size;		/* Size of location info in bytes (2/4) */
+
+    void *ba;                   /* Assembler used to create x86 assembly */
 } LoaderState;
 
 #define GetTagAndValue(Stp, Tag, Val)					\
@@ -568,6 +570,8 @@ static Eterm has_native(BeamCodeHeader*);
 static Eterm native_addresses(Process* p, BeamCodeHeader*);
 static int safe_mul(UWord a, UWord b, UWord* resp);
 
+void beamasm_init(void);
+
 static int must_swap_floats;
 
 Uint erts_total_code_size;
@@ -578,6 +582,8 @@ void init_load(void)
     FloatDef f;
 
     erts_total_code_size = 0;
+
+    beamasm_init();
 
     beam_catches_init();
 
@@ -630,6 +636,9 @@ extern void check_allocated_block(Uint type, void *blk);
 #define CHKBLK(TYPE,BLK) /* nothing */
 #endif
 
+void *beamasm_new_module(int num_labels);
+void beamasm_delete_module(void *);
+int beamasm_emit(void *ba, int specific_op, GenOp *op);
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
@@ -771,6 +780,13 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_name = "code chunk";
     stp->file_p = stp->code_start;
     stp->file_left = stp->code_size;
+
+    if (stp->module == am_atom_put("test", 4)) {
+        stp->ba = beamasm_new_module(stp->num_labels);
+    } else {
+        stp->ba = NULL;
+    }
+
     if (!load_code(stp)) {
 	goto load_error;
     }
@@ -2321,12 +2337,21 @@ load_code(LoaderState* stp)
             last_instr_start = ci + opc[stp->specific_op].adjust;
 	    code[ci++] = BeamOpCodeAddr(stp->specific_op);
 	}
-	
+        /* Load the instruction in x86 if possible */
+        if (stp->ba) {
+            if (beamasm_emit(stp->ba, stp->specific_op, tmp_op) == 0) {
+                beamasm_delete_module(stp->ba);
+                stp->ba = NULL;
+            }
+        }
+
 	/*
 	 * Load the found specific operation.
 	 */
 
 	sign = opc[stp->specific_op].sign;
+
+
 	ASSERT(sign != NULL);
 	arg = 0;
 	while (*sign) {

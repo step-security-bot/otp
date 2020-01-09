@@ -18,6 +18,10 @@
  * %CopyrightEnd%
  */
 
+#include <asmjit/asmjit.h>
+#include <unordered_map>
+#include <vector>
+#include <assert.h>
 
 extern "C" {
 
@@ -31,4 +35,344 @@ extern "C" {
 
 }
 
-#include <asmjit/asmjit.h>
+using namespace asmjit;
+
+class ArgVal {
+    public:
+        enum TYPE {
+            u = TAG_u,
+            i = TAG_i,
+            a = TAG_a,
+            x = TAG_x,
+            y = TAG_y,
+            f = TAG_f,
+            h = TAG_h,
+            z = TAG_z,
+            n = TAG_n,
+            p = TAG_p,
+            r = TAG_r,
+            v = TAG_v,
+            l = TAG_l,
+            q = TAG_q,
+            o = TAG_o
+        };
+    private:
+        enum TYPE type;
+        BeamInstr value;
+    public:
+        ArgVal(TYPE t, BeamInstr val) {
+            type = t;
+            switch (type) {
+                case n: value = NIL; break;
+                default: value = val;
+            }
+        }
+        ArgVal(unsigned t, BeamInstr val) {
+            type = (enum TYPE)t;
+            switch (type) {
+                case n: value = NIL; break;
+                default: value = val;
+            }
+        }
+        enum TYPE getType() { return type; }
+        BeamInstr getValue() { return value; }
+        bool isMem() { return type == x || type == y || type == r; }
+};
+
+static void (*garbage_collect)();
+
+class BeamAssembler {
+
+  typedef std::unordered_map<unsigned, Label> LabelMap;
+
+  CodeHolder code;                        // Holds code and relocation information.
+
+  // TODO: Want to change this to x86::Builder in order to be able to patch the correct I into the
+  //       code after code generation
+  x86::Assembler a;                       // Create and attach X86Assembler to `code`.
+  LabelMap labels;
+  FileLogger logger;
+
+  x86::Gp ARG1 = x86::rdi;
+  x86::Gp ARG2 = x86::rsi;
+  x86::Gp ARG3 = x86::rdx;
+  x86::Gp ARG4 = x86::rcx;
+  x86::Gp ARG5 = x86::r8;
+  x86::Gp ARG6 = x86::r9;
+  const x86::Mem ARG7 = x86::qword_ptr(x86::rbp, 2*8);
+  x86::Gp RET  = x86::rax;
+
+  // rbx = x_reg
+  // rbp = E
+  // r12 = c_p
+  // r13 = FCALLS
+  // r14 = HTOP
+  // r15 = f_reg
+
+  x86::Gp x_reg = x86::rbx;
+  x86::Gp E = x86::rbp;
+  x86::Gp c_p = x86::r12;
+  x86::Gp FCALLS = x86::r13;
+  x86::Gp HTOP = x86::r14;
+  x86::Gp f_reg = x86::r15;
+  const ArgVal CP = ArgVal(ArgVal::TYPE::y, 0);
+
+  x86::Gp TMP1 = ARG1;
+  x86::Gp TMP2 = ARG2;
+  x86::Gp TMP3 = ARG3;
+
+  static void dbg(char *buff, struct process *c_p, uint64_t *xreg) {
+    fprintf(stderr,"%s\r\n",buff);
+  }
+
+  void alloc(Uint slots) {
+      a.lea(E, x86::qword_ptr(E, -1*slots*8));
+  }
+
+  void alloc(ArgVal slots) {
+      alloc(slots.getValue());
+  }
+
+  void dealloc(Uint slots) {
+      a.lea(E, x86::qword_ptr(E, slots*8));
+  }
+
+  void dealloc(ArgVal slots) {
+      dealloc(slots.getValue());
+  }
+
+  void pushY(Label lbl) {
+      alloc(1);
+      a.lea(TMP1, x86::ptr(lbl));
+      mov(CP, TMP1);
+  }
+
+  void popY(x86::Mem mem) {
+      mov(TMP2, CP);
+      dealloc(1);
+      a.mov(mem, TMP2);
+  }
+
+  x86::Mem getRef(ArgVal val) {
+      x86::Gp base;
+      switch (val.getType()) {
+          case ArgVal::TYPE::r:
+          case ArgVal::TYPE::x: base = x_reg; break;
+          case ArgVal::TYPE::y: base = E; break;
+          default:
+            int i = *(int*)(0);
+            assert(i && "NYI");
+      }
+      return x86::qword_ptr(base, val.getValue() * sizeof(Eterm));
+  }
+
+  void mov(x86::Gp to, ArgVal from) {
+      a.mov(to, getRef(from));
+  }
+
+  void mov(x86::Mem to, ArgVal from) {
+      if (from.isMem()) {
+        mov(TMP1, from);
+        a.mov(to, TMP1);
+      } else {
+        a.mov(to, from.getValue());
+      }
+  }
+
+  void mov(ArgVal to, x86::Gp from) {
+      a.mov(getRef(to), from);
+  }
+
+  void mov(ArgVal to, BeamInstr from) {
+      a.mov(getRef(to), from);
+  }
+
+  void mov(ArgVal to, ArgVal from) {
+      if (from.isMem()) {
+        mov(TMP1, from);
+        mov(to, TMP1);
+      } else {
+        mov(to, from.getValue());
+      }
+  }
+
+  void lea(ArgVal to, x86::Mem from) {
+      a.lea(TMP1, from);
+      mov(to, TMP1);
+  }
+
+  public:
+
+  BeamAssembler(JitRuntime *rt) : code(), logger(stdout)  {
+    code.init(rt->codeInfo());            // Initialize to the same arch as JIT runtime.
+    code.attach(&a);
+    code.setLogger(&logger);
+  }
+
+  BeamAssembler(JitRuntime *rt, int num_labels) : BeamAssembler(rt) {
+    for (int i = 0; i < num_labels; i++)
+        labels[i] = a.newLabel();
+    emit_preamble();
+  }
+
+  CodeHolder *getCodeHolder() {
+      return &code;
+  }
+
+  void emit_garbage_collect() {
+      /* This is the common stub used for calling garbage_collect. This functiuon is called
+         with a custom calling convention where ARG2 and ARG4 are set, but the swapout and
+         all other arguments have to be moved.
+      */
+     emit_function_preamble();
+     // TODO: Should set c_p->i to I here....
+     emit_swapout();
+     a.mov(ARG1, c_p);
+     a.mov(ARG3, x_reg);
+     a.mov(ARG5, FCALLS);
+     a.call((uint64_t)erts_garbage_collect_nobump);
+     a.sub(FCALLS, RET);
+     emit_swapin();
+     emit_function_preamble();
+  }
+
+  void emit_dbg(const char *val) {
+    a.mov(ARG1, (uint64_t)val);
+    a.mov(ARG2, c_p);
+    a.mov(ARG3, x_reg);
+    emit_swapout();
+    a.call((uint64_t)dbg);
+  }
+
+  void emit_swapin() {
+    a.mov(E,x86::qword_ptr(c_p, offsetof(struct process, stop)));
+    a.mov(HTOP,x86::qword_ptr(c_p, offsetof(struct process, htop)));
+  }
+
+  void emit_swapout() {
+    a.mov(x86::qword_ptr(c_p, offsetof(struct process, stop)), E);
+    a.mov(x86::qword_ptr(c_p, offsetof(struct process, htop)), HTOP);
+  }
+
+  void emit_function_preamble() {
+    // Have to make sure the stack is 16 byte aligned here
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+  }
+
+  void emit_function_postamble(unsigned pops = 0) {
+    // Adjust the stack back again
+    a.lea(x86::rsp,x86::dword_ptr(x86::rsp, 8 * (pops+1)));
+
+    // Return back to intepreter
+    a.ret();
+  }
+
+  void emit_preamble() {
+    emit_function_preamble();
+
+    // Have to make sure the stack is 16 byte aligned here
+    a.push(ARG1); // *I
+    a.push(ARG4); // *HTOP
+    a.push(ARG5); // *E
+    a.push(ARG6); // *FCALLS
+
+    // Move the arguments to the correct registers, ignoring c_p, FCALLS and f_reg for now...
+    // typedef void (*BeamAsmFunc)(BeamInstr **,Process *,Eterm *, Eterm **, Eterm **, Sint *, FloatDef *);
+    a.mov(c_p, ARG2);
+    a.mov(x_reg, ARG3);
+    a.mov(HTOP, x86::qword_ptr(ARG4));
+    a.mov(E, x86::qword_ptr(ARG5));
+    a.mov(FCALLS, x86::qword_ptr(ARG6));
+    a.mov(f_reg, ARG7);
+
+    // Setup the erlang stack, we use label 0 as the cleanup and exit label
+    pushY(labels[0]);
+  }
+
+  void emit_postamble() {
+    a.align(kAlignCode, 8);
+    a.bind(labels[0]);
+
+    // Get the I from the Erlang stack
+    a.mov(x86::qword_ptr(x86::rbp, -8), TMP1);
+    popY(x86::qword_ptr(TMP1, 0));
+
+    a.mov(x86::qword_ptr(x86::rbp, -16), TMP1);
+    a.mov(x86::qword_ptr(TMP1, 0), HTOP);
+    a.mov(x86::qword_ptr(x86::rbp, -24), TMP1);
+    a.mov(x86::qword_ptr(TMP1, 0), E);
+    a.mov(x86::qword_ptr(x86::rbp, -32), TMP1);
+    a.mov(x86::qword_ptr(TMP1, 0), FCALLS);
+    
+    
+    emit_function_postamble(4);
+    
+  }
+
+    int emit(unsigned specific_op, std::vector<ArgVal> args) {
+        
+        switch (specific_op) {
+        #include "beamasm_emit.h"
+        case op_label_L:
+            a.bind(labels[args[0].getValue()]);
+            break;
+        default:
+            return 1;
+        }
+        
+        return 1;
+    }
+};
+
+#define MAX_OPARGS 8
+
+/*
+ * Type for an operand for a generic instruction.
+ */
+
+typedef struct {
+    unsigned type;		/* Type of operand. */
+    BeamInstr val;		/* Value of operand. */
+} GenOpArg;
+
+/*
+ * A generic operation.
+ */
+
+typedef struct genop {
+    unsigned int op;		/* Opcode. */
+    int arity;			/* Number of arguments. */
+    GenOpArg def_args[MAX_OPARGS]; /* Default buffer for arguments. */
+    GenOpArg* a;		/* The arguments. */
+    struct genop* next;		/* Next genop. */
+} GenOp;
+
+static JitRuntime *rt;
+
+extern "C" void beamasm_init() {
+    rt = new JitRuntime();
+    BeamAssembler ba(rt);
+    ba.emit_garbage_collect();
+    Error err = rt->add(&garbage_collect,ba.getCodeHolder());
+    assert(!err && "Failed to create garbage collection function");
+}
+
+extern "C" void *beamasm_new_module(int num_labels) {
+    return new BeamAssembler(rt, num_labels);
+}
+
+extern "C" int beamasm_emit(void *instance, int specific_op, GenOp *op) {
+    BeamAssembler *ba = static_cast<BeamAssembler*>(instance);
+    std::vector<ArgVal> args;
+    for (int i = 0; i < op->arity; i++) {
+        args.push_back(ArgVal(op->a[i].type,op->a[i].val));
+    }
+    fprintf(stderr,"%s\r\n", opc[specific_op].name);
+    return ba->emit(specific_op, args);
+}
+
+extern "C" void beamasm_delete_module(void *instance) {
+    BeamAssembler *ba = static_cast<BeamAssembler*>(instance);
+    delete ba;
+}

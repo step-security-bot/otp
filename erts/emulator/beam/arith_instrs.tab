@@ -182,6 +182,36 @@ increment.execute(IncrementVal, Dst) {
     goto find_func_info;
 }
 
+x64.i_increment(Src, Val, Dst) {
+    Label mixed = a.newLabel(), next = a.newLabel();
+    Sint val = $Val.getValue();
+    mov(ARG2,$Src); // Place the value in ARG2 to prepare for the mixed call
+    a.mov(TMP3,ARG2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.jne(mixed); // Check if argument is_small
+    a.mov(RET,ARG2);
+    a.add(RET, val << _TAG_IMMED1_SIZE);
+    a.jno(next); // Check if result is_small
+
+    /* Call mixed addition */
+    a.bind(mixed);
+    a.mov(ARG1,c_p);
+    a.mov(ARG3,make_small(val));
+    a.call((uint64_t)erts_mixed_plus);
+
+    /* Check if addition worked */
+    a.cmp(RET,THE_NON_VALUE);
+
+    // TODO: Have to store I in a register here so that we know
+    //       what happened
+    a.je(labels[1]); // Jump to badarith code
+
+    /* all went well, store result in dst */
+    a.bind(next);
+    mov($Dst,RET);
+}
+
 i_times(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
