@@ -231,6 +231,27 @@ DISPATCH_REL(CallDest) {
     $DISPATCH();
 }
 
+x64.DISPATCH_REL(CallDest) {
+    Label yield = a.newLabel();
+    a.lea(TMP1,x86::qword_ptr(labels[$CallDest.getValue()]));
+
+    // If we have to do a yield here, we store the address to
+    // jump to in TMP1
+    a.cmp(FCALLS,0);
+    a.jle(yield);
+
+    /* Do the call */
+    a.sub(FCALLS,1);
+    a.jmp(TMP1);
+    a.bind(yield);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 2); // TODO: This should not be hard coded
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
+    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
+    a.mov(RET,RET_context_switch3);
+    a.jmp((uint64_t)swapout);
+}
+
 DISPATCH_RETURN() {
     if (FCALLS > 0 || FCALLS > neg_o_reds) {
         FCALLS--;
@@ -256,10 +277,12 @@ x64.DISPATCH_RETURN() {
 
     /* Handle the yield code */
     a.bind(yield);
-    a.mov(x86::ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
+    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
     a.mov(RET,RET_context_switch3);
-    a.jmp(labels[0]);
+    a.jmp((uint64_t)swapout);
 }
 
 // Save the continuation pointer in the reserved slot at the

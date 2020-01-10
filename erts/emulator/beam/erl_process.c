@@ -11804,6 +11804,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->fp_exception = 0;
 #endif
 
+    p->asm_ret[0] = BeamOpCodeAddr(op_beamasm_P);
+    p->asm_ret[1] = 0;
+
     /* seq_trace is handled before regular tracing as the latter may touch the
      * trace token. */
     if (!have_seqtrace(token)) {

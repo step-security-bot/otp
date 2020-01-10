@@ -72,7 +72,8 @@ deallocate(Deallocate) {
 }
 
 x64.deallocate(Deallocate) {
-    dealloc($Deallocate);
+    ArgVal deallocate = ArgVal(ArgVal::TYPE::u,$Deallocate.getValue() + 1);
+    dealloc(deallocate);
 }
 
 //
@@ -133,27 +134,27 @@ dealloc_ret.execute() {
 }
 
 x64.deallocate_return0() {
-    ArgVal num_bytes(ArgVal::TYPE::u,1);
+    ArgVal num_bytes(ArgVal::TYPE::u,0);
     $deallocate_return(num_bytes);
 }
 
 x64.deallocate_return1() {
-    ArgVal num_bytes(ArgVal::TYPE::u,2);
+    ArgVal num_bytes(ArgVal::TYPE::u,1);
     $deallocate_return(num_bytes);
 }
 
 x64.deallocate_return2() {
-    ArgVal num_bytes(ArgVal::TYPE::u,3);
+    ArgVal num_bytes(ArgVal::TYPE::u,2);
     $deallocate_return(num_bytes);
 }
 
 x64.deallocate_return3() {
-    ArgVal num_bytes(ArgVal::TYPE::u,4);
+    ArgVal num_bytes(ArgVal::TYPE::u,3);
     $deallocate_return(num_bytes);
 }
 
 x64.deallocate_return4() {
-    ArgVal num_bytes(ArgVal::TYPE::u,5);
+    ArgVal num_bytes(ArgVal::TYPE::u,4);
     $deallocate_return(num_bytes);
 }
 
@@ -189,24 +190,16 @@ i_call(CallDest) {
 }
 
 x64.i_call(CallDest) {
-    Label ret = a.newLabel(), yield = a.newLabel();
+    Label ret = a.newLabel();
 
     /* Save the return CP on the stack */
     a.lea(TMP1, x86::qword_ptr(ret));
     mov(CP,TMP1);
 
-    // If we have to do a yield here, we store the address to
-    // jump to in TMP1
-    a.cmp(FCALLS,0);
-    a.jle(yield);
+    $DISPATCH_REL($CallDest);
 
-    /* Do the call */
-    a.sub(FCALLS,1);
-    a.jmp(labels[$CallDest.getValue()]);
-    a.bind(yield);
-    a.mov(TMP1,x86::qword_ptr(labels[$CallDest.getValue()]));
-    a.mov(RET,RET_context_switch);
-    a.jmp(labels[0]);
+    // Need to align this label in order for it to be recognized as is_CP
+    a.align(kAlignCode, 8);
     a.bind(ret);
 }
 
@@ -219,8 +212,19 @@ move_call(Src, CallDest) {
     $DISPATCH_REL(call_dest);
 }
 
+x64.move_call(Src, CallDest) {
+    ArgVal x0(ArgVal::TYPE::x, 0);
+    $move($Src, x0);
+    $i_call($CallDest);
+}
+
 i_call_last(CallDest, Deallocate) {
     //| -no_next
+    $deallocate($Deallocate);
+    $DISPATCH_REL($CallDest);
+}
+
+x64.i_call_last(CallDest, Deallocate) {
     $deallocate($Deallocate);
     $DISPATCH_REL($CallDest);
 }
@@ -781,8 +785,16 @@ move_x1(Src) {
     x(1) = $Src;
 }
 
+x64.move_x1(Src) {
+    mov(ArgVal(ArgVal::TYPE::x,1),$Src);
+}
+
 move_x2(Src) {
     x(2) = $Src;
+}
+
+x64.move_x2(Src) {
+    mov(ArgVal(ArgVal::TYPE::x,2),$Src);
 }
 
 node(Dst) {
@@ -797,10 +809,10 @@ put_list(Hd, Tl, Dst) {
 }
 
 x64.put_list(Hd, Tl, Dst) {
-    mov(x86::ptr(HTOP,0), $Hd);
-    mov(x86::ptr(HTOP,1 * sizeof(Eterm)), $Tl);
-    lea($Dst, x86::ptr(HTOP,TAG_PRIMARY_LIST));
-    a.lea(HTOP, x86::ptr(HTOP,2 * sizeof(Eterm)));
+    mov(x86::qword_ptr(HTOP,0), $Hd);
+    mov(x86::qword_ptr(HTOP,1 * sizeof(Eterm)), $Tl);
+    lea($Dst, x86::qword_ptr(HTOP,TAG_PRIMARY_LIST));
+    a.lea(HTOP, x86::qword_ptr(HTOP,2 * sizeof(Eterm)));
 }
 
 update_list(Hd, Dst) {
@@ -1093,6 +1105,11 @@ i_is_eq_exact_immed(Fail, X, Y) {
     }
 }
 
+x64.i_is_eq_exact_immed(Fail, X, Y) {
+    a.cmp(getRef($X),$Y.getValue());
+    a.jne(labels[$Fail.getValue()]);
+}
+
 i_is_ne_exact_immed(Fail, X, Y) {
     if ($X == $Y) {
         $FAIL($Fail);
@@ -1300,13 +1317,11 @@ raw_raise() {
 }
 
 beamasm(C) {
-    typedef enum beamasm_ret (*BeamAsmFunc)(BeamInstr **,Process *, Eterm *,
-                                            Eterm **, Eterm **, Sint *, FloatDef *);
     BeamAsmFunc ba = (BeamAsmFunc)$C;
     Eterm *htop = HTOP, *e = E;
     BeamInstr *i = I;
     Sint fcalls = FCALLS;
-    enum beamasm_ret res = ba(&i, c_p, reg, &htop, &e, &fcalls, freg);
+    enum beamasm_ret res = beamasm_call(&i, c_p, reg, &htop, &e, &fcalls, freg, ba);
     I = i;
     HTOP = htop;
     E = e;

@@ -1077,6 +1077,8 @@ struct process {
     Eterm* space_verified_from; /* we rely on available heap space (TestHeap) */
 #endif
 
+    BeamInstr asm_ret[2];
+
 #ifdef DEBUG
     Uint debug_reds_in;
 #endif

@@ -637,7 +637,7 @@ extern void check_allocated_block(Uint type, void *blk);
 #define CHKBLK(TYPE,BLK) /* nothing */
 #endif
 
-void *beamasm_new_module(int num_labels);
+void *beamasm_new_module(Eterm mod, int num_labels);
 void beamasm_delete_module(void *);
 int beamasm_emit(void *ba, int specific_op, GenOp *op);
 void *beamasm_get_module(void *ba, void **labels);
@@ -784,7 +784,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_left = stp->code_size;
 
     if (stp->module == am_atom_put("test", 4)) {
-        stp->ba = beamasm_new_module(stp->num_labels);
+        stp->ba = beamasm_new_module(stp->module, stp->num_labels);
     } else {
         stp->ba = NULL;
     }

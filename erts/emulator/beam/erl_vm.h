@@ -244,4 +244,6 @@ enum beamasm_ret {
     RET_context_switch_fun,
 };
 
+typedef void (*BeamAsmFunc)(void);
+
 #endif	/* __ERL_VM_H__ */
