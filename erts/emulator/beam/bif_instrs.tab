@@ -406,6 +406,10 @@ call_light_bif_only(Bif, Exp) {
     //| -no_next
 }
 
+x64.call_light_bif_only(Bif, Exp) {
+    a.jmp(labels[0]);
+}
+
 //
 // Send is almost a standard call-BIF with two arguments, except for:
 //   1. It cannot be traced.

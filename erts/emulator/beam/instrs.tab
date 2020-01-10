@@ -189,7 +189,7 @@ i_call(CallDest) {
 }
 
 x64.i_call(CallDest) {
-    Label ret = a.newLabel();
+    Label ret = a.newLabel(), yield = a.newLabel();
 
     /* Save the return CP on the stack */
     a.lea(TMP1, x86::qword_ptr(ret));
@@ -197,14 +197,16 @@ x64.i_call(CallDest) {
 
     // If we have to do a yield here, we store the address to
     // jump to in TMP1
-    a.mov(TMP1,x86::qword_ptr(labels[$CallDest.getValue()]));
     a.cmp(FCALLS,0);
-    a.jle(labels[0]);
+    a.jle(yield);
 
     /* Do the call */
     a.sub(FCALLS,1);
     a.jmp(labels[$CallDest.getValue()]);
-    a.align(kAlignCode, 8);
+    a.bind(yield);
+    a.mov(TMP1,x86::qword_ptr(labels[$CallDest.getValue()]));
+    a.mov(RET,RET_context_switch);
+    a.jmp(labels[0]);
     a.bind(ret);
 }
 
@@ -883,7 +885,7 @@ test_heap_1_put_list(Nh, Reg) {
 }
 
 x64.test_heap_1_put_list(Nh, Reg) {
-    ArgVal Live(ArgVal::TYPE::u,1);
+    ArgVal Live(ArgVal::TYPE::u, 1);
     ArgVal x0(ArgVal::TYPE::x, 0);
     $test_heap($Nh, Live);
     $put_list($Reg, x0, x0);
@@ -1298,16 +1300,23 @@ raw_raise() {
 }
 
 beamasm(C) {
-    typedef void (*BeamAsmFunc)(BeamInstr **,Process *, Eterm *,
-                                Eterm **, Eterm **, Sint *, FloatDef *);
+    typedef enum beamasm_ret (*BeamAsmFunc)(BeamInstr **,Process *, Eterm *,
+                                            Eterm **, Eterm **, Sint *, FloatDef *);
     BeamAsmFunc ba = (BeamAsmFunc)$C;
     Eterm *htop = HTOP, *e = E;
     BeamInstr *i = I;
     Sint fcalls = FCALLS;
-    ba(&i, c_p, reg, &htop, &e, &fcalls, freg);
+    enum beamasm_ret res = ba(&i, c_p, reg, &htop, &e, &fcalls, freg);
     I = i;
     HTOP = htop;
     E = e;
     FCALLS = fcalls;
-    Goto(*I);
+    switch (res) {
+    case RET_dispatch: Goto(*I); break;
+    case RET_context_switch: goto context_switch;
+    case RET_context_switch2: goto context_switch2;
+    case RET_context_switch3: goto context_switch3;
+    case RET_context_switch_fun: goto context_switch_fun;
+    default: ASSERT(0 && "NYI");
+    }
 }

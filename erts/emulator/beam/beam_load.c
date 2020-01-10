@@ -153,6 +153,7 @@ typedef struct {
 typedef struct {
     Eterm function;		/* Tagged atom for function. */
     int arity;			/* Arity. */
+    int label;                  /* Which label the entry points to */
     BeamInstr* address;		/* Address to function in code. */
 } ExportEntry;
 
@@ -639,6 +640,7 @@ extern void check_allocated_block(Uint type, void *blk);
 void *beamasm_new_module(int num_labels);
 void beamasm_delete_module(void *);
 int beamasm_emit(void *ba, int specific_op, GenOp *op);
+void *beamasm_get_module(void *ba, void **labels);
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
@@ -1546,6 +1548,7 @@ read_export_table(LoaderState* stp)
 	if (n >= stp->num_labels) {
 	    LoadError3(stp, "export table entry %u: invalid label %u (highest defined label is %u)", i, n, stp->num_labels);
 	}
+	stp->export[i].label = n;
 	value = stp->labels[n].value;
 	if (value == 0) {
 	    LoadError2(stp, "export table entry %u: label %u not resolved", i, n);
@@ -5328,6 +5331,22 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	    hipe_set_closure_stub(fe);
 #endif
 	}
+    }
+
+    /* Load any native code */
+    if (stp->ba) {
+        int i;
+        void **labels = erts_alloc(ERTS_ALC_T_TMP,stp->num_labels * sizeof(void*));
+        stp->ba = beamasm_get_module(stp->ba, labels);
+        erts_printf("test %p\n", stp->ba);
+        for (i = 0; i < stp->num_exps; i++) {
+            ExportEntry *ee = &stp->export[i];
+            erts_printf("test:%T/%d %d %p\n",ee->function, ee->arity, ee->label-1,
+                        labels[ee->label-2]);
+            ee->address[0] = BeamOpCodeAddr(op_beamasm_P);
+            ee->address[1] = (BeamInstr)(labels[ee->label-2]);
+        }
+        erts_free(ERTS_ALC_T_TMP, labels);
     }
 }
 

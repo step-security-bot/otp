@@ -243,15 +243,23 @@ DISPATCH_RETURN() {
 }
 
 x64.DISPATCH_RETURN() {
-    // If we have to do a yield here, we store the address to
-    // jump to in TMP1
-    a.mov(TMP1,getRef(CP));
+    Label yield = a.newLabel();
+
+    // TMP1 holds where to jump to, set in $RETURN
+
     a.cmp(FCALLS,0);
-    a.jle(labels[0]);
+    a.jle(yield);
 
     /* Do the return */
     a.sub(FCALLS,1);
     a.jmp(TMP1);
+
+    /* Handle the yield code */
+    a.bind(yield);
+    a.mov(x86::ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::ptr(c_p, offsetof(Process, arity)), 1);
+    a.mov(RET,RET_context_switch3);
+    a.jmp(labels[0]);
 }
 
 // Save the continuation pointer in the reserved slot at the
@@ -271,6 +279,7 @@ RETURN() {
 }
 
 x64.RETURN() {
+    mov(TMP1,CP);
     mov(CP,ArgVal(ArgVal::TYPE::n,0));
 }
 

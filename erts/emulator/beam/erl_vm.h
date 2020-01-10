@@ -236,4 +236,12 @@ extern void** beam_ops;
 
 #define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
+enum beamasm_ret {
+    RET_dispatch,
+    RET_context_switch,
+    RET_context_switch2,
+    RET_context_switch3,
+    RET_context_switch_fun,
+};
+
 #endif	/* __ERL_VM_H__ */

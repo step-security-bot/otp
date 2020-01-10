@@ -90,6 +90,8 @@ class BeamAssembler {
   // TODO: Want to change this to x86::Builder in order to be able to patch the correct I into the
   //       code after code generation
   x86::Assembler a;                       // Create and attach X86Assembler to `code`.
+
+  // Label -1 is normal return and label 0 is non-normal return (context switch)
   LabelMap labels;
   FileLogger logger;
 
@@ -110,11 +112,11 @@ class BeamAssembler {
   // r15 = f_reg
 
   x86::Gp x_reg = x86::rbx;
-  x86::Gp E = x86::rbp;
-  x86::Gp c_p = x86::r12;
-  x86::Gp FCALLS = x86::r13;
-  x86::Gp HTOP = x86::r14;
-  x86::Gp f_reg = x86::r15;
+  x86::Gp E = x86::r12;
+  x86::Gp c_p = x86::r13;
+  x86::Gp FCALLS = x86::r14;
+  x86::Gp HTOP = x86::r15;
+  x86::Gp f_reg = x86::r11; // This could use RBP but we want to use that as a scratch reg so we dont... for now
   const ArgVal CP = ArgVal(ArgVal::TYPE::y, 0);
 
   x86::Gp TMP1 = ARG1;
@@ -147,10 +149,8 @@ class BeamAssembler {
       mov(CP, TMP1);
   }
 
-  void popY(x86::Mem mem) {
-      mov(TMP2, CP);
+  void popY() {
       dealloc(1);
-      a.mov(mem, TMP2);
   }
 
   x86::Mem getRef(ArgVal val) {
@@ -210,9 +210,17 @@ class BeamAssembler {
   }
 
   BeamAssembler(JitRuntime *rt, int num_labels) : BeamAssembler(rt) {
-    for (int i = 0; i < num_labels; i++)
+    for (int i = -1; i < num_labels; i++)
         labels[i] = a.newLabel();
-    emit_preamble();
+    
+    emit_function_preamble();
+    for (int i = 0; i < num_labels; i++) {
+        a.lea(TMP2, x86::ptr(labels[i+1]));
+        a.mov(x86::ptr(ARG1, i * sizeof(BeamInstr)), TMP2);
+    }
+    emit_function_postamble();
+    
+    emit_postamble();
   }
 
   CodeHolder *getCodeHolder() {
@@ -233,7 +241,7 @@ class BeamAssembler {
      a.call((uint64_t)erts_garbage_collect_nobump);
      a.sub(FCALLS, RET);
      emit_swapin();
-     emit_function_preamble();
+     emit_function_postamble();
   }
 
   void emit_dbg(const char *val) {
@@ -245,13 +253,13 @@ class BeamAssembler {
   }
 
   void emit_swapin() {
-    a.mov(E,x86::qword_ptr(c_p, offsetof(struct process, stop)));
-    a.mov(HTOP,x86::qword_ptr(c_p, offsetof(struct process, htop)));
+    a.mov(E,x86::qword_ptr(c_p, offsetof(Process, stop)));
+    a.mov(HTOP,x86::qword_ptr(c_p, offsetof(Process, htop)));
   }
 
   void emit_swapout() {
-    a.mov(x86::qword_ptr(c_p, offsetof(struct process, stop)), E);
-    a.mov(x86::qword_ptr(c_p, offsetof(struct process, htop)), HTOP);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
   }
 
   void emit_function_preamble() {
@@ -262,14 +270,22 @@ class BeamAssembler {
 
   void emit_function_postamble(unsigned pops = 0) {
     // Adjust the stack back again
-    a.lea(x86::rsp,x86::dword_ptr(x86::rsp, 8 * (pops+1)));
-
+    a.lea(x86::rsp,x86::dword_ptr(x86::rsp, 8 * (pops)));
+    a.pop(x86::rbp);
     // Return back to intepreter
     a.ret();
   }
 
   void emit_preamble() {
     emit_function_preamble();
+
+    // Push all callee save
+    a.push(c_p);
+    a.push(x_reg);
+    a.push(HTOP);
+    a.push(E);
+    a.push(FCALLS);
+    a.push(f_reg);
 
     // Have to make sure the stack is 16 byte aligned here
     a.push(ARG1); // *I
@@ -287,26 +303,52 @@ class BeamAssembler {
     a.mov(f_reg, ARG7);
 
     // Setup the erlang stack, we use label 0 as the cleanup and exit label
-    pushY(labels[0]);
+    pushY(labels[-1]);
   }
 
   void emit_postamble() {
     a.align(kAlignCode, 8);
+
+    // This label is used when we are done with the current function call
+    a.bind(labels[-1]);
+
+    a.mov(RET,RET_dispatch);
+    // Pop the frame we pushed in the preamble
+    popY();
+
+    // This label is used when doing a yield
     a.bind(labels[0]);
 
-    // Get the I from the Erlang stack
-    a.mov(x86::qword_ptr(x86::rbp, -8), TMP1);
-    popY(x86::qword_ptr(TMP1, 0));
+    a.call((uint64_t)dbg);
 
-    a.mov(x86::qword_ptr(x86::rbp, -16), TMP1);
+    // Below here we simulate a return instruction to get the proper return into
+    // the interpreter again
+
+    // Set I to be the return address
+    a.mov(TMP2, x86::qword_ptr(x86::rsp, 24));
+    mov(x86::ptr(TMP2, 0), CP);
+    mov(CP, NIL);
+
+    // Restore the rest of the emulator state
+    a.mov(TMP1, x86::qword_ptr(x86::rsp, 16));
     a.mov(x86::qword_ptr(TMP1, 0), HTOP);
-    a.mov(x86::qword_ptr(x86::rbp, -24), TMP1);
+    a.mov(TMP1, x86::qword_ptr(x86::rsp, 8));
     a.mov(x86::qword_ptr(TMP1, 0), E);
-    a.mov(x86::qword_ptr(x86::rbp, -32), TMP1);
+    a.mov(TMP1, x86::qword_ptr(x86::rsp, 0));
     a.mov(x86::qword_ptr(TMP1, 0), FCALLS);
+
+    // Adjust stack
+    a.lea(x86::rsp, x86::ptr(x86::rsp, 4 * 8));
+
+    // Pop all callee save
+    a.pop(f_reg);
+    a.pop(FCALLS);
+    a.pop(E);
+    a.pop(HTOP);
+    a.pop(x_reg);
+    a.pop(c_p);
     
-    
-    emit_function_postamble(4);
+    emit_function_postamble();
     
   }
 
@@ -314,11 +356,17 @@ class BeamAssembler {
         
         switch (specific_op) {
         #include "beamasm_emit.h"
+        case op_i_func_info_IaaI:
+            emit_preamble();
+            break;
         case op_label_L:
             a.bind(labels[args[0].getValue()]);
             break;
+        case op_int_code_end:
+        case op_line_I:
+            break;
         default:
-            return 1;
+            return 0;
         }
         
         return 1;
@@ -370,6 +418,16 @@ extern "C" int beamasm_emit(void *instance, int specific_op, GenOp *op) {
     }
     fprintf(stderr,"%s\r\n", opc[specific_op].name);
     return ba->emit(specific_op, args);
+}
+
+extern "C" void *beamasm_get_module(void *instance, void **labels) {
+    typedef void (*Func)(void**);
+    Func module;
+    BeamAssembler *ba = static_cast<BeamAssembler*>(instance);
+    rt->add(&module, ba->getCodeHolder());
+    delete ba;
+    module(labels);
+    return (void*)module;
 }
 
 extern "C" void beamasm_delete_module(void *instance) {
