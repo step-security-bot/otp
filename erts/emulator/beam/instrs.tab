@@ -1159,7 +1159,13 @@ is_lt(Fail, X, Y) {
 }
 
 x64.is_lt(Fail, X, Y) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.newLabel(),
+        small_check = a.newLabel(),
+        small_cmp = a.newLabel(),
+        float_check = a.newLabel(),
+        atom_cmp = a.newLabel(),
+        float_cmp = a.newLabel(),
+        next = a.newLabel();
     mov(ARG1,$X);
     mov(ARG2,$Y);
 
@@ -1167,26 +1173,65 @@ x64.is_lt(Fail, X, Y) {
     a.cmp(ARG1,ARG2);
     a.je(labels[$Fail.getValue()]);
 
+    /* Place the small test first as lt is most likely used on small integers */
     comment("is_both_small(X, Y)");
-    a.mov(TMP3,TMP1);
-    a.and_(TMP3,TMP2);
-    a.and_(TMP3,0xF);
-    a.cmp(TMP3,0xF);
+    a.bind(small_check);
+    a.mov(TMP3,ARG1);
+    a.and_(TMP3,ARG2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.je(small_cmp);
+
+    comment("is_atom(X) && is_atom(Y)");
+    a.mov(TMP3,ARG1);
+    a.and_(TMP3,_TAG_IMMED2_MASK);
+    a.cmp(TMP3,_TAG_IMMED2_ATOM);
+    a.jne(float_check);
+    a.mov(TMP3,ARG2);
+    a.and_(TMP3,_TAG_IMMED2_MASK);
+    a.cmp(TMP3,_TAG_IMMED2_ATOM);
+    a.je(atom_cmp);
+
+    comment("is_float(X) && is_float(Y)");
+    a.bind(float_check);
+    a.mov(TMP3, ARG1);
+    a.and_(TMP3, _TAG_PRIMARY_MASK);
+    a.cmp(TMP3, TAG_PRIMARY_BOXED);
     a.jne(generic);
+    a.mov(TMP3, x86::ptr(TMP3,TAG_PRIMARY_BOXED));
+    a.cmp(TMP3, HEADER_FLONUM);
+    a.jne(generic);
+    a.mov(TMP3, ARG2);
+    a.and_(TMP3, _TAG_PRIMARY_MASK);
+    a.cmp(TMP3, TAG_PRIMARY_BOXED);
+    a.jne(generic);
+    a.mov(TMP3, x86::ptr(TMP3,TAG_PRIMARY_BOXED));
+    a.cmp(TMP3, HEADER_FLONUM);
+    a.je(float_cmp);
 
-    comment("signed_val(X) < signed_val(Y)");
-    a.sar(ARG1, _TAG_IMMED1_SIZE);
-    a.sar(ARG2, _TAG_IMMED1_SIZE);
-    a.cmp(ARG1,ARG2);
-    a.jge(labels[$Fail.getValue()]);
-    a.jmp(next);
-
+    comment("erts_cmp_compound(X,Y,0,0)");
     a.bind(generic);
     a.xor_(ARG3,ARG3);
     a.xor_(ARG4,ARG4);
     a.call((uint64_t)erts_cmp_compound);
     a.cmp(RET,0);
     a.jge(labels[$Fail.getValue()]);
+    a.jmp(next);
+
+    a.bind(atom_cmp);
+    a.jmp(generic);
+
+    a.bind(small_cmp);
+    comment("signed_val(X) < signed_val(Y)");
+    /* a.sar(ARG1, _TAG_IMMED1_SIZE); */
+    /* a.sar(ARG2, _TAG_IMMED1_SIZE); */
+    a.cmp(ARG1, ARG2);
+    a.jge(labels[$Fail.getValue()]);
+    a.jmp(next);
+
+    a.bind(float_cmp);
+    a.jmp(generic);
+
     a.bind(next);
 }
 
