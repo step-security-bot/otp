@@ -148,6 +148,14 @@ i_length_setup(Live, Src) {
     //| -no_next
 }
 
+x64.i_length_setup(Live, Src) {
+    ArgVal slot(ArgVal::TYPE::x, $Live.getValue());
+
+    mov(slot, $Src);
+    mov(slot + sizeof(Eterm), make_small(0));
+    mov(slot + sizeof(Eterm) * 2, $Src);
+}
+
 //
 // This instruction can be executed one or more times. When entering
 // this instruction, the X registers have the following contents:
@@ -206,6 +214,40 @@ i_length.execute(Fail, Live, Dst) {
         $BIF_ERROR_ARITY_1($Fail, BIF_length_1, reg[live+2]);
     }
     //| -no_next
+}
+
+x64.i_length(Fail, Live, Dst) {
+    Label entry = a.newLabel(), next = a.newLabel(),
+        trap = a.newLabel(), error = a.newLabel();
+
+    a.bind(entry),
+    a.mov(x86::ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+    a.mov(ARG1, c_p);
+    a.lea(ARG2, x86::ptr(x_reg, $Live.getValue()*sizeof(Eterm)));
+    a.call((uint64_t)erts_trapping_length_1);
+    a.mov(FCALLS, x86::ptr(c_p, offsetof(Process, fcalls)));
+    a.cmp(RET, THE_NON_VALUE);
+    a.je(trap);
+    mov($Dst, RET);
+    a.jmp(next);
+
+    comment("test trap");
+    a.bind(trap);
+    a.mov(TMP1, x86::ptr(c_p, offsetof(Process, freason)));
+    a.cmp(TMP1, TRAP);
+    a.jne(error);
+    comment("do trap");
+    a.lea(TMP1, x86::ptr(entry));
+    a.mov(x86::ptr(c_p, offsetof(Process, i)), TMP1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), $Live.getValue() + 3);
+    a.mov(RET,RET_context_switch3);
+    a.jmp((uint64_t)swapout);
+
+    a.bind(error);
+    $NYI();
+
+    a.bind(next);
 }
 
 //
@@ -407,7 +449,24 @@ call_light_bif_only(Bif, Exp) {
 }
 
 x64.call_light_bif_only(Bif, Exp) {
-    a.jmp(labels[0]);
+    Label next = a.newLabel();
+    emit_swapout();
+    a.add(FCALLS, -1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG3, 0); // Should be I
+    a.call($Bif.getValue());
+    // TODO: Should emit a gc check here
+    emit_swapin();
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
+    a.cmp(RET, THE_NON_VALUE);
+    a.jne(next);
+    $NYI();
+    a.bind(next);
+    mov(ArgVal(ArgVal::x,0), RET);
+    $return();
 }
 
 //

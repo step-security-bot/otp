@@ -640,7 +640,7 @@ extern void check_allocated_block(Uint type, void *blk);
 void *beamasm_new_module(Eterm mod, int num_labels);
 void beamasm_delete_module(void *);
 int beamasm_emit(void *ba, int specific_op, GenOp *op);
-void *beamasm_get_module(void *ba, void **labels);
+void *beamasm_get_module(void *ba, void **labels, Literal *literals, int num_literals);
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
@@ -783,7 +783,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_p = stp->code_start;
     stp->file_left = stp->code_size;
 
-    if (stp->module == am_atom_put("test", 4)) {
+    if (stp->module == am_atom_put("test", 4) ||
+        stp->module == am_atom_put("gb_trees", 8)) {
         stp->ba = beamasm_new_module(stp->module, stp->num_labels);
     } else {
         stp->ba = NULL;
@@ -2340,13 +2341,6 @@ load_code(LoaderState* stp)
             last_instr_start = ci + opc[stp->specific_op].adjust;
 	    code[ci++] = BeamOpCodeAddr(stp->specific_op);
 	}
-        /* Load the instruction in x86 if possible */
-        if (stp->ba) {
-            if (beamasm_emit(stp->ba, stp->specific_op, tmp_op) == 0) {
-                beamasm_delete_module(stp->ba);
-                stp->ba = NULL;
-            }
-        }
 
 	/*
 	 * Load the found specific operation.
@@ -2359,69 +2353,86 @@ load_code(LoaderState* stp)
 	arg = 0;
 	while (*sign) {
 	    Uint tag;
+            GenOpArg *curr = &stp->genop->a[arg];
 
 	    ASSERT(arg < stp->genop->arity);
-	    tag = stp->genop->a[arg].type;
+	    tag = curr->type;
 	    switch (*sign) {
 	    case 'r':	/* x(0) */
 	    case 'n':	/* Nil */
+                if (tag == TAG_r) {
+                    curr->type = TAG_x;
+                    curr->val = 0;
+                } else {
+                    curr->type = TAG_i;
+                    curr->val = NIL;
+                }
 		VerifyTag(stp, tag_to_letter[tag], *sign);
 		break;
 	    case 'x':	/* x(N) */
 	    case 'y':	/* y(N) */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+		code[ci++] = curr->val * sizeof(Eterm);
 		break;
 	    case 'a':		/* Tagged atom */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci++] = tmp_op->a[arg].val;
+                curr->type = TAG_i;
+		code[ci++] = curr->val;
 		break;
 	    case 'i':		/* Tagged integer */
-		ASSERT(is_small(tmp_op->a[arg].val));
+		ASSERT(is_small(curr->val));
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci++] = tmp_op->a[arg].val;
+		code[ci++] = curr->val;
 		break;
 	    case 'c':		/* Tagged constant */
 		switch (tag) {
 		case TAG_i:
-		    code[ci++] = (BeamInstr) make_small((Uint) tmp_op->a[arg].val);
+                    curr->val = make_small((Uint) curr->val);
+		    code[ci++] = (BeamInstr) curr->val;
 		    break;
 		case TAG_a:
-		    code[ci++] = tmp_op->a[arg].val;
+                    curr->type = TAG_i;
+		    code[ci++] = curr->val;
 		    break;
 		case TAG_n:
 		    code[ci++] = NIL;
+                    curr->val = NIL;
+                    curr->type = TAG_i;
 		    break;
 		case TAG_q:
 		    new_literal_patch(stp, ci);
-		    code[ci++] = tmp_op->a[arg].val;
+		    code[ci++] = curr->val;
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for tagged constant",
-			       tmp_op->a[arg].type);
+			       curr->type);
 		    break;
 		}
 		break;
 	    case 's':	/* Any source (tagged constant or register) */
 		switch (tag) {
 		case TAG_x:
-		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_x_reg(curr->val);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_y_reg(curr->val);
 		    break;
 		case TAG_i:
-		    code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
+                    curr->val = (BeamInstr) make_small((Uint)curr->val);
+		    code[ci++] = curr->val;
 		    break;
 		case TAG_a:
-		    code[ci++] = tmp_op->a[arg].val;
+                    curr->type = TAG_i;
+		    code[ci++] = curr->val;
 		    break;
 		case TAG_n:
+                    curr->type = TAG_i;
+                    curr->val = NIL;
 		    code[ci++] = NIL;
 		    break;
 		case TAG_q:
                     {
-                        BeamInstr val = tmp_op->a[arg].val;
+                        BeamInstr val = curr->val;
                         Eterm term = stp->literals[val].term;
                         new_literal_patch(stp, ci);
                         code[ci++] = val;
@@ -2435,7 +2446,7 @@ load_code(LoaderState* stp)
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for general source",
-			       tmp_op->a[arg].type);
+			       curr->type);
 		    break;
 		}
 		break;
@@ -2443,14 +2454,14 @@ load_code(LoaderState* stp)
             case 'S':   /* Source (x(N), y(N)) */
 		switch (tag) {
 		case TAG_x:
-		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+		    code[ci++] = curr->val * sizeof(Eterm);
 		    break;
 		case TAG_y:
-		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm) + 1;
+		    code[ci++] = curr->val * sizeof(Eterm) + 1;
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for destination",
-			       tmp_op->a[arg].type);
+			       curr->type);
 		    break;
 		}
 		break;
@@ -2460,17 +2471,17 @@ load_code(LoaderState* stp)
 #ifdef DEBUG
                 switch (*sign) {
                 case 't':
-                    if (tmp_op->a[arg].val >> 16 != 0) {
+                    if (curr->val >> 16 != 0) {
                         load_printf(__LINE__, stp, "value %lu of type 't' does not fit in 16 bits",
-                                    tmp_op->a[arg].val);
+                                    curr->val);
                         ASSERT(0);
                     }
                     break;
 #ifdef ARCH_64
                 case 'I':
-                    if (tmp_op->a[arg].val >> 32 != 0) {
+                    if (curr->val >> 32 != 0) {
                         load_printf(__LINE__, stp, "value %lu of type 'I' does not fit in 32 bits",
-                                    tmp_op->a[arg].val);
+                                    curr->val);
                         ASSERT(0);
                     }
                     break;
@@ -2478,22 +2489,25 @@ load_code(LoaderState* stp)
                 }
 #endif
 		VerifyTag(stp, tag, TAG_u);
-		code[ci++] = tmp_op->a[arg].val;
+		code[ci++] = curr->val;
 		break;
 	    case 'A':	/* Arity value. */
 		VerifyTag(stp, tag, TAG_u);
-		code[ci++] = make_arityval(tmp_op->a[arg].val);
+                curr->val = make_arityval(curr->val);;
+		code[ci++] = curr->val;
 		break;
 	    case 'f':		/* Destination label */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-                register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
+                register_label_patch(stp, curr->val, ci, -last_instr_start);
 		ci++;
 		break;
 	    case 'j':		/* 'f' or 'p' */
 		if (tag == TAG_p) {
+                    curr->type = TAG_f;
+                    curr->val = 0;
 		    code[ci] = 0;
 		} else if (tag == TAG_f) {
-                    register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
+                    register_label_patch(stp, curr->val, ci, -last_instr_start);
 		} else {
 		    LoadError3(stp, "bad tag %d; expected %d or %d",
 			       tag, TAG_f, TAG_p);
@@ -2504,10 +2518,10 @@ load_code(LoaderState* stp)
 		ci--;		/* Remove label from loaded code */
 		ASSERT(stp->specific_op == op_label_L);
 		VerifyTag(stp, tag, TAG_u);
-		last_label = tmp_op->a[arg].val;
+		last_label = curr->val;
 		if (!(0 < last_label && last_label < stp->num_labels)) {
 		    LoadError2(stp, "invalid label num %u (0 < label < %u)",
-			       tmp_op->a[arg].val, stp->num_labels);
+			       curr->val, stp->num_labels);
 		}
 		if (stp->labels[last_label].value != 0) {
 		    LoadError1(stp, "label %d defined more than once", last_label);
@@ -2516,16 +2530,16 @@ load_code(LoaderState* stp)
 		break;
 	    case 'e':		/* Export entry */
 		VerifyTag(stp, tag, TAG_u);
-		if (tmp_op->a[arg].val >= stp->num_imports) {
-		    LoadError1(stp, "invalid import table index %d", tmp_op->a[arg].val);
+		if (curr->val >= stp->num_imports) {
+		    LoadError1(stp, "invalid import table index %d", curr->val);
 		}
-		code[ci] = stp->import[tmp_op->a[arg].val].patches;
-		stp->import[tmp_op->a[arg].val].patches = ci;
+		code[ci] = stp->import[curr->val].patches;
+		stp->import[curr->val].patches = ci;
 		ci++;
 		break;
 	    case 'b':
 		VerifyTag(stp, tag, TAG_u);
-		i = tmp_op->a[arg].val;
+		i = curr->val;
 		if (i >= stp->num_imports) {
 		    LoadError1(stp, "invalid import table index %d", i);
 		}
@@ -2536,20 +2550,24 @@ load_code(LoaderState* stp)
 		    int bif_index = stp->import[i].bif->bif_number;
 		    BifEntry *bif_entry = &bif_table[bif_index];
 		    code[ci++] = (BeamInstr) bif_entry->f;
+                    curr->val = (BeamInstr)bif_entry->f;
 		}
 		break;
 	    case 'P':		/* Byte offset into tuple or stack */
 	    case 'Q':		/* Like 'P', but packable */
 		VerifyTag(stp, tag, TAG_u);
-		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
+                curr->val = (BeamInstr) ((curr->val+1) * sizeof(Eterm));
+		code[ci++] = curr->val;
 		break;
 	    case 'l':		/* Floating point register. */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci++] = tmp_op->a[arg].val * sizeof(FloatDef);
+                curr->val = curr->val * sizeof(FloatDef);
+		code[ci++] = curr->val;
 		break;
 	    case 'q':		/* Literal */
+                VerifyTag(stp, tag, TAG_q);
 		new_literal_patch(stp, ci);
-		code[ci++] = tmp_op->a[arg].val;
+		code[ci++] = curr->val;
 		break;
 	    default:
 		LoadError1(stp, "bad argument tag: %d", *sign);
@@ -2737,6 +2755,7 @@ load_code(LoaderState* stp)
         num_trailing_f = 0;
 #endif
 	for ( ; arg < tmp_op->arity; arg++) {
+            GenOpArg *curr = &tmp_op->a[arg];
 #if defined(BEAM_WIDE_SHIFT)
 	    if (tmp_op->a[arg].type == TAG_f) {
                 num_trailing_f++;
@@ -2747,11 +2766,13 @@ load_code(LoaderState* stp)
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
 		CodeNeed(1);
-		code[ci++] = make_small(tmp_op->a[arg].val);
+                curr->val = make_small(tmp_op->a[arg].val);;
+		code[ci++] = curr->val;
 		break;
 	    case TAG_u:
 	    case TAG_a:
 	    case TAG_v:
+                curr->type = TAG_i;
 		CodeNeed(1);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
@@ -2770,6 +2791,8 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_n:
 		CodeNeed(1);
+                curr->val = NIL;
+                curr->type = TAG_i;
 		code[ci++] = NIL;
 		break;
 	    case TAG_q:
@@ -2837,6 +2860,14 @@ load_code(LoaderState* stp)
             }
         }
 #endif
+
+        /* Load the instruction in x86 if possible */
+        if (stp->ba) {
+            if (beamasm_emit(stp->ba, stp->specific_op, tmp_op) == 0) {
+                beamasm_delete_module(stp->ba);
+                stp->ba = NULL;
+            }
+        }
 
 	/*
 	 * Handle a few special cases.
@@ -5337,14 +5368,17 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     if (stp->ba) {
         int i;
         void **labels = erts_alloc(ERTS_ALC_T_TMP,stp->num_labels * sizeof(void*));
-        stp->ba = beamasm_get_module(stp->ba, labels);
-        erts_printf("test %p\n", stp->ba);
-        for (i = 0; i < stp->num_exps; i++) {
-            ExportEntry *ee = &stp->export[i];
-            erts_printf("test:%T/%d %d %p\n",ee->function, ee->arity, ee->label-1,
-                        labels[ee->label-2]);
-            ee->address[0] = BeamOpCodeAddr(op_beamasm_P);
-            ee->address[1] = (BeamInstr)(labels[ee->label-2]);
+        stp->ba = beamasm_get_module(stp->ba, labels, stp->literals, stp->num_literals);
+        if (stp->ba) {
+            erts_printf("test %p\n", stp->module, stp->ba);
+            for (i = 0; i < stp->num_exps; i++) {
+                ExportEntry *ee = &stp->export[i];
+                erts_printf("%T:%T/%d %d %p\n",stp->module,
+                            ee->function, ee->arity, ee->label-1,
+                            labels[ee->label-2]);
+                ee->address[0] = BeamOpCodeAddr(op_beamasm_P);
+                ee->address[1] = (BeamInstr)(labels[ee->label-2]);
+            }
         }
         erts_free(ERTS_ALC_T_TMP, labels);
     }

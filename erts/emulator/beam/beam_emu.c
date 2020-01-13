@@ -308,7 +308,7 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) ERTS_NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) ERTS_NOINLINE;
-static int is_function2(Eterm Term, Uint arity);
+int is_function2(Eterm Term, Uint arity);
 static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                              Uint n, BeamInstr* ptr) ERTS_NOINLINE;
 static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
@@ -2542,7 +2542,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     return make_fun(funp);
 }
 
-static int
+int
 is_function2(Eterm Term, Uint arity)
 {
     if (is_fun(Term)) {

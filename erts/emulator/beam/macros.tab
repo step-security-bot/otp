@@ -19,6 +19,16 @@
 // %CopyrightEnd%
 //
 
+x64.NYI() {
+    std::string debug = "NYI: " + std::string(opc[specific_op].name);
+    std::string *debugClone = new std::string(debug); // TODO: Memory leak!!
+    a.mov(ARG1, (uint64_t)debugClone->data());
+    a.mov(ARG2, (uint64_t)__func__);
+    a.mov(ARG3, (uint64_t)__FILE__);
+    a.mov(ARG4, (uint64_t)__LINE__);
+    a.call((uint64_t)erl_assert_error);
+}
+
 //
 // Define a regular expression that will match instructions that
 // perform GC.  That will allow beam_makeops to check for instructions
@@ -235,6 +245,8 @@ x64.DISPATCH_REL(CallDest) {
     Label yield = a.newLabel();
     a.lea(TMP1,x86::qword_ptr(labels[$CallDest.getValue()]));
 
+    emit_dbg_call(labelToMFA[$CallDest.getValue()]);
+
     // If we have to do a yield here, we store the address to
     // jump to in TMP1
     a.cmp(FCALLS,0);
@@ -245,7 +257,8 @@ x64.DISPATCH_REL(CallDest) {
     a.jmp(TMP1);
     a.bind(yield);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 2); // TODO: This should not be hard coded
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)),
+          labelToMFA[$CallDest.getValue()].arity);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
     a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
     a.mov(RET,RET_context_switch3);
@@ -271,12 +284,12 @@ x64.DISPATCH_RETURN() {
     a.cmp(FCALLS,0);
     a.jle(yield);
 
-    /* Do the return */
+    comment("Do the return");
     a.sub(FCALLS,1);
     a.jmp(TMP1);
 
-    /* Handle the yield code */
     a.bind(yield);
+    comment("Yield to interpreter");
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);

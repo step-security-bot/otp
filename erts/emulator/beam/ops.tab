@@ -825,6 +825,10 @@ call_ext u==2 u$func:erlang:apply/2 => i_apply_fun
 call_ext_last u==2 u$func:erlang:apply/2 D => i_apply_fun_last D
 call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
 
+call_ext u==2 u$func:erlang:max/2 => i_max
+
+i_max
+
 #
 # The apply/3 BIF is an instruction.
 #

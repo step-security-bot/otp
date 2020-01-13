@@ -99,6 +99,40 @@ plus.execute(Fail, Dst) {
     $OUTLINED_ARITH_2($Fail, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
 }
 
+x64.i_plus(Op1, Op2, Fail, Dst) {
+    Label next = a.newLabel(), generic = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    mov(ARG2,$Op1); // Used by erts_mixed_plus in this slot
+    mov(ARG3,$Op2); // Used by erts_mixed_plus in this slot
+    a.mov(TMP1,ARG2);
+    a.and_(TMP1,ARG2);
+    a.and_(TMP1,_TAG_IMMED1_MASK);
+    a.cmp(TMP1,_TAG_IMMED1_SMALL);
+    a.jne(generic);
+    comment("add overflow");
+    a.mov(RET,ARG2);
+    a.mov(TMP4,ARG3);
+    a.and_(TMP4, ~_TAG_IMMED1_MASK);
+    a.add(RET, TMP4);
+    a.jno(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 and ARG3 set above
+    a.call((uint64_t)erts_mixed_plus);
+    a.cmp(RET,THE_NON_VALUE);
+    if ($Fail.getValue() != 0) {
+        a.je(labels[$Fail.getValue()]);
+        a.jmp(next);
+    } else {
+        a.jne(next);
+        $NYI();
+    }
+    a.bind(next);
+    mov($Dst, RET);
+}
+
 i_minus := minus.fetch.execute;
 
 minus.head() {
@@ -134,6 +168,40 @@ minus.execute(Fail, Dst) {
 #endif
     }
     $OUTLINED_ARITH_2($Fail, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
+}
+
+x64.i_minus(Op1, Op2, Fail, Dst) {
+    Label next = a.newLabel(), generic = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    mov(ARG2,$Op1); // Used by erts_mixed_minus in this slot
+    mov(ARG3,$Op2); // Used by erts_mixed_minus in this slot
+    a.mov(TMP1,ARG2);
+    a.and_(TMP1,ARG2);
+    a.and_(TMP1,_TAG_IMMED1_MASK);
+    a.cmp(TMP1,_TAG_IMMED1_SMALL);
+    a.jne(generic);
+    comment("sub overflow");
+    a.mov(RET,ARG2);
+    a.mov(TMP4,ARG3);
+    a.and_(TMP4, ~_TAG_IMMED1_MASK);
+    a.sub(RET, TMP4);
+    a.jno(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 and ARG3 set above
+    a.call((uint64_t)erts_mixed_minus);
+    a.cmp(RET,THE_NON_VALUE);
+    if ($Fail.getValue() != 0) {
+        a.je(labels[$Fail.getValue()]);
+        a.jmp(next);
+    } else {
+        a.jne(next);
+        $NYI();
+    }
+    a.bind(next);
+    mov($Dst, RET);
 }
 
 i_increment := increment.fetch.execute;
@@ -233,6 +301,45 @@ i_times(Fail, Op1, Op2, Dst) {
     $OUTLINED_ARITH_2($Fail, mixed_times, BIF_stimes_2, op1, op2, $Dst);
 }
 
+x64.i_times(Fail, Op1, Op2, Dst) {
+    Label next = a.newLabel(), generic = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    mov(ARG2,$Op1); // Used by erts_mixed_times in this slot
+    mov(ARG3,$Op2); // Used by erts_mixed_times in this slot
+    a.mov(TMP1,ARG2);
+    a.and_(TMP1,ARG2);
+    a.and_(TMP1,_TAG_IMMED1_MASK);
+    a.cmp(TMP1,_TAG_IMMED1_SMALL);
+    a.jne(generic);
+    comment("mul overflow");
+    a.mov(RET, ARG2);
+    a.mov(TMP1, ARG3);
+    a.and_(RET, ~_TAG_IMMED1_MASK);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.imul(RET, TMP1);
+    a.jo(generic);
+    comment("tag small");
+    a.or_(RET, _TAG_IMMED1_SMALL);
+    a.jmp(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 and ARG3 set above
+    a.call((uint64_t)erts_mixed_times);
+    a.cmp(RET,THE_NON_VALUE);
+    if ($Fail.getValue() != 0) {
+        a.je(labels[$Fail.getValue()]);
+        a.jmp(next);
+    } else {
+        a.jne(next);
+        $NYI();
+    }
+
+    a.bind(next);
+    mov($Dst, RET);
+}
+
 i_m_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
@@ -253,6 +360,59 @@ i_int_div(Fail, Op1, Op2, Dst) {
         }
     }
     $OUTLINED_ARITH_2($Fail, int_div, BIF_intdiv_2, op1, op2, $Dst);
+}
+
+x64.i_int_div(Fail, Op1, Op2, Dst) {
+
+    Label next = a.newLabel(), generic = a.newLabel(), nyi = a.newLabel();
+
+    mov(ARG2, $Op1);
+    mov(ARG3, $Op2);
+    comment("Test div by zero");
+    a.cmp(ARG3, SMALL_ZERO);
+    a.je(nyi);
+
+    comment("is_both_small");
+    mov(TMP1,$Op1);
+    a.and_(TMP1,ARG2);
+    a.and_(TMP1,_TAG_IMMED1_MASK);
+    a.cmp(TMP1,_TAG_IMMED1_SMALL);
+    a.jne(generic);
+
+    a.mov(RET, ARG2);
+    a.mov(TMP1, ARG3);
+    a.sar(RET, _TAG_IMMED1_SIZE);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.cqo(); // This clobbers ARG3
+    a.idiv(TMP1); // Result in rax aka RET
+    comment("IS_SSMALL");
+    a.mov(TMP1, RET);
+    a.sar(TMP1, SMALL_BITS-1);
+    a.inc(TMP1);
+    a.cmp(TMP1, 2);
+    a.jge(generic);
+    comment("tag small");
+    a.sal(RET, _TAG_IMMED1_SIZE);
+    a.or_(RET, _TAG_IMMED1_SMALL);
+    a.jmp(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 set above
+    mov(ARG3, $Op2); // ARG3 may have been clobbered by cqto so re-read
+    a.call((uint64_t)erts_int_div);
+    a.cmp(RET,THE_NON_VALUE);
+    if ($Fail.getValue() != 0) {
+        a.je(labels[$Fail.getValue()]);
+        a.jmp(next);
+    } else {
+        a.jne(next);
+    }
+    a.bind(nyi);
+    $NYI();
+
+    a.bind(next);
+    mov($Dst, RET);
 }
 
 i_rem := rem.fetch.execute;
@@ -484,6 +644,135 @@ shift.execute(Fail, Dst) {
         }
         goto post_error_handling;
     }
+}
+
+x64.i_bsr(Src1, Src2, Fail, Dest) {
+    Label small_bsr = a.newLabel(),
+        small_minus = a.newLabel(),
+        shift = a.newLabel(),
+        tag_next = a.newLabel(),
+        next = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    // TODO: We should specialize these tests for when
+    // the type of one of the operands is known...
+    if ($Src1.isMem())
+        mov(TMP1,$Src1);
+    else
+        a.mov(TMP1,$Src1.getValue());
+    if ($Src2.isMem())
+        mov(TMP2,$Src2);
+    else
+        a.mov(TMP2,$Src2.getValue());
+    a.mov(TMP3,TMP1);
+    a.and_(TMP3,TMP2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.je(small_bsr);
+    $NYI();
+    comment("signed_val");
+    a.bind(small_bsr);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.sar(TMP2, _TAG_IMMED1_SIZE);
+    comment("check if any is 0");
+    a.cmp(TMP1, 0);
+    a.je(tag_next);
+    a.cmp(TMP2, 0);
+    a.je(tag_next);
+    comment("check max shift of small");
+    a.cmp(TMP2, SMALL_BITS-1);
+    a.jl(shift);
+    a.cmp(TMP1, 0);
+    a.jl(small_minus);
+    mov($Dest, SMALL_ZERO);
+    a.jmp(next);
+
+    a.bind(small_minus);
+    mov($Dest, SMALL_MINUS_ONE);
+    a.jmp(next);
+    comment("do the shift");
+
+    a.bind(shift);
+    a.mov(x86::rcx, TMP2);
+    a.sar(TMP1, x86::cl);
+    a.bind(tag_next);
+    a.sal(TMP1, _TAG_IMMED1_SIZE);
+    a.add(TMP1, _TAG_IMMED1_SMALL);
+    mov($Dest, TMP1);
+    a.bind(next);
+}
+
+x64.i_bsl(Src1, Src2, Fail, Dest) {
+    Label small_bsl = a.newLabel(),
+        shift = a.newLabel(),
+        nyi = a.newLabel(),
+        neg_small = a.newLabel(),
+        tag_next = a.newLabel(),
+        next = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    // TODO: We should specialize these tests for when
+    // the type of one of the operands is known...
+    if ($Src1.isMem())
+        mov(TMP1,$Src1);
+    else
+        a.mov(TMP1,$Src1.getValue());
+    if ($Src2.isMem())
+        mov(TMP2,$Src2);
+    else
+        a.mov(TMP2,$Src2.getValue());
+    a.mov(TMP3,TMP1);
+    a.and_(TMP3,TMP2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.je(small_bsl);
+    $NYI();
+    comment("signed_val");
+    a.bind(small_bsl);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.sar(TMP2, _TAG_IMMED1_SIZE);
+    comment("check if any is 0");
+    a.cmp(TMP1, 0);
+    a.je(tag_next);
+    a.cmp(TMP2, 0);
+    a.je(tag_next);
+    comment("check max shift of small");
+    a.cmp(TMP2, SMALL_BITS-1);
+    a.jge(nyi);
+    comment("((~(Uint)0 << ((SMALL_BITS-1)-shift_left_count))");
+    a.mov(x86::rcx, SMALL_BITS-1);
+    a.sub(x86::rcx, TMP2);
+    a.mov(TMP3, ~(uint64_t)0);
+    a.sal(TMP3, x86::cl);
+    comment("int_res > 0");
+    a.cmp(TMP1, 0);
+    a.jle(neg_small);
+    comment("(TMP3 & int_res) == 0)");
+    a.mov(TMP4, TMP3); // TMP3 is used in neg_small
+    a.and_(TMP4, TMP1);
+    a.cmp(TMP4, 0);
+    a.je(shift);
+    comment("(TMP3 & ~int_res) == 0");
+    a.bind(neg_small);
+    a.mov(TMP4, TMP1);
+    a.not_(TMP4);
+    a.and_(TMP4, TMP3);
+    a.cmp(TMP4, 0);
+    a.je(shift);
+    comment("");
+    a.bind(nyi);
+    $NYI();
+
+    comment("do the shift");
+    a.bind(shift);
+    a.mov(x86::rcx, TMP2);
+    a.sal(TMP1, x86::cl);
+    comment("tag contents of TMP1");
+    a.bind(tag_next);
+    a.sal(TMP1, _TAG_IMMED1_SIZE);
+    a.add(TMP1, _TAG_IMMED1_SMALL);
+    mov($Dest, TMP1);
+    a.bind(next);
 }
 
 i_int_bnot(Fail, Src, Dst) {

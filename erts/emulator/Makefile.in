@@ -653,7 +653,7 @@ asmjit/CMakeLists.txt:
 	git submodule init
 
 asmjit/Makefile: asmjit/CMakeLists.txt
-	cd asmjit && cmake -DASMJIT_STATIC=true .
+	cd asmjit && cmake -DCMAKE_BUILD_TYPE="Debug" -DASMJIT_STATIC=true .
 
 $(TTF_DIR)/usr/local/lib/libasmjit.a: asmjit/Makefile
 	cd asmjit && make && make DESTDIR=../$(TTF_DIR) install

@@ -175,6 +175,28 @@ jump_on_val_zero.execute(Fail, N) {
     $JUMP_ON_VAL($Fail, index, $N, 0);
 }
 
+x64.i_jump_on_val_zero(Src, Fail, N) {
+    Label fail = a.newLabel();
+    mov(TMP1, $Src);
+    a.mov(TMP2, TMP1);
+    a.and_(TMP2, _TAG_IMMED1_MASK);
+    a.cmp(TMP2, _TAG_IMMED1_SMALL);
+    a.jne(fail);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.cmp(TMP1, $N.getValue());
+    a.jge(fail);
+    for (unsigned i = 0; i < $N.getValue(); i++) {
+        a.cmp(TMP1, i);
+        a.je(labels[args[i+3].getValue()]);
+    }
+    a.bind(fail);
+    if ($Fail.getValue()) {
+        a.jmp(labels[$Fail.getValue()]);
+    } else {
+        $NYI();
+    }
+}
+
 i_jump_on_val := jump_on_val.fetch.execute;
 
 jump_on_val.head() {

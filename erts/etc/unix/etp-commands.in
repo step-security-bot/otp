@@ -4596,6 +4596,7 @@ define etp-init
   set $etp_max_string_length = 100
 
   set $etp_ets_tables_i = 0
+  set disassembly-flavor intel
 end
 
 document etp-init

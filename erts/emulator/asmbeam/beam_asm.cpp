@@ -37,6 +37,15 @@ extern "C" {
 
 using namespace asmjit;
 
+/*
+ * This structure keeps load-time information about a literal.
+ */
+
+typedef struct {
+    Eterm term;			/* The tagged term (in the heap). */
+    ErlHeapFragment* heap_frags;
+} Literal;
+
 class ArgVal {
     public:
         enum TYPE {
@@ -67,17 +76,20 @@ class ArgVal {
                 default: value = val;
             }
         }
-        ArgVal(unsigned t, BeamInstr val) {
+        ArgVal(unsigned t, BeamInstr val) : value(val) {
             type = (enum TYPE)t;
-            switch (type) {
-                case n: value = NIL; break;
-                case i: value = make_small(val); break;
-                default: value = val;
-            }
+            assert(type == u || type == i || type == x || type == y || type == f || type == q);
         }
         enum TYPE getType() { return type; }
-        BeamInstr getValue() { return value; }
+        uint64_t getValue() { assert(type != q); return value; }
+        void resolveLiteral(std::vector<Literal> literals) { assert(type == q); type = i; value = literals[value].term; }
+
         bool isMem() { return type == x || type == y || type == r; }
+
+        ArgVal operator +(const int val)  {
+            ArgVal res(type, val + value);
+            return res;
+        }
 };
 
 std::string getAtom(Eterm atom) {
@@ -86,13 +98,16 @@ std::string getAtom(Eterm atom) {
     return std::string((const char*)ap->name, ap->len);
 }
 
+
+extern "C" int is_function2(Eterm Term, Uint arity);
+
 static void (*garbage_collect)();
 extern "C" enum beamasm_ret (*beamasm_call)(BeamInstr **,Process *, Eterm *,
                                         Eterm **, Eterm **, Sint *, FloatDef *,
                                         BeamAsmFunc);
 static void (*swapout)();
 
-class BeamAssembler {
+class BeamAssembler : public ErrorHandler {
 
   typedef std::unordered_map<unsigned, Label> LabelMap;
 
@@ -107,6 +122,8 @@ class BeamAssembler {
   Label return_label;
   Label yield_label;
   FileLogger logger;
+
+  std::vector<std::pair<unsigned, std::vector<ArgVal>>> instrs;
 
   x86::Gp ARG1 = x86::rdi;
   x86::Gp ARG2 = x86::rsi;
@@ -136,13 +153,24 @@ class BeamAssembler {
   x86::Gp TMP1 = ARG1;
   x86::Gp TMP2 = ARG2;
   x86::Gp TMP3 = ARG3;
+  x86::Gp TMP4 = ARG4;
+  x86::Gp TMP5 = ARG5;
+  x86::Gp TMP6 = ARG6;
+  x86::Gp TMP7 = RET;
 
-  static void dbg(char *buff, struct process *c_p, uint64_t *xreg) {
-    fprintf(stderr,"%s\r\n",buff);
+  static void dbg(char *msg, Process *c_p, Eterm *reg) {
+    erts_printf("%s\n",msg);
+  }
+
+  static void call_dbg(unsigned arity, Process *c_p, Eterm *reg) {
+    erts_printf("Args: ");
+    for (unsigned i = 0; i < arity; i++)
+        erts_printf("%T; ",reg[i]);
+    erts_printf("\n");
   }
 
   void alloc(Uint slots) {
-      a.lea(E, x86::qword_ptr(E, -1*slots*8));
+      a.lea(E, x86::qword_ptr(E, -1*slots*sizeof(Eterm)));
   }
 
   void alloc(ArgVal slots) {
@@ -150,11 +178,13 @@ class BeamAssembler {
   }
 
   void dealloc(Uint slots) {
-      a.lea(E, x86::qword_ptr(E, slots*8));
+      a.lea(E, x86::qword_ptr(E, slots*sizeof(Eterm)));
   }
 
   void dealloc(ArgVal slots) {
-      dealloc(slots.getValue());
+      // ArgVal gives the value in bytes
+      assert(slots.getValue() % sizeof(Eterm) == 0);
+      dealloc(slots.getValue() / sizeof(Eterm));
   }
 
   void pushY(Label lbl) {
@@ -181,7 +211,12 @@ class BeamAssembler {
   }
 
   void mov(x86::Gp to, ArgVal from) {
-      a.mov(to, getRef(from));
+      if (from.isMem())
+        a.mov(to, getRef(from));
+      else {
+          comment("TODO: Optimize move from constant arg to reg");
+          a.mov(to, from.getValue());
+      }
   }
 
   void mov(x86::Mem to, ArgVal from) {
@@ -189,7 +224,18 @@ class BeamAssembler {
         mov(TMP1, from);
         a.mov(to, TMP1);
       } else {
-        a.mov(to, from.getValue());
+        mov(to, from.getValue());
+      }
+  }
+
+  void mov(x86::Mem to, BeamInstr imm) {
+      int64_t simm = imm;
+      // TODO: What is this about? for some reason I cannot move a 64-bit imm to a memory location?
+      if (simm < (1ll << 31) && simm > (-1ll << 31)) {
+          a.mov(to, imm);
+      } else {
+          a.mov(TMP1, imm);
+          a.mov(to, TMP1);
       }
   }
 
@@ -198,7 +244,7 @@ class BeamAssembler {
   }
 
   void mov(ArgVal to, BeamInstr from) {
-      a.mov(getRef(to), from);
+      mov(getRef(to), from);
   }
 
   void mov(ArgVal to, ArgVal from) {
@@ -234,7 +280,7 @@ class BeamAssembler {
     }
     
     emit_function_preamble();
-    for (int i = 0; i < num_labels; i++) {
+    for (int i = 0; i < num_labels-1; i++) {
         a.lea(TMP2, x86::qword_ptr(labels[i+1]));
         a.mov(x86::qword_ptr(ARG1, i * sizeof(BeamInstr)), TMP2);
     }
@@ -245,6 +291,12 @@ class BeamAssembler {
 
   ~BeamAssembler() {
       fclose(logger.file());
+  }
+
+  void handleError(Error err, const char* message, BaseEmitter* origin) {
+    comment(message);
+    fflush(logger.file());
+    assert(0 && "Fault instruction encode");
   }
 
   void reset(JitRuntime *rt) {
@@ -264,6 +316,7 @@ class BeamAssembler {
     logger.setFile(log);
     logger.setIndentation(FormatOptions::kIndentationCode, 4);
     code.setLogger(&logger);
+    code.setErrorHandler(this);
   }
 
   void comment(const char *msg) {
@@ -330,8 +383,6 @@ class BeamAssembler {
 
   void emit_asm_swapout() {
 
-    a.call((uint64_t)dbg);
-
     // Below here we simulate a return instruction to get the proper return into
     // the interpreter again
 
@@ -359,6 +410,40 @@ class BeamAssembler {
     a.pop(c_p);
 
     emit_function_postamble();
+  }
+
+  void emit_dbg(const char *msg) {
+    //   a.push(ARG1);
+    //   a.push(ARG2);
+    //   a.push(ARG3);
+    //   emit_swapout();
+    //   a.mov(ARG1, (uint64_t)msg);
+    //   a.mov(ARG2, c_p);
+    //   a.mov(ARG3, x_reg);
+    //   a.call((uint64_t)dbg);
+    //   a.pop(ARG3);
+    //   a.pop(ARG2);
+    //   a.pop(ARG1);
+  }
+
+  void emit_dbg_call(ErtsCodeMFA mfa) {
+    //   char *buff = new char[1024];
+    //   erts_sprintf(buff, "Called %T:%T/%d", mfa.module, mfa.function, mfa.arity);
+    //   a.push(ARG1);
+    //   a.push(ARG2);
+    //   a.push(ARG3);
+    //   emit_swapout();
+    //   a.mov(ARG1, (uint64_t)buff);
+    //   a.mov(ARG2, c_p);
+    //   a.mov(ARG3, x_reg);
+    //   a.call((uint64_t)dbg);
+    //   a.mov(ARG1, mfa.arity);
+    //   a.mov(ARG2, c_p);
+    //   a.mov(ARG3, x_reg);
+    //   a.call((uint64_t)call_dbg);
+    //   a.pop(ARG3);
+    //   a.pop(ARG2);
+    //   a.pop(ARG1);
   }
 
   void emit_swapin() {
@@ -408,24 +493,55 @@ class BeamAssembler {
     
   }
 
+  std::unordered_map<BeamInstr, ErtsCodeMFA> labelToMFA;
+  std::vector<ArgVal> currFunction;
+  unsigned prev_op = 0;
+
     int emit(unsigned specific_op, std::vector<ArgVal> args) {
-        
-        switch (specific_op) {
-        #include "beamasm_emit.h"
-        case op_i_func_info_IaaI:
-            emit_preamble();
-            comment("%T:%T/%d", args[1].getValue(), args[2].getValue(), args[3].getValue());
-            break;
-        case op_label_L:
-            a.bind(labels[args[0].getValue()]);
-            break;
-        case op_int_code_end:
-        case op_line_I:
-            break;
-        default:
-            return 0;
+        if (specific_op == op_i_func_info_IaaI) {
+            currFunction = args;
+            prev_op = specific_op;
+        } else if (specific_op == op_label_L && prev_op == op_i_func_info_IaaI) {
+            ErtsCodeMFA mfa = { currFunction[1].getValue(),
+                                currFunction[2].getValue(),
+                                currFunction[3].getValue() };
+            labelToMFA[args[0].getValue()] = mfa;
+            prev_op = specific_op;
         }
-        
+
+        instrs.push_back(std::make_pair(specific_op, args));
+        return 1;
+    }
+
+    int codegen(std::vector<Literal> literals) {
+
+        for (std::pair<unsigned,std::vector<ArgVal>> inst : instrs) {
+            unsigned specific_op = inst.first;
+            std::vector<ArgVal> &args = inst.second;
+            for (ArgVal &arg : args) {
+                if (arg.getType() == ArgVal::q) {
+                    arg.resolveLiteral(literals);
+                }
+            }
+            comment(opc[specific_op].name);
+            emit_dbg(opc[specific_op].name);
+            switch (inst.first) {
+            #include "beamasm_emit.h"
+            case op_i_func_info_IaaI:
+                emit_preamble();
+                comment("%T:%T/%d", args[1].getValue(), args[2].getValue(), args[3].getValue());
+                break;
+            case op_label_L:
+                a.bind(labels[args[0].getValue()]);
+                break;
+            case op_int_code_end:
+            case op_line_I:
+                break;
+            default:
+                return 0;
+            }
+            
+        }
         return 1;
     }
 };
@@ -487,7 +603,6 @@ extern "C" void *beamasm_new_module(Eterm mod, int num_labels) {
 extern "C" int beamasm_emit(void *instance, int specific_op, GenOp *op) {
     BeamAssembler *ba = static_cast<BeamAssembler*>(instance);
     std::vector<ArgVal> args;
-    ba->comment(opc[specific_op].name);
     for (int i = 0; i < op->arity; i++) {
         args.push_back(ArgVal(op->a[i].type,op->a[i].val));
     }
@@ -495,10 +610,15 @@ extern "C" int beamasm_emit(void *instance, int specific_op, GenOp *op) {
     return ba->emit(specific_op, args);
 }
 
-extern "C" void *beamasm_get_module(void *instance, void **labels) {
+extern "C" void *beamasm_get_module(void *instance, void **labels, Literal *literals, int num_literals) {
     typedef void (*Func)(void**);
     Func module;
+    std::vector<Literal> lits(literals, literals+num_literals);
     BeamAssembler *ba = static_cast<BeamAssembler*>(instance);
+    if (!ba->codegen(lits)) {
+        delete ba;
+        return nullptr;
+    }
     rt->add(&module, ba->getCodeHolder());
     delete ba;
     module(labels);
