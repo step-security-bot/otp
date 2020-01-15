@@ -784,7 +784,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_left = stp->code_size;
 
     if (stp->module == am_atom_put("test", 4) ||
-        stp->module == am_atom_put("gb_trees", 8)) {
+        stp->module == am_atom_put("gb_trees1", 9)) {
         stp->ba = beamasm_new_module(stp->module, stp->num_labels);
     } else {
         stp->ba = NULL;
