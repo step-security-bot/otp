@@ -837,7 +837,7 @@ $(OBJDIR)/%.o: nifs/common/%.c
 $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
-$(OBJDIR)/%.o: asmbeam/%.cpp $(TTF_DIR)/usr/local/include/asmjit/asmjit.h
+$(OBJDIR)/%.o: beam/%.cpp $(TTF_DIR)/usr/local/include/asmjit/asmjit.h
 	$(V_CXX) $(CFLAGS) $(CXXFLAGS) --std=gnu++11 $(INCLUDES) -I $(TTF_DIR)/usr/local/include/ -c $< -o $@
 
 # ----------------------------------------------------------------------
@@ -880,7 +880,8 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_ranges.o
 
 BEAMASM_OBJS = \
-	$(OBJDIR)/beam_asm.o
+	$(OBJDIR)/beam_asm.o            $(OBJDIR)/beam_asm_global.o \
+	$(OBJDIR)/beam_asm_module.o
 
 ifeq ($(USE_ESOCK), yes)
 
@@ -1226,7 +1227,7 @@ else
 HIPE_SRC=
 endif
 
-BEAM_SRC=$(wildcard beam/*.c)
+BEAM_SRC=$(wildcard beam/*.c) $(wildcard beam/*.cpp)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 ifeq ($(TARGET), win32)

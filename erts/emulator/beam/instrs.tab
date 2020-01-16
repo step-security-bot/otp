@@ -944,7 +944,7 @@ move_return(Src) {
 }
 
 x64.move_return(Src) {
-    mov(ArgVal(ArgVal::TYPE::r,0),$Src);
+    mov(ArgVal(ArgVal::TYPE::x,0),$Src);
     $return();
 }
 

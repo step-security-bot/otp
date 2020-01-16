@@ -108,7 +108,7 @@ x64.GC_TEST(Ns, Nh, Live) {
     a.jg(after_gc_check);
     a.mov(ARG2,need);
     a.mov(ARG4,$Live.getValue());
-    a.call((uint64_t)garbage_collect);
+    a.call(ga->getGarbageCollect());
     a.bind(after_gc_check);
 }
 
@@ -162,9 +162,9 @@ AH(NeedStack, NeedHeap, Live) {
 }
 
 x64.AH(NeedStack, NeedHeap, Live) {
-    ArgVal needed = ArgVal(ArgVal::TYPE::u,$NeedStack.getValue() + 1);
+    ArgVal needed = $NeedStack + 1;
     $GC_TEST(needed, $NeedHeap, $Live);
-    alloc(needed);
+    alloc(needed * sizeof(Eterm));
     mov(CP,NIL);
 }
 
@@ -175,9 +175,20 @@ x64.AH(NeedStack, NeedHeap, Live) {
 
 DISPATCH() {
     BeamInstr dis_next;
+//    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
 
     dis_next = *I;
     CHECK_ARGS(I);
+
+    /* if (mfa->module == am_atom_put("gb_trees1", 9)) { */
+    /*     int i; */
+    /*     erts_printf("Called %T:%T/%d\n",mfa->module, mfa->function, mfa->arity); */
+    /*     erts_printf("Args: "); */
+    /*     for (i = 0; i < mfa->arity; i++) */
+    /*         erts_printf("%T; ",reg[i]); */
+    /*     erts_printf("\n"); */
+    /* } */
+
 
     if (FCALLS > 0 || FCALLS > neg_o_reds) {
         FCALLS--;
@@ -262,7 +273,7 @@ x64.DISPATCH_REL(CallDest) {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
     a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
     a.mov(RET,RET_context_switch3);
-    a.jmp((uint64_t)swapout);
+    a.jmp(ga->getSwapout());
 }
 
 DISPATCH_RETURN() {
@@ -295,7 +306,7 @@ x64.DISPATCH_RETURN() {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
     a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
     a.mov(RET,RET_context_switch3);
-    a.jmp((uint64_t)swapout);
+    a.jmp(ga->getSwapout());
 }
 
 // Save the continuation pointer in the reserved slot at the
@@ -316,7 +327,7 @@ RETURN() {
 
 x64.RETURN() {
     mov(TMP1,CP);
-    mov(CP,ArgVal(ArgVal::TYPE::n,0));
+    mov(CP,ArgVal(ArgVal::TYPE::i,NIL));
 }
 
 NEXT0() {

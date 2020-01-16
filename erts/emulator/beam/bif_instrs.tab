@@ -242,7 +242,7 @@ x64.i_length(Fail, Live, Dst) {
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), $Live.getValue() + 3);
     a.mov(RET,RET_context_switch3);
-    a.jmp((uint64_t)swapout);
+    a.jmp(ga->getSwapout());
 
     a.bind(error);
     $NYI();
