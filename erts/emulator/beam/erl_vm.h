@@ -242,6 +242,7 @@ enum beamasm_ret {
     RET_context_switch2,
     RET_context_switch3,
     RET_context_switch_fun,
+    RET_find_func_info
 };
 
 typedef void (*BeamAsmFunc)(void);

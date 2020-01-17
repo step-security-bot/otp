@@ -53,6 +53,11 @@ class ArgVal {
             f = TAG_f,
             q = TAG_q
         };
+    static ArgVal x0;
+    static ArgVal x1;
+    static ArgVal x2;
+    static ArgVal x3;
+
     private:
         BeamInstr value;
         enum TYPE type;
@@ -136,6 +141,7 @@ class BeamAssembler : public ErrorHandler {
     BeamAssembler(JitRuntime *rt) : rt(rt), code() {
         code.init(rt->codeInfo());            // Initialize to the same arch as JIT runtime.
         code.attach(&a);
+        code.addEmitterOptions(BaseEmitter::kOptionStrictValidation);
     }
 
     BeamAssembler(JitRuntime *rt, std::string log) : BeamAssembler(rt)  {
@@ -160,11 +166,12 @@ class BeamAssembler : public ErrorHandler {
   public:
 
     void reset() {
-        fclose(logger.file());
+        if (logger.file())
+            fclose(logger.file());
         code.reset(Globals::kResetHard);
         code.init(rt->codeInfo());
         code.attach(&a);
-        code.setLogger(&logger);
+        
     }
 
     void setLogger(std::string log) {
@@ -263,6 +270,20 @@ class BeamModuleAssembler : public BeamAssembler {
   private:
 
     int codegen(std::vector<Literal> literals);
+
+    /* Helpers */
+    void emit_gc_test(ArgVal Stack, ArgVal Heap, ArgVal Live);
+    void emit_dispatch_rel(ArgVal CallDest);
+    void emit_dispatch_return(x86::Gp dest);
+    void emit_setup_return(x86::Gp dest);
+    void emit_boxed_val(x86::Gp Src, x86::Gp Dst);
+    void emit_is_boxed(Label Fail, x86::Gp Src);
+    void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
+    void emit_is_list(Label Fail, x86::Gp Src);
+    void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
+    void emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, x86::Gp X, x86::Gp Y, unsigned EqOnly);
+
+    #include "beamasm_protos.h"
 
     static void dbg(char *msg, Process *c_p, Eterm *reg) {
         erts_printf("%s\n",msg);
@@ -366,6 +387,11 @@ class BeamModuleAssembler : public BeamAssembler {
     void lea(ArgVal to, x86::Mem from) {
         a.lea(TMP1, from);
         mov(to, TMP1);
+    }
+
+    x86::Mem& incr(x86::Mem &mem) {
+        mem.addOffset(sizeof(Eterm));
+        return mem;
     }
 
     void emit_dbg(const char *msg) {

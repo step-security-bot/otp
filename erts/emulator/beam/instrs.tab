@@ -30,24 +30,20 @@ allocate(NeedStack, Live) {
     $AH($NeedStack, 0, $Live);
 }
 
-x64.allocate(NeedStack, Live) {
-    ArgVal NeedHeap = ArgVal(ArgVal::TYPE::u,0);
-    $AH($NeedStack, NeedHeap, $Live);
-}
+x64.allocate(NeedStack, Live);
 
 allocate_heap(NeedStack, NeedHeap, Live) {
     $AH($NeedStack, $NeedHeap, $Live);
 }
 
+x64.allocate_heap(NeedStack, NeedHeap, Live);
+
 allocate_init(NeedStack, Live, Y) {
     $AH($NeedStack, 0, $Live);
-    make_blank($Y);
-}
-
-x64.allocate_init(NeedStack, Live, Y) {
-    $allocate($NeedStack, $Live);
     $init($Y);
 }
+
+x64.allocate_init(NeedStack, Live, Y);
 
 allocate_zero(NeedStack, Live) {
     Eterm* ptr;
@@ -58,12 +54,7 @@ allocate_zero(NeedStack, Live) {
     }
 }
 
-x64.allocate_zero(NeedStack, Live) {
-    $allocate($NeedStack, $Live);
-    for (unsigned i = 0; i < $Live.getValue(); i++) {
-        a.mov(x86::qword_ptr(E, 1 + i * sizeof(Eterm)), NIL);
-    }
-}
+x64.allocate_zero(NeedStack, Live);
 
 allocate_heap_zero(NeedStack, NeedHeap, Live) {
     Eterm* ptr;
@@ -74,6 +65,8 @@ allocate_heap_zero(NeedStack, NeedHeap, Live) {
     }
 }
 
+x64.allocate_heap_zero(NeedStack, NeedHeap, Live);
+
 // This instruction is probably never used (because it is combined with a
 // a return). However, a future compiler might for some reason emit a
 // deallocate not followed by a return, and that should work.
@@ -83,9 +76,29 @@ deallocate(Deallocate) {
     E = ADD_BYTE_OFFSET(E, $Deallocate);
 }
 
-x64.deallocate(Deallocate) {
-    dealloc($Deallocate);
+x64.deallocate(Deallocate);
+
+return() {
+    //| -no_next
+    DTRACE_RETURN_FROM_PC(c_p, I);
+    $RETURN();
+    CHECK_TERM(r(0));
+    HEAP_SPACE_VERIFIED(0);
+
+    $DISPATCH_RETURN();
 }
+
+x64.return();
+
+move_return(Src) {
+    //| -no_next
+    x(0) = $Src;
+    DTRACE_RETURN_FROM_PC(c_p, I);
+    $RETURN();
+    $DISPATCH_RETURN();
+}
+
+x64.move_return(Src);
 
 //
 // Micro-benchmarks showed that the deallocate_return instruction
@@ -144,35 +157,12 @@ dealloc_ret.execute() {
     $DISPATCH_RETURN();
 }
 
-x64.deallocate_return0() {
-    ArgVal num_bytes(ArgVal::TYPE::u,(0+1) * sizeof(Eterm));
-    $deallocate_return(num_bytes);
-}
-
-x64.deallocate_return1() {
-    ArgVal num_bytes(ArgVal::TYPE::u,(1+1) * sizeof(Eterm));
-    $deallocate_return(num_bytes);
-}
-
-x64.deallocate_return2() {
-    ArgVal num_bytes(ArgVal::TYPE::u,(2+1) * sizeof(Eterm));
-    $deallocate_return(num_bytes);
-}
-
-x64.deallocate_return3() {
-    ArgVal num_bytes(ArgVal::TYPE::u,(3+1) * sizeof(Eterm));
-    $deallocate_return(num_bytes);
-}
-
-x64.deallocate_return4() {
-    ArgVal num_bytes(ArgVal::TYPE::u,(4+1) * sizeof(Eterm));
-    $deallocate_return(num_bytes);
-}
-
-x64.deallocate_return(Deallocate) {
-    $deallocate($Deallocate);
-    $return();
-}
+x64.deallocate_return0();
+x64.deallocate_return1();
+x64.deallocate_return2();
+x64.deallocate_return3();
+x64.deallocate_return4();
+x64.deallocate_return(Deallocate);
 
 move_deallocate_return(Src, Deallocate) {
     //| -no_next
@@ -192,11 +182,7 @@ move_deallocate_return(Src, Deallocate) {
     $DISPATCH_RETURN();
 }
 
-x64.move_deallocate_return(Src, Deallocate) {
-    ArgVal x0(ArgVal::TYPE::x, 0);
-    $move($Src, x0);
-    $deallocate_return($Deallocate);
-}
+x64.move_deallocate_return(Src, Deallocate);
 
 // Call instructions
 
@@ -206,19 +192,7 @@ i_call(CallDest) {
     $DISPATCH_REL($CallDest);
 }
 
-x64.i_call(CallDest) {
-    Label ret = a.newLabel();
-
-    /* Save the return CP on the stack */
-    a.lea(TMP1, x86::qword_ptr(ret));
-    mov(CP,TMP1);
-
-    $DISPATCH_REL($CallDest);
-
-    // Need to align this label in order for it to be recognized as is_CP
-    a.align(kAlignCode, 8);
-    a.bind(ret);
-}
+x64.i_call(CallDest);
 
 move_call(Src, CallDest) {
     //| -no_next
@@ -229,11 +203,7 @@ move_call(Src, CallDest) {
     $DISPATCH_REL(call_dest);
 }
 
-x64.move_call(Src, CallDest) {
-    ArgVal x0(ArgVal::TYPE::x, 0);
-    $move($Src, x0);
-    $i_call($CallDest);
-}
+x64.move_call(Src, CallDest);
 
 i_call_last(CallDest, Deallocate) {
     //| -no_next
@@ -241,10 +211,7 @@ i_call_last(CallDest, Deallocate) {
     $DISPATCH_REL($CallDest);
 }
 
-x64.i_call_last(CallDest, Deallocate) {
-    $deallocate($Deallocate);
-    $DISPATCH_REL($CallDest);
-}
+x64.i_call_last(CallDest, Deallocate);
 
 move_call_last(Src, CallDest, Deallocate) {
     //| -no_next
@@ -255,20 +222,14 @@ move_call_last(Src, CallDest, Deallocate) {
     $DISPATCH_REL(call_dest);
 }
 
-x64.move_call_last(Src, CallDest, Deallocate) {
-    ArgVal x0(ArgVal::TYPE::x, 0);
-    $move($Src, x0);
-    $i_call_last($CallDest, $Deallocate);
-}
+x64.move_call_last(Src, CallDest, Deallocate);
 
 i_call_only(CallDest) {
     //| -no_next
     $DISPATCH_REL($CallDest);
 }
 
-x64.i_call_only(CallDest) {
-    $DISPATCH_REL($CallDest);
-}
+x64.i_call_only(CallDest);
 
 move_call_only(Src, CallDest) {
     //| -no_next
@@ -278,11 +239,7 @@ move_call_only(Src, CallDest) {
     $DISPATCH_REL(call_dest);
 }
 
-x64.move_call_only(Src, CallDest) {
-    ArgVal x0(ArgVal::TYPE::x, 0);
-    $move($Src, x0);
-    $i_call_only($CallDest);
-}
+x64.move_call_only(Src, CallDest);
 
 i_call_ext(Dest) {
     //| -no_next
@@ -460,10 +417,6 @@ i_call_fun(Fun) {
     $HANDLE_APPLY_FUN_ERROR();
 }
 
-x64.i_call_fun(Fun) {
-    $NYI();
-}
-
 i_call_fun_last(Fun, Deallocate) {
     //| -no_next
     BeamInstr *next;
@@ -475,21 +428,6 @@ i_call_fun_last(Fun, Deallocate) {
     $HANDLE_APPLY_FUN_ERROR();
 }
 
-return() {
-    //| -no_next
-    DTRACE_RETURN_FROM_PC(c_p, I);
-    $RETURN();
-    CHECK_TERM(r(0));
-    HEAP_SPACE_VERIFIED(0);
-
-    $DISPATCH_RETURN();
-}
-
-x64.return() {
-    $RETURN();
-    $DISPATCH_RETURN();
-}
-
 get_list(Src, Hd, Tl) {
     Eterm* tmp_ptr = list_val($Src);
     Eterm hd, tl;
@@ -499,45 +437,40 @@ get_list(Src, Hd, Tl) {
     $Tl = tl;
 }
 
-x64.get_list(Src, Hd, Tl) {
-    mov(TMP1, $Src);
-    x86::Mem lst = x86::qword_ptr(TMP1);
-    lst.addOffset(-TAG_PRIMARY_LIST); // Remove tag
-    a.mov(TMP2, lst); // get car
-    lst.addOffset(sizeof(Eterm));
-    a.mov(TMP3, lst); // get cdr
-    mov($Hd,TMP2);
-    mov($Tl,TMP3);
-}
+x64.get_list(Src, Hd, Tl);
 
 get_hd(Src, Hd) {
     Eterm* tmp_ptr = list_val($Src);
     $Hd = CAR(tmp_ptr);
 }
 
+x64.get_hd(Src, Tl);
+
 get_tl(Src, Tl) {
     Eterm* tmp_ptr = list_val($Src);
     $Tl = CDR(tmp_ptr);
 }
 
+x64.get_tl(Src, Tl);
+
 i_get(Src, Dst) {
     $Dst = erts_pd_hash_get(c_p, $Src);
 }
 
+x64.i_get(Src, Dst);
+
 i_get_hash(Src, Hash, Dst) {
     $Dst = erts_pd_hash_get_with_hx(c_p, $Hash, $Src);
 }
+
+x64.i_get_hash(Src, Hash, Dst);
 
 i_get_tuple_element(Src, Element, Dst) {
     Eterm* src = ADD_BYTE_OFFSET(tuple_val($Src), $Element);
     $Dst = *src;
 }
 
-x64.i_get_tuple_element(Src, Element, Dst) {
-    mov(TMP1, $Src);
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue()));
-    mov($Dst, TMP1);
-}
+x64.i_get_tuple_element(Src, Element, Dst);
 
 i_get_tuple_element2(Src, Element, Dst) {
     Eterm* src;
@@ -551,15 +484,7 @@ i_get_tuple_element2(Src, Element, Dst) {
     dst[1] = E2;
 }
 
-x64.i_get_tuple_element2(Src, Element, Dst) {
-    x86::Mem dst = getRef($Dst);
-    mov(TMP1, $Src);
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue()));
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue() + sizeof(Eterm)));
-    a.mov(dst, TMP2);
-    dst.addOffset(sizeof(Eterm));
-    a.mov(dst, TMP1);
-}
+x64.i_get_tuple_element2(Src, Element, Dst);
 
 i_get_tuple_element2_dst(Src, Element, D1, D2) {
     Eterm* src;
@@ -571,13 +496,7 @@ i_get_tuple_element2_dst(Src, Element, D1, D2) {
     $D2 = E2;
 }
 
-x64.i_get_tuple_element2_dst(Src, Element, D1, D2) {
-    mov(TMP1, $Src);
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue()));
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue() + sizeof(Eterm)));
-    mov($D1, TMP2);
-    mov($D2, TMP1);
-}
+x64.i_get_tuple_element2_dst(Src, Element, D1, D2);
 
 i_get_tuple_element3(Src, Element, Dst) {
     Eterm* src;
@@ -593,18 +512,7 @@ i_get_tuple_element3(Src, Element, Dst) {
     dst[2] = E3;
 }
 
-x64.i_get_tuple_element3(Src, Element, Dst) {
-    x86::Mem dst = getRef($Dst);
-    mov(TMP1, $Src);
-    a.mov(TMP3, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue()));
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue() + sizeof(Eterm)));
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Element.getValue() + sizeof(Eterm) * 2));
-    a.mov(dst, TMP3);
-    dst.addOffset(sizeof(Eterm));
-    a.mov(dst, TMP2);
-    dst.addOffset(sizeof(Eterm));
-    a.mov(dst, TMP1);
-}
+x64.i_get_tuple_element3(Src, Element, Dst);
 
 i_element := element_group.fetch.execute;
 
@@ -659,9 +567,7 @@ init(Y) {
     make_blank($Y);
 }
 
-x64.init(Y) {
-    mov($Y, NIL);
-}
+x64.init(Y);
 
 init_seq3(Y1) {
     Eterm* dst = &$Y1;
@@ -670,6 +576,8 @@ init_seq3(Y1) {
     make_blank(dst[2]);
 }
 
+x64.init_seq3(Y1);
+
 init_seq4(Y1) {
     Eterm* dst = &$Y1;
     make_blank(dst[0]);
@@ -677,6 +585,8 @@ init_seq4(Y1) {
     make_blank(dst[2]);
     make_blank(dst[3]);
 }
+
+x64.init_seq4(Y1);
 
 init_seq5(Y1) {
     Eterm* dst = &$Y1;
@@ -687,15 +597,14 @@ init_seq5(Y1) {
     make_blank(dst[4]);
 }
 
+x64.init_seq5(Y1);
+
 init2(Y1, Y2) {
     make_blank($Y1);
     make_blank($Y2);
 }
 
-x64.init2(Y1, Y2) {
-    $init($Y1);
-    $init($Y2);
-}
+x64.init2(Y1, Y2);
 
 init3(Y1, Y2, Y3) {
     make_blank($Y1);
@@ -703,11 +612,7 @@ init3(Y1, Y2, Y3) {
     make_blank($Y3);
 }
 
-x64.init3(Y1, Y2, Y3) {
-    $init($Y1);
-    $init($Y2);
-    $init($Y3);
-}
+x64.init3(Y1, Y2, Y3);
 
 i_make_fun(FunP, NumFree) {
     HEAVY_SWAPOUT;
@@ -719,6 +624,8 @@ move_trim(Src, Dst, Words) {
     $Dst = $Src;
     $i_trim($Words);
 }
+
+x64.move_trim(Src, Dst, Words);
 
 i_trim(Words) {
     E += $Words;
@@ -733,13 +640,13 @@ i_trim(Words) {
     E[0] = NIL;
 }
 
+x64.i_trim(Words);
+
 move(Src, Dst) {
     $Dst = $Src;
 }
 
-x64.move(Src, Dst) {
-    mov($Dst,$Src);
-}
+x64.move(Src, Dst);
 
 move3(S1, D1, S2, D2, S3, D3) {
     $D1 = $S1;
@@ -747,11 +654,7 @@ move3(S1, D1, S2, D2, S3, D3) {
     $D3 = $S3;
 }
 
-x64.move3(S1, D1, S2, D2, S3, D3) {
-    mov($D1,$S1);
-    mov($D2,$S2);
-    mov($D3,$S3);
-}
+x64.move3(S1, D1, S2, D2, S3, D3);
 
 move2_par(S1, D1, S2, D2) {
     Eterm V1, V2;
@@ -761,13 +664,7 @@ move2_par(S1, D1, S2, D2) {
     $D2 = V2;
 }
 
-x64.move2_par(S1, D1, S2, D2) {
-    mov(TMP1,$S1);
-    mov(TMP2,$S2);
-    mov($D1,TMP1);
-    mov($D2,TMP2);
-}
-
+x64.move2_par(S1, D1, S2, D2);
 
 move_shift(Src, SD, D) {
     Eterm V;
@@ -776,16 +673,7 @@ move_shift(Src, SD, D) {
     $SD = V;
 }
 
-x64.move_shift(Src, SD, D) {
-    if ($Src.isMem()) {
-        mov(TMP2, $Src);
-        mov($D,$SD); // This uses TMP1
-        mov($SD,TMP2);
-    } else {
-        mov($D,$SD);
-        mov($SD,$Src);
-    }
-}
+x64.move_shift(Src, SD, D);
 
 move_src_window2(Src, D1, D2) {
     Eterm* src = &$Src;
@@ -796,12 +684,7 @@ move_src_window2(Src, D1, D2) {
     $D2 = s2;
 }
 
-x64.move_src_window2(Src, D1, D2) {
-    mov(TMP1, $Src + 0);
-    mov(TMP2, $Src + 1);
-    mov($D1, TMP1);
-    mov($D2, TMP2);
-}
+x64.move_src_window2(Src, D1, D2);
 
 move_src_window3(Src, D1, D2, D3) {
     Eterm* src = &$Src;
@@ -814,14 +697,7 @@ move_src_window3(Src, D1, D2, D3) {
     $D3 = s3;
 }
 
-x64.move_src_window3(Src, D1, D2, D3) {
-    mov(TMP1, $Src + 0);
-    mov(TMP2, $Src + 1);
-    mov(TMP3, $Src + 2);
-    mov($D1, TMP1);
-    mov($D2, TMP2);
-    mov($D3, TMP3);
-}
+x64.move_src_window3(Src, D1, D2, D3);
 
 move_src_window4(Src, D1, D2, D3, D4) {
     Eterm* src = &$Src;
@@ -836,16 +712,7 @@ move_src_window4(Src, D1, D2, D3, D4) {
     $D4 = s4;
 }
 
-x64.move_src_window4(Src, D1, D2, D3, D4) {
-    mov(TMP1, $Src + 0);
-    mov(TMP2, $Src + 1);
-    mov(TMP3, $Src + 2);
-    mov(TMP4, $Src + 3);
-    mov($D1, TMP1);
-    mov($D2, TMP2);
-    mov($D3, TMP3);
-    mov($D4, TMP4);
-}
+x64.move_src_window4(Src, D1, D2, D3, D4);
 
 move_window2(S1, S2, D) {
     Eterm xt0, xt1;
@@ -856,12 +723,7 @@ move_window2(S1, S2, D) {
     y[1] = xt1;
 }
 
-x64.move_window2(S1, S2, D) {
-    mov(TMP1, $S1);
-    mov(TMP2, $S2);
-    mov($D + 0, TMP1);
-    mov($D + 1, TMP2);
-}
+x64.move_window2(S1, S2, D);
 
 move_window3(S1, S2, S3, D) {
     Eterm xt0, xt1, xt2;
@@ -874,14 +736,7 @@ move_window3(S1, S2, S3, D) {
     y[2] = xt2;
 }
 
-x64.move_window3(S1, S2, S3, D) {
-    mov(TMP1, $S1);
-    mov(TMP2, $S2);
-    mov(TMP3, $S3);
-    mov($D + 0, TMP1);
-    mov($D + 1, TMP2);
-    mov($D + 2, TMP3);
-}
+x64.move_window3(S1, S2, S3, D);
 
 move_window4(S1, S2, S3, S4, D) {
     Eterm xt0, xt1, xt2, xt3;
@@ -896,16 +751,7 @@ move_window4(S1, S2, S3, S4, D) {
     y[3] = xt3;
 }
 
-x64.move_window4(S1, S2, S3, S4, D) {
-    mov(TMP1, $S1);
-    mov(TMP2, $S2);
-    mov(TMP3, $S3);
-    mov(TMP4, $S4);
-    mov($D + 0, TMP1);
-    mov($D + 1, TMP2);
-    mov($D + 2, TMP3);
-    mov($D + 3, TMP4);
-}
+x64.move_window4(S1, S2, S3, S4, D);
 
 move_window5(S1, S2, S3, S4, S5, D) {
     Eterm xt0, xt1, xt2, xt3, xt4;
@@ -922,51 +768,25 @@ move_window5(S1, S2, S3, S4, S5, D) {
     y[4] = xt4;
 }
 
-x64.move_window5(S1, S2, S3, S4, S5, D) {
-    mov(TMP1, $S1);
-    mov(TMP2, $S2);
-    mov(TMP3, $S3);
-    mov(TMP4, $S4);
-    mov(TMP5, $S5);
-    mov($D + 0, TMP1);
-    mov($D + 1, TMP2);
-    mov($D + 2, TMP3);
-    mov($D + 3, TMP4);
-    mov($D + 4, TMP5);
-}
-
-move_return(Src) {
-    //| -no_next
-    x(0) = $Src;
-    DTRACE_RETURN_FROM_PC(c_p, I);
-    $RETURN();
-    $DISPATCH_RETURN();
-}
-
-x64.move_return(Src) {
-    mov(ArgVal(ArgVal::TYPE::x,0),$Src);
-    $return();
-}
+x64.move_window5(S1, S2, S3, S4, S5, D);
 
 move_x1(Src) {
     x(1) = $Src;
 }
 
-x64.move_x1(Src) {
-    mov(ArgVal(ArgVal::TYPE::x,1),$Src);
-}
+x64.move_x1(Src);
 
 move_x2(Src) {
     x(2) = $Src;
 }
 
-x64.move_x2(Src) {
-    mov(ArgVal(ArgVal::TYPE::x,2),$Src);
-}
+x64.move_x2(Src);
 
 node(Dst) {
     $Dst = erts_this_node->sysname;
 }
+
+x64.node(Dst);
 
 put_list(Hd, Tl, Dst) {
     HTOP[0] = $Hd;
@@ -975,12 +795,7 @@ put_list(Hd, Tl, Dst) {
     HTOP += 2;
 }
 
-x64.put_list(Hd, Tl, Dst) {
-    mov(x86::qword_ptr(HTOP,0), $Hd);
-    mov(x86::qword_ptr(HTOP,1 * sizeof(Eterm)), $Tl);
-    lea($Dst, x86::qword_ptr(HTOP,TAG_PRIMARY_LIST));
-    a.lea(HTOP, x86::qword_ptr(HTOP,2 * sizeof(Eterm)));
-}
+x64.put_list(Hd, Tl, Dst);
 
 update_list(Hd, Dst) {
     HTOP[0] = $Hd;
@@ -989,9 +804,7 @@ update_list(Hd, Dst) {
     HTOP += 2;
 }
 
-x64.update_list(Hd, Dst) {
-    $put_list($Hd, $Dst, $Dst);
-}
+x64.update_list(Hd, Dst);
 
 put_tuple2(Dst, Arity) {
     Eterm* hp = HTOP;
@@ -1028,22 +841,13 @@ put_tuple2(Dst, Arity) {
     Goto(*I);
 }
 
-x64.put_tuple2(Dst, Arity) {
-    comment("Move arity word");
-    a.mov(x86::qword_ptr(HTOP, 0), make_arityval($Arity.getValue()));
-    comment("Move tuple data");
-    for (unsigned i = 2; i < args.size(); i++) {
-        mov(x86::qword_ptr(HTOP, (i - 1) * sizeof(Eterm)), args[i]);
-    }
-    comment("Create boxed ptr");
-    a.lea(TMP1, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
-    mov($Dst, TMP1);
-    a.lea(HTOP, x86::qword_ptr(HTOP, ($Arity.getValue() + 1) * sizeof(Eterm)));
-}
+x64.put_tuple2(Dst, Arity);
 
 self(Dst) {
     $Dst = c_p->common.id;
 }
+
+x64.self(Dst);
 
 set_tuple_element(Element, Tuple, Offset) {
     Eterm* p;
@@ -1053,18 +857,15 @@ set_tuple_element(Element, Tuple, Offset) {
     *p = $Element;
 }
 
+x64.set_tuple_element(Element, Tuple, Offset);
+
 swap(R1, R2) {
     Eterm V = $R1;
     $R1 = $R2;
     $R2 = V;
 }
 
-x64.swap(R1, R2) {
-    mov(TMP1, $R1);
-    mov(TMP2, $R2);
-    mov($R2, TMP1);
-    mov($R1, TMP2);
-}
+x64.swap(R1, R2);
 
 swap2(R1, R2, R3) {
     Eterm V = $R2;
@@ -1073,41 +874,28 @@ swap2(R1, R2, R3) {
     $R3 = V;
 }
 
-x64.swap2(R1, R2, R3) {
-    mov(TMP1, $R1);
-    mov(TMP2, $R2);
-    mov(TMP3, $R3);
-    mov($R2, TMP1);
-    mov($R3, TMP2);
-    mov($R1, TMP3);
-}
+x64.swap2(R1, R2, R3);
 
 test_heap(Nh, Live) {
     $GC_TEST(0, $Nh, $Live);
 }
 
-x64.test_heap(Nh, Live) {
-    ArgVal Ns(ArgVal::TYPE::u,0);
-    $GC_TEST(Ns, $Nh, $Live);
-}
+x64.test_heap(Nh, Live);
 
 test_heap_1_put_list(Nh, Reg) {
     $test_heap($Nh, 1);
     $put_list($Reg, x(0), x(0));
 }
 
-x64.test_heap_1_put_list(Nh, Reg) {
-    ArgVal Live(ArgVal::TYPE::u, 1);
-    ArgVal x0(ArgVal::TYPE::x, 0);
-    $test_heap($Nh, Live);
-    $put_list($Reg, x0, x0);
-}
+x64.test_heap_1_put_list(Nh, Reg);
 
 is_integer_allocate(Fail, Src, NeedStack, Live) {
     //| -no_prefetch
     $is_integer($Fail, $Src);
     $AH($NeedStack, 0, $Live);
 }
+
+x64.is_integer_allocate(Fail, Src, NeedStack, Live);
 
 is_nonempty_list(Fail, Src) {
     //| -no_prefetch
@@ -1116,12 +904,7 @@ is_nonempty_list(Fail, Src) {
     }
 }
 
-x64.is_nonempty_list(Fail, Src) {
-    mov(TMP1, $Src);
-    a.and_(TMP1, _TAG_PRIMARY_MASK-TAG_PRIMARY_LIST);
-    a.cmp(TMP1, 0);
-    a.jne(labels[$Fail.getValue()]);
-}
+x64.is_nonempty_list(Fail, Src);
 
 is_nonempty_list_allocate(Fail, Src, Need, Live) {
     //| -no_prefetch
@@ -1129,17 +912,15 @@ is_nonempty_list_allocate(Fail, Src, Need, Live) {
     $AH($Need, 0, $Live);
 }
 
+x64.is_nonempty_list_allocate(Fail, Src, Need, Live);
+
 is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
     //| -no_prefetch
     $is_nonempty_list($Fail, $Src);
     $get_list($Src, $Hd, $Tl);
 }
 
-x64.is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, $Src);
-    $get_list($Src, $Hd, $Tl);
-}
+x64.is_nonempty_list_get_list(Fail, Src, Hd, Tl);
 
 is_nonempty_list_get_hd(Fail, Src, Hd) {
     //| -no_prefetch
@@ -1147,19 +928,21 @@ is_nonempty_list_get_hd(Fail, Src, Hd) {
     $get_hd($Src, $Hd);
 }
 
+x64.is_nonempty_list_get_hd(Fail, Src, Hd);
+
 is_nonempty_list_get_tl(Fail, Src, Tl) {
     //| -no_prefetch
     $is_nonempty_list($Fail, $Src);
     $get_tl($Src, $Tl);
 }
 
+x64.is_nonempty_list_get_tl(Fail, Src, Tl);
+
 jump(Fail) {
     $JUMP($Fail);
 }
 
-x64.jump(Fail) {
-    a.jmp(labels[$Fail.getValue()]);
-}
+x64.jump(Fail);
 
 move_jump(Lbl, Src, Dst) {
     Eterm lbl = $Lbl;
@@ -1168,10 +951,7 @@ move_jump(Lbl, Src, Dst) {
     $JUMP(lbl);
 }
 
-x64.move_jump(Lbl, Src, Dst) {
-    $move($Src, $Dst);
-    $jump($Lbl);
-}
+x64.move_jump(Lbl, Src, Dst);
 
 //
 // Test instructions.
@@ -1183,11 +963,15 @@ is_atom(Fail, Src) {
     }
 }
 
+x64.is_atom(Fail, Src);
+
 is_boolean(Fail, Src) {
     if (($Src) != am_true && ($Src) != am_false) {
         $FAIL($Fail);
     }
 }
+
+x64.is_boolean(Fail, Src);
 
 is_binary(Fail, Src) {
     if (is_not_binary($Src) || binary_bitsize($Src) != 0) {
@@ -1195,11 +979,15 @@ is_binary(Fail, Src) {
     }
 }
 
+x64.is_binary(Fail, Src);
+
 is_bitstring(Fail, Src) {
   if (is_not_binary($Src)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_bitstring(Fail, Src);
 
 is_float(Fail, Src) {
     if (is_not_float($Src)) {
@@ -1207,11 +995,15 @@ is_float(Fail, Src) {
     }
 }
 
+x64.is_float(Fail, Src);
+
 is_function(Fail, Src) {
     if ( !(is_any_fun($Src)) ) {
         $FAIL($Fail);
     }
 }
+
+x64.is_function(Fail, Src);
 
 cold_is_function2(Fail, Fun, Arity) {
     if (erl_is_function(c_p, $Fun, $Arity) != am_true ) {
@@ -1219,19 +1011,15 @@ cold_is_function2(Fail, Fun, Arity) {
     }
 }
 
+x64.cold_is_function2(Fail, Fun, Arity);
+
 hot_is_function2(Fail, Fun, Arity) {
     if (!is_function2($Fun, $Arity)) {
         $FAIL($Fail);
     }
 }
 
-x64.hot_is_function2(Fail, Fun, Arity) {
-    mov(ARG1, $Fun);
-    mov(ARG2, $Arity);
-    a.call((uint64_t)is_function2);
-    a.cmp(RET, 0);
-    a.je(labels[$Fail.getValue()]);
-}
+x64.hot_is_function2(Fail, Fun, Arity);
 
 is_integer(Fail, Src) {
     if (is_not_integer($Src)) {
@@ -1239,26 +1027,7 @@ is_integer(Fail, Src) {
     }
 }
 
-x64.is_integer(Fail, Src) {
-    Label next = a.newLabel();
-    mov(TMP1, $Src);
-    a.mov(TMP2, TMP1);
-    a.and_(TMP2, _TAG_IMMED1_MASK);
-    a.cmp(TMP2, _TAG_IMMED1_SMALL);
-    a.je(next);
-
-    // Reuse TMP2 as the important bits are still available
-    a.and_(TMP2, _TAG_PRIMARY_MASK);
-    a.cmp(TMP2, TAG_PRIMARY_BOXED);
-    a.jne(labels[$Fail.getValue()]);
-
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED));
-    a.and_(TMP1, _TAG_HEADER_MASK-_BIG_SIGN_BIT);
-    a.cmp(TMP1, _TAG_HEADER_POS_BIG);
-    a.jne(labels[$Fail.getValue()]);
-
-    a.bind(next);
-}
+x64.is_integer(Fail, Src);
 
 is_list(Fail, Src) {
     if (is_not_list($Src) && is_not_nil($Src)) {
@@ -1266,11 +1035,15 @@ is_list(Fail, Src) {
     }
 }
 
+x64.is_list(Fail, Src);
+
 is_map(Fail, Src) {
     if (is_not_map($Src)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_map(Fail, Src);
 
 is_nil(Fail, Src) {
     if (is_not_nil($Src)) {
@@ -1278,11 +1051,7 @@ is_nil(Fail, Src) {
     }
 }
 
-x64.is_nil(Fail, Src) {
-    mov(TMP1, $Src);
-    a.cmp(TMP1, NIL);
-    a.jne(labels[$Fail.getValue()]);
-}
+x64.is_nil(Fail, Src);
 
 is_number(Fail, Src) {
     if (is_not_integer($Src) && is_not_float($Src)) {
@@ -1290,11 +1059,15 @@ is_number(Fail, Src) {
     }
 }
 
+x64.is_number(Fail, Src);
+
 is_pid(Fail, Src) {
     if (is_not_pid($Src)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_pid(Fail, Src);
 
 is_port(Fail, Src) {
     if (is_not_port($Src)) {
@@ -1302,11 +1075,15 @@ is_port(Fail, Src) {
     }
 }
 
+x64.is_port(Fail, Src);
+
 is_reference(Fail, Src) {
     if (is_not_ref($Src)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_reference(Fail, Src);
 
 is_tagged_tuple(Fail, Src, Arityval, Tag) {
     Eterm term = $Src;
@@ -1316,6 +1093,8 @@ is_tagged_tuple(Fail, Src, Arityval, Tag) {
         $FAIL($Fail);
     }
 }
+
+x64.is_tagged_tuple(Fail, Src, Arityval, Tag);
 
 is_tagged_tuple_ff(NotTupleFail, WrongRecordFail, Src, Arityval, Tag) {
     Eterm term = $Src;
@@ -1327,25 +1106,15 @@ is_tagged_tuple_ff(NotTupleFail, WrongRecordFail, Src, Arityval, Tag) {
     }
 }
 
+x64.is_tagged_tuple_ff(Fail, RecFail, Src, Arityval, Tag);
+
 is_tuple(Fail, Src) {
     if (is_not_tuple($Src)) {
         $FAIL($Fail);
     }
 }
 
-x64.is_tuple(Fail, Src) {
-
-    mov(TMP1, $Src);
-    a.mov(TMP2, TMP1);
-    a.and_(TMP2, _TAG_PRIMARY_MASK);
-    a.cmp(TMP2, TAG_PRIMARY_BOXED);
-    a.jne(labels[$Fail.getValue()]);
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED));
-    a.and_(TMP1, _TAG_HEADER_MASK);
-    a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
-    a.jne(labels[$Fail.getValue()]);
-
-}
+x64.is_tuple(Fail, Src);
 
 is_tuple_of_arity(Fail, Src, Arityval) {
     Eterm term = $Src;
@@ -1354,20 +1123,7 @@ is_tuple_of_arity(Fail, Src, Arityval) {
     }
 }
 
-x64.is_tuple_of_arity(Fail, Src, Arityval) {
-    mov(TMP1, $Src);
-    a.mov(TMP2, TMP1);
-    a.and_(TMP2, _TAG_PRIMARY_MASK);
-    a.cmp(TMP2, TAG_PRIMARY_BOXED);
-    a.jne(labels[$Fail.getValue()]);
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED));
-    a.mov(TMP2, TMP1);
-    a.and_(TMP1, _TAG_HEADER_MASK);
-    a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
-    a.jne(labels[$Fail.getValue()]);
-    a.cmp(TMP2, $Arityval.getValue());
-    a.jne(labels[$Fail.getValue()]);
-}
+x64.is_tuple_of_arity(Fail, Src, Arityval);
 
 test_arity(Fail, Pointer, Arity) {
     if (*tuple_val($Pointer) != $Arity) {
@@ -1375,12 +1131,7 @@ test_arity(Fail, Pointer, Arity) {
     }
 }
 
-x64.test_arity(Fail, Pointer, Arity) {
-    mov(TMP1, $Pointer); // This TMP1 is used by test_arity_get_tuple_element
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED));
-    a.cmp(TMP2, $Arity.getValue());
-    a.jne(labels[$Fail.getValue()]);
-}
+x64.test_arity(Fail, Pointer, Arity);
 
 test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst) {
     Eterm* ptr = tuple_val($Pointer);
@@ -1392,11 +1143,7 @@ test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst) {
     $Dst = *src;
 }
 
-x64.test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst) {
-    $test_arity($Fail, $Pointer, $Arity); // Sets TMP1
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + $Pos.getValue()));
-    mov($Dst, TMP2);
-}
+x64.test_arity_get_tuple_element(Fail, Pointer, Arity, Pos, Dst);
 
 i_is_eq_exact_immed(Fail, X, Y) {
     if ($X != $Y) {
@@ -1404,10 +1151,7 @@ i_is_eq_exact_immed(Fail, X, Y) {
     }
 }
 
-x64.i_is_eq_exact_immed(Fail, X, Y) {
-    a.cmp(getRef($X),$Y.getValue());
-    a.jne(labels[$Fail.getValue()]);
-}
+x64.i_is_eq_exact_immed(Fail, X, Y);
 
 i_is_ne_exact_immed(Fail, X, Y) {
     if ($X == $Y) {
@@ -1415,11 +1159,15 @@ i_is_ne_exact_immed(Fail, X, Y) {
     }
 }
 
+x64.i_is_ne_exact_immed(Fail, X, Y);
+
 is_eq_exact(Fail, X, Y) {
     if (!EQ($X, $Y)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_eq_exact(Fail, X, Y);
 
 i_is_eq_exact_literal(Fail, Src, Literal) {
     Eterm src = $Src;
@@ -1428,23 +1176,15 @@ i_is_eq_exact_literal(Fail, Src, Literal) {
     }
 }
 
-x64.i_is_eq_exact_literal(Fail, Src, Literal) {
-    mov(ARG1, $Src);
-    a.mov(TMP2, ARG1);
-    a.and_(TMP2, _TAG_IMMED1_MASK);
-    a.cmp(TMP2, TAG_PRIMARY_IMMED1);
-    a.je(labels[$Fail.getValue()]);
-    a.mov(ARG2, $Literal.getValue());
-    a.call((uint64_t)eq);
-    a.cmp(RET, 0);
-    a.je(labels[$Fail.getValue()]);
-}
+x64.i_is_eq_exact_literal(Fail, Src, Literal);
 
 is_ne_exact(Fail, X, Y) {
     if (EQ($X, $Y)) {
         $FAIL($Fail);
     }
 }
+
+x64.is_ne_exact(Fail, X, Y);
 
 i_is_ne_exact_literal(Fail, Src, Literal) {
     Eterm src = $Src;
@@ -1453,74 +1193,7 @@ i_is_ne_exact_literal(Fail, Src, Literal) {
     }
 }
 
-CMP_SPEC(Op, Fail, EqOnly) {
-    Label generic = a.newLabel(),
-        small_check = a.newLabel(),
-        small_cmp = a.newLabel(),
-        float_check = a.newLabel(),
-        atom_cmp = a.newLabel(),
-        float_cmp = a.newLabel();
-
-    /* Place the small test first as lt is most likely used on small integers */
-    comment("is_both_small(X, Y)");
-    a.bind(small_check);
-    a.mov(TMP3,ARG1);
-    a.and_(TMP3,ARG2);
-    a.and_(TMP3,_TAG_IMMED1_MASK);
-    a.cmp(TMP3,_TAG_IMMED1_SMALL);
-    a.je(small_cmp);
-
-    comment("is_atom(X) && is_atom(Y)");
-    a.mov(TMP3,ARG1);
-    a.and_(TMP3,_TAG_IMMED2_MASK);
-    a.cmp(TMP3,_TAG_IMMED2_ATOM);
-    a.jne(float_check);
-    a.mov(TMP3,ARG2);
-    a.and_(TMP3,_TAG_IMMED2_MASK);
-    a.cmp(TMP3,_TAG_IMMED2_ATOM);
-    a.je(atom_cmp);
-
-    comment("is_float(X) && is_float(Y)");
-    a.bind(float_check);
-    a.mov(TMP3, ARG1);
-    a.and_(TMP3, _TAG_PRIMARY_MASK);
-    a.cmp(TMP3, TAG_PRIMARY_BOXED);
-    a.jne(generic);
-    a.mov(TMP3, x86::qword_ptr(ARG1,-TAG_PRIMARY_BOXED));
-    a.cmp(TMP3, HEADER_FLONUM);
-    a.jne(generic);
-    a.mov(TMP3, ARG2);
-    a.and_(TMP3, _TAG_PRIMARY_MASK);
-    a.cmp(TMP3, TAG_PRIMARY_BOXED);
-    a.jne(generic);
-    a.mov(TMP3, x86::qword_ptr(ARG2,-TAG_PRIMARY_BOXED));
-    a.cmp(TMP3, HEADER_FLONUM);
-    a.je(float_cmp);
-
-    comment("erts_cmp_compound(X,Y,0,0)");
-    a.bind(generic);
-    a.xor_(ARG3,ARG3);
-    a.mov(ARG4,$EqOnly);
-    a.call((uint64_t)erts_cmp_compound);
-    a.cmp(RET,0);
-    a.$Op (fail);
-    a.jmp(next);
-
-    a.bind(atom_cmp);
-    a.jmp(generic);
-
-    a.bind(small_cmp);
-    comment("signed_val(X) $Op signed_val(Y)");
-    /* a.sar(ARG1, _TAG_IMMED1_SIZE); */
-    /* a.sar(ARG2, _TAG_IMMED1_SIZE); */
-    a.cmp(ARG1, ARG2);
-    a.$Op (fail);
-    a.jmp(next);
-
-    a.bind(float_cmp);
-    a.jmp(generic);
-
-}
+x64.i_is_ne_exact_literal(Fail, Src, Literal);
 
 is_eq(Fail, A, B) {
     Eterm a = $A;
@@ -1528,27 +1201,7 @@ is_eq(Fail, A, B) {
     CMP_EQ_ACTION(a, b, $FAIL($Fail));
 }
 
-x64.is_lt(Fail, X, Y) {
-    Label fail = labels[$Fail.getValue()],
-        next = a.newLabel();
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    if ($X.isMem())
-        mov(ARG1,$X);
-    else
-        a.mov(ARG1,$X.getValue());
-    if ($Y.isMem())
-        mov(ARG2,$Y);
-    else
-        a.mov(ARG2,$Y.getValue());
-
-    comment("X == Y -> next");
-    a.cmp(ARG1,ARG2);
-    a.je(next);
-
-    $CMP_SPEC(jne, $Fail, 0);
-    a.bind(next);
-}
+x64.is_eq(Fail, X, Y);
 
 is_ne(Fail, A, B) {
     Eterm a = $A;
@@ -1556,80 +1209,19 @@ is_ne(Fail, A, B) {
     CMP_NE_ACTION(a, b, $FAIL($Fail));
 }
 
-x64.is_ne(Fail, X, Y) {
-    Label fail = labels[$Fail.getValue()],
-        next = a.newLabel();
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    if ($X.isMem())
-        mov(ARG1,$X);
-    else
-        a.mov(ARG1,$X.getValue());
-    if ($Y.isMem())
-        mov(ARG2,$Y);
-    else
-        a.mov(ARG2,$Y.getValue());
-
-    comment("X == Y -> fail");
-    a.cmp(ARG1,ARG2);
-    a.je(fail);
-
-    $CMP_SPEC(je, $Fail, 0);
-    a.bind(next);
-}
+x64.is_ne(Fail, X, Y);
 
 is_lt(Fail, X, Y) {
     CMP_LT_ACTION($X, $Y, $FAIL($Fail));
 }
 
-x64.is_lt(Fail, X, Y) {
-    Label fail = labels[$Fail.getValue()],
-        next = a.newLabel();
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    if ($X.isMem())
-        mov(ARG1,$X);
-    else
-        a.mov(ARG1,$X.getValue());
-    if ($Y.isMem())
-        mov(ARG2,$Y);
-    else
-        a.mov(ARG2,$Y.getValue());
-
-    comment("X == Y -> fail");
-    a.cmp(ARG1,ARG2);
-    a.je(fail);
-
-    $CMP_SPEC(jge, $Fail, 0);
-    a.bind(next);
-}
+x64.is_lt(Fail, X, Y);
 
 is_ge(Fail, X, Y) {
     CMP_GE_ACTION($X, $Y, $FAIL($Fail));
 }
 
-x64.is_ge(Fail, X, Y) {
-    Label fail = labels[$Fail.getValue()],
-        next = a.newLabel();
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    if ($X.isMem())
-        mov(ARG1,$X);
-    else
-        a.mov(ARG1,$X.getValue());
-    if ($Y.isMem())
-        mov(ARG2,$Y);
-    else
-        a.mov(ARG2,$Y.getValue());
-
-    comment("X == Y -> next");
-    a.cmp(ARG1,ARG2);
-    a.je(next);
-
-    $CMP_SPEC(jl, $Fail, 0);
-
-    a.bind(next);
-}
+x64.is_ge(Fail, X, Y);
 
 badarg(Fail) {
     $BADARG($Fail);
@@ -1643,9 +1235,7 @@ badmatch(Src) {
     //| -no_next;
 }
 
-x64.badmatch(Src) {
-    $NYI();
-}
+x64.badmatch(Src);
 
 case_end(Src) {
     c_p->fvalue = $Src;
@@ -1654,21 +1244,29 @@ case_end(Src) {
     //| -no_next;
 }
 
+x64.case_end(Src);
+
 if_end() {
     c_p->freason = EXC_IF_CLAUSE;
     goto find_func_info;
     //| -no_next;
 }
 
+x64.if_end();
+
 system_limit(Fail) {
     $SYSTEM_LIMIT($Fail);
     //| -no_next;
 }
 
+x64.system_limit(Fail);
+
 catch(Y, Fail) {
     c_p->catches++;
     $Y = $Fail;
 }
+
+x64.catch(Y, Fail);
 
 catch_end(Y) {
     $try_end($Y);
@@ -1698,10 +1296,14 @@ catch_end(Y) {
     CHECK_TERM(r(0));
 }
 
+x64.catch_end(Y);
+
 try_end(Y) {
     c_p->catches--;
     make_blank($Y);
 }
+
+x64.try_end(Y);
 
 try_case(Y) {
     $try_end($Y);
@@ -1712,12 +1314,16 @@ try_case(Y) {
     x(2) = x(3);
 }
 
+x64.try_case(Y);
+
 try_case_end(Src) {
     c_p->fvalue = $Src;
     c_p->freason = EXC_TRY_CLAUSE;
     goto find_func_info;
     //| -no_next;
 }
+
+x64.try_case_end(Src);
 
 i_raise() {
     Eterm raise_trace = x(2);
@@ -1736,11 +1342,15 @@ i_raise() {
     //| -no_next
 }
 
+x64.i_raise();
+
 build_stacktrace() {
     SWAPOUT;
     x(0) = build_stacktrace(c_p, x(0));
     SWAPIN;
 }
+
+x64.build_stacktrace();
 
 raw_raise() {
     //| -no_prefetch
@@ -1779,23 +1389,7 @@ raw_raise() {
     }
 }
 
-i_max() {
-    if (erts_cmp_compound(reg[0],reg[1], 0, 0) < 0)
-        reg[0] = reg[1];
-}
-
-x64.i_max() {
-    Label next = a.newLabel();
-    mov(ARG1, ArgVal(ArgVal::x, 0));
-    mov(ARG2, ArgVal(ArgVal::x, 1));
-    a.mov(ARG3, 0);
-    a.mov(ARG3, 0);
-    a.call((uint64_t)erts_cmp_compound);
-    a.cmp(RET,0);
-    a.jge(next);
-    mov(ArgVal(ArgVal::x, 0),ArgVal(ArgVal::x, 1));
-    a.bind(next);
-}
+x64.raw_raise();
 
 beamasm(C) {
     BeamAsmFunc ba = (BeamAsmFunc)$C;
@@ -1813,6 +1407,7 @@ beamasm(C) {
     case RET_context_switch2: goto context_switch2;
     case RET_context_switch3: goto context_switch3;
     case RET_context_switch_fun: goto context_switch_fun;
+    case RET_find_func_info: goto find_func_info;
     default: ASSERT(0 && "NYI");
     }
 }

@@ -325,11 +325,11 @@ static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
  */
 static BeamInstr* next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
-static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
+Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
 static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			    ErtsCodeMFA *bif_mfa, Eterm args);
-static struct StackTrace * get_trace_from_exc(Eterm exc);
-static Eterm *get_freason_ptr_from_exc(Eterm exc);
+struct StackTrace * get_trace_from_exc(Eterm exc);
+Eterm *get_freason_ptr_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
 void
@@ -1528,7 +1528,7 @@ terminate_proc(Process* c_p, Eterm Value)
 /*
  * Build and add a symbolic stack trace to the error value.
  */
-static Eterm
+Eterm
 add_stacktrace(Process* c_p, Eterm Value, Eterm exc) {
     Eterm Where = build_stacktrace(c_p, exc);
     Eterm* hp = HAlloc(c_p, 3);
@@ -1753,7 +1753,7 @@ erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
  * Getting the relevant fields from the term pointed to by ftrace
  */
 
-static struct StackTrace *get_trace_from_exc(Eterm exc) {
+struct StackTrace *get_trace_from_exc(Eterm exc) {
     if (exc == NIL) {
 	return NULL;
     } else {
@@ -1780,7 +1780,7 @@ static int is_raised_exc(Eterm exc) {
     }
 }
 
-static Eterm *get_freason_ptr_from_exc(Eterm exc) {
+Eterm *get_freason_ptr_from_exc(Eterm exc) {
     static Eterm dummy_freason;
     struct StackTrace* s;
 

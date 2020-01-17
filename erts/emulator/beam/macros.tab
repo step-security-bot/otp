@@ -97,21 +97,6 @@ GC_TEST(Ns, Nh, Live) {
     HEAP_SPACE_VERIFIED($Nh);
 }
 
-x64.GC_TEST(Ns, Nh, Live) {
-    Uint need = $Ns.getValue() + $Nh.getValue();
-    Label after_gc_check = a.newLabel();
-
-    // Build the GC Test
-    a.mov(TMP1, E);
-    a.sub(TMP1, HTOP);
-    a.cmp(TMP1, need * sizeof(Eterm));
-    a.jg(after_gc_check);
-    a.mov(ARG2,need);
-    a.mov(ARG4,$Live.getValue());
-    a.call(ga->getGarbageCollect());
-    a.bind(after_gc_check);
-}
-
 GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
     Uint need = $NeedHeap;
     if (ERTS_UNLIKELY(E - HTOP < need)) {
@@ -160,14 +145,6 @@ AH(NeedStack, NeedHeap, Live) {
     E -= needed;
     *E = NIL;
 }
-
-x64.AH(NeedStack, NeedHeap, Live) {
-    ArgVal needed = $NeedStack + 1;
-    $GC_TEST(needed, $NeedHeap, $Live);
-    alloc(needed * sizeof(Eterm));
-    mov(CP,NIL);
-}
-
 
 //
 // Helpers for call instructions

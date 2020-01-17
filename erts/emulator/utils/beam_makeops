@@ -454,6 +454,24 @@ while (<>) {
     }
 
     #
+    # Handle asm prototypes
+    #
+    if (/^x64.(\w[\w.]*)\(([^\)]*)\)\s*;/) {
+        my $name = $1;
+
+        @c_args = parse_c_args($2);
+        $c_code_loc = "$ARGV($.)";
+        if ((not defined $c_code{$name}) &&
+            (not defined $combined_instrs{$name})) {
+            my $where = $c_code{$name}->[1];
+            error("$name not already defined in interpreter");
+        }
+
+        $asm_code{$name} = ['',$c_code_loc,@c_args];
+        next;
+    }
+
+    #
     # Handle definition of instructions in terms of
     # micro instructions.
     #
@@ -609,6 +627,14 @@ sub emulator_output {
             if (defined $asm_code_ref) {
                 my %bindings;
                 my($asm_code,$where,@c_args) = @{$asm_code_ref};
+                if ($asm_code eq '') {
+                    my $body = "emit_$name(";
+                    for (my $i = 0; $i < @c_args; $i++) {
+                        $body .= '$'.$c_args[$i].',';
+                    }
+                    $body .= "args);";
+                    $asm_code = $body;
+                }
                 for (my $i = 0; $i < @c_args; $i++) {
                     my $var = $c_args[$i];
                     $bindings{$var} = "(args[$i])";
@@ -623,6 +649,20 @@ sub emulator_output {
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
     print_code(ASM);
+
+    $name = "$outdir/beamasm_protos.h";
+    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+    comment('C');
+    foreach $name (keys %asm_code) {
+        my($asm_code,$where,@c_args) = @{$asm_code{$name}};
+        if ($asm_code eq '') {
+            print "void emit_$name(";
+            for (my $i = 0; $i < @c_args; $i++) {
+                print 'ArgVal,';
+            }
+            print "std::vector<ArgVal> = std::vector<ArgVal>());\n";
+        }
+    }
 
     #
     # Information about opcodes (beam_opcodes.c).
