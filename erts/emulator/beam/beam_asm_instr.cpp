@@ -214,26 +214,38 @@ void BeamModuleAssembler::emit_move_call_only(ArgVal Src, ArgVal CallDest, std::
     emit_i_call_only(CallDest);
 }
 
+x86::Mem BeamModuleAssembler::emit_list_val(x86::Gp Src) {
+    return x86::qword_ptr(Src, -TAG_PRIMARY_LIST);
+}
+
+x86::Mem BeamModuleAssembler::emit_car(x86::Mem Src) {
+    return Src;
+}
+
+x86::Mem BeamModuleAssembler::emit_cdr(x86::Mem Src) {
+    return incr(Src);
+}
+
 void BeamModuleAssembler::emit_get_list(ArgVal Src, ArgVal Hd, ArgVal Tl, std::vector<ArgVal> args) {
     mov(TMP1, Src);
-    x86::Mem lst = x86::qword_ptr(TMP1, -TAG_PRIMARY_LIST);
-    a.mov(TMP2, lst); // get car
-    a.mov(TMP3, incr(lst)); // get cdr
+    x86::Mem lst = emit_list_val(TMP1);
+    a.mov(TMP2, emit_car(lst)); // get car
+    a.mov(TMP3, emit_cdr(lst)); // get cdr
     mov(Hd,TMP2);
     mov(Tl,TMP3);
 }
 
 void BeamModuleAssembler::emit_get_hd(ArgVal Src, ArgVal Hd, std::vector<ArgVal> args) {
     mov(TMP1, Src);
-    x86::Mem lst = x86::qword_ptr(TMP1, -TAG_PRIMARY_LIST);
-    a.mov(TMP2, lst); // get car
+    x86::Mem lst = emit_list_val(TMP1);
+    a.mov(TMP2, emit_car(lst)); // get car
     mov(Hd,TMP2);
 }
 
 void BeamModuleAssembler::emit_get_tl(ArgVal Src, ArgVal Tl, std::vector<ArgVal> args) {
     mov(TMP1, Src);
-    x86::Mem lst = x86::qword_ptr(TMP1, -TAG_PRIMARY_LIST);
-    a.mov(TMP2, incr(lst)); // get cdr
+    x86::Mem lst = emit_list_val(TMP1);
+    a.mov(TMP2, emit_cdr(lst)); // get cdr
     mov(Tl,TMP2);
 }
 
@@ -254,7 +266,7 @@ void BeamModuleAssembler::emit_i_get_hash(ArgVal Src, ArgVal Hash, ArgVal Dst, s
 
 void BeamModuleAssembler::emit_i_get_tuple_element(ArgVal Src, ArgVal Element, ArgVal Dst, std::vector<ArgVal> args) {
     mov(TMP1, Src);
-    a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + Element.getValue()));
+    a.mov(TMP1, emit_boxed_val(TMP1, Element.getValue()));
     mov(Dst, TMP1);
 }
 
@@ -265,9 +277,9 @@ void BeamModuleAssembler::emit_i_get_tuple_element2(ArgVal Src, ArgVal Element, 
 void BeamModuleAssembler::emit_i_get_tuple_element2_dst(ArgVal Src, ArgVal Element, ArgVal Dst1, ArgVal Dst2, std::vector<ArgVal> args) {
     mov(TMP1, Src);
 
-    x86::Mem tuple = x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + Element.getValue());
-    a.mov(TMP2, tuple);
-    a.mov(TMP1, incr(tuple));
+    x86::Mem element = emit_boxed_val(TMP1, Element.getValue());
+    a.mov(TMP2, element);
+    a.mov(TMP1, incr(element));
 
     mov(Dst1, TMP2);
     mov(Dst2, TMP1);
@@ -276,7 +288,7 @@ void BeamModuleAssembler::emit_i_get_tuple_element2_dst(ArgVal Src, ArgVal Eleme
 void BeamModuleAssembler::emit_i_get_tuple_element3(ArgVal Src, ArgVal Element, ArgVal Dst, std::vector<ArgVal> args) {
     mov(TMP1, Src);
 
-    x86::Mem tuple = x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + Element.getValue());
+    x86::Mem tuple = emit_boxed_val(TMP1, Element.getValue());
     a.mov(TMP3, tuple);
     a.mov(TMP2, incr(tuple));
     a.mov(TMP1, incr(tuple));
@@ -492,8 +504,7 @@ void BeamModuleAssembler::emit_self(ArgVal Dst, std::vector<ArgVal> args) {
 
 void BeamModuleAssembler::emit_set_tuple_element(ArgVal Element, ArgVal Tuple, ArgVal Offset, std::vector<ArgVal> args) {
     mov(TMP2, Tuple);
-    x86::Mem element = x86::qword_ptr(TMP2, -TAG_PRIMARY_BOXED + Offset.getValue());
-    mov(element, Element); // May use TMP1
+    mov(emit_boxed_val(TMP2, Offset.getValue()), Element); // May use TMP1
 }
 
 void BeamModuleAssembler::emit_is_integer_allocate(ArgVal Fail, ArgVal Src, ArgVal NS, ArgVal Live, std::vector<ArgVal> args) {
@@ -568,14 +579,15 @@ void BeamModuleAssembler::emit_is_boxed(Label Fail, x86::Gp Src) {
     a.jne(Fail);
 }
 
-void BeamModuleAssembler::emit_boxed_val(x86::Gp Src, x86::Gp Dst) {
-    a.mov(Dst, x86::qword_ptr(Src, -TAG_PRIMARY_BOXED));
+x86::Mem BeamModuleAssembler::emit_boxed_val(x86::Gp Src, uint64_t bytes) {
+    ASSERT(bytes % sizeof(Eterm) == 0);
+    return x86::qword_ptr(Src, -TAG_PRIMARY_BOXED + bytes);
 }
 
 void BeamModuleAssembler::emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin) {
     ASSERT(Src != TMP2);
     emit_is_boxed(Fail, Src);
-    emit_boxed_val(Src, TMP2);
+    a.mov(TMP2, emit_boxed_val(Src));
 
     // TODO: These checks can be optimized, check gcc gen for details
     a.and_(TMP2, _TAG_HEADER_MASK);
@@ -611,7 +623,7 @@ void BeamModuleAssembler::emit_is_float(ArgVal Fail, ArgVal Src, std::vector<Arg
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
     
-    a.cmp(x86::qword_ptr(TMP1,-TAG_PRIMARY_BOXED), HEADER_FLONUM);
+    a.cmp(emit_boxed_val(TMP1), HEADER_FLONUM);
     a.jne(labels[Fail.getValue()]);
 }
 
@@ -619,7 +631,7 @@ void BeamModuleAssembler::emit_is_function(ArgVal Fail, ArgVal Src, std::vector<
     Label next = a.newLabel();
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP2);
+    a.mov(TMP2, emit_boxed_val(TMP1));
     a.cmp(TMP2, HEADER_FUN);
     a.je(next);
     a.cmp(TMP2, HEADER_EXPORT);
@@ -641,21 +653,21 @@ void BeamModuleAssembler::emit_hot_is_function2(ArgVal Fail, ArgVal Src, ArgVal 
     Label next = a.newLabel(), fun = a.newLabel();
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP2);
+    a.mov(TMP2, emit_boxed_val(TMP1));
     a.cmp(TMP2, HEADER_FUN);
     a.je(fun);
     a.cmp(TMP2, HEADER_EXPORT);
     a.jne(labels[Fail.getValue()]);
 
     comment("Check arity of export fun");
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + sizeof(Eterm)));
+    a.mov(TMP2, emit_boxed_val(TMP1, sizeof(Eterm)));
     a.cmp(x86::qword_ptr(TMP2, offsetof(Export, info.mfa.arity)), Arity.getValue());
     a.jne(labels[Fail.getValue()]);
     a.jmp(next);
 
     comment("Check arity of fun");
     a.bind(fun);
-    a.cmp(x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlFunThing, arity)), Arity.getValue());
+    a.cmp(emit_boxed_val(TMP1, offsetof(ErlFunThing, arity)), Arity.getValue());
     a.jne(labels[Fail.getValue()]);
 
     a.bind(next);
@@ -671,7 +683,7 @@ void BeamModuleAssembler::emit_is_integer(Label Fail, Label next, Label BigFail,
     // Reuse TMP2 as the important bits are still available
     emit_is_boxed(Fail, TMP2);
     
-    a.mov(Src, x86::qword_ptr(Src, -TAG_PRIMARY_BOXED));
+    a.mov(Src, emit_boxed_val(Src));
      // Important that we leave the boxed word in Src, See emit_is_number for details
     a.mov(TMP3, Src);
     a.and_(TMP3, _TAG_HEADER_MASK-_BIG_SIGN_BIT);
@@ -700,7 +712,7 @@ void BeamModuleAssembler::emit_is_map(ArgVal Fail, ArgVal Src, std::vector<ArgVa
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
     
-    a.mov(TMP1, x86::qword_ptr(TMP1,-TAG_PRIMARY_BOXED));
+    a.mov(TMP1, emit_boxed_val(TMP1));
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_MAP);
     a.jne(labels[Fail.getValue()]);
@@ -735,7 +747,7 @@ void BeamModuleAssembler::emit_is_pid(ArgVal Fail, ArgVal Src, std::vector<ArgVa
 
     // Reuse TMP2 as the important bits are still available
     emit_is_boxed(labels[Fail.getValue()], TMP2);
-    emit_boxed_val(TMP1, TMP1);
+    a.mov(TMP1, emit_boxed_val(TMP1));
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_EXTERNAL_PID);
     a.jne(labels[Fail.getValue()]);
@@ -751,7 +763,7 @@ void BeamModuleAssembler::emit_is_port(ArgVal Fail, ArgVal Src, std::vector<ArgV
 
     // Reuse TMP2 as the important bits are still available
     emit_is_boxed(labels[Fail.getValue()], TMP2);
-    emit_boxed_val(TMP1, TMP1);
+    a.mov(TMP1, emit_boxed_val(TMP1));
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_EXTERNAL_PORT);
     a.jne(labels[Fail.getValue()]);
@@ -762,7 +774,7 @@ void BeamModuleAssembler::emit_is_reference(ArgVal Fail, ArgVal Src, std::vector
     mov(TMP1, Src);
 
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP1);
+    a.mov(TMP1, emit_boxed_val(TMP1));
     a.cmp(TMP1, ERTS_REF_THING_HEADER);
     a.jne(next);
     a.and_(TMP1, _TAG_HEADER_MASK);
@@ -776,10 +788,9 @@ void BeamModuleAssembler::emit_is_tagged_tuple(ArgVal Fail, ArgVal Src, ArgVal A
 
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP2);
-    a.cmp(TMP2, Arity.getValue());
+    a.cmp(emit_boxed_val(TMP1), Arity.getValue());
     a.jne(labels[Fail.getValue()]);
-    a.cmp(x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + sizeof(Eterm)), Tag.getValue());
+    a.cmp(emit_boxed_val(TMP1, sizeof(Eterm)), Tag.getValue());
     a.jne(labels[Fail.getValue()]);
 }
 
@@ -787,21 +798,21 @@ void BeamModuleAssembler::emit_is_tagged_tuple_ff(ArgVal NotTuple, ArgVal NotRec
 
     mov(TMP1, Src);
     emit_is_boxed(labels[NotTuple.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP2);
+    a.mov(TMP2, emit_boxed_val(TMP1));
     a.mov(TMP3, TMP2);
     a.and_(TMP2, TAG_PRIMARY_HEADER);
     a.cmp(TMP2, _TAG_HEADER_ARITYVAL);
     a.jne(labels[NotTuple.getValue()]);
     a.cmp(TMP3, Arity.getValue());
     a.jne(labels[NotRecord.getValue()]);
-    a.cmp(x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + sizeof(Eterm)), Tag.getValue());
+    a.cmp(emit_boxed_val(TMP1, sizeof(Eterm)), Tag.getValue());
     a.jne(labels[NotRecord.getValue()]);
 }
 
 void BeamModuleAssembler::emit_is_tuple(ArgVal Fail, ArgVal Src, std::vector<ArgVal> args) {
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP1);
+    a.mov(TMP1, emit_boxed_val(TMP1));
     a.and_(TMP1, TAG_PRIMARY_HEADER);
     a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
     a.jne(labels[Fail.getValue()]);
@@ -811,21 +822,21 @@ void BeamModuleAssembler::emit_is_tuple_of_arity(ArgVal Fail, ArgVal Src, ArgVal
 
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
-    emit_boxed_val(TMP1, TMP2);
+    a.mov(TMP2, emit_boxed_val(TMP1));
     a.cmp(TMP2, Arity.getValue());
     a.jne(labels[Fail.getValue()]);
 }
 
 void BeamModuleAssembler::emit_test_arity(ArgVal Fail, ArgVal Src, ArgVal Arity, std::vector<ArgVal> args) {
     mov(TMP1, Src);
-    a.cmp(x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED), Arity.getValue());
+    a.cmp(emit_boxed_val(TMP1), Arity.getValue());
     a.jne(labels[Fail.getValue()]);
     // test_arity_get_tuple_element uses TMP1
 }
 
 void BeamModuleAssembler::emit_test_arity_get_tuple_element(ArgVal Fail, ArgVal Src, ArgVal Arity, ArgVal Pos, ArgVal Dst, std::vector<ArgVal> args) {
     emit_test_arity(Fail, Src, Arity);
-    a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + Pos.getValue()));
+    a.mov(TMP2, emit_boxed_val(TMP1, Pos.getValue()));
     mov(Dst, TMP2);
 }
 
@@ -938,11 +949,11 @@ void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label n
     comment("is_float(X) && is_float(Y)");
     a.bind(float_check);
     emit_is_boxed(generic, X);
-    a.mov(TMP3, x86::qword_ptr(X,-TAG_PRIMARY_BOXED));
+    a.mov(TMP3, emit_boxed_val(X));
     a.cmp(TMP3, HEADER_FLONUM);
     a.jne(generic);
     emit_is_boxed(generic, Y);
-    a.mov(TMP3, x86::qword_ptr(Y,-TAG_PRIMARY_BOXED));
+    a.mov(TMP3, emit_boxed_val(Y));
     a.cmp(TMP3, HEADER_FLONUM);
     a.je(float_cmp);
 

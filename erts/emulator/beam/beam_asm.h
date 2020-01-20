@@ -295,8 +295,11 @@ class BeamModuleAssembler : public BeamAssembler {
     void emit_dispatch_rel(ArgVal CallDest);
     void emit_dispatch_return(x86::Gp dest);
     void emit_setup_return(x86::Gp dest);
-    void emit_boxed_val(x86::Gp Src, x86::Gp Dst);
+    x86::Mem emit_boxed_val(x86::Gp Src, uint64_t bytes = 0);
     void emit_is_boxed(Label Fail, x86::Gp Src);
+    x86::Mem emit_list_val(x86::Gp Src);
+    x86::Mem emit_car(x86::Mem Src);
+    x86::Mem emit_cdr(x86::Mem Src);
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
     void emit_is_list(Label Fail, x86::Gp Src);
     void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
