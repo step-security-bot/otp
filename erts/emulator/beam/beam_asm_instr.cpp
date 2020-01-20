@@ -927,8 +927,8 @@ void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label n
     /* TODO: We should also allow X and Y to be imm values */
     ASSERT(y == ARG1 && x == ARG2);
 
-    x86::Gp X = x.as<x86::Gp>;
-    x86::Gp Y = y.as<x86::Gp>;
+    x86::Gp X = x.as<x86::Gp>();
+    x86::Gp Y = y.as<x86::Gp>();
 
     /* Place the small test first as lt is most likely used on small integers */
     comment("is_both_small(X, Y)");

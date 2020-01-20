@@ -84,7 +84,7 @@ int BeamModuleAssembler::codegen(std::vector<Literal> literals) {
         switch (inst.first) {
         #include "beamasm_emit.h"
         case op_i_func_info_IaaI:
-            emit_preamble();
+            emit_preamble(args[3]);
             comment("%T:%T/%d", args[1].getValue(), args[2].getValue(), args[3].getValue());
             break;
         case op_label_L:

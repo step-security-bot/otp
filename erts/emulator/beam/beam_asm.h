@@ -450,9 +450,11 @@ class BeamModuleAssembler : public BeamAssembler {
         //   a.pop(ARG1);
     }
 
-    void emit_preamble() {
+    void emit_preamble(ArgVal live) {
         // Setup the erlang stack, we use label 0 as the cleanup and exit label
-        pushY(labels[0]);
+        emit_allocate(ArgVal(ArgVal::u,0), live);
+        a.lea(TMP1, x86::qword_ptr(labels[0]));
+        mov(CP, TMP1);
     }
 
     void emit_postamble() {
