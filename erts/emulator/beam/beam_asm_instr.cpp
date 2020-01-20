@@ -20,11 +20,13 @@
 
 #include "beam_asm.h"
 
+
 using namespace asmjit;
 
 extern "C" void get_trace_from_exc(void);
 extern "C" void add_stacktrace(void);
 extern "C" Eterm *get_freason_ptr_from_exc(Eterm);
+extern erts_atomic32_t the_active_code_index;
 
 /* Helpers */
 
@@ -212,6 +214,43 @@ void BeamModuleAssembler::emit_i_call_only(ArgVal CallDest, std::vector<ArgVal> 
 void BeamModuleAssembler::emit_move_call_only(ArgVal Src, ArgVal CallDest, std::vector<ArgVal> args) {
     emit_move(Src, ArgVal::x0);
     emit_i_call_only(CallDest);
+}
+
+void BeamModuleAssembler::emit_i_call_ext(ArgVal Exp, std::vector<ArgVal> args) {
+    BeamInstr ret_op = BeamCodeAddr(op_beamasm_P);
+    Label ret = a.newLabel(), instr = a.newLabel(), yield = a.newLabel();
+
+    /* Save the return CP on the stack */
+    a.lea(TMP1, x86::qword_ptr(instr));
+    mov(CP,TMP1);
+
+    a.mov(TMP1, x86::dword_ptr((uint64_t)(&the_active_code_index)));
+
+    a.mov(TMP3, x86::qword_ptr(Exp.getValue() + offsetof(Export, addressv),
+            TMP1, 3 /* scale of TMP1 */));
+
+    // If we have to do a yield here, we store the address to
+    // jump to in TMP1
+    a.cmp(FCALLS,0);
+    a.jle(yield);
+
+    /* We do the call by doing a context switch for now */
+    a.sub(FCALLS,1);
+    a.mov(RET, RET_dispatch);
+    a.jmp(ga->getSwapout());
+
+    a.bind(yield);
+    a.mov(RET, RET_context_switch);
+    a.jmp(ga->getSwapout());
+
+    // Need to align this label in order for it to be recognized as is_CP
+    a.align(kAlignCode, 8);
+    a.bind(instr);
+    /* We emit a context switch interp operation in the code that will dispatch 
+       to the correct place. */
+    a.embed(&ret_op, sizeof(ret_op));
+    a.embedLabel(ret);
+    a.bind(ret);
 }
 
 x86::Mem BeamModuleAssembler::emit_list_val(x86::Gp Src) {

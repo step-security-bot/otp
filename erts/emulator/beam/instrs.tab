@@ -247,6 +247,8 @@ i_call_ext(Dest) {
     $DISPATCH_EXPORT($Dest);
 }
 
+x64.i_call_ext(Dest);
+
 i_move_call_ext(Src, CallDest) {
     //| -no_next
     Eterm call_dest = $CallDest;
