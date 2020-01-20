@@ -18,6 +18,25 @@
  * %CopyrightEnd%
  */
 
+/*
+ * Thoughts:
+ * - We do not want to do cross-instruction optimizations in the loader as that would make
+ *   the difference from the interpreter too much. At most we do the same opts as for the
+ *   interpreter. This is mostly in order to keep the emitted close to what gcc emits so that
+ *   we can easily implement new instructions.
+ *
+ * - Should we keep x0-x2 in registers in the CC? We could analyze the beam code and keep
+ *   even more instructions in registers in between calls as long as we spill before any calls.
+ *
+ * - For trace and msacc we should put a jmp + nop sleigh which we will then patch with a
+ *   call instruction to some common code. For trace, we could generate code specific for the
+ *   trace flags so that we don't have to check so many things when tracing... but that is overkill
+ *   to start with.
+ *
+ * - External calls should use the cached if branch approach in order to improve processor
+ *   speculation.
+ */
+
 #include <vector>
 #include <unordered_map>
 #include <asmjit/asmjit.h>
