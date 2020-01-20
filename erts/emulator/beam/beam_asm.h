@@ -303,7 +303,7 @@ class BeamModuleAssembler : public BeamAssembler {
     void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
     void emit_is_list(Label Fail, x86::Gp Src);
     void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
-    void emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, x86::Gp X, x86::Gp Y, unsigned EqOnly);
+    void emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, Operand X, Operand Y, unsigned EqOnly);
 
     #include "beamasm_protos.h"
 

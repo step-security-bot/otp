@@ -914,10 +914,9 @@ void BeamModuleAssembler::emit_i_is_ne_exact_literal(ArgVal Fail, ArgVal Src, Ar
     a.call((uint64_t)eq);
     a.cmp(RET, 0);
     a.jne(labels[Fail.getValue()]);
-    
 }
 
-void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, x86::Gp X, x86::Gp Y, unsigned EqOnly) {
+void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, Operand y, Operand x, unsigned EqOnly) {
     Label generic = a.newLabel(),
         small_check = a.newLabel(),
         small_cmp = a.newLabel(),
@@ -925,7 +924,11 @@ void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label n
         atom_cmp = a.newLabel(),
         float_cmp = a.newLabel();
 
-    ASSERT(X == ARG1 && Y == ARG2);
+    /* TODO: We should also allow X and Y to be imm values */
+    ASSERT(y == ARG1 && x == ARG2);
+
+    x86::Gp X = x.as<x86::Gp>;
+    x86::Gp Y = y.as<x86::Gp>;
 
     /* Place the small test first as lt is most likely used on small integers */
     comment("is_both_small(X, Y)");
