@@ -30,8 +30,6 @@ std::string getAtom(Eterm atom) {
     return std::string((const char*)ap->name, ap->len);
 }
 
-extern "C" int is_function2(Eterm Term, Uint arity);
-
 BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga, Eterm mod, unsigned num_labels) : BeamAssembler(rt, getAtom(mod) + ".asm") {
 
     this->ga = ga;
@@ -51,7 +49,8 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
     emit_postamble();
 }
 
-bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args) {
+bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, BeamInstr *I) {
+    Instruction i = {specific_op, args, I};
     if (specific_op == op_i_func_info_IaaI) {
         currFunction = args;
         prev_op = specific_op;
@@ -63,37 +62,40 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args) {
         prev_op = specific_op;
     }
 
-    instrs.push_back(std::make_pair(specific_op, args));
+    instrs.push_back(i);
     return true;
 }
 
-int BeamModuleAssembler::codegen(std::vector<Literal> literals) {
+int BeamModuleAssembler::codegen(std::vector<Literal> literals, std::vector<BeamInstr> imports) {
 
-    for (std::pair<unsigned,std::vector<ArgVal>> inst : instrs) {
-        unsigned specific_op = inst.first;
-        std::vector<ArgVal> &args = inst.second;
-        for (ArgVal &arg : args) {
+    for (Instruction &inst : instrs) {
+        this->inst = &inst;
+        for (ArgVal &arg : inst.args) {
             if (arg.getType() == ArgVal::q) {
                 arg.resolveLiteral(literals);
             }
+            if (arg.getType() == ArgVal::e) {
+                arg.resolveImport(imports);
+            }
         }
-        comment(opc[specific_op].name);
-        emit_dbg(opc[specific_op].name);
+        comment(opc[inst.op].name);
+        emit_dbg(opc[inst.op].name);
         // #define InstrCnt() a.mov(TMP1, imm((uint64_t)&instrcnt)); a.mov(TMP2, x86::qword_ptr(TMP1)); a.inc(TMP2); a.mov(x86::qword_ptr(TMP1), TMP2);
         #define InstrCnt()
-        switch (inst.first) {
+        switch (inst.op) {
         #include "beamasm_emit.h"
         case op_i_func_info_IaaI:
-            emit_preamble(args[3]);
-            comment("%T:%T/%d", args[1].getValue(), args[2].getValue(), args[3].getValue());
+            emit_preamble(inst.args[3]);
+            comment("%T:%T/%d", inst.args[1].getValue(), inst.args[2].getValue(), inst.args[3].getValue());
             break;
         case op_label_L:
-            a.bind(labels[args[0].getValue()]);
+            a.bind(labels[inst.args[0].getValue()]);
             break;
         case op_int_code_end:
         case op_line_I:
             break;
         default:
+            fprintf(stderr,"NYI: %s\r\n", opc[inst.op].name);
             return 0;
         }
         
@@ -102,15 +104,22 @@ int BeamModuleAssembler::codegen(std::vector<Literal> literals) {
 
 }
 
-void *BeamModuleAssembler::codegen(std::vector<Literal> literals, void **labels) {
+void *BeamModuleAssembler::codegen(std::vector<Literal> literals, std::vector<BeamInstr> imports,
+        unsigned *catch_no, void **labels) {
 
-    if (!codegen(literals))
+    this->catch_no = *catch_no;
+
+    if (!codegen(literals, imports))
         return nullptr;
     
     typedef void *(*Func)(void **);
     Func module;
     Error err = rt->add(&module,&code);
     ERTS_ASSERT(!err && "Failed to create module");
+    for (std::pair<Label, BeamInstr**> p : catches) {
+        *p.second = (BeamInstr*)(((char*)module) + code.labelOffset(p.first));
+    }
     module(labels);
+    *catch_no = this->catch_no;
     return (void*)module;
 }

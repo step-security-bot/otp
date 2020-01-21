@@ -169,7 +169,7 @@ void hipe_mode_switch_init(void)
     hipe_beam_pc_resume[0] = BeamOpCodeAddr(op_hipe_trap_resume);
 
     hipe_beam_catch_throw =
-	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
+	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL, NULL));
 
     hipe_mfa_info_table_init();
 }

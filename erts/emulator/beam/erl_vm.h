@@ -238,6 +238,7 @@ extern void** beam_ops;
 
 enum beamasm_ret {
     RET_dispatch,
+    RET_do_schedule,
     RET_context_switch,
     RET_context_switch2,
     RET_context_switch3,

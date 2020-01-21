@@ -22,11 +22,6 @@
 
 using namespace asmjit;
 
-ArgVal ArgVal::x0(ArgVal::x, 0);
-ArgVal ArgVal::x1(ArgVal::x, 1);
-ArgVal ArgVal::x2(ArgVal::x, 2);
-ArgVal ArgVal::x3(ArgVal::x, 3);
-
 BeamGlobalAssembler::BeamGlobalAssembler(JitRuntime *rt) : BeamAssembler(rt) {
     Error err;
 

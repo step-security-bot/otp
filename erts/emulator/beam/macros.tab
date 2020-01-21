@@ -20,7 +20,7 @@
 //
 
 x64.NYI() {
-    std::string debug = "NYI: " + std::string(opc[specific_op].name);
+    std::string debug = "NYI: " + std::string(opc[inst.op].name);
     std::string *debugClone = new std::string(debug); // TODO: Memory leak!!
     a.mov(ARG1, (uint64_t)debugClone->data());
     a.mov(ARG2, (uint64_t)__func__);

@@ -362,58 +362,7 @@ i_int_div(Fail, Op1, Op2, Dst) {
     $OUTLINED_ARITH_2($Fail, int_div, BIF_intdiv_2, op1, op2, $Dst);
 }
 
-x64.i_int_div(Fail, Op1, Op2, Dst) {
-
-    Label next = a.newLabel(), generic = a.newLabel(), nyi = a.newLabel();
-
-    mov(ARG2, $Op1);
-    mov(ARG3, $Op2);
-    comment("Test div by zero");
-    a.cmp(ARG3, SMALL_ZERO);
-    a.je(nyi);
-
-    comment("is_both_small");
-    mov(TMP1,$Op1);
-    a.and_(TMP1,ARG2);
-    a.and_(TMP1,_TAG_IMMED1_MASK);
-    a.cmp(TMP1,_TAG_IMMED1_SMALL);
-    a.jne(generic);
-
-    a.mov(RET, ARG2);
-    a.mov(TMP1, ARG3);
-    a.sar(RET, _TAG_IMMED1_SIZE);
-    a.sar(TMP1, _TAG_IMMED1_SIZE);
-    a.cqo(); // This clobbers ARG3
-    a.idiv(TMP1); // Result in rax aka RET
-    comment("IS_SSMALL");
-    a.mov(TMP1, RET);
-    a.sar(TMP1, SMALL_BITS-1);
-    a.inc(TMP1);
-    a.cmp(TMP1, 2);
-    a.jge(generic);
-    comment("tag small");
-    a.sal(RET, _TAG_IMMED1_SIZE);
-    a.or_(RET, _TAG_IMMED1_SMALL);
-    a.jmp(next);
-
-    a.bind(generic);
-    a.mov(ARG1, c_p);
-    // ARG2 set above
-    mov(ARG3, $Op2); // ARG3 may have been clobbered by cqto so re-read
-    a.call((uint64_t)erts_int_div);
-    a.cmp(RET,THE_NON_VALUE);
-    if ($Fail.getValue() != 0) {
-        a.je(labels[$Fail.getValue()]);
-        a.jmp(next);
-    } else {
-        a.jne(next);
-    }
-    a.bind(nyi);
-    $NYI();
-
-    a.bind(next);
-    mov($Dst, RET);
-}
+x64.i_int_div(Fail, Op1, Op2, Dst);
 
 i_rem := rem.fetch.execute;
 
@@ -656,14 +605,8 @@ x64.i_bsr(Src1, Src2, Fail, Dest) {
     comment("is_both_small(X, Y)");
     // TODO: We should specialize these tests for when
     // the type of one of the operands is known...
-    if ($Src1.isMem())
-        mov(TMP1,$Src1);
-    else
-        a.mov(TMP1,$Src1.getValue());
-    if ($Src2.isMem())
-        mov(TMP2,$Src2);
-    else
-        a.mov(TMP2,$Src2.getValue());
+    mov(TMP1,$Src1);
+    mov(TMP2,$Src2);
     a.mov(TMP3,TMP1);
     a.and_(TMP3,TMP2);
     a.and_(TMP3,_TAG_IMMED1_MASK);
@@ -713,14 +656,8 @@ x64.i_bsl(Src1, Src2, Fail, Dest) {
     comment("is_both_small(X, Y)");
     // TODO: We should specialize these tests for when
     // the type of one of the operands is known...
-    if ($Src1.isMem())
-        mov(TMP1,$Src1);
-    else
-        a.mov(TMP1,$Src1.getValue());
-    if ($Src2.isMem())
-        mov(TMP2,$Src2);
-    else
-        a.mov(TMP2,$Src2.getValue());
+    mov(TMP1,$Src1);
+    mov(TMP2,$Src2);
     a.mov(TMP3,TMP1);
     a.and_(TMP3,TMP2);
     a.and_(TMP3,_TAG_IMMED1_MASK);

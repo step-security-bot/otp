@@ -32,7 +32,7 @@
 void beam_catches_init(void);
 void beam_catches_start_staging(void);
 void beam_catches_end_staging(int commit);
-unsigned beam_catches_cons(BeamInstr* cp, unsigned cdr);
+unsigned beam_catches_cons(BeamInstr* cp, unsigned cdr, BeamInstr ***);
 BeamInstr *beam_catches_car(unsigned i);
 void beam_catches_delmod(unsigned head, BeamInstr* code, unsigned code_bytes,
 			 ErtsCodeIndex);

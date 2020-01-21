@@ -70,20 +70,27 @@ class ArgVal {
             x = TAG_x,
             y = TAG_y,
             f = TAG_f,
-            q = TAG_q
+            q = TAG_q,
+            e = TAG_r
         };
-    static ArgVal x0;
-    static ArgVal x1;
-    static ArgVal x2;
-    static ArgVal x3;
 
     private:
         BeamInstr value;
         enum TYPE type;
     public:
         ArgVal(TYPE t, BeamInstr val) : value(val), type(t) { }
-        ArgVal(unsigned t, BeamInstr val) : value(val), type((enum TYPE)t) {
-            ASSERT(type >= u && type <= q);
+        ArgVal(unsigned t, BeamInstr val) : value(val) {
+            switch (t) {
+                case TAG_u: type = u; break;
+                case TAG_i: type = i; break;
+                case TAG_x: type = x; break;
+                case TAG_y: type = y; break;
+                case TAG_f: type = f; break;
+                case TAG_q: type = q; break;
+                case TAG_r: type = e; break;
+                default:
+                    ASSERT(0);
+            }
         }
         enum TYPE getType() { return type; }
         uint64_t getValue() { ASSERT(type != q); return value; }
@@ -91,7 +98,13 @@ class ArgVal {
             ASSERT(type == q);
             type = i;
             value = literals[value].term;
-            }
+        }
+
+        void resolveImport(std::vector<BeamInstr> imports) {
+            ASSERT(type == e);
+            type = u;
+            value = imports[value];
+        }
 
         bool isMem() { return type == x || type == y; }
 
@@ -154,6 +167,11 @@ class BeamAssembler : public ErrorHandler {
     const x86::Gp HTOP = x86::r15;
     const x86::Gp f_reg = x86::r11; // This could use RBP but we want to use that as a scratch reg so we dont... for now
     const ArgVal CP = ArgVal(ArgVal::TYPE::y, 0);
+
+    const ArgVal x0 = ArgVal(ArgVal::x, 0);
+    const ArgVal x1 = ArgVal(ArgVal::x, 1);
+    const ArgVal x2 = ArgVal(ArgVal::x, 2);
+    const ArgVal x3 = ArgVal(ArgVal::x, 3);
 
   public:
 
@@ -274,7 +292,16 @@ class BeamModuleAssembler : public BeamAssembler {
     BeamGlobalAssembler *ga;
 
     /* All instructions that have been seen so far */
-    std::vector<std::pair<unsigned, std::vector<ArgVal>>> instrs;
+    typedef struct {
+        unsigned op;
+        std::vector<ArgVal> args;
+        BeamInstr *I;
+    } Instruction;
+    std::vector<Instruction> instrs;
+    Instruction *inst; /* Current instruction during codegen */
+
+    std::vector<std::pair<Label, BeamInstr **>> catches;
+    unsigned catch_no = 0;
 
     /* Used by emit to populate the labelToMFA map */
     std::vector<ArgVal> currFunction;
@@ -283,17 +310,19 @@ class BeamModuleAssembler : public BeamAssembler {
   public:
     BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga, Eterm mod, unsigned num_labels);
 
-    bool emit(unsigned op, std::vector<ArgVal> args);
-    void *codegen(std::vector<Literal>, void **labels);
+    bool emit(unsigned op, std::vector<ArgVal> args, BeamInstr *I);
+    void *codegen(std::vector<Literal>, std::vector<BeamInstr> imports,
+                    unsigned *catch_no, void **labels);
 
   private:
 
-    int codegen(std::vector<Literal> literals);
+    int codegen(std::vector<Literal> literals, std::vector<BeamInstr> imports);
 
     /* Helpers */
     void emit_gc_test(ArgVal Stack, ArgVal Heap, ArgVal Live);
     void emit_dispatch_rel(ArgVal CallDest);
     void emit_dispatch_return(x86::Gp dest);
+    void emit_dispatch_export(ArgVal Exp);
     void emit_setup_return(x86::Gp dest);
     x86::Mem emit_boxed_val(x86::Gp Src, uint64_t bytes = 0);
     void emit_is_boxed(Label Fail, x86::Gp Src);
@@ -386,6 +415,16 @@ class BeamModuleAssembler : public BeamAssembler {
         } else {
             a.mov(TMP1, imm);
             a.mov(to, TMP1);
+        }
+    }
+
+    void cmp(x86::Mem X, BeamInstr imm) {
+        int64_t simm = imm;
+        if (simm < (1ll << 31) && simm > (-1ll << 31)) {
+            a.cmp(X, imm);
+        } else {
+            a.mov(TMP1, imm);
+            a.cmp(X, TMP1);
         }
     }
 

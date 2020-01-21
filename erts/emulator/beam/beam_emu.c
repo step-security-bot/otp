@@ -294,8 +294,8 @@ do {						\
  */
 static void init_emulator_finish(void) ERTS_NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
-static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
-			       Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
+BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
+                        Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
 				     Eterm* reg, Eterm func) ERTS_NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
@@ -1304,7 +1304,7 @@ BeamInstr *erts_printable_return_address(Process* p, Eterm *E) {
  * at the point of the original exception.
  */
 
-static BeamInstr*
+BeamInstr*
 handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 {
     Eterm* hp;

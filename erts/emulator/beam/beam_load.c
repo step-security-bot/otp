@@ -639,8 +639,10 @@ extern void check_allocated_block(Uint type, void *blk);
 
 void *beamasm_new_module(Eterm mod, int num_labels);
 void beamasm_delete_module(void *);
-int beamasm_emit(void *ba, int specific_op, GenOp *op);
-void *beamasm_get_module(void *ba, void **labels, Literal *literals, int num_literals);
+int beamasm_emit(void *ba, int specific_op, GenOp *op, BeamInstr *I);
+void *beamasm_get_module(void *ba, void **labels, unsigned *catch_no,
+                         Literal *literals, int num_literals,
+                         BeamInstr *imports, int num_imports);
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
@@ -783,8 +785,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_p = stp->code_start;
     stp->file_left = stp->code_size;
 
-    if (stp->module == am_atom_put("test", 4) ||
-        stp->module == am_atom_put("gb_trees1", 9)) {
+    if (stp->module == am_atom_put("jit_tests_cases", 15)) {
         stp->ba = beamasm_new_module(stp->module, stp->num_labels);
     } else {
         stp->ba = NULL;
@@ -2535,6 +2536,7 @@ load_code(LoaderState* stp)
 		}
 		code[ci] = stp->import[curr->val].patches;
 		stp->import[curr->val].patches = ci;
+                curr->type = TAG_r;
 		ci++;
 		break;
 	    case 'b':
@@ -2863,7 +2865,8 @@ load_code(LoaderState* stp)
 
         /* Load the instruction in x86 if possible */
         if (stp->ba) {
-            if (beamasm_emit(stp->ba, stp->specific_op, tmp_op) == 0) {
+            if (beamasm_emit(stp->ba, stp->specific_op, tmp_op,
+                             stp->codev + last_instr_start) == 0) {
                 beamasm_delete_module(stp->ba);
                 stp->ba = NULL;
             }
@@ -5246,6 +5249,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     unsigned catches;
     Uint index;
     BeamInstr* codev = stp->codev;
+    BeamInstr *imports;
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -5259,7 +5263,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	codev[index] = BeamOpCodeAddr(op_catch_yf);
         /* We must make the address of the label absolute again. */
         abs_addr = (BeamInstr *)codev + index + codev[index+2];
-	catches = beam_catches_cons(abs_addr, catches);
+	catches = beam_catches_cons(abs_addr, catches, NULL);
 	codev[index+2] = make_catch(catches);
 	index = next;
     }
@@ -5316,6 +5320,8 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     }
 #endif
 
+    imports = erts_alloc(ERTS_ALC_T_TMP, sizeof(BeamInstr) * stp->num_imports);
+
     /*
      * Import functions and patch all callers.
      */
@@ -5332,6 +5338,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	func = stp->import[i].function;
 	arity = stp->import[i].arity;
 	import = (BeamInstr) erts_export_put(mod, func, arity);
+        imports[i] = import;
 	current = stp->import[i].patches;
 	while (current != 0) {
 	    ASSERT(current < stp->ci);
@@ -5368,7 +5375,9 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     if (stp->ba) {
         int i;
         void **labels = erts_alloc(ERTS_ALC_T_TMP,stp->num_labels * sizeof(void*));
-        stp->ba = beamasm_get_module(stp->ba, labels, stp->literals, stp->num_literals);
+        stp->ba = beamasm_get_module(stp->ba, labels, &inst_p->catches,
+                                     stp->literals, stp->num_literals,
+                                     imports, stp->num_imports);
         if (stp->ba) {
             erts_printf("test %p\n", stp->module, stp->ba);
             for (i = 0; i < stp->num_exps; i++) {
@@ -5382,6 +5391,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
         }
         erts_free(ERTS_ALC_T_TMP, labels);
     }
+    erts_free(ERTS_ALC_T_TMP, imports);
 }
 
 static int

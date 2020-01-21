@@ -72,7 +72,7 @@ extern "C" void *beamasm_new_module(Eterm mod, int num_labels) {
     return new BeamModuleAssembler(rt, bga, mod, num_labels);
 }
 
-extern "C" int beamasm_emit(void *instance, unsigned specific_op, GenOp *op) {
+extern "C" int beamasm_emit(void *instance, unsigned specific_op, GenOp *op, BeamInstr *I) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
     std::vector<ArgVal> args;
 
@@ -80,13 +80,16 @@ extern "C" int beamasm_emit(void *instance, unsigned specific_op, GenOp *op) {
         args.push_back(ArgVal(op->a[i].type,op->a[i].val));
     }
     
-    return ba->emit(specific_op, args);
+    return ba->emit(specific_op, args, I);
 }
 
-extern "C" void *beamasm_get_module(void *instance, void **labels, Literal *literals, int num_literals) {
+extern "C" void *beamasm_get_module(void *instance, void **labels, unsigned *catch_no,
+                                    Literal *literals, int num_literals,
+                                    BeamInstr *imports, int num_imports) {
     std::vector<Literal> lits(literals, literals+num_literals);
+    std::vector<BeamInstr> imps(imports, imports+num_imports);
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
-    void *module = ba->codegen(lits, labels);
+    void *module = ba->codegen(lits, imps, catch_no, labels);
     delete ba;
     return module;
 }

@@ -258,10 +258,14 @@ i_move_call_ext(Src, CallDest) {
     $DISPATCH_EXPORT(call_dest);
 }
 
+x64.i_move_call_ext(Src, Dest);
+
 i_call_ext_only(Dest) {
     //| -no_next
     $DISPATCH_EXPORT($Dest);
 }
+
+x64.i_call_ext_only(Dest);
 
 i_move_call_ext_only(CallDest, Src) {
     //| -no_next
@@ -271,11 +275,15 @@ i_move_call_ext_only(CallDest, Src) {
     $DISPATCH_EXPORT(call_dest);
 }
 
+x64.i_move_call_ext_only(Dest, Src);
+
 i_call_ext_last(Dest, Deallocate) {
     //| -no_next
     $deallocate($Deallocate);
     $DISPATCH_EXPORT($Dest);
 }
+
+x64.i_call_ext_last(Dest, Deallocate);
 
 i_move_call_ext_last(CallDest, Deallocate, Src) {
     //| -no_next
@@ -285,6 +293,8 @@ i_move_call_ext_last(CallDest, Deallocate, Src) {
     x(0) = src;
     $DISPATCH_EXPORT(call_dest);
 }
+
+x64.i_move_call_ext_last(Dest, Deallocate, Src);
 
 APPLY(I, Deallocate, Next) {
     //| -no_next
@@ -1405,6 +1415,7 @@ beamasm(C) {
     FCALLS = fcalls;
     switch (res) {
     case RET_dispatch: Goto(*I); break;
+    case RET_do_schedule: goto do_schedule; break;
     case RET_context_switch: goto context_switch;
     case RET_context_switch2: goto context_switch2;
     case RET_context_switch3: goto context_switch3;

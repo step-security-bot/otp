@@ -466,7 +466,7 @@ x64.call_light_bif_only(Bif, Exp) {
     $NYI();
     a.bind(next);
     mov(ArgVal(ArgVal::x,0), RET);
-    $return();
+    emit_return();
 }
 
 //

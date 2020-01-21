@@ -187,7 +187,7 @@ x64.i_jump_on_val_zero(Src, Fail, N) {
     a.jge(fail);
     for (unsigned i = 0; i < $N.getValue(); i++) {
         a.cmp(TMP1, i);
-        a.je(labels[args[i+3].getValue()]);
+        a.je(labels[inst.args[i+3].getValue()]);
     }
     a.bind(fail);
     if ($Fail.getValue()) {

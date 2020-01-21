@@ -632,12 +632,12 @@ sub emulator_output {
                     for (my $i = 0; $i < @c_args; $i++) {
                         $body .= '$'.$c_args[$i].',';
                     }
-                    $body .= "args);";
+                    $body .= "&inst);";
                     $asm_code = $body;
                 }
                 for (my $i = 0; $i < @c_args; $i++) {
                     my $var = $c_args[$i];
-                    $bindings{$var} = "(args[$i])";
+                    $bindings{$var} = "(inst.args[$i])";
                 }
                 my $code = eval { expand_all($asm_code,\%bindings, \&get_asm_ref) };
                 push @generated_code, [ASM,"case op_$print_name: {\n$code\n\tbreak;\n}\n\n",($print_name)];
@@ -660,7 +660,7 @@ sub emulator_output {
             for (my $i = 0; $i < @c_args; $i++) {
                 print 'ArgVal,';
             }
-            print "std::vector<ArgVal> = std::vector<ArgVal>());\n";
+            print "Instruction *inst = nullptr);\n";
         }
     }
 
