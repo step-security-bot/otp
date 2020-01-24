@@ -90,6 +90,10 @@ i_bif.call(Fail, Bif, Dst) {
     $FAIL($Fail);
 }
 
+x64.i_bif1(Src, Fail, Bif, Dst);
+x64.i_bif2(Src1, Src2, Fail, Bif, Dst);
+x64.i_bif3(Src1, Src2, Src3, Fail, Bif, Dst);
+
 //
 // Guard BIF in body. It can fail like any BIF. No trace support.
 //
@@ -126,6 +130,10 @@ i_bif_body.call(Bif, Dst) {
     I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
     goto post_error_handling;
 }
+
+x64.i_bif1_body(Src1, Bif, Dst);
+x64.i_bif2_body(Src1, Src2, Bif, Dst);
+x64.i_bif3_body(Src1, Src2, Src3, Bif, Dst);
 
 //
 // length/1 is the only guard BIF that does not execute in constant
@@ -448,26 +456,7 @@ call_light_bif_only(Bif, Exp) {
     //| -no_next
 }
 
-x64.call_light_bif_only(Bif, Exp) {
-    Label next = a.newLabel();
-    emit_swapout();
-    a.add(FCALLS, -1);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
-    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, x_reg);
-    a.mov(ARG3, 0); // Should be I
-    a.call($Bif.getValue());
-    // TODO: Should emit a gc check here
-    emit_swapin();
-    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
-    a.cmp(RET, THE_NON_VALUE);
-    a.jne(next);
-    $NYI();
-    a.bind(next);
-    mov(ArgVal(ArgVal::x,0), RET);
-    emit_return();
-}
+x64.call_light_bif_only(Bif, Exp);
 
 //
 // Send is almost a standard call-BIF with two arguments, except for:

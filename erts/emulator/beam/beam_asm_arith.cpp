@@ -26,9 +26,29 @@ extern "C" {
 
 extern "C" BeamInstr *handle_error(void);
 
+void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Instruction *inst, ErtsCodeMFA *mfa) {
+    Label dispatch = a.newLabel();
+    for (unsigned i = 0; i < args.size(); i++)
+        mov(ArgVal(ArgVal::x, i), args[i]);
+    emit_swapout();
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, (uint64_t)inst->I);
+    a.mov(ARG3, x_reg);
+    a.mov(ARG4, (uint64_t)mfa);
+    a.call((uint64_t)handle_error);
+    emit_swapin();
+    a.mov(TMP3, RET);
+    a.cmp(TMP3, 0);
+    a.jne(dispatch);
+    a.mov(RET, RET_do_schedule);
+    a.jmp(ga->getSwapout());
+    a.bind(dispatch);
+    a.mov(RET, RET_dispatch);
+    a.jmp(ga->getSwapout());
+}
+
 void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel(),
-        dispatch = a.newLabel();
+    Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel();
 
     mov(ARG3, Op2);
     comment("Test div by zero");
@@ -75,23 +95,7 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, Ar
         a.jne(next);
     }
     a.bind(fail);
-    mov(x0, Op1);
-    mov(x1, Op2);
-    emit_swapout();
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, (uint64_t)inst->I);
-    a.mov(ARG3, x_reg);
-    a.mov(ARG4, (uint64_t)&bif_trap_export[BIF_intdiv_2].info.mfa);
-    a.call((uint64_t)handle_error);
-    emit_swapin();
-    a.mov(TMP3, RET);
-    a.cmp(TMP3, 0);
-    a.jne(dispatch);
-    a.mov(RET, RET_do_schedule);
-    a.jmp(ga->getSwapout());
-    a.bind(dispatch);
-    a.mov(RET, RET_dispatch);
-    a.jmp(ga->getSwapout());
+    emit_bif_arg_error({Op1, Op2}, inst, &bif_trap_export[BIF_intdiv_2].info.mfa);
 
     a.bind(next);
     mov(Dst, RET);

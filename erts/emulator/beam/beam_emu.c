@@ -293,7 +293,7 @@ do {						\
  * seldom used functions into it.
  */
 static void init_emulator_finish(void) ERTS_NOINLINE;
-static ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
+ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
 BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
                         Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
@@ -1209,7 +1209,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     }
 }
 
-static ErtsCodeMFA *
+ErtsCodeMFA *
 ubif2mfa(void* uf)
 {
     int i;

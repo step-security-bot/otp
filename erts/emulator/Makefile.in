@@ -882,7 +882,8 @@ EMU_OBJS = \
 BEAMASM_OBJS = \
 	$(OBJDIR)/beam_asm.o            $(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o     $(OBJDIR)/beam_asm_instr.o  \
-	$(OBJDIR)/beam_asm_arith.o
+	$(OBJDIR)/beam_asm_arith.o      $(OBJDIR)/beam_asm_bs.o     \
+	$(OBJDIR)/beam_asm_bif.o
 
 ifeq ($(USE_ESOCK), yes)
 

@@ -334,6 +334,11 @@ class BeamModuleAssembler : public BeamAssembler {
     void emit_is_list(Label Fail, x86::Gp Src);
     void emit_is_integer(Label Fail, Label next, Label BigFail, x86::Gp Src);
     void emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, Operand X, Operand Y, unsigned EqOnly);
+    void emit_call_guard_bif(std::vector<ArgVal> args, ArgVal bif, ArgVal Dst, Instruction *I, Label next);
+    void emit_guard_bif_error(std::vector<ArgVal> args, ArgVal bif, Instruction *I);
+    void emit_bif_arg_error(std::vector<ArgVal> args, Instruction *inst, ErtsCodeMFA *mfa);
+    void emit_fail_head_or_body(ArgVal Fail);
+    void emit_badarg(ArgVal Fail);
 
     #include "beamasm_protos.h"
 

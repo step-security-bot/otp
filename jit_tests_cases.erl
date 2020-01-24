@@ -1,14 +1,15 @@
 -module(jit_tests_cases).
 
--export([is_nil/0, literal/0, idiv/0]).
-
+-export([is_nil/0, literal/0, idiv/0, get_list/0, get_tl/0, get_hd/0,
+         'is_atom'/0, 'is_boolean'/0, 'is_binary'/0, is_bitstring/0,
+         'is_float'/0, 'is_function'/0, is_function2/0]).
 
 -import(jit_tests,[id/1]).
 
--export([l/0]).
+% -export([l/0]).
 
-l() ->
-    receive a -> a after 0 -> ok end.
+% l() ->
+%     receive a -> a after 0 -> ok end.
 
 %% Tests that the is_nil check at the end of the [A,B,C,D] is
 %% not eliminated by any optimizations.
@@ -39,6 +40,117 @@ idiv() ->
     ok.
 idiv(A,B) ->
     A div B.
+
+get_list() ->
+    10 = get_list(id([1,2,3,4])),
+    ok.
+get_list([A|T]) ->
+    A + get_list(T);
+get_list([]) ->
+    0.
+
+get_tl() ->
+    4 = get_tl(id([1,2,3,4])),
+    ok.
+get_tl([_|T]) ->
+    1 + get_tl(T);
+get_tl([]) ->
+    0.
+
+get_hd() ->
+    1 = get_hd(id([1,2,3,4])),
+    ok.
+get_hd([A|_]) ->
+    A;
+get_hd([]) ->
+    0.
+
+'is_atom'() ->
+    true = my_is_atom(id(a)),
+    false = my_is_atom(id(1)),
+    false = my_is_atom(id(<<>>)),
+    ok.
+my_is_atom(A) when is_atom(A) ->
+    true;
+my_is_atom(_) ->
+    false.
+
+is_boolean() ->
+    true = my_is_boolean(id(true)),
+    true = my_is_boolean(id(false)),
+    false = my_is_boolean(id(a)),
+    false = my_is_boolean(id(<<>>)),
+    ok.
+
+my_is_boolean(B) when is_boolean(B) ->
+    true;
+my_is_boolean(_) ->
+    false.
+
+'is_binary'() ->
+    RefcBin = <<0:(65 * 8)>>,
+    SubBin = binary_part(RefcBin, {1,4}),
+    true = my_is_binary(id(<<>>)),
+    true = my_is_binary(id(RefcBin)),
+    true = my_is_binary(id(SubBin)),
+    false = my_is_binary(id(<<0:1>>)),
+    false = my_is_binary(id(a)),
+    ok.
+
+my_is_binary(B) when is_binary(B) ->
+    true;
+my_is_binary(_) ->
+    false.
+
+'is_bitstring'() ->
+    RefcBin = <<0:(65 * 8)>>,
+    SubBin = binary_part(RefcBin, {1,4}),
+    true = is_binary(id(<<>>)),
+    true = is_binary(id(RefcBin)),
+    true = is_binary(id(SubBin)),
+    true = is_binary(id(<<0:1>>)),
+    false = is_binary(id(a)),
+    ok.
+
+'is_float'() ->
+    true = my_is_float(id(0.0)),
+    false = my_is_float(id(0)),
+    ok.
+
+my_is_float(F) when is_float(F) ->
+    true;
+my_is_float(_) ->
+    false.
+
+'is_function'() ->
+    F = fun() -> ok end,
+    true = my_is_function(id(F)),
+    false = my_is_function(id(F)),
+    ok.
+
+my_is_function(F) when is_function(F) ->
+    true;
+my_is_function(_) ->
+    false.
+
+'is_function2'() ->
+    F = fun() -> ok end,
+    true = my_is_function2(id(F)),
+    false = my_is_function2(id(F)),
+
+    true = my_is_function2(id(F),id(0)),
+    false = my_is_function2(id(F),id(0)),
+
+    ok.
+my_is_function2(F) when is_function(F, 0) ->
+    true;
+my_is_function2(_) ->
+    false.
+
+my_is_function2(F,A) when is_function(F, A) ->
+    true;
+my_is_function2(_,_) ->
+    false.
 
 %% 'bnot'() ->
 %%     'bnot'(

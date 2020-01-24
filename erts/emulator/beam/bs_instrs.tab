@@ -362,6 +362,8 @@ i_new_bs_put_integer_imm.execute(Fail, Sz, Flags) {
     }
 }
 
+x64.i_new_bs_put_integer_imm(Src, Fail, Sz, Flags);
+
 #
 # i_bs_init*
 #
@@ -465,6 +467,8 @@ bs_init.execute(Live, Dst) {
         $Dst = make_binary(pb);
     }
 }
+
+x64.i_bs_init(Size, Live, Dst);
 
 #
 # i_bs_init_bits*
