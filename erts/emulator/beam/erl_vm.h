@@ -248,4 +248,11 @@ enum beamasm_ret {
 
 typedef void (*BeamAsmFunc)(void);
 
+typedef struct BeamAsmContext {
+   Eterm *HTOP;
+   Eterm *E;
+   BeamInstr *I;
+   Sint FCALLS;
+} BeamAsmContext;
+
 #endif	/* __ERL_VM_H__ */

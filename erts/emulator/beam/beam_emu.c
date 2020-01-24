@@ -165,8 +165,8 @@ BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
 BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
-enum beamasm_ret (*beamasm_call)(BeamInstr **,Process *, Eterm *,
-                                 Eterm **, Eterm **, Sint *, FloatDef *,
+enum beamasm_ret (*beamasm_call)(BeamAsmContext *,Process *, Eterm *,
+                                 FloatDef *, ERL_BITS_DECLARE_STATEP, 
                                  BeamAsmFunc);
 
 /*

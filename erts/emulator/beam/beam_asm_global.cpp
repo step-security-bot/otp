@@ -72,20 +72,18 @@ void BeamGlobalAssembler::emit_asm_swapin() {
     a.push(f_reg);
 
     // Have to make sure the stack is 16 byte aligned here
-    a.push(ARG1); // *I
-    a.push(ARG4); // *HTOP
-    a.push(ARG5); // *E
-    a.push(ARG6); // *FCALLS
+    a.push(ARG1); // ctx
+    a.push(ARG5); // *EBS
 
     // Move the arguments to the correct registers, ignoring c_p, FCALLS and f_reg for now...
     // typedef void (*BeamAsmFunc)(BeamInstr **,Process *,Eterm *, Eterm **, Eterm **, Sint *, FloatDef *);
     a.mov(c_p, ARG2);
     a.mov(x_reg, ARG3);
-    a.mov(HTOP, x86::qword_ptr(ARG4));
-    a.mov(E, x86::qword_ptr(ARG5));
-    a.mov(FCALLS, x86::qword_ptr(ARG6));
-    a.mov(f_reg, ARG7);
-    a.jmp(ARG8);
+    a.mov(HTOP, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, HTOP)));
+    a.mov(E, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, E)));
+    a.mov(FCALLS, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, FCALLS)));
+    a.mov(f_reg, ARG4);
+    a.jmp(ARG6);
 }
 
 void BeamGlobalAssembler::emit_asm_swapout() {
@@ -93,20 +91,19 @@ void BeamGlobalAssembler::emit_asm_swapout() {
     // Below here we simulate a return instruction to get the proper return into
     // the interpreter again
 
+    // Put the BeamAsmContext in TMP1
+    a.mov(TMP1, x86::qword_ptr(x86::rsp, 8));
+
     // Set I to be the return address, the address is stored in TMP3
-    a.mov(TMP2, x86::qword_ptr(x86::rsp, 24));
-    a.mov(x86::qword_ptr(TMP2, 0), TMP3);
+    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, I)), TMP3);
 
     // Restore the rest of the emulator state
-    a.mov(TMP1, x86::qword_ptr(x86::rsp, 16));
-    a.mov(x86::qword_ptr(TMP1, 0), HTOP);
-    a.mov(TMP1, x86::qword_ptr(x86::rsp, 8));
-    a.mov(x86::qword_ptr(TMP1, 0), E);
-    a.mov(TMP1, x86::qword_ptr(x86::rsp, 0));
-    a.mov(x86::qword_ptr(TMP1, 0), FCALLS);
+    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, HTOP)), HTOP);
+    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, E)), E);
+    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, FCALLS)), FCALLS);
 
     // Adjust stack
-    a.lea(x86::rsp, x86::qword_ptr(x86::rsp, 4 * 8));
+    a.lea(x86::rsp, x86::qword_ptr(x86::rsp, 2 * 8));
 
     // Pop all callee save
     a.pop(f_reg);

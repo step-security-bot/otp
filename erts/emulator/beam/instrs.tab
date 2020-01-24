@@ -1404,15 +1404,13 @@ raw_raise() {
 x64.raw_raise();
 
 beamasm(C) {
+    BeamAsmContext ctx = { .HTOP = HTOP, .E = E, .I = I, .FCALLS = FCALLS };
     BeamAsmFunc ba = (BeamAsmFunc)$C;
-    Eterm *htop = HTOP, *e = E;
-    BeamInstr *i = I;
-    Sint fcalls = FCALLS;
-    enum beamasm_ret res = beamasm_call(&i, c_p, reg, &htop, &e, &fcalls, freg, ba);
-    I = i;
-    HTOP = htop;
-    E = e;
-    FCALLS = fcalls;
+    enum beamasm_ret res = beamasm_call(&ctx, c_p, reg, freg, EBS, ba);
+    I = ctx.I;
+    HTOP = ctx.HTOP;
+    E = ctx.E;
+    FCALLS = ctx.FCALLS;
     switch (res) {
     case RET_dispatch: Goto(*I); break;
     case RET_do_schedule: goto do_schedule; break;

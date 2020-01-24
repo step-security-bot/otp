@@ -167,6 +167,7 @@ class BeamAssembler : public ErrorHandler {
     const x86::Gp HTOP = x86::r15;
     const x86::Gp f_reg = x86::r11; // This could use RBP but we want to use that as a scratch reg so we dont... for now
     const ArgVal CP = ArgVal(ArgVal::TYPE::y, 0);
+    const x86::Mem EBS = x86::qword_ptr(x86::rsp, 0);
 
     const ArgVal x0 = ArgVal(ArgVal::x, 0);
     const ArgVal x1 = ArgVal(ArgVal::x, 1);
