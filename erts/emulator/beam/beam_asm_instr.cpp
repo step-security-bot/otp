@@ -680,7 +680,7 @@ void BeamModuleAssembler::emit_is_binary(ArgVal Fail, ArgVal Src, Instruction *I
     emit_is_binary(labels[Fail.getValue()], TMP1, next, subbin);
 
     a.bind(subbin);
-    a.cmp(x86::byte_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlSubBin, bitoffs)), 0);
+    a.cmp(x86::byte_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlSubBin, bitsize)), 0);
     a.jne(labels[Fail.getValue()]);
 
     a.bind(next);
@@ -690,6 +690,7 @@ void BeamModuleAssembler::emit_is_bitstring(ArgVal Fail, ArgVal Src, Instruction
     Label next = a.newLabel();
     mov(TMP1, Src);
     emit_is_binary(labels[Fail.getValue()], TMP1, next, next);
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_float(ArgVal Fail, ArgVal Src, Instruction *Inst) {

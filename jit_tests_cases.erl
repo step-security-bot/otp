@@ -105,11 +105,11 @@ my_is_binary(_) ->
 'is_bitstring'() ->
     RefcBin = <<0:(65 * 8)>>,
     SubBin = binary_part(RefcBin, {1,4}),
-    true = is_binary(id(<<>>)),
-    true = is_binary(id(RefcBin)),
-    true = is_binary(id(SubBin)),
-    true = is_binary(id(<<0:1>>)),
-    false = is_binary(id(a)),
+    true = is_bitstring(id(<<>>)),
+    true = is_bitstring(id(RefcBin)),
+    true = is_bitstring(id(SubBin)),
+    true = is_bitstring(id(<<0:1>>)),
+    false = is_bitstring(id(a)),
     ok.
 
 'is_float'() ->
