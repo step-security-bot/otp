@@ -817,7 +817,7 @@ void BeamModuleAssembler::emit_is_pid(ArgVal Fail, ArgVal Src, Instruction *Inst
     a.mov(TMP2, TMP1);
     a.and_(TMP2, _TAG_IMMED1_MASK);
     a.cmp(TMP2, _TAG_IMMED1_PID);
-    a.jmp(next);
+    a.je(next);
 
     // Reuse TMP2 as the important bits are still available
     emit_is_boxed(labels[Fail.getValue()], TMP2);
@@ -825,6 +825,7 @@ void BeamModuleAssembler::emit_is_pid(ArgVal Fail, ArgVal Src, Instruction *Inst
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_EXTERNAL_PID);
     a.jne(labels[Fail.getValue()]);
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_port(ArgVal Fail, ArgVal Src, Instruction *Inst) {
@@ -833,7 +834,7 @@ void BeamModuleAssembler::emit_is_port(ArgVal Fail, ArgVal Src, Instruction *Ins
     a.mov(TMP2, TMP1);
     a.and_(TMP2, _TAG_IMMED1_MASK);
     a.cmp(TMP2, _TAG_IMMED1_PORT);
-    a.jmp(next);
+    a.je(next);
 
     // Reuse TMP2 as the important bits are still available
     emit_is_boxed(labels[Fail.getValue()], TMP2);
@@ -841,6 +842,7 @@ void BeamModuleAssembler::emit_is_port(ArgVal Fail, ArgVal Src, Instruction *Ins
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_EXTERNAL_PORT);
     a.jne(labels[Fail.getValue()]);
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_reference(ArgVal Fail, ArgVal Src, Instruction *Inst) {
@@ -850,7 +852,7 @@ void BeamModuleAssembler::emit_is_reference(ArgVal Fail, ArgVal Src, Instruction
     emit_is_boxed(labels[Fail.getValue()], TMP1);
     a.mov(TMP1, emit_boxed_val(TMP1));
     a.cmp(TMP1, ERTS_REF_THING_HEADER);
-    a.jne(next);
+    a.je(next);
     a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_EXTERNAL_REF);
     a.jne(labels[Fail.getValue()]);
@@ -874,7 +876,7 @@ void BeamModuleAssembler::emit_is_tagged_tuple_ff(ArgVal NotTuple, ArgVal NotRec
     emit_is_boxed(labels[NotTuple.getValue()], TMP1);
     a.mov(TMP2, emit_boxed_val(TMP1));
     a.mov(TMP3, TMP2);
-    a.and_(TMP2, TAG_PRIMARY_HEADER);
+    a.and_(TMP2, _TAG_HEADER_MASK);
     a.cmp(TMP2, _TAG_HEADER_ARITYVAL);
     a.jne(labels[NotTuple.getValue()]);
     a.cmp(TMP3, Arity.getValue());
@@ -887,7 +889,7 @@ void BeamModuleAssembler::emit_is_tuple(ArgVal Fail, ArgVal Src, Instruction *In
     mov(TMP1, Src);
     emit_is_boxed(labels[Fail.getValue()], TMP1);
     a.mov(TMP1, emit_boxed_val(TMP1));
-    a.and_(TMP1, TAG_PRIMARY_HEADER);
+    a.and_(TMP1, _TAG_HEADER_MASK);
     a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
     a.jne(labels[Fail.getValue()]);
 }

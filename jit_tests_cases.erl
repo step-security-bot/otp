@@ -2,7 +2,9 @@
 
 -export([is_nil/0, literal/0, idiv/0, get_list/0, get_tl/0, get_hd/0,
          'is_atom'/0, 'is_boolean'/0, 'is_binary'/0, is_bitstring/0,
-         'is_float'/0, 'is_function'/0, is_function2/0]).
+         'is_float'/0, 'is_function'/0, is_function2/0, is_integer/0,
+         is_list/0, is_map/0, is_number/0, is_port/0, is_pid/0,
+         is_reference/0, is_tagged_tuple/0, is_tuple/0, is_tuple_of_arity/0]).
 
 -import(jit_tests,[id/1]).
 
@@ -124,8 +126,12 @@ my_is_float(_) ->
 
 'is_function'() ->
     F = fun() -> ok end,
+    E = fun 'is_function'/0,
     true = my_is_function(id(F)),
-    false = my_is_function(id(F)),
+    true = my_is_function(id(E)),
+    false = my_is_function(id(0)),
+    false = my_is_function(id(0.0)),
+    
     ok.
 
 my_is_function(F) when is_function(F) ->
@@ -134,12 +140,23 @@ my_is_function(_) ->
     false.
 
 'is_function2'() ->
-    F = fun() -> ok end,
-    true = my_is_function2(id(F)),
-    false = my_is_function2(id(F)),
+    F0 = fun() -> ok end,
+    F1 = fun(A) -> A end,
+    E0 = fun 'is_function'/0,
+    E1 = fun 'my_is_function'/1,
+    true = my_is_function2(id(F0)),
+    true = my_is_function2(id(E0)),
+    false = my_is_function2(id(0)),
+    false = my_is_function2(id(0.0)),
+    false = my_is_function2(id(F1)),
+    false = my_is_function2(id(E1)),
 
-    true = my_is_function2(id(F),id(0)),
-    false = my_is_function2(id(F),id(0)),
+    true = my_is_function2(id(F0),id(0)),
+    true = my_is_function2(id(E0),id(0)),
+    false = my_is_function2(id(0),id(0)),
+    false = my_is_function2(id(0.0),id(0)),
+    false = my_is_function2(id(F1),id(0)),
+    false = my_is_function2(id(E1),id(0)),
 
     ok.
 my_is_function2(F) when is_function(F, 0) ->
@@ -150,6 +167,133 @@ my_is_function2(_) ->
 my_is_function2(F,A) when is_function(F, A) ->
     true;
 my_is_function2(_,_) ->
+    false.
+
+'is_integer'() ->
+    true = my_is_integer(id(0)),
+    true = my_is_integer(id(1 bsl 64)),
+    false = my_is_integer(id(0.0)),
+    false = my_is_integer(id(a)),
+    ok.
+my_is_integer(I) when is_integer(I) ->
+    true;
+my_is_integer(_I) ->
+    false.
+
+is_list() ->
+    true = my_is_list(id([])),
+    true = my_is_list(id([1])),
+    true = my_is_list(id([1|2])),
+    false = my_is_list(id(a)),
+    ok.
+my_is_list(L) when is_list(L) ->
+    true;
+my_is_list(_L) ->
+    false.
+
+is_map() ->
+    HAMT = maps:from_list([{I,I} || I <- lists:seq(1,100)]),
+    true = my_is_map(id(#{})),
+    true = my_is_map(id(HAMT)),
+    false = my_is_map(id(<<>>)),
+    false = my_is_map(id(a)),
+    ok.
+my_is_map(M) when is_map(M) ->
+    true;
+my_is_map(_M) ->
+    false.
+
+is_number() ->
+    true = my_is_number(id(0)),
+    true = my_is_number(id(1 bsl 64)),
+    true = my_is_number(id(0.0)),
+    false = my_is_number(id(a)),
+    ok.
+my_is_number(I) when is_number(I) ->
+    true;
+my_is_number(_I) ->
+    false.
+
+is_pid() ->
+    ExternalPid = binary_to_term(<<131,103,100,0,14,116,50,64,101,108,120,100,51,50,57,49,118,48,107,0,0,0,75,0,0,0,0,0>>),
+    true = my_is_pid(id(self())),
+    true = my_is_pid(id(ExternalPid)),
+    false = my_is_pid(id(0.0)),
+    false = my_is_pid(id(a)),
+    ok.
+my_is_pid(P) when is_pid(P) ->
+    true;
+my_is_pid(_P) ->
+    false.
+
+is_port() ->
+    ExternalPort = binary_to_term(<<131,102,100,0,14,116,50,64,101,108,120,100,51,50,57,49,118,48,107,0,0,0,0,0>>),
+    true = my_is_port(id(hd(erlang:ports()))),
+    true = my_is_port(id(ExternalPort)),
+    false = my_is_port(id(0.0)),
+    false = my_is_port(id(a)),
+    ok.
+my_is_port(P) when is_port(P) ->
+    true;
+my_is_port(_P) ->
+    false.
+
+is_reference() ->
+    ExternalRef = binary_to_term(<<131,90,0,3,100,0,14,116,50,64,101,108,120,100,51,50,57,49,118,48,107,0,0,0,1,0,1,53,224,188,124,0,1,230,114,44,190>>),
+    true = my_is_ref(id(make_ref())),
+    true = my_is_ref(id(ExternalRef)),
+    false = my_is_ref(id(0.0)),
+    false = my_is_ref(id(a)),
+    ok.
+
+my_is_ref(R) when is_reference(R) ->
+    true;
+my_is_ref(_R) ->
+    false.
+
+is_tagged_tuple() ->
+    true = is_tagged_tuple(id({a,b})),
+    false = is_tagged_tuple(id({b,b})),
+    false = is_tagged_tuple(id({a,b,c})),
+    false = is_tagged_tuple(id({a})),
+    false = is_tagged_tuple(id(0.0)),
+    false = is_tagged_tuple(id(0)),
+
+    true = is_tagged_tuple_ff(id({a,b})),
+    true2 = is_tagged_tuple_ff(id({b,b,b})),
+    false = is_tagged_tuple_ff(id(a)),
+    ok.
+is_tagged_tuple({a,_}) ->
+    true;
+is_tagged_tuple(_) ->
+    false.
+is_tagged_tuple_ff(T) when is_tuple(T) ->
+    case T of
+        {a,_} -> true;
+        _ -> true2
+    end;
+is_tagged_tuple_ff(_) ->
+    false.
+
+is_tuple() ->
+    true = my_is_tuple(id({})),
+    false = my_is_tuple(id([])),
+    false = my_is_tuple(id(0.0)),
+    ok.
+my_is_tuple(T) when is_tuple(T) ->
+    true;
+my_is_tuple(_T) ->
+    false.
+
+is_tuple_of_arity() ->
+    true = is_tuple_of_arity(id({a})),
+    false = is_tuple_of_arity(id({})),
+    false = is_tuple_of_arity(id([])),
+    false = is_tuple_of_arity(id(0.0)),
+    ok.
+is_tuple_of_arity({_}) ->
+    true;
+is_tuple_of_arity(_) ->
     false.
 
 %% 'bnot'() ->

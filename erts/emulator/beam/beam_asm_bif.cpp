@@ -23,24 +23,54 @@
 extern "C" ErtsCodeMFA *ubif2mfa(void* uf);
 
 void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), after_gc = a.newLabel();
     emit_swapout();
     a.add(FCALLS, -1);
     a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
     a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
     a.mov(ARG1, c_p);
     a.mov(ARG2, x_reg);
-    a.mov(ARG3, 0); // Should be I
+    a.mov(ARG3, (uint64_t)I->I);
     a.call(Bif.getValue());
-    // TODO: Should emit a gc check here
+    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
+    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
+    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
+    a.jge(after_gc);
+    emit_nyi();
+    a.bind(after_gc);
     emit_swapin();
     a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
     a.cmp(RET, THE_NON_VALUE);
     a.jne(next);
-    //emit_nyi();
+    emit_nyi();
     a.bind(next);
     mov(ArgVal(ArgVal::x,0), RET);
     emit_return();
+}
+
+void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
+    Label next = a.newLabel(), after_gc = a.newLabel();
+    emit_swapout();
+    a.add(FCALLS, -1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG3, (uint64_t)I->I);
+    a.call(Bif.getValue());
+    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
+    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
+    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
+    a.jge(after_gc);
+    emit_nyi();
+    a.bind(after_gc);
+    emit_swapin();
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
+    a.cmp(RET, THE_NON_VALUE);
+    a.jne(next);
+    emit_nyi();
+    a.bind(next);
+    mov(ArgVal(ArgVal::x,0), RET);
 }
 
 // WARNING: Note that args here HAVE to be given in reverse order as that is the way

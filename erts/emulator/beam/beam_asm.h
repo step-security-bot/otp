@@ -339,6 +339,7 @@ class BeamModuleAssembler : public BeamAssembler {
     void emit_bif_arg_error(std::vector<ArgVal> args, Instruction *inst, ErtsCodeMFA *mfa);
     void emit_fail_head_or_body(ArgVal Fail);
     void emit_badarg(ArgVal Fail);
+    void emit_nyi() { a.mov(TMP1, x86::ptr_abs(0)); }
 
     #include "beamasm_protos.h"
 
