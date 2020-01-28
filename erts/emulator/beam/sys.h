@@ -78,7 +78,7 @@
 #  define ERTS_INLINE
 #endif
 
-#if ERTS_CAN_INLINE && !defined __cplusplus
+#if ERTS_CAN_INLINE
 #define ERTS_GLB_FORCE_INLINE static ERTS_FORCE_INLINE
 #define ERTS_GLB_INLINE static ERTS_INLINE
 #else
@@ -86,7 +86,7 @@
 #define ERTS_GLB_INLINE
 #endif
 
-#if (ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF)) && !defined __cplusplus
+#if (ERTS_CAN_INLINE || defined(ERTS_DO_INCL_GLB_INLINE_FUNC_DEF))
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 1
 #else
 #  define ERTS_GLB_INLINE_INCL_FUNC_DEF 0
@@ -297,7 +297,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
  * Compile time assert
  * (the actual compiler error msg can be a bit confusing)
  */
-#if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#if ERTS_AT_LEAST_GCC_VSN__(3,1,1) && !defined __cplusplus
 # define ERTS_CT_ASSERT(e) \
     do { \
 	enum { compile_time_assert__ = __builtin_choose_expr((e),0,(void)0) }; \
