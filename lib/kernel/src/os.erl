@@ -198,7 +198,7 @@ find_executable1(_Name, [], _Extensions) ->
 
 verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     Name1 = Name0 ++ Ext,
-    case file:read_file_info(Name1) of
+    case file:read_file_info(Name1,[raw]) of
 	{ok, #file_info{type=regular,mode=Mode}}
 	when Mode band 8#111 =/= 0 ->
 	    %% XXX This test for execution permission is not fool-proof

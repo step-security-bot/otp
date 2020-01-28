@@ -27,6 +27,8 @@
 	 dns_hostname/1,
 	 ping/1]).
 
+-include_lib("kernel/include/inet.hrl").
+
 %%------------------------------------------------------------------------
 
 -type verbosity() :: 'silent' | 'verbose'.
@@ -105,7 +107,7 @@ names(Hostname) ->
 
 dns_hostname(Hostname) ->
     case inet:gethostbyname(Hostname) of
-	{ok,{hostent, Name, _ , _Af, _Size, _Addr}} ->
+	{ok,#hostent{ h_name = Name }} ->
 	    {ok, Name};
 	_ ->
 	    {error, Hostname}

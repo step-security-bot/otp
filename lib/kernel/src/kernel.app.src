@@ -56,6 +56,7 @@
 	     inet_hosts,
 	     inet_gethost_native,
 	     inet_tcp_dist,
+             inet_dist_res,
 	     kernel,
 	     kernel_config,
 	     kernel_refc,
@@ -146,7 +147,37 @@
                 pg2]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         %% We could use a nested maps based config here...
+         %% {dist,#{proto => ["inet_tcp"], listen => true,
+         %%         auto_connect => true,
+         %%         name => undefined, epmd => erl_epmd}},
+         %% {inet_dist,#{ listen => #{ max => 0, min => 0, options => []
+         %%                            interface => undefined },
+         %%               connect => #{ options => [] }
+         %%             } }
+
+         %% Erl distribution configuration
+         {dist_proto, ["inet_tcp"]},
+         {dist_auto_connect, true},
+         {dist_name, undefined},
+         {dist_hidden, false},
+         {dist_ticktime, 60},
+         {dist_res, {inet_dist_res, [erl_epmd]}},
+         {dist_listen, true},
+
+         %% The built-in inet distribution
+         {inet_dist_listen_min, undefined},
+         {inet_dist_listen_max, undefined},
+         {inet_dist_listen_options, []},
+         {inet_dist_connect_options, []},
+
+         %% EPMD Server
+         {epmd_start, false},
+         {epmd_port, undefined},
+
+         %% EPMD Client
+         {epmd_client_port, undefined}
         ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-10.6", "stdlib-3.5", "sasl-3.0"]}

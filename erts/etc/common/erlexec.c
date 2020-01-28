@@ -190,7 +190,6 @@ static char *plusz_val_switches[] = {
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
-void start_epmd(char *epmd);
 void error(char* format, ...);
 
 /*
@@ -213,7 +212,6 @@ static char* strsave(char* string);
 static int is_one_of_strings(char *str, char *strs[]);
 static char *write_str(char *to, const char *from);
 static void get_home(void);
-static void add_epmd_port(void);
 #ifdef __WIN32__
 static void get_start_erl_data(char *);
 static char* get_value(HKEY key, char* value_name, BOOL mustExit);
@@ -418,10 +416,8 @@ int main(int argc, char **argv)
     int haltAfterwards = 0;	/* If true, put 's erlang halt' at the end
 				 * of the arguments. */
     int isdistributed = 0;
-    int no_epmd = 0;
     int i;
     char* s;
-    char *epmd_prog = NULL;
     char *malloc_lib;
     int process_args = 1;
     int print_args_exit = 0;
@@ -602,8 +598,6 @@ int main(int argc, char **argv)
     get_home();
     add_args("-home", home, NULL);
 
-    add_epmd_port();
-
     add_arg("--");
 
     while (i < argc) {
@@ -690,11 +684,6 @@ int main(int argc, char **argv)
 			    usage("-env");
 			set_env(argv[i+1], argv[i+2]);
 			i += 2;
-		    } else if (strcmp(argv[i], "-epmd") == 0) { 
-			if (i+1 >= argc)
-			    usage("-epmd");
-			epmd_prog = argv[i+1];
-			++i;
 		    } else {
 			add_arg(argv[i]);
 		    }
@@ -749,9 +738,6 @@ int main(int argc, char **argv)
 		    } else if (strcmp(argv[i], "-nohup") == 0) {
 			add_arg("-nohup");
 			nohup = 1;
-		    } else if (strcmp(argv[i], "-no_epmd") == 0) {
-			add_arg("-no_epmd");
-			no_epmd = 1;
 		    } else {
 			add_arg(argv[i]);
 		    }
@@ -780,24 +766,6 @@ int main(int argc, char **argv)
 			    get_start_erl_data((char *) NULL);
 		    }
 #endif
-		    else if (strcmp(argv[i], "-start_epmd") == 0) {
-			if (i+1 >= argc)
-			    usage("-start_epmd");
-
-			if (strcmp(argv[i+1], "true") == 0) {
-			    /* The default */
-			    no_epmd = 0;
-			}
-			else if (strcmp(argv[i+1], "false") == 0) {
-			    no_epmd = 1;
-			}
-			else
-			    usage_format("Expected boolean argument for \'-start_epmd\'.\n");
-
-			add_arg(argv[i]);
-			add_arg(argv[i+1]);
-			i++;
-		    }
 		    else
 			add_arg(argv[i]);
 		
@@ -1044,9 +1012,6 @@ int main(int argc, char **argv)
 	add_args("-s", "erlang", "halt", NULL);
     }
     
-    if (isdistributed && !no_epmd)
-	start_epmd(epmd_prog);
-
 #if (! defined(__WIN32__)) && defined(DEBUG)
     if (start_detached && get_env("ERL_CONSOLE_MODE")) {
 	/* Start the emulator within an xterm.
@@ -1191,7 +1156,7 @@ usage_aux(void)
 #ifdef __WIN32__
 	  "[-start_erl [datafile]] "
 #endif
-	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
+	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
 	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
@@ -1226,53 +1191,6 @@ usage_format(char *format, ...)
     vfprintf(stderr, format, args);
     va_end(args);
     usage_aux();
-}
-
-void
-start_epmd(char *epmd)
-{
-    char  epmd_cmd[MAXPATHLEN+100];
-#ifdef __WIN32__
-    char* arg1 = NULL;
-#endif
-    int   result;
-
-    if (!epmd) {
-	epmd = epmd_cmd;
-#ifdef __WIN32__
-	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd", bindir);
-	arg1 = "-daemon";
-#else
-	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "\"%s" DIRSEP "epmd\" -daemon", bindir);
-#endif
-    } 
-#ifdef __WIN32__
-    if (arg1 != NULL) {
-	strcat(epmd, " ");
-	strcat(epmd, arg1);
-    }
-    {
-	wchar_t wcepmd[MAXPATHLEN+100];
-	STARTUPINFOW start;
-	PROCESS_INFORMATION pi;
-	memset(&start, 0, sizeof (start));
-	start.cb = sizeof (start);
-	MultiByteToWideChar(CP_UTF8, 0, epmd, -1, wcepmd, MAXPATHLEN+100);
-
-	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE, 
-			       CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
-			       NULL, NULL, &start, &pi))
-	    result = -1;
-	else
-	    result = 0;
-    }
-#else
-    result = system(epmd);
-#endif
-    if (result == -1) {
-      fprintf(stderr, "Error spawning %s (error %d)\n", epmd_cmd,errno);
-      exit(1);
-    }
 }
 
 static void
@@ -1647,14 +1565,6 @@ get_home(void)
 }
 
 #endif
-
-static void add_epmd_port(void)
-{
-    char* port = get_env("ERL_EPMD_PORT");
-    if (port != NULL) {
-	add_args("-epmd_port", port, NULL);	
-    }
-}
 
 static char **build_args_from_env(char *env_var)
 {

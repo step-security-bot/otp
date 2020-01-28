@@ -21,6 +21,8 @@
 
 -behaviour(gen_server).
 
+-include("logger.hrl").
+
 -define(nodedown(N, State), verbose({?MODULE, ?LINE, nodedown, N}, 1, State)).
 -define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
 
@@ -67,9 +69,7 @@
 -export([start_link/2,
 	 kernel_apply/3,
 	 longnames/0,
-	 protocol_childspecs/0,
-	 epmd_module/0,
-         dist_listen/0]).
+	 protocol_childspecs/0]).
 
 -export([disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
@@ -210,10 +210,15 @@ set_net_ticktime(T) when is_integer(T) ->
     set_net_ticktime(T, ?DEFAULT_TRANSITION_PERIOD).
 
 -spec get_net_ticktime() -> Res when
-      Res :: NetTicktime | {ongoing_change_to, NetTicktime} | ignored,
+      Res :: NetTicktime | {ongoing_change_to, NetTicktime},
       NetTicktime :: pos_integer().
 get_net_ticktime() ->
-    ticktime_res(request(ticktime)).
+    case ticktime_res(request(ticktime)) of
+        ignored ->
+            erl_distribution:dist_ticktime();
+        Time ->
+            Time
+    end.
 
 %% The monitor_nodes() feature has been moved into the emulator.
 %% The feature is reached via (intentionally) undocumented process
@@ -313,10 +318,14 @@ start(Args) ->
 start_link([Name], CleanHalt) ->
     start_link([Name, longnames], CleanHalt);
 start_link([Name, LongOrShortNames], CleanHalt) ->
-    start_link([Name, LongOrShortNames, 15000], CleanHalt);
+    start_link([Name, LongOrShortNames, net_kernel:get_net_ticktime()], CleanHalt);
 
 start_link([Name, LongOrShortNames, Ticktime], CleanHalt) ->
-    Args = {Name, LongOrShortNames, Ticktime, CleanHalt},
+
+    %% Ticktime is given in seconds. The net_kernel tick time is
+    %% Ticktime/4 milliseconds so multiply with 250
+
+    Args = {Name, LongOrShortNames, Ticktime * 250, CleanHalt},
     case gen_server:start_link({local, net_kernel}, ?MODULE,
 			       Args, []) of
 	{ok, Pid} ->
@@ -1484,62 +1493,28 @@ split_node(Name) ->
 %%
 %%
 protocol_childspecs() ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    protocol_childspecs(Protos);
-	_ ->
-	    protocol_childspecs(["inet_tcp"])
-    end.
+    protocol_childspecs(erl_distribution:dist_proto()).
 
 protocol_childspecs([]) ->
     [];
 protocol_childspecs([H|T]) ->
     Mod = list_to_atom(H ++ "_dist"),
-    case (catch Mod:childspecs()) of
-	{ok, Childspecs} when is_list(Childspecs) ->
-	    Childspecs ++ protocol_childspecs(T);
-	_ ->
+    try Mod:childspecs() of
+        {ok, Childspecs} ->
+	    Childspecs ++ protocol_childspecs(T)
+    catch error:undef ->
 	    protocol_childspecs(T)
     end.
-
-%%
-%% epmd_module() -> module_name of erl_epmd or similar gen_server_module.
-%%
-
-epmd_module() ->
-    case init:get_argument(epmd_module) of
-	{ok,[[Module]]} ->
-	    list_to_atom(Module);
-	_ ->
-	    erl_epmd
-    end.
-
-%%
-%% dist_listen() -> whether the erlang distribution should listen for connections
-%%
-dist_listen() ->
-    case init:get_argument(dist_listen) of
-	{ok,[[DoListen]]} ->
-	    list_to_atom(DoListen) =/= false;
-	_ ->
-	    true
-    end.
-
 
 %%
 %% Start all protocols
 %%
 
 start_protos(Node, CleanHalt) ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    start_protos(Node, Protos, CleanHalt);
-	_ ->
-	    start_protos(Node, ["inet_tcp"], CleanHalt)
-    end.
+    start_protos(Node, erl_distribution:dist_proto(), CleanHalt).
 
 start_protos(Node, Ps, CleanHalt) ->
-    case case dist_listen() of
+    case case erl_distribution:dist_listen() of
         false -> start_protos_no_listen(Node, Ps, [], CleanHalt);
         _ -> start_protos_listen(Node, Ps, CleanHalt)
          end of

@@ -32,6 +32,8 @@
 start(_, []) ->
     %% Setup the logger and configure the kernel logger environment
     ok = logger:internal_init_logger(),
+    %% Configure the Erlang distribution
+    ok = erl_distribution:init_config(),
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
             ok = erl_signal_handler:start(),

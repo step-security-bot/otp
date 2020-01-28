@@ -96,6 +96,7 @@ MODULES = \
 	inet6_sctp \
 	inet_config \
 	inet_db \
+	inet_dist_res \
 	inet_dns \
 	inet_gethost_native \
 	inet_hosts \
