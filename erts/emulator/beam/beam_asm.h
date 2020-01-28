@@ -244,8 +244,9 @@ class BeamAssembler : public ErrorHandler {
     }
 
     void emit_function_postamble(unsigned pops = 0) {
-        // Adjust the stack back again
-        a.lea(x86::rsp,x86::dword_ptr(x86::rsp, 8 * (pops)));
+        if (pops != 0)
+            // Adjust the stack back again
+            a.lea(x86::rsp,x86::dword_ptr(x86::rsp, 8 * (pops)));
         a.pop(x86::rbp);
         // Return back to intepreter
         a.ret();
@@ -255,10 +256,12 @@ class BeamAssembler : public ErrorHandler {
 class BeamGlobalAssembler : public BeamAssembler {
 
     void (*garbage_collect)();
+    void (*gc_after_bif)();
     void (*swapin)();
     void (*swapout)();
 
     void emit_garbage_collect(void);
+    void emit_gc_efter_bif(void);
     void emit_asm_swapin(void);
     void emit_asm_swapout(void);
 
@@ -267,6 +270,10 @@ class BeamGlobalAssembler : public BeamAssembler {
 
     uint64_t getGarbageCollect() {
         return (uint64_t)garbage_collect;
+    }
+
+    uint64_t getGcAfterBif() {
+        return (uint64_t)gc_after_bif;
     }
 
     uint64_t getSwapin() {

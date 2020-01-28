@@ -156,13 +156,7 @@ i_length_setup(Live, Src) {
     //| -no_next
 }
 
-x64.i_length_setup(Live, Src) {
-    ArgVal slot(ArgVal::TYPE::x, $Live.getValue());
-
-    mov(slot, $Src);
-    mov(slot + sizeof(Eterm), make_small(0));
-    mov(slot + sizeof(Eterm) * 2, $Src);
-}
+x64.i_length_setup(Live, Src);
 
 //
 // This instruction can be executed one or more times. When entering
@@ -212,8 +206,6 @@ i_length.execute(Fail, Live, Dst) {
         /*
          * Good so far, but there is more work to do. Yield.
          */
-        $SET_CP_I_ABS(I);
-        SWAPOUT;
         c_p->arity = live + 3;
         c_p->current = NULL;
         goto context_switch3;
@@ -224,39 +216,7 @@ i_length.execute(Fail, Live, Dst) {
     //| -no_next
 }
 
-x64.i_length(Fail, Live, Dst) {
-    Label entry = a.newLabel(), next = a.newLabel(),
-        trap = a.newLabel(), error = a.newLabel();
-
-    a.bind(entry),
-    a.mov(x86::ptr(c_p, offsetof(Process, fcalls)), FCALLS);
-    a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::ptr(x_reg, $Live.getValue()*sizeof(Eterm)));
-    a.call((uint64_t)erts_trapping_length_1);
-    a.mov(FCALLS, x86::ptr(c_p, offsetof(Process, fcalls)));
-    a.cmp(RET, THE_NON_VALUE);
-    a.je(trap);
-    mov($Dst, RET);
-    a.jmp(next);
-
-    comment("test trap");
-    a.bind(trap);
-    a.mov(TMP1, x86::ptr(c_p, offsetof(Process, freason)));
-    a.cmp(TMP1, TRAP);
-    a.jne(error);
-    comment("do trap");
-    a.lea(TMP1, x86::ptr(entry));
-    a.mov(x86::ptr(c_p, offsetof(Process, i)), TMP1);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), $Live.getValue() + 3);
-    a.mov(RET,RET_context_switch3);
-    a.jmp(ga->getSwapout());
-
-    a.bind(error);
-    $NYI();
-
-    a.bind(next);
-}
+x64.i_length(Fail, Live, Dst);
 
 //
 // Call a BIF, store the result in x(0) and transfer control to the

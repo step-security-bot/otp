@@ -20,36 +20,20 @@
 
 #include "beam_asm.h"
 
-extern "C" ErtsCodeMFA *ubif2mfa(void* uf);
+extern "C" {
+    #include "erl_bif_table.h"
+    ErtsCodeMFA *ubif2mfa(void* uf);
+}
 
 void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
-    Label next = a.newLabel(), after_gc = a.newLabel();
-    emit_swapout();
-    a.add(FCALLS, -1);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
-    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, x_reg);
-    a.mov(ARG3, (uint64_t)I->I);
-    a.call(Bif.getValue());
-    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
-    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
-    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
-    a.jge(after_gc);
-    emit_nyi();
-    a.bind(after_gc);
-    emit_swapin();
-    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
-    a.cmp(RET, THE_NON_VALUE);
-    a.jne(next);
-    emit_nyi();
-    a.bind(next);
-    mov(ArgVal(ArgVal::x,0), RET);
+    emit_call_light_bif(Bif, Exp, I);
     emit_return();
 }
 
 void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
-    Label next = a.newLabel(), after_gc = a.newLabel();
+    Label next = a.newLabel(), error = a.newLabel();
+    Export *exp = (Export*)Exp.getValue();
+    
     emit_swapout();
     a.add(FCALLS, -1);
     a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
@@ -58,17 +42,27 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
     a.mov(ARG2, x_reg);
     a.mov(ARG3, (uint64_t)I->I);
     a.call(Bif.getValue());
-    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
-    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
-    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
-    a.jge(after_gc);
-    emit_nyi();
-    a.bind(after_gc);
+
+    a.mov(ARG5, ((Export*)Exp.getValue())->info.mfa.arity);
+    a.call(ga->getGcAfterBif());
+
+    comment("check if error or yield");
     emit_swapin();
     a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
     a.cmp(RET, THE_NON_VALUE);
     a.jne(next);
-    emit_nyi();
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+    a.jne(error);
+    comment("yield");
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), exp->info.mfa.arity);
+    a.lea(TMP1, x86::qword_ptr(next));
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
+    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
+    a.mov(RET,RET_context_switch3);
+    a.jmp(ga->getSwapout());
+    a.bind(error);
+    emit_bif_arg_error({}, I, &exp->info.mfa);
     a.bind(next);
     mov(ArgVal(ArgVal::x,0), RET);
 }
@@ -126,20 +120,64 @@ void BeamModuleAssembler::emit_i_bif3_body(ArgVal Src1, ArgVal Src2, ArgVal Src3
 void BeamModuleAssembler::emit_i_bif1(ArgVal Src1, ArgVal Fail, ArgVal Bif, ArgVal Dst, Instruction *I) {
     Label next = a.newLabel();
     emit_call_guard_bif({Src1}, Bif, Dst, I, next);
-    a.jmp(Fail.getValue());
+    a.jmp(labels[Fail.getValue()]);
     a.bind(next);
 }
 
 void BeamModuleAssembler::emit_i_bif2(ArgVal Src1, ArgVal Src2, ArgVal Fail, ArgVal Bif, ArgVal Dst, Instruction *I) {
     Label next = a.newLabel();
     emit_call_guard_bif({Src2, Src1}, Bif, Dst, I, next);
-    a.jmp(Fail.getValue());
+    a.jmp(labels[Fail.getValue()]);
     a.bind(next);
 }
 
 void BeamModuleAssembler::emit_i_bif3(ArgVal Src1, ArgVal Src2, ArgVal Src3, ArgVal Fail, ArgVal Bif, ArgVal Dst, Instruction *I) {
     Label next = a.newLabel();
     emit_call_guard_bif({Src3, Src2, Src1}, Bif, Dst, I, next);
-    a.jmp(Fail.getValue());
+    a.jmp(labels[Fail.getValue()]);
+    a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_length_setup(ArgVal Live, ArgVal Src, Instruction *I) {
+    ArgVal slot(ArgVal::TYPE::x, Live.getValue());
+
+    mov(slot + 0, Src);
+    mov(slot + 1, make_small(0));
+    mov(slot + 2, Src);
+}
+
+void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, Instruction *I) {
+    Label entry = a.newLabel(), next = a.newLabel(),
+        trap = a.newLabel(), error = a.newLabel();
+
+    a.align(kAlignCode, 8);
+    a.bind(entry),
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+    a.mov(ARG1, c_p);
+    a.lea(ARG2, x86::qword_ptr(x_reg, Live.getValue()*sizeof(Eterm)));
+    a.call((uint64_t)erts_trapping_length_1);
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
+    a.cmp(RET, THE_NON_VALUE);
+    a.je(trap);
+    mov(Dst, RET);
+    a.jmp(next);
+
+    comment("test trap");
+    a.bind(trap);
+    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process, freason)));
+    a.cmp(TMP1, TRAP);
+    a.jne(error);
+    comment("do trap");
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), Live.getValue() + 3);
+    a.lea(TMP1, x86::qword_ptr(entry));
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
+    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
+    a.mov(RET,RET_context_switch3);
+    a.jmp(ga->getSwapout());
+
+    a.bind(error);
+    emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, I, &bif_trap_export[BIF_length_1].info.mfa);
+
     a.bind(next);
 }

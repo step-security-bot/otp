@@ -34,13 +34,20 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitRuntime *rt) : BeamAssembler(rt) {
     // setLogger("swapin.asm");
     emit_asm_swapin();
     err = rt->add(&swapin,&code);
-    ERTS_ASSERT(!err && "Failed to create asm swampin function");
+    ERTS_ASSERT(!err && "Failed to create asm swapin function");
     reset();
 
     // setLogger("swapout.asm");
     emit_asm_swapout();
     err = rt->add(&swapout,&code);
-    ERTS_ASSERT(!err && "Failed to create asm swampout function");
+    ERTS_ASSERT(!err && "Failed to create asm swapout function");
+    reset();
+
+    // setLogger("gc_after_bif.asm");
+    emit_gc_efter_bif();
+    err = rt->add(&gc_after_bif,&code);
+    ERTS_ASSERT(!err && "Failed to create asm gc_after_bif function");
+    reset();
 }
 
 void BeamGlobalAssembler::emit_garbage_collect() {
@@ -58,6 +65,43 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.sub(FCALLS, RET);
     emit_swapin();
     emit_function_postamble();
+}
+
+void BeamGlobalAssembler::emit_gc_efter_bif() {
+    /* This is a common stub called after a bif call to see if a gc is needed.
+       RET = bif return
+       FCALLS = c_p->mbuf ptr value before bif
+       ARG5 = arity
+     */
+    Label after_gc = a.newLabel(), do_gc = a.newLabel();
+    emit_function_preamble();
+    comment("check if gc is needed");
+    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
+    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
+    a.sar(TMP1, 3);
+    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
+    a.jb(do_gc);
+    // This asm code is taken from what GCC does
+    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,bin_vheap_sz)));
+    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,off_heap.overhead)));
+    a.mov(x86::edx, x86::dword_ptr(c_p, offsetof(Process,flags)));
+    a.seta(x86::cl);
+    a.shr(x86::edx, 10);
+    a.and_(x86::edx, 1);
+    a.or_(x86::cl, x86::dl);
+    a.jne(do_gc);
+    emit_function_postamble();
+
+    comment("do a gc_after_bif_call");
+    a.bind(do_gc);
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, FCALLS);
+    a.mov(ARG3, RET);
+    a.mov(ARG4, x_reg);
+    a.call((uint64_t)erts_gc_after_bif_call_lhf);
+
+    emit_function_postamble();
+
 }
 
 void BeamGlobalAssembler::emit_asm_swapin() {

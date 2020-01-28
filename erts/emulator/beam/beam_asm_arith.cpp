@@ -28,6 +28,7 @@ extern "C" BeamInstr *handle_error(void);
 
 void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Instruction *inst, ErtsCodeMFA *mfa) {
     Label dispatch = a.newLabel();
+    comment("handle_error");
     for (unsigned i = 0; i < args.size(); i++)
         mov(ArgVal(ArgVal::x, i), args[i]);
     emit_swapout();

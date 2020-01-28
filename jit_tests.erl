@@ -76,7 +76,6 @@ test(Test) when is_atom(Test) ->
 test(Tests) when is_list(Tests) ->
     [test(Test, proplists:get_value(Test, tests())) || Test <- Tests].
 test(Name, F) ->
-    catch jit_compiler:save_traces(),
     erlang:display({testcase,Name}),
     ok = F().
 
