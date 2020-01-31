@@ -161,6 +161,8 @@ i_loop_rec(Dest) {
     r(0) = ERL_MESSAGE_TERM(msgp);
 }
 
+x64.i_loop_rec(Dest);
+
 remove_message() {
     //| -no_prefetch
 
@@ -268,6 +270,8 @@ remove_message() {
     PROCESS_MAIN_CHK_LOCKS(c_p);
 }
 
+x64.remove_message();
+
 loop_rec_end(Dest) {
     //| -no_next
     /*
@@ -282,6 +286,8 @@ loop_rec_end(Dest) {
     FCALLS--;
     goto loop_rec__;
 }
+
+x64.loop_rec_end(Dest);
 
 timeout_locked() {
     /*
@@ -403,3 +409,5 @@ wait.execute(JumpTarget) {
     goto do_schedule;
     //| -no_next
 }
+
+x64.wait_locked(JumpTarget);

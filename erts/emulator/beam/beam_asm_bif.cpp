@@ -25,13 +25,35 @@ extern "C" {
     ErtsCodeMFA *ubif2mfa(void* uf);
 }
 
-void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
-    emit_call_light_bif(Bif, Exp, I);
-    emit_return();
+void BeamModuleAssembler::emit_yield_error_test(ErtsCodeMFA *mfa, Instruction *I, bool only) {
+    Label next = a.newLabel(), cont, error = a.newLabel();
+    comment("check if error or yield");
+    a.cmp(RET, THE_NON_VALUE);
+    a.jne(next);
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+    a.jne(error);
+    comment("yield");
+    if (!only) {
+        cont = a.newLabel();
+        a.mov(RET, x86::qword_ptr(cont));
+        mov(CP, RET);
+    }
+    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+    a.mov(RET,RET_context_switch);
+    a.jmp(ga->getSwapout());
+    a.bind(error);
+    emit_bif_arg_error({}, I, mfa);
+    a.bind(next);
+    mov(ArgVal(ArgVal::x,0), RET);
+    if (only) {
+        emit_return();
+    } else {
+        a.align(kAlignCode, 8);
+        a.bind(cont);
+    }
 }
 
-void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
-    Label next = a.newLabel(), error = a.newLabel();
+void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
     Export *exp = (Export*)Exp.getValue();
     
     emit_swapout();
@@ -46,25 +68,29 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
     a.mov(ARG5, ((Export*)Exp.getValue())->info.mfa.arity);
     a.call(ga->getGcAfterBif());
 
-    comment("check if error or yield");
     emit_swapin();
     a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
-    a.cmp(RET, THE_NON_VALUE);
-    a.jne(next);
-    a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
-    a.jne(error);
-    comment("yield");
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), exp->info.mfa.arity);
-    a.lea(TMP1, x86::qword_ptr(next));
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, asm_ret) + sizeof(BeamInstr)), TMP1);
-    a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, asm_ret)));
-    a.mov(RET,RET_context_switch3);
-    a.jmp(ga->getSwapout());
-    a.bind(error);
-    emit_bif_arg_error({}, I, &exp->info.mfa);
-    a.bind(next);
-    mov(ArgVal(ArgVal::x,0), RET);
+    emit_yield_error_test(&exp->info.mfa, I, true);
+}
+
+void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
+    Export *exp = (Export*)Exp.getValue();
+    
+    emit_swapout();
+    a.add(FCALLS, -1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG3, (uint64_t)I->I);
+    a.call(Bif.getValue());
+
+    a.mov(ARG5, ((Export*)Exp.getValue())->info.mfa.arity);
+    a.call(ga->getGcAfterBif());
+
+    emit_swapin();
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
+    emit_yield_error_test(&exp->info.mfa, I, false);
 }
 
 // WARNING: Note that args here HAVE to be given in reverse order as that is the way
@@ -180,4 +206,18 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
     emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, I, &bif_trap_export[BIF_length_1].info.mfa);
 
     a.bind(next);
+}
+
+void BeamModuleAssembler::emit_send(Instruction *I) {
+    Label next = a.newLabel(), error = a.newLabel(), cont = a.newLabel();
+    a.dec(FCALLS);
+    emit_swapout();
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+    a.mov(ARG1, c_p);
+    mov(ARG2, ArgVal(ArgVal::x, 0));
+    mov(ARG3, ArgVal(ArgVal::x, 1));
+    a.call((uint64_t)erl_send);
+    emit_swapin();
+    a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
+    emit_yield_error_test(nullptr, I, false);
 }

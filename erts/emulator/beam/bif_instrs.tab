@@ -223,11 +223,10 @@ x64.i_length(Fail, Live, Dst);
 // next instruction.
 //
 call_light_bif(Bif, Exp) {
-    Export *export;
-    ErtsBifFunc bf;
-
-    Eterm result;
     ErlHeapFragment *live_hf_end;
+    ErtsBifFunc bf;
+    Export *export;
+    Eterm result;
 
     bf = (ErtsBifFunc) $Bif;
     export = (Export*) $Exp;
@@ -458,6 +457,8 @@ send() {
         goto find_func_info;
     }
 }
+
+x64.send();
 
 call_nif := nif_bif.call_nif.epilogue;
 call_bif := nif_bif.call_bif.epilogue;

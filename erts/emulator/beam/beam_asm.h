@@ -347,6 +347,7 @@ class BeamModuleAssembler : public BeamAssembler {
     void emit_fail_head_or_body(ArgVal Fail);
     void emit_badarg(ArgVal Fail);
     void emit_nyi() { a.mov(TMP1, x86::ptr_abs(0)); }
+    void emit_yield_error_test(ErtsCodeMFA *mfa, Instruction *I, bool only);
 
     #include "beamasm_protos.h"
 

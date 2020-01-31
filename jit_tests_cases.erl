@@ -1,11 +1,13 @@
 -module(jit_tests_cases).
 
--export([is_nil/0, literal/0, idiv/0, get_list/0, get_tl/0, get_hd/0,
+-export([
+        is_nil/0, literal/0, idiv/0, get_list/0, get_tl/0, get_hd/0,
          'is_atom'/0, 'is_boolean'/0, 'is_binary'/0, is_bitstring/0,
          'is_float'/0, 'is_function'/0, is_function2/0, is_integer/0,
          is_list/0, is_map/0, is_number/0, is_port/0, is_pid/0,
          is_reference/0, is_tagged_tuple/0, is_tuple/0, is_tuple_of_arity/0,
-         guard_bif/0, length/0, call_light_bif/0, call_light_bif_only/0]).
+         guard_bif/0, length/0, call_light_bif/0, call_light_bif_only/0,
+         send/0]).
 
 -import(jit_tests,[id/1]).
 
@@ -341,10 +343,12 @@ call_light_bif() ->
     <<131,100,0,1,97>> = erlang:term_to_binary(id(a)),
     %% Yield
     B = erlang:term_to_binary(id(lists:duplicate(2000,1))),
+    2004 = byte_size(B),
     <<131,107,7,208,1,1>> = binary_part(B, 0, 6),
     erlang:garbage_collect(),
     %% GC
-    [131,107,7,208,1|_] = erlang:binary_to_list(id(B)),
+    L = [131,107,7,208,1|_] = erlang:binary_to_list(id(B)),
+    2004 = length(L),
 
     {'EXIT',{badarg,[{erlang,binary_to_list,[a],[]}|_]}} = (catch erlang:binary_to_list(id(a))),
 
@@ -354,16 +358,24 @@ call_light_bif_only() ->
     <<131,100,0,1,97>> = t2b(id(a)),
     %% Yield
     B = t2b(id(lists:duplicate(2000,1))),
+    2004 = byte_size(B),
     <<131,107,7,208,1,1>> = binary_part(B, 0, 6),
     erlang:garbage_collect(),
     %% GC
-    [131,107,7,208,1|_] = b2l(id(B)),
+    L = [131,107,7,208,1|_] = b2l(id(B)),
+    2004 = length(L),
 
     {'EXIT',{badarg,[{erlang,binary_to_list,[a],[]}|_]}} = (catch b2l(id(a))),
 
     ok.
-
 t2b(Arg) ->
     erlang:term_to_binary(Arg).
 b2l(Arg) ->
     erlang:binary_to_list(Arg).
+
+send() ->
+    self() ! hej,
+    receive
+        hej -> ok
+    end,
+    ok.
