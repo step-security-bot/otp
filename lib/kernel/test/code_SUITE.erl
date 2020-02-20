@@ -510,11 +510,22 @@ all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 all_available(Config) when is_list(Config) ->
     case test_server:is_cover() of
 	true -> {skip,"Cover is running"};
-	false -> all_available_1()
+	false -> all_available_1(Config)
     end.
 
-all_available_1() ->
+all_available_1(Config) ->
+
+    %% Add an ez dir to make sure the modules in there are found
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
+    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+
     Available = code:all_available(),
+
+    %% Test that baz and blarg that are part of the .ez archive are found
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "baz" end, Available),
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "blarg" end, Available),
 
     %% Test that all loaded are part of all available
     Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
