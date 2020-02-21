@@ -85,13 +85,15 @@ $(HTMLDIR)/%.png: %.png
 $(HTMLDIR)/%.jpg: %.jpg
 	$(INSTALL_DATA) $< $@
 
-docs: man pdf html chunks $(INFO_FILE)
+DOC_TARGETS?=man pdf html chunks
+
+docs: $(DOC_TARGETS) $(INFO_FILE)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: images $(HTML_REF_MAN_FILE)
+html: images $(HTML_REF_MAN_FILE) $(HTMLDIR)/$(APPLICATION).eix
 
 man: $(MAN1_FILES) $(MAN2_FILES) $(MAN3_FILES) $(MAN4_FILES) $(MAN5_FILES) $(MAN6_FILES) $(MAN7_FILES)
 

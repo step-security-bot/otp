@@ -142,8 +142,6 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_GEN_FILES) $(SPECS_FILES)
 	        -path $(DOCGEN)/priv/dtd_html_entities \
 	        $(DOCGEN)/priv/xsl/db_eix.xsl $(XMLDIR)/book.xml >  $@
 
-docs: $(HTMLDIR)/$(APPLICATION).eix
-
 ## Here awk is used to find all xi:include files in $(BOOK_FILES)
 ## Then we look into all those files check for xi:includes
 BOOK_XI_INC_FILES:=$(foreach file,$(BOOK_FILES),$(shell awk -F\" '/xi:include/ {print $$2}' $(file))) $(BOOK_FILES)
