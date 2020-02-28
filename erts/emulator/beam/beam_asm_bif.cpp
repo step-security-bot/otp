@@ -23,6 +23,7 @@
 extern "C" {
 #include "erl_bif_table.h"
   ErtsCodeMFA *ubif2mfa(void* uf);
+  void handle_error(void);
 }
 
 template<typename T>
@@ -328,15 +329,56 @@ call_nif(Process *c_p, BeamInstr *I, Eterm *reg, NifF *fp, struct erl_module_nif
     return nif_bif_result;
 }
 
-void BeamGlobalAssember::emit_call_nif()
+void BeamGlobalAssembler::emit_call_nif(void)
 {
+  Label check_trap = a.newLabel(), error = a.newLabel();
+  a.dec(FCALLS);
+  emit_heavy_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(qTMP1_MEM, ARG2);
+  // a.mov(ARG2, ARG2); THIS IS SUPPLIED AS ARGUMENT
+  a.mov(ARG3, x_reg);
+  a.mov(ARG4, x86::qword_ptr(ARG2, 8));
+  a.mov(ARG5, x86::qword_ptr(ARG2, 16));
+  a.mov(ARG6, x86::qword_ptr(ARG2, 24));
+  call((uint64_t)call_nif);
+  emit_heavy_swapin();
+  a.cmp(RET, THE_NON_VALUE);
+  a.je(check_trap);
+  comment("Do return and dispatch to it");
+  a.mov(getRef(x0), RET);
+  a.mov(RET,getRef(CP));
+  a.mov(TMP1,NIL);
+  a.mov(getRef(CP),TMP1);
+  a.jmp(RET);
 
+  a.bind(check_trap);
+  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+  a.jne(error);
+  comment("yield");
+  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+  a.mov(RET,RET_context_switch);
+  a.mov(TMP1, get_return());
+  a.jmp(TMP1);
+  a.bind(error);
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, qTMP1_MEM);
+  a.mov(ARG3, x_reg);
+  a.lea(ARG4, x86::qword_ptr(ARG2, -24));
+  call((uint64_t)handle_error);
+  a.jmp(get_post_error_handling());
+}
+
+void BeamGlobalAssembler::emit_dispatch_nif(void) {
+  a.mov(RET,get_call_nif());
+  a.mov(ARG2, x86::qword_ptr(c_p, offsetof(Process,i)));
+  a.jmp(RET);
 }
 
 void BeamModuleAssembler::emit_call_nif(ArgVal Func, ArgVal NifMod, ArgVal DirtyFunc, Instruction *I)
 {
-  Label check_trap = a.newLabel(), error = a.newLabel(), entry = a.newLabel();
   uint64_t val;
+  Label entry = a.newLabel(), mfa = a.newLabel();
 
   // The start of this function has to mimic the layout of ErtsNativeFunc...
   a.jmp(entry); // call_op
@@ -350,33 +392,9 @@ void BeamModuleAssembler::emit_call_nif(ArgVal Func, ArgVal NifMod, ArgVal Dirty
 
   // The real code starts here
   a.bind(entry);
-  a.dec(FCALLS);
-  emit_heavy_swapout();
-  a.mov(ARG1, c_p);
+  a.mov(RET,ga->get_call_nif());
   a.lea(ARG2, x86::qword_ptr(currLabel));
-  a.mov(ARG3, x_reg);
-  mov(ARG4, Func);
-  mov(ARG5, NifMod);
-  mov(ARG6, DirtyFunc);
-  call((uint64_t)call_nif);
-  emit_heavy_swapin();
-  a.cmp(RET, THE_NON_VALUE);
-  a.je(check_trap);
-  comment("Do return and dispatch to it");
-  mov(x0, RET);
-  emit_setup_return(RET);
   a.jmp(RET);
-
-  a.bind(check_trap);
-  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
-  a.jne(error);
-  comment("yield");
-  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
-  a.mov(RET,RET_context_switch);
-  a.mov(TMP1, ga->get_return());
-  a.jmp(TMP1);
-  a.bind(error);
-  emit_handle_error(currLabel, &((ErtsCodeInfo*)I->args[3].getValue())->mfa);
 }
 
 static enum nif_ret

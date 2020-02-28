@@ -52,8 +52,6 @@ typedef struct {
     int argc;		/* Number of arguments in original call */
     int argv_size;	/* Allocated size of argv */
     Eterm argv[1];	/* Saved arguments from the original call */
-    /* --- The native code to dispatch to if running on normal scheduler --- */
-    Uword buff[BEAM_NATIVE_MIN_FUNC_SZ];
 } ErtsNativeFunc;
 
 ErtsNativeFunc *erts_new_proc_nfunc(Process *c_p, int argc);

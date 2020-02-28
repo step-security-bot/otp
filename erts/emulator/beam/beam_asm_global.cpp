@@ -123,7 +123,12 @@ void BeamGlobalAssembler::emit_call() {
     a.mov(f_reg, ARG4);
     emit_swapin();
 
-    a.jmp(x86::qword_ptr(c_p, offsetof(Process, i)));
+    // Check if we are just returning from a dirty nif/bif call and if so we
+    // need to do a bit of cleaning up before continueing.
+    a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
+    a.cmp(x86::qword_ptr(RET), op_call_nif_WWW);
+    a.je(get_dispatch_nif());
+    a.jmp(RET);
 }
 
 void BeamGlobalAssembler::emit_return() {

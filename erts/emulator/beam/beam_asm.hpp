@@ -136,6 +136,14 @@ protected:
   const x86::Gp TMP6 = ARG6;
   const x86::Gp TMP7 = RET;
 
+  const x86::Mem qTMP1_MEM = x86::qword_ptr(x86::rsp, 16);
+  const x86::Mem qTMP2_MEM = x86::qword_ptr(x86::rsp, 8);
+  const x86::Mem qTMP3_MEM = x86::qword_ptr(x86::rsp, 0);
+  const x86::Mem dTMP1_MEM = x86::dword_ptr(x86::rsp, 16);
+  const x86::Mem dTMP2_MEM = x86::dword_ptr(x86::rsp, 8);
+  const x86::Mem dTMP3_MEM = x86::dword_ptr(x86::rsp, 0);
+
+
   // rbx = x_reg
   // rbp = E
   // r12 = c_p
@@ -194,6 +202,18 @@ public:
   void call(uint64_t func) {
     a.mov(RET, func);
     a.call(RET);
+  }
+
+  x86::Mem getRef(ArgVal val) {
+    x86::Gp base;
+    switch (val.getType()) {
+    case ArgVal::TYPE::x: base = x_reg; break;
+    case ArgVal::TYPE::y: base = E; break;
+    default:
+      int i = *(int*)(0);
+      ASSERT(i && "NYI");
+    }
+    return x86::qword_ptr(base, val.getValue() * sizeof(Eterm));
   }
 
   void reset() {
@@ -259,7 +279,6 @@ public:
 class BeamGlobalAssembler : public BeamAssembler {
 
 #define BEAM_GLOBAL_FUNCS(_)                    \
-  _(call)                                       \
   _(return)                                     \
   _(garbage_collect)                            \
   _(gc_after_bif)                               \
@@ -269,7 +288,11 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(error_action_code)                          \
   _(call_error_handler)                         \
   _(i_func_info)                                \
-  _(dbg)
+  _(dbg)                                        \
+  _(call_nif)                                   \
+  _(dispatch_nif)                               \
+  _(call)
+
 
 #define DECL_FUNC(NAME)                         \
   void (*NAME##_code)();                        \
@@ -289,13 +312,6 @@ public:
 };
 
 class BeamModuleAssembler : public BeamAssembler {
-
-  x86::Mem qTMP1_MEM = x86::qword_ptr(x86::rsp, 16);
-  x86::Mem qTMP2_MEM = x86::qword_ptr(x86::rsp, 8);
-  x86::Mem qTMP3_MEM = x86::qword_ptr(x86::rsp, 0);
-  x86::Mem dTMP1_MEM = x86::dword_ptr(x86::rsp, 16);
-  x86::Mem dTMP2_MEM = x86::dword_ptr(x86::rsp, 8);
-  x86::Mem dTMP3_MEM = x86::dword_ptr(x86::rsp, 0);
 
   typedef unsigned BeamLabel;
 
@@ -450,18 +466,6 @@ private:
 
   void popY() {
     dealloc(1);
-  }
-
-  x86::Mem getRef(ArgVal val) {
-    x86::Gp base;
-    switch (val.getType()) {
-    case ArgVal::TYPE::x: base = x_reg; break;
-    case ArgVal::TYPE::y: base = E; break;
-    default:
-      int i = *(int*)(0);
-      ASSERT(i && "NYI");
-    }
-    return x86::qword_ptr(base, val.getValue() * sizeof(Eterm));
   }
 
   void make_patch(x86::Gp to, struct patch &patches, int64_t offs = 0) {
