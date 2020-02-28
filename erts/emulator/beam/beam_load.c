@@ -41,6 +41,7 @@
 #include "erl_map.h"
 #include "erl_process_dict.h"
 #include "erl_unicode.h"
+#include "beam_asm.h"
 
 #ifdef HIPE
 #include "hipe_bif0.h"
@@ -51,7 +52,6 @@
 
 ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 
-#define MAX_OPARGS 8
 #define CALLED    0
 #define DEFINED   1
 #define EXPORTED  2
@@ -101,27 +101,6 @@ typedef struct {
 } Label;
 
 /*
- * Type for an operand for a generic instruction.
- */
-
-typedef struct {
-    unsigned type;		/* Type of operand. */
-    BeamInstr val;		/* Value of operand. */
-} GenOpArg;
-
-/*
- * A generic operation.
- */
-
-typedef struct genop {
-    unsigned int op;		/* Opcode. */
-    int arity;			/* Number of arguments. */
-    GenOpArg def_args[MAX_OPARGS]; /* Default buffer for arguments. */
-    GenOpArg* a;		/* The arguments. */
-    struct genop* next;		/* Next genop. */
-} GenOp;
-
-/*
  * The allocation unit for generic blocks.
  */
   
@@ -155,6 +134,7 @@ typedef struct {
     int arity;			/* Arity. */
     int label;                  /* Which label the entry points to */
     BeamInstr* address;		/* Address to function in code. */
+    Export *exp;
 } ExportEntry;
 
 #define MakeIffId(a, b, c, d) \
@@ -217,15 +197,6 @@ typedef struct {
     Eterm function;		/* Name of local function. */
     int arity;			/* Arity (including free variables). */
 } Lambda;
-
-/*
- * This structure keeps load-time information about a literal.
- */
-
-typedef struct {
-    Eterm term;			/* The tagged term (in the heap). */
-    ErlHeapFragment* heap_frags;
-} Literal;
 
 /*
  * This structure keeps information about an operand that needs to be
@@ -571,8 +542,6 @@ static Eterm has_native(BeamCodeHeader*);
 static Eterm native_addresses(Process* p, BeamCodeHeader*);
 static int safe_mul(UWord a, UWord b, UWord* resp);
 
-void beamasm_init(void);
-
 static int must_swap_floats;
 
 Uint erts_total_code_size;
@@ -636,13 +605,6 @@ extern void check_allocated_block(Uint type, void *blk);
 #define CHKALLOC() /* nothing */
 #define CHKBLK(TYPE,BLK) /* nothing */
 #endif
-
-void *beamasm_new_module(Eterm mod, int num_labels);
-void beamasm_delete_module(void *);
-int beamasm_emit(void *ba, int specific_op, GenOp *op, BeamInstr *I);
-void *beamasm_get_module(void *ba, void **labels, unsigned *catch_no,
-                         Literal *literals, int num_literals,
-                         BeamInstr *imports, int num_imports);
 
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
@@ -785,11 +747,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->file_p = stp->code_start;
     stp->file_left = stp->code_size;
 
-    if (stp->module == am_atom_put("jit_tests_cases", 15)) {
-        stp->ba = beamasm_new_module(stp->module, stp->num_labels);
-    } else {
-        stp->ba = NULL;
-    }
+    stp->ba = beamasm_new_module(stp->module, stp->num_labels, stp->num_functions);
 
     if (!load_code(stp)) {
 	goto load_error;
@@ -892,9 +850,6 @@ erts_finish_loading(Binary* magic, Process* c_p,
      * Update module table.
      */
 
-    size = stp->loaded_size;
-    erts_total_code_size += size;
-
     if (!stp->on_load) {
 	inst_p = &mod_tab_p->curr;
     } else {
@@ -905,6 +860,12 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	inst_p = mod_tab_p->on_load;
         erts_module_instance_init(inst_p);
     }
+
+    size = beamasm_get_header(stp->ba, &stp->hdr);
+
+    erts_printf("Load %T into %p - %p\r\n", stp->module, stp->hdr->functions[0], ((char*)stp->hdr->functions[0]) + size);
+
+    erts_total_code_size += size;
 
     inst_p->code_hdr = stp->hdr;
     inst_p->code_length = size;
@@ -1521,7 +1482,6 @@ static int
 read_export_table(LoaderState* stp)
 {
     unsigned int i;
-    BeamInstr* address;
 
     GetInt(stp, 4, stp->num_exps);
     if (stp->num_exps > stp->num_functions) {
@@ -1534,7 +1494,7 @@ read_export_table(LoaderState* stp)
 
     for (i = 0; i < stp->num_exps; i++) {
 	Uint n;
-	Uint value;
+	BeamInstr *address;
 	Eterm func;
 	Uint arity;
 
@@ -1551,11 +1511,11 @@ read_export_table(LoaderState* stp)
 	    LoadError3(stp, "export table entry %u: invalid label %u (highest defined label is %u)", i, n, stp->num_labels);
 	}
 	stp->export[i].label = n;
-	value = stp->labels[n].value;
-	if (value == 0) {
+	address = beamasm_get_code(stp->ba, n);
+	if (address == NULL) {
 	    LoadError2(stp, "export table entry %u: label %u not resolved", i, n);
 	}
-	stp->export[i].address = address = stp->codev + value;
+	stp->export[i].address = address;
     }
     return 1;
 
@@ -2340,7 +2300,7 @@ load_code(LoaderState* stp)
 	    stp->specific_op = specific;
 	    CodeNeed(opc[stp->specific_op].sz+16); /* Extra margin for packing */
             last_instr_start = ci + opc[stp->specific_op].adjust;
-	    code[ci++] = BeamOpCodeAddr(stp->specific_op);
+	    code[ci++] = stp->specific_op;
 	}
 
 	/*
@@ -4967,7 +4927,7 @@ freeze_code(LoaderState* stp)
                      + (stp->current_li + 1) * stp->loc_size);        /* loc_tab */
     }
     size = offsetof(BeamCodeHeader,functions) + (stp->ci * sizeof(BeamInstr)) +
-	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
+        strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
 
     /*
      * Move the code to its final location.
@@ -4976,6 +4936,7 @@ freeze_code(LoaderState* stp)
     code_hdr = (BeamCodeHeader*) erts_realloc(ERTS_ALC_T_CODE, (void *) code_hdr, size);
     codev = (BeamInstr*) &code_hdr->functions;
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
+
     /*
      * Place a pointer to the op_int_code_end instruction in the
      * function table in the beginning of the file.
@@ -4994,48 +4955,6 @@ freeze_code(LoaderState* stp)
 	code_hdr->on_load_function_ptr = NULL;
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
-
-    /*
-     * Place the literals in their own allocated heap (for fast range check)
-     * and fix up all instructions that refer to it.
-     */
-    {
-	Eterm* ptr;
-	LiteralPatch* lp;
-        ErlOffHeap code_off_heap;
-	ErtsLiteralArea *literal_area;
-	Uint lit_asize;
-
-        ERTS_INIT_OFF_HEAP(&code_off_heap);
-
-	lit_asize = ERTS_LITERAL_AREA_ALLOC_SIZE(stp->total_literal_size);
-	literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_asize);
-	ptr = &literal_area->start[0];
-	literal_area->end = ptr + stp->total_literal_size;
-
-	for (i = 0; i < stp->num_literals; i++) {
-            if (is_not_immed(stp->literals[i].term)) {
-                erts_move_multi_frags(&ptr, &code_off_heap,
-				      stp->literals[i].heap_frags,
-				      &stp->literals[i].term, 1, 1);
-                ASSERT(erts_is_literal(stp->literals[i].term,
-				       ptr_val(stp->literals[i].term)));
-            }
-	}
-	literal_area->off_heap = code_off_heap.first;
-	lp = stp->literal_patches;
-	while (lp != 0) {
-	    BeamInstr* op_ptr;
-	    Literal* lit;
-
-	    op_ptr = codev + lp->pos;
-	    lit = &stp->literals[op_ptr[0]];
-	    op_ptr[0] = lit->term;
-	    lp = lp->next;
-	}
-	code_hdr->literal_area = literal_area;
-    }
-    CHKBLK(ERTS_ALC_T_CODE,code);
 
     /*
      * If there is line information, place it here.
@@ -5093,10 +5012,60 @@ freeze_code(LoaderState* stp)
      * Place the string table and, optionally, attributes here.
      */
     sys_memcpy(str_table, stp->chunks[STR_CHUNK].start, strtab_size);
+    beamasm_embed_rodata(stp->ba,"str",stp->chunks[STR_CHUNK].start, strtab_size);
+    beamasm_embed_rodata(stp->ba,"attr",stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
+    beamasm_embed_rodata(stp->ba,"compile",stp->chunks[COMPILE_CHUNK].start, stp->chunks[COMPILE_CHUNK].size);
+    beamasm_embed_rodata(stp->ba,"md5",stp->mod_md5, MD5_SIZE);
+
+    beamasm_codegen(stp->ba);
+
+    CHKBLK(ERTS_ALC_T_CODE,code);
+
+    /*
+     * Place the literals in their own allocated heap (for fast range check)
+     * and fix up all instructions that refer to it.
+     */
+    {
+	Eterm* ptr;
+	LiteralPatch* lp;
+        ErlOffHeap code_off_heap;
+	ErtsLiteralArea *literal_area;
+	Uint lit_asize;
+
+        ERTS_INIT_OFF_HEAP(&code_off_heap);
+
+	lit_asize = ERTS_LITERAL_AREA_ALLOC_SIZE(stp->total_literal_size);
+	literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_asize);
+	ptr = &literal_area->start[0];
+	literal_area->end = ptr + stp->total_literal_size;
+
+	for (i = 0; i < stp->num_literals; i++) {
+            if (is_not_immed(stp->literals[i].term)) {
+                erts_move_multi_frags(&ptr, &code_off_heap,
+				      stp->literals[i].heap_frags,
+				      &stp->literals[i].term, 1, 1);
+                ASSERT(erts_is_literal(stp->literals[i].term,
+				       ptr_val(stp->literals[i].term)));
+                beamasm_patch_literal(stp->ba, i, stp->literals[i].term);
+            }
+	}
+	literal_area->off_heap = code_off_heap.first;
+	lp = stp->literal_patches;
+	while (lp != 0) {
+	    BeamInstr* op_ptr;
+	    Literal* lit;
+
+	    op_ptr = codev + lp->pos;
+	    lit = &stp->literals[op_ptr[0]];
+	    op_ptr[0] = lit->term;
+	    lp = lp->next;
+	}
+	code_hdr->literal_area = literal_area;
+    }
+
     CHKBLK(ERTS_ALC_T_CODE,code);
     if (attr_size) {
-	byte* attr = str_table + strtab_size;
-	sys_memcpy(attr, stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
+	byte* attr = beamasm_get_rodata(stp->ba, "attr");
 	code_hdr->attr_ptr = attr;
 	code_hdr->attr_size = (BeamInstr) stp->chunks[ATTR_CHUNK].size;
 	decoded_size = erts_decode_ext_size(attr, attr_size);
@@ -5107,7 +5076,7 @@ freeze_code(LoaderState* stp)
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
     if (compile_size) {
-	byte* compile_info = str_table + strtab_size + attr_size;
+	byte* compile_info = beamasm_get_rodata(stp->ba, "compile");
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	sys_memcpy(compile_info, stp->chunks[COMPILE_CHUNK].start,
 	       stp->chunks[COMPILE_CHUNK].size);
@@ -5127,7 +5096,7 @@ freeze_code(LoaderState* stp)
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
     {
-	byte* md5_sum = str_table + strtab_size + attr_size + compile_size;
+	byte* md5_sum = beamasm_get_rodata(stp->ba, "md5");
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	sys_memcpy(md5_sum, stp->mod_md5, MD5_SIZE);
 	CHKBLK(ERTS_ALC_T_CODE,code);
@@ -5157,6 +5126,8 @@ freeze_code(LoaderState* stp)
 	    op_ptr[0] = (BeamInstr) strp;
 	    sp = sp->next;
 	}
+        if (strtab_size)
+            beamasm_patch_strings(stp->ba, beamasm_get_rodata(stp->ba, "str"));
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
@@ -5255,19 +5226,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
      * Allocate catch indices and fix up all catch_yf instructions.
      */
 
-    index = stp->catches;
-    catches = BEAM_CATCHES_NIL;
-    while (index != 0) {
-	BeamInstr next = codev[index];
-        BeamInstr* abs_addr;
-	codev[index] = BeamOpCodeAddr(op_catch_yf);
-        /* We must make the address of the label absolute again. */
-        abs_addr = (BeamInstr *)codev + index + codev[index+2];
-	catches = beam_catches_cons(abs_addr, catches, NULL);
-	codev[index+2] = make_catch(catches);
-	index = next;
-    }
-    inst_p->catches = catches;
+    inst_p->catches = beamasm_get_catches(stp->ba);
 
     /*
      * Export functions.
@@ -5282,9 +5241,9 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
                              stp->export[i].arity);
 
         /* Fill in BIF stubs with a proper call to said BIF. */
-        if (ep->bif_number != -1) {
-            erts_write_bif_wrapper(ep, address);
-        }
+        // if (ep->bif_number != -1) {
+        //     erts_write_bif_wrapper(ep, address);
+        // }
 
         if (on_load) {
             /*
@@ -5295,32 +5254,31 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
             ep->addressv[erts_staging_code_ix()] = address;
+            stp->export[i].exp = ep;
         }
     }
 
 #ifdef DEBUG
     /* Ensure that we've loaded stubs for all BIFs in this module. */
-    for (i = 0; i < BIF_SIZE; i++) {
-        BifEntry *entry = &bif_table[i];
+    // for (i = 0; i < BIF_SIZE; i++) {
+    //     BifEntry *entry = &bif_table[i];
 
-        if (stp->module == entry->module) {
-            Export *ep = erts_export_put(entry->module,
-                                         entry->name,
-                                         entry->arity);
-            BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
+    //     if (stp->module == entry->module) {
+    //         Export *ep = erts_export_put(entry->module,
+    //                                      entry->name,
+    //                                      entry->arity);
+    //         BeamInstr *addr = ep->addressv[erts_staging_code_ix()];
 
-            if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
-                erts_exit(ERTS_ABORT_EXIT,
-                          "Module %T doesn't export BIF %T/%i\n",
-                          entry->module,
-                          entry->name,
-                          entry->arity);
-            }
-        }
-    }
+    //         if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
+    //             erts_exit(ERTS_ABORT_EXIT,
+    //                       "Module %T doesn't export BIF %T/%i\n",
+    //                       entry->module,
+    //                       entry->name,
+    //                       entry->arity);
+    //         }
+    //     }
+    // }
 #endif
-
-    imports = erts_alloc(ERTS_ALC_T_TMP, sizeof(BeamInstr) * stp->num_imports);
 
     /*
      * Import functions and patch all callers.
@@ -5338,14 +5296,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	func = stp->import[i].function;
 	arity = stp->import[i].arity;
 	import = (BeamInstr) erts_export_put(mod, func, arity);
-        imports[i] = import;
-	current = stp->import[i].patches;
-	while (current != 0) {
-	    ASSERT(current < stp->ci);
-	    next = stp->codev[current];
-	    stp->codev[current] = import;
-	    current = next;
-	}
+        beamasm_patch_import(stp->ba, i, import);
     }
 
     /*
@@ -5356,7 +5307,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	for (i = 0; i < stp->num_lambdas; i++) {
 	    unsigned entry_label = stp->lambdas[i].label;
 	    ErlFunEntry* fe = stp->lambdas[i].fe;
-	    BeamInstr* code_ptr = stp->codev + stp->labels[entry_label].value;
+	    BeamInstr* code_ptr = beamasm_get_code(stp->ba, entry_label);
 
 	    if (fe->address[0] != 0) {
 		/*
@@ -5371,27 +5322,6 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	}
     }
 
-    /* Load any native code */
-    if (stp->ba) {
-        int i;
-        void **labels = erts_alloc(ERTS_ALC_T_TMP,stp->num_labels * sizeof(void*));
-        stp->ba = beamasm_get_module(stp->ba, labels, &inst_p->catches,
-                                     stp->literals, stp->num_literals,
-                                     imports, stp->num_imports);
-        if (stp->ba) {
-            erts_printf("test %p\n", stp->module, stp->ba);
-            for (i = 0; i < stp->num_exps; i++) {
-                ExportEntry *ee = &stp->export[i];
-                erts_printf("%T:%T/%d %d %p\n",stp->module,
-                            ee->function, ee->arity, ee->label-1,
-                            labels[ee->label-2]);
-                ee->address[0] = BeamOpCodeAddr(op_beamasm_P);
-                ee->address[1] = (BeamInstr)(labels[ee->label-2]);
-            }
-        }
-        erts_free(ERTS_ALC_T_TMP, labels);
-    }
-    erts_free(ERTS_ALC_T_TMP, imports);
 }
 
 static int

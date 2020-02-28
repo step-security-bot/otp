@@ -11720,8 +11720,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-    p->i = (BeamInstr *) beam_apply;
-    p->stop[0] = make_cp(beam_apply + 1);
+    p->i = (BeamInstr *) beam_apply[0];
+    p->stop[0] = make_cp(beam_apply[1]);
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -11803,9 +11803,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     p->fp_exception = 0;
 #endif
-
-    p->asm_ret[0] = BeamOpCodeAddr(op_beamasm_P);
-    p->asm_ret[1] = 0;
 
     /* seq_trace is handled before regular tracing as the latter may touch the
      * trace token. */
@@ -13846,7 +13843,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == beam_apply[1]) {
             erts_print(to, to_arg, "<terminate process normally>");
 	} else if (x == 0) {
             erts_print(to, to_arg, "invalid");

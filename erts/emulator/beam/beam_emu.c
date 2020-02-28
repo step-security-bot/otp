@@ -39,6 +39,7 @@
 #include "beam_catches.h"
 #include "erl_thr_progress.h"
 #include "erl_nfunc_sched.h"
+#include "beam_asm.h"
 #ifdef HIPE
 #include "hipe_mode_switch.h"
 #include "hipe_bif1.h"
@@ -164,10 +165,6 @@ BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
 BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
-
-enum beamasm_ret (*beamasm_call)(BeamAsmContext *,Process *, Eterm *,
-                                 FloatDef *, ERL_BITS_DECLARE_STATEP, 
-                                 BeamAsmFunc);
 
 /*
  * All Beam instructions in numerical order.
@@ -296,17 +293,17 @@ static void init_emulator_finish(void) ERTS_NOINLINE;
 ErtsCodeMFA *ubif2mfa(void* uf) ERTS_NOINLINE;
 BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
                         Eterm* reg, ErtsCodeMFA* bif_mfa) ERTS_NOINLINE;
-static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
-				     Eterm* reg, Eterm func) ERTS_NOINLINE;
-static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
-			      BeamInstr *I, Uint offs) ERTS_NOINLINE;
-static BeamInstr* apply(Process* p, Eterm* reg,
+BeamInstr* call_error_handler(Process* p, BeamInstr* I,
+                              Eterm* reg, Eterm func) ERTS_NOINLINE;
+BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
+			BeamInstr *I, Uint offs) ERTS_NOINLINE;
+BeamInstr* apply(Process* p, Eterm* reg,
                         BeamInstr *I, Uint offs) ERTS_NOINLINE;
-static BeamInstr* call_fun(Process* p, int arity,
+BeamInstr* call_fun(Process* p, int arity,
 			   Eterm* reg, Eterm args) ERTS_NOINLINE;
-static BeamInstr* apply_fun(Process* p, Eterm fun,
+BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) ERTS_NOINLINE;
-static Eterm new_fun(Process* p, Eterm* reg,
+Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) ERTS_NOINLINE;
 int is_function2(Eterm Term, Uint arity);
 static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
@@ -498,22 +495,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     ERTS_DECLARE_DUMMY(Eterm pid);
 #endif
 
-    /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
-     * in all other cases x0 is used.
-     */
-    register Eterm* reg REG_xregs = x_reg_array;
-
-    /*
-     * Top of heap (next free location); grows upwards.
-     */
-    register Eterm* HTOP REG_htop = NULL;
-
-    /* Stack pointer.  Grows downwards; points
-     * to last item pushed (normally a saved
-     * continuation pointer).
-     */
-    register Eterm* E REG_stop = NULL;
-
     /*
      * Pointer to next threaded instruction.
      */
@@ -525,25 +506,9 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     register Sint FCALLS REG_fcalls = 0;
 
     /*
-     * X registers and floating point registers are located in
-     * scheduler specific data.
-     */
-    register FloatDef *freg = f_reg_array;
-
-    /*
      * For keeping the negative old value of 'reds' when call saving is active.
      */
     int neg_o_reds = 0;
-
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-    static void* counting_opcodes[] = { DEFINE_COUNTING_OPCODES };
-#else
-#ifndef NO_JUMP_TABLE
-    static void* opcodes[] = { DEFINE_OPCODES };
-#else
-    register BeamInstr Go;
-#endif
-#endif
 
     Uint64 start_time = 0;          /* Monitor long schedule */
     BeamInstr* start_time_i = NULL;
@@ -622,8 +587,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 	argp = c_p->arg_reg;
 	for (i = c_p->arity - 1; i >= 0; i--) {
-	    reg[i] = argp[i];
-	    CHECK_TERM(reg[i]);
+	    x_reg_array[i] = argp[i];
+	    CHECK_TERM(x_reg_array[i]);
 	}
 
 	/*
@@ -631,8 +596,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 * the code size (referencing a field in a struct through a pointer stored
 	 * in a register gives smaller code than referencing a global variable).
 	 */
-
-	SET_I(c_p->i);
 
 	REDS_IN(c_p) = reds = c_p->fcalls;
 #ifdef DEBUG
@@ -648,10 +611,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	}
 
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
-
-	next = *I;
-	SWAPIN;
-	ASSERT(VALID_INSTR(next));
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(process_scheduled)) {
@@ -675,18 +634,32 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
             DTRACE2(process_scheduled, process_buf, fun_buf);
         }
 #endif
-	Goto(next);
+        {
+            BeamAsmContext ctx = { .FCALLS = FCALLS };
+            enum beamasm_ret res = beamasm_call(&ctx, c_p, x_reg_array, f_reg_array, EBS, neg_o_reds);
+            FCALLS = ctx.FCALLS;
+            switch (res) {
+            case RET_do_schedule: goto do_schedule; break;
+            case RET_do_wait: {
+                c_p->arity = 0;
+                if (!ERTS_PTMR_IS_TIMED_OUT(c_p)) {
+                    erts_atomic32_read_band_relb(&c_p->state,
+                                                 ~ERTS_PSFLG_ACTIVE);
+                }
+                ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+                c_p->current = NULL;
+                goto do_schedule;
+                break;
+            }
+            case RET_context_switch: goto context_switch;
+            case RET_context_switch2: goto context_switch2;
+            case RET_context_switch3: goto context_switch3;
+            case RET_context_switch_fun: goto context_switch_fun;
+            default: ASSERT(0 && "NYI");
+            }
+        }
     }
-
-#if defined(DEBUG) || defined(NO_JUMP_TABLE)
- emulator_loop:
-#endif
-
-#ifdef NO_JUMP_TABLE
-    switch (Go) {
-#endif
-
-#include "beam_hot.h"
     /*
      * The labels are jumped to from the $DISPATCH() macros when the reductions
      * are used up.
@@ -697,14 +670,14 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      */
  context_switch_fun:
     /* Add one for the environment of the fun */
-    c_p->arity = erts_code_to_codemfa(I)->arity + 1;
+    c_p->arity = erts_code_to_codemfa(c_p->i)->arity + 1;
     goto context_switch2;
 
  context_switch:
-    c_p->arity = erts_code_to_codemfa(I)->arity;
+    c_p->arity = erts_code_to_codemfa(c_p->i)->arity;
 
  context_switch2: 		/* Entry for fun calls. */
-    c_p->current = erts_code_to_codemfa(I);
+    c_p->current = erts_code_to_codemfa(c_p->i);
 
  context_switch3:
 
@@ -762,83 +735,10 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
      argp = c_p->arg_reg;
      for (i = c_p->arity - 1; i >= 0; i--) {
-	 argp[i] = reg[i];
+	 argp[i] = x_reg_array[i];
      }
-     SWAPOUT;
-     c_p->i = I;
      goto do_schedule1;
  }
-
-#include "beam_warm.h"
-
- OpCase(normal_exit): {
-     HEAVY_SWAPOUT;
-     c_p->freason = EXC_NORMAL;
-     c_p->arity = 0; /* In case this process will ever be garbed again. */
-     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_do_exit_process(c_p, am_normal);
-     ERTS_REQ_PROC_MAIN_LOCK(c_p);
-     HEAVY_SWAPIN;
-     goto do_schedule;
- }
-
- OpCase(continue_exit): {
-     HEAVY_SWAPOUT;
-     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_continue_exit_process(c_p);
-     ERTS_REQ_PROC_MAIN_LOCK(c_p);
-     HEAVY_SWAPIN;
-     goto do_schedule;
- }
-
- find_func_info: {
-     SWAPOUT;
-     I = handle_error(c_p, I, reg, NULL);
-     goto post_error_handling;
- }
-
- OpCase(call_error_handler):
-    /*
-     * At this point, I points to the code[3] in the export entry for
-     * a function which is not loaded.
-     *
-     * code[0]: Module
-     * code[1]: Function
-     * code[2]: Arity
-     * code[3]: &&call_error_handler
-     * code[4]: Not used
-     */
-    HEAVY_SWAPOUT;
-    I = call_error_handler(c_p, erts_code_to_codemfa(I),
-                           reg, am_undefined_function);
-    HEAVY_SWAPIN;
-    if (I) {
-	Goto(*I);
-    }
-
- /* Fall through */
- OpCase(error_action_code): {
-    handle_error:
-     SWAPOUT;
-     I = handle_error(c_p, NULL, reg, NULL);
- post_error_handling:
-     if (I == 0) {
-	 goto do_schedule;
-     } else {
-	 ASSERT(!is_value(r(0)));
-	 SWAPIN;
-	 Goto(*I);
-     }
- }
-
- OpCase(i_func_info_IaaI): {
-     ErtsCodeInfo *ci = (ErtsCodeInfo*)I;
-     c_p->freason = EXC_FUNCTION_CLAUSE;
-     c_p->current = &ci->mfa;
-     goto handle_error;
- }
-
-#include "beam_cold.h"
 
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
     DEFINE_COUNTING_LABELS;
@@ -862,18 +762,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  init_emulator:
  {
-#ifndef NO_JUMP_TABLE
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-#ifdef DEBUG
-     counting_opcodes[op_catch_end_y] = LabelAddr(lb_catch_end_y);
-#endif
-     counting_opcodes[op_i_func_info_IaaI] = LabelAddr(lb_i_func_info_IaaI);
-     beam_ops = counting_opcodes;
-#else /* #ifndef ERTS_OPCODE_COUNTER_SUPPORT */
-     beam_ops = opcodes;
-#endif /* ERTS_OPCODE_COUNTER_SUPPORT */
-#endif /* NO_JUMP_TABLE */
-
      init_emulator_finish();
      return;
  }
@@ -905,14 +793,15 @@ static void install_bifs(void) {
 
         ep = erts_export_put(entry->module, entry->name, entry->arity);
 
-        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.op = op_i_func_info_IaaI;
         ep->info.mfa.module = entry->module;
         ep->info.mfa.function = entry->name;
         ep->info.mfa.arity = entry->arity;
         ep->bif_number = i;
 
         memset(&ep->trampoline, 0, sizeof(ep->trampoline));
-        ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+        beamasm_emit_op(ep->info.mfa.module, op_call_error_handler, NULL,
+                        ep->trampoline.raw, sizeof(ep->trampoline), 0);
 
         for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
             ep->addressv[j] = ep->trampoline.raw;
@@ -930,6 +819,9 @@ static void install_bifs(void) {
  * One-time initialization of emulator. Does not need to be
  * in process_main().
  */
+BeamInstr *beamasm_get_beam_apply(void);
+BeamInstr *beamasm_get_beam_exit(void);
+
 static void
 init_emulator_finish(void)
 {
@@ -947,14 +839,10 @@ init_emulator_finish(void)
     }
 #endif
 
-    beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
-    beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
-    beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
-    beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
-    beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
-    beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
-    beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+    /* beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace); */
+    /* beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace); */
+    /* beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /\* UGLY *\/ */
+    /* beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace); */
 
     install_bifs();
 }
@@ -1908,9 +1796,10 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-static BeamInstr*
-call_error_handler(Process* p, ErtsCodeMFA* mfa, Eterm* reg, Eterm func)
+BeamInstr*
+call_error_handler(Process* p, BeamInstr* I, Eterm* reg, Eterm func)
 {
+    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
     Eterm* hp;
     Export* ep;
     int arity;
@@ -2068,7 +1957,7 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-static BeamInstr*
+BeamInstr*
 apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 {
     int arity;
@@ -2170,7 +2059,7 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
     return ep->addressv[erts_active_code_ix()];
 }
 
-static BeamInstr*
+BeamInstr*
 fixed_apply(Process* p, Eterm* reg, Uint arity,
 	    BeamInstr *I, Uint stack_offset)
 {
@@ -2288,7 +2177,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     c_p->stop = c_p->hend - 1;  /* Keep first continuation pointer */
     ASSERT(c_p->stop[0] == make_cp(beam_apply+1));
     c_p->catches = 0;
-    c_p->i = beam_apply;
+    c_p->i = beam_apply[0];
 
     /*
      * If there are no waiting messages, garbage collect and
@@ -2313,7 +2202,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     return 1;
 }
 
-static BeamInstr*
+BeamInstr*
 call_fun(Process* p,		/* Current process. */
 	 int arity,		/* Number of arguments for Fun. */
 	 Eterm* reg,		/* Contents of registers. */
@@ -2477,7 +2366,7 @@ call_fun(Process* p,		/* Current process. */
     }
 }
 
-static BeamInstr*
+BeamInstr*
 apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 {
     int arity;
@@ -2510,7 +2399,7 @@ apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg)
 
 
 
-static Eterm
+Eterm
 new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 {
     unsigned needed = ERL_FUN_SIZE + num_free;

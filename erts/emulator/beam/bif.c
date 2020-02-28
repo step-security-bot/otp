@@ -47,6 +47,7 @@
 #include "erl_map.h"
 #include "erl_msacc.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_asm.h"
 
 Export *erts_await_result;
 static Export await_exit_trap;
@@ -4987,6 +4988,12 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
 {
     int i;
+    GenOp op;
+    op.arity = 1;
+    op.a = op.def_args;
+    op.next = NULL;
+    op.a[0].type = TAG_f;
+    op.a[0].val = bif;
 
     sys_memset((void *) ep, 0, sizeof(Export));
 
@@ -5001,8 +5008,9 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
 
-    ep->trampoline.op = BeamOpCodeAddr(op_call_bif_W);
-    ep->trampoline.raw[1] = (BeamInstr)bif;
+    ep->trampoline.op = op_call_bif_W;
+    beamasm_emit_op(ep->info.mfa.module, op_call_bif_W, &op, ep->trampoline.raw,
+                    sizeof(ep->trampoline.raw), 0);
 }
 
 /*
@@ -5080,7 +5088,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, BeamOpCodeAddr(op_call_bif_W),
+				    mfa, pc, op_call_bif_W,
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);

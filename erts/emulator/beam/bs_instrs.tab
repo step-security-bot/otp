@@ -164,6 +164,9 @@ i_bs_get_binary_all2.execute(Fail, Live, Unit, Dst) {
 	$FAIL($Fail);
     }
 }
+
+x64.i_bs_get_binary_all2(Ctx, Fail, Live, Unit, Dst);
+
 i_bs_get_binary2 := i_bs_get_binary2.fetch.execute;
 
 i_bs_get_binary2.head() {
@@ -895,6 +898,8 @@ bs_test_zero_tail2(Fail, Ctx) {
     }
 }
 
+x64.bs_test_zero_tail2(Fail, Ctx);
+
 bs_test_tail_imm2(Fail, Ctx, Offset) {
     ErlBinMatchBuffer *_mb;
     _mb = ms_matchbuffer($Ctx);
@@ -945,6 +950,8 @@ i_bs_get_integer_8.execute(Fail, Dst) {
     $Dst = _result;
 }
 
+x64.i_bs_get_integer_8(Ctx, Fail, Dst);
+
 i_bs_get_integer_16 := i_bs_get_integer_16.fetch.execute;
 
 i_bs_get_integer_16.head() {
@@ -970,6 +977,8 @@ i_bs_get_integer_16.execute(Fail, Dst) {
     }
     $Dst = _result;
 }
+
+x64.i_bs_get_integer_16(Ctx, Fail, Dst);
 
 %if ARCH_64
 i_bs_get_integer_32 := i_bs_get_integer_32.fetch.execute;
@@ -1033,6 +1042,9 @@ bs_get_integer.execute(Fail, Flags, Dst) {
     }
     $Dst = result;
 }
+
+x64.i_bs_get_integer_imm(Ctx, Size, Live, Fail, Flags, Dst);
+x64.i_bs_get_integer_small_imm(Ctx, Size, Fail, Flags, Dst);
 
 i_bs_get_integer := i_bs_get_integer.fetch.execute;
 
@@ -1200,6 +1212,8 @@ i_bs_match_string(Ctx, Fail, Bits, Ptr) {
     mb->offset += bits;
 }
 
+x64.i_bs_match_string(Ctx, Fail, Bits, Ptr);
+
 i_bs_save2(Src, Slot) {
     ErlBinMatchState* _ms = (ErlBinMatchState*) boxed_val((Eterm) $Src);
     ASSERT(HEADER_NUM_SLOTS(_ms->thing_word) > $Slot);
@@ -1256,6 +1270,8 @@ bs_get_tail.execute(Dst, Live) {
 
 i_bs_start_match3_gp := i_bs_start_match3_gp.fetch.execute;
 
+x64.i_bs_start_match3_gp(Src, Live, Fail, Dst, Pos);
+
 i_bs_start_match3_gp.head() {
     Eterm context;
 }
@@ -1310,6 +1326,8 @@ i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
 
 i_bs_start_match3 := i_bs_start_match3.fetch.execute;
 
+x64.i_bs_start_match3(Src, Live, Fail, Dst);
+
 i_bs_start_match3.head() {
     Eterm context;
 }
@@ -1336,6 +1354,7 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
     } else if (is_binary_header(header)) {
         ErlBinMatchState *ms;
 
+        // WHY DO WE NEED PRESERVE HERE?!?
         $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
         HEAP_TOP(c_p) = HTOP;
 #ifdef DEBUG
@@ -1363,6 +1382,8 @@ bs_set_position(Ctx, Pos) {
     mb->offset = unsigned_val($Pos);
 }
 
+x64.bs_set_position(Ctx, Pos);
+
 i_bs_get_position(Ctx, Dst) {
     ErlBinMatchBuffer* mb;
     Eterm context;
@@ -1373,6 +1394,8 @@ i_bs_get_position(Ctx, Dst) {
     mb = ms_matchbuffer(context);
     $Dst = make_small(mb->offset);
 }
+
+x64.i_bs_get_position(Ctx, Dst);
 
 %else
 

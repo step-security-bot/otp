@@ -7,7 +7,7 @@ id(N) -> N.
 tests() ->
     Fns = jit_tests_cases:module_info(exports),
     [{F, erlang:make_fun(jit_tests_cases, F, N)} ||
-        {F, N} <- Fns, F /= module_info].
+        {F, N} <- Fns, F /= module_info, N =:= 0].
     %% [
     %%  {is_nil, fun jit_tests_cases:is_nil/0},
     %%  {literal, fun jit_tests_cases:literal/0}

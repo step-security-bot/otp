@@ -135,5 +135,6 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
     used_proc->arity = argc;
     used_proc->freason = TRAP;
     used_proc->i = (BeamInstr*)&nep->trampoline.call_op;
+    erts_code_to_codemfa(used_proc->i);
     return nep;
 }

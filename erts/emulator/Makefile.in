@@ -883,7 +883,8 @@ BEAMASM_OBJS = \
 	$(OBJDIR)/beam_asm.o            $(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o     $(OBJDIR)/beam_asm_instr.o  \
 	$(OBJDIR)/beam_asm_arith.o      $(OBJDIR)/beam_asm_bs.o     \
-	$(OBJDIR)/beam_asm_bif.o        $(OBJDIR)/beam_asm_msg.o
+	$(OBJDIR)/beam_asm_bif.o        $(OBJDIR)/beam_asm_msg.o    \
+	$(OBJDIR)/beam_asm_select.o
 
 ifeq ($(USE_ESOCK), yes)
 
@@ -1229,7 +1230,8 @@ else
 HIPE_SRC=
 endif
 
-BEAM_SRC=$(wildcard beam/*.c) $(wildcard beam/*.cpp)
+BEAM_SRC=$(wildcard beam/*.c)
+BEAM_CPP_SRC=$(wildcard beam/*.cpp)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
 ifeq ($(TARGET), win32)
@@ -1324,6 +1326,21 @@ ifdef HIPE_ENABLED
 endif
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
+
+compdb:
+	clang -MJ $(TTF_DIR)/beam.json $(DEP_FLAGS) $(BEAM_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/beam.cpp.json $(DEP_FLAGS) -I$(TTF_DIR)/usr/local/include $(BEAM_CPP_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv.json $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv_$(ERLANG_OSTYPE).json \
+		$(DEP_FLAGS) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/nif.json $(DEP_FLAGS) $(DEP_FLAGS) $(NIF_COMMON_SRC)  > /dev/null
+	clang -MJ $(TTF_DIR)/nif_$(ERLANG_OSTYPE).json \
+		$(DEP_FLAGS) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/sys.json $(DEP_FLAGS) $(DEP_FLAGS) $(SYS_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/target.json $(DEP_FLAGS) $(TARGET_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/zlib.json $(DEP_FLAGS) $(DEP_FLAGS) $(ZLIB_SRC) > /dev/null
+	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
+
 
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),generate)

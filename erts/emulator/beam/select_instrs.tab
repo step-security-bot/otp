@@ -106,6 +106,9 @@ select_val2.execute(Fail, T1, T2) {
     }
 }
 
+x64.i_select_val2(Src, Fail, T1, T2);
+x64.i_select_tuple_arity2(Src, Fail, T1, T2);
+
 i_select_tuple_arity := select_val_lin.fetch.get_arity.execute;
 i_select_val_lins := select_val_lin.fetch.execute;
 
@@ -150,6 +153,9 @@ select_val_lin.execute(Fail, N) {
     }
 }
 
+x64.i_select_val_lins(Src, Fail, N);
+x64.i_select_tuple_arity(Src, Fail, N);
+
 JUMP_ON_VAL(Fail, Index, N, Base) {
     if (is_small($Index)) {
         $Index = (Uint) (signed_val($Index) - $Base);
@@ -175,27 +181,7 @@ jump_on_val_zero.execute(Fail, N) {
     $JUMP_ON_VAL($Fail, index, $N, 0);
 }
 
-x64.i_jump_on_val_zero(Src, Fail, N) {
-    Label fail = a.newLabel();
-    mov(TMP1, $Src);
-    a.mov(TMP2, TMP1);
-    a.and_(TMP2, _TAG_IMMED1_MASK);
-    a.cmp(TMP2, _TAG_IMMED1_SMALL);
-    a.jne(fail);
-    a.sar(TMP1, _TAG_IMMED1_SIZE);
-    a.cmp(TMP1, $N.getValue());
-    a.jge(fail);
-    for (unsigned i = 0; i < $N.getValue(); i++) {
-        a.cmp(TMP1, i);
-        a.je(labels[inst.args[i+3].getValue()]);
-    }
-    a.bind(fail);
-    if ($Fail.getValue()) {
-        a.jmp(labels[$Fail.getValue()]);
-    } else {
-        $NYI();
-    }
-}
+x64.i_jump_on_val_zero(Src, Fail, N);
 
 i_jump_on_val := jump_on_val.fetch.execute;
 
@@ -210,3 +196,5 @@ jump_on_val.fetch(Src) {
 jump_on_val.execute(Fail, N, Base) {
     $JUMP_ON_VAL($Fail, index, $N, $Base);
 }
+
+x64.i_jump_on_val(Src, Fail, N, Base);

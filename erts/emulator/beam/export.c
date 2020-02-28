@@ -133,10 +133,8 @@ export_alloc(struct export_entry* tmpl_e)
         obj->is_bif_traced = 0;
 
         memset(&obj->trampoline, 0, sizeof(obj->trampoline));
-
-        if (BeamOpsAreInitialized()) {
-            obj->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
-        }
+        beamasm_emit_op(obj->info.mfa.module, op_call_error_handler, NULL,
+                        obj->trampoline.raw, sizeof(obj->trampoline), 0);
 
 	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
 	    obj->addressv[ix] = obj->trampoline.raw;

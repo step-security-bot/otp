@@ -120,7 +120,7 @@ x64.i_plus(Op1, Op2, Fail, Dst) {
     a.bind(generic);
     a.mov(ARG1, c_p);
     // ARG2 and ARG3 set above
-    a.call((uint64_t)erts_mixed_plus);
+    call((uint64_t)erts_mixed_plus);
     a.cmp(RET,THE_NON_VALUE);
     if ($Fail.getValue() != 0) {
         a.je(labels[$Fail.getValue()]);
@@ -191,7 +191,7 @@ x64.i_minus(Op1, Op2, Fail, Dst) {
     a.bind(generic);
     a.mov(ARG1, c_p);
     // ARG2 and ARG3 set above
-    a.call((uint64_t)erts_mixed_minus);
+    call((uint64_t)erts_mixed_minus);
     a.cmp(RET,THE_NON_VALUE);
     if ($Fail.getValue() != 0) {
         a.je(labels[$Fail.getValue()]);
@@ -266,7 +266,7 @@ x64.i_increment(Src, Val, Dst) {
     a.bind(mixed);
     a.mov(ARG1,c_p);
     a.mov(ARG3,make_small(val));
-    a.call((uint64_t)erts_mixed_plus);
+    call((uint64_t)erts_mixed_plus);
 
     /* Check if addition worked */
     a.cmp(RET,THE_NON_VALUE);
@@ -326,7 +326,7 @@ x64.i_times(Fail, Op1, Op2, Dst) {
     a.bind(generic);
     a.mov(ARG1, c_p);
     // ARG2 and ARG3 set above
-    a.call((uint64_t)erts_mixed_times);
+    call((uint64_t)erts_mixed_times);
     a.cmp(RET,THE_NON_VALUE);
     if ($Fail.getValue() != 0) {
         a.je(labels[$Fail.getValue()]);

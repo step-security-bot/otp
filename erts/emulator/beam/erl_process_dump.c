@@ -438,7 +438,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == beam_apply[1]) {
             erts_print(to, to_arg, "<terminate process normally>");
         } else {
             erts_print(to, to_arg, "unknown function");

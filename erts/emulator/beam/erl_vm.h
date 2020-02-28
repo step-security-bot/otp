@@ -234,16 +234,17 @@ extern void** beam_ops;
 #  define BeamSetCodeAddr(InstrWord, Addr) (Addr)
 #endif
 
-#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
+//#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
+#define BeamIsOpCode(InstrWord, OpCode) (InstrWord == OpCode)
 
 enum beamasm_ret {
-    RET_dispatch,
-    RET_do_schedule,
-    RET_context_switch,
-    RET_context_switch2,
-    RET_context_switch3,
-    RET_context_switch_fun,
-    RET_find_func_info
+    /* All of these have to be larger that 0 */
+    RET_do_schedule = 1,
+    RET_do_wait = 2,
+    RET_context_switch = 3,
+    RET_context_switch2 = 4,
+    RET_context_switch3 = 5,
+    RET_context_switch_fun = 6
 };
 
 typedef void (*BeamAsmFunc)(void);

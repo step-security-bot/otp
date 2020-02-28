@@ -76,9 +76,7 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
-+if exec_alloc
 allocator	EXEC     	true	        exec_alloc
-+endif
 
 allocator	BINARY		true		binary_alloc
 allocator	DRIVER		true		driver_alloc
@@ -144,7 +142,7 @@ type	FUN_TABLE	STANDARD	CODE		fun_tab
 type	DIST_TABLE	STANDARD	SYSTEM		dist_tab
 type	NODE_TABLE	STANDARD	SYSTEM		node_tab
 type	ATOM_TABLE	LONG_LIVED	ATOM		atom_tab
-type	EXPORT_TABLE	LONG_LIVED	CODE		export_tab
+type	EXPORT_TABLE	EXEC	CODE		export_tab
 type	MODULE_TABLE	LONG_LIVED	CODE		module_tab
 type	TAINT		LONG_LIVED	CODE		taint_list
 type	MODULE_REFS	STANDARD	CODE		module_refs

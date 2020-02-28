@@ -18,7 +18,7 @@
  * %CopyrightEnd%
  */
 
-#include "beam_asm.h"
+#include "beam_asm.hpp"
 
 extern "C" {
     #include "erl_bif_table.h"
@@ -26,31 +26,18 @@ extern "C" {
 
 extern "C" BeamInstr *handle_error(void);
 
-void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Instruction *inst, ErtsCodeMFA *mfa) {
+void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Label entry, ErtsCodeMFA *mfa) {
     Label dispatch = a.newLabel();
     comment("handle_error");
     for (unsigned i = 0; i < args.size(); i++)
         mov(ArgVal(ArgVal::x, i), args[i]);
-    emit_swapout();
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, (uint64_t)inst->I);
-    a.mov(ARG3, x_reg);
-    a.mov(ARG4, (uint64_t)mfa);
-    a.call((uint64_t)handle_error);
-    emit_swapin();
-    a.mov(TMP3, RET);
-    a.cmp(TMP3, 0);
-    a.jne(dispatch);
-    a.mov(RET, RET_do_schedule);
-    a.jmp(ga->getSwapout());
-    a.bind(dispatch);
-    a.mov(RET, RET_dispatch);
-    a.jmp(ga->getSwapout());
+    emit_handle_error(entry, mfa);
 }
 
 void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel();
+    Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     mov(ARG3, Op2);
     comment("Test div by zero");
     a.cmp(ARG3, SMALL_ZERO);
@@ -87,7 +74,7 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, Ar
     a.mov(ARG1, c_p);
     // ARG2 set above
     mov(ARG3, Op2); // ARG3 may have been clobbered by cqto so re-read
-    a.call((uint64_t)erts_int_div);
+    call((uint64_t)erts_int_div);
     a.cmp(RET,THE_NON_VALUE);
     if (Fail.getValue() != 0) {
         a.je(labels[Fail.getValue()]);
@@ -96,7 +83,7 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, Ar
         a.jne(next);
     }
     a.bind(fail);
-    emit_bif_arg_error({Op1, Op2}, inst, &bif_trap_export[BIF_intdiv_2].info.mfa);
+    emit_bif_arg_error({Op1, Op2}, entry, &bif_trap_export[BIF_intdiv_2].info.mfa);
 
     a.bind(next);
     mov(Dst, RET);

@@ -18,36 +18,26 @@
  * %CopyrightEnd%
  */
 
-#include "beam_asm.h"
+#include "beam_asm.hpp"
 
 using namespace asmjit;
+
+extern "C" {
+  void call_error_handler(void);
+  void handle_error(void);
+}
 
 BeamGlobalAssembler::BeamGlobalAssembler(JitRuntime *rt) : BeamAssembler(rt) {
     Error err;
 
-    // setLogger("garbage_collect.asm");
-    emit_garbage_collect();
-    err = rt->add(&garbage_collect,&code);
-    ERTS_ASSERT(!err && "Failed to create garbage collection function");
-    reset();
+#define EMIT_FUNC(NAME)                                                 \
+    /* setLogger(#NAME ".asm"); */                                      \
+      emit_##NAME();                                                    \
+      err = rt->add(&NAME##_code,&code);                                \
+      ERTS_ASSERT(!err && "Failed to create " #NAME " function");       \
+      reset();
 
-    // setLogger("swapin.asm");
-    emit_asm_swapin();
-    err = rt->add(&swapin,&code);
-    ERTS_ASSERT(!err && "Failed to create asm swapin function");
-    reset();
-
-    // setLogger("swapout.asm");
-    emit_asm_swapout();
-    err = rt->add(&swapout,&code);
-    ERTS_ASSERT(!err && "Failed to create asm swapout function");
-    reset();
-
-    // setLogger("gc_after_bif.asm");
-    emit_gc_efter_bif();
-    err = rt->add(&gc_after_bif,&code);
-    ERTS_ASSERT(!err && "Failed to create asm gc_after_bif function");
-    reset();
+    BEAM_GLOBAL_FUNCS(EMIT_FUNC)
 }
 
 void BeamGlobalAssembler::emit_garbage_collect() {
@@ -61,13 +51,13 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.mov(ARG1, c_p);
     a.mov(ARG3, x_reg);
     a.mov(ARG5, FCALLS);
-    a.call((uint64_t)erts_garbage_collect_nobump);
+    call((uint64_t)erts_garbage_collect_nobump);
     a.sub(FCALLS, RET);
     emit_swapin();
     emit_function_postamble();
 }
 
-void BeamGlobalAssembler::emit_gc_efter_bif() {
+void BeamGlobalAssembler::emit_gc_after_bif() {
     /* This is a common stub called after a bif call to see if a gc is needed.
        RET = bif return
        FCALLS = c_p->mbuf ptr value before bif
@@ -83,7 +73,7 @@ void BeamGlobalAssembler::emit_gc_efter_bif() {
     a.jb(do_gc);
     // This asm code is taken from what GCC does
     a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,bin_vheap_sz)));
-    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,off_heap.overhead)));
+    a.cmp(x86::qword_ptr(c_p, offsetof(Process,off_heap.overhead)), TMP1);
     a.mov(x86::edx, x86::dword_ptr(c_p, offsetof(Process,flags)));
     a.seta(x86::cl);
     a.shr(x86::edx, 10);
@@ -98,64 +88,201 @@ void BeamGlobalAssembler::emit_gc_efter_bif() {
     a.mov(ARG2, FCALLS);
     a.mov(ARG3, RET);
     a.mov(ARG4, x_reg);
-    a.call((uint64_t)erts_gc_after_bif_call_lhf);
+    call((uint64_t)erts_gc_after_bif_call_lhf);
 
     emit_function_postamble();
 
 }
 
-void BeamGlobalAssembler::emit_asm_swapin() {
-    emit_function_preamble();
+#define STACK_SLOTS 12
+
+void BeamGlobalAssembler::emit_call() {
+    emit_function_preamble(STACK_SLOTS);
 
     // Push all callee save
-    a.push(c_p);
-    a.push(x_reg);
-    a.push(HTOP);
-    a.push(E);
-    a.push(FCALLS);
-    a.push(f_reg);
+    unsigned slot = STACK_SLOTS;
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), c_p);
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), x_reg);
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), HTOP);
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), E);
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), FCALLS);
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), f_reg);
 
-    // Have to make sure the stack is 16 byte aligned here
-    a.push(ARG1); // ctx
-    a.push(ARG5); // *EBS
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG1); // ctx
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG5); // *EBS
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG6); // neg_o_reds
+
+    // We need three extra slots of guard bif calls and other things
+    ASSERT(slot > 2);
 
     // Move the arguments to the correct registers, ignoring c_p, FCALLS and f_reg for now...
     // typedef void (*BeamAsmFunc)(BeamInstr **,Process *,Eterm *, Eterm **, Eterm **, Sint *, FloatDef *);
     a.mov(c_p, ARG2);
     a.mov(x_reg, ARG3);
-    a.mov(HTOP, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, HTOP)));
-    a.mov(E, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, E)));
     a.mov(FCALLS, x86::qword_ptr(ARG1, offsetof(BeamAsmContext, FCALLS)));
     a.mov(f_reg, ARG4);
-    a.jmp(ARG6);
+    emit_swapin();
+
+    a.jmp(x86::qword_ptr(c_p, offsetof(Process, i)));
 }
 
-void BeamGlobalAssembler::emit_asm_swapout() {
-
-    // Below here we simulate a return instruction to get the proper return into
-    // the interpreter again
+void BeamGlobalAssembler::emit_return() {
 
     // Put the BeamAsmContext in TMP1
-    a.mov(TMP1, x86::qword_ptr(x86::rsp, 8));
+    a.mov(TMP1, x86::qword_ptr(x86::rsp, (STACK_SLOTS - 7) * 8));
 
     // Set I to be the return address, the address is stored in TMP3
-    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, I)), TMP3);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), TMP3);
 
     // Restore the rest of the emulator state
-    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, HTOP)), HTOP);
-    a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, E)), E);
     a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, FCALLS)), FCALLS);
 
-    // Adjust stack
-    a.lea(x86::rsp, x86::qword_ptr(x86::rsp, 2 * 8));
-
     // Pop all callee save
-    a.pop(f_reg);
-    a.pop(FCALLS);
-    a.pop(E);
-    a.pop(HTOP);
-    a.pop(x_reg);
-    a.pop(c_p);
+    unsigned slot = STACK_SLOTS;
+    a.mov(c_p,x86::qword_ptr(x86::rsp, --slot * 8));
+    a.mov(x_reg, x86::qword_ptr(x86::rsp, --slot * 8));
+    a.mov(HTOP, x86::qword_ptr(x86::rsp, --slot * 8));
+    a.mov(E,x86::qword_ptr(x86::rsp, --slot * 8));
+    a.mov(FCALLS,x86::qword_ptr(x86::rsp, --slot * 8));
+    a.mov(f_reg,x86::qword_ptr(x86::rsp, --slot * 8));
 
-    emit_function_postamble();
+    emit_function_postamble(STACK_SLOTS);
+}
+
+void BeamGlobalAssembler::emit_normal_exit() {
+  emit_heavy_swapout();
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,arity)), 0);
+  a.mov(ARG1,c_p);
+  a.mov(ARG2,imm(am_normal));
+  call((uint64_t)erts_do_exit_process);
+  emit_heavy_swapin();
+  a.mov(RET,RET_do_schedule);
+  a.jmp(this->get_return());
+}
+
+void BeamGlobalAssembler::emit_continue_exit() {
+  emit_heavy_swapout();
+  a.mov(ARG1,c_p);
+  call((uint64_t)erts_continue_exit_process);
+  emit_heavy_swapin();
+  a.mov(RET,RET_do_schedule);
+  a.jmp(this->get_return());
+}
+
+void BeamGlobalAssembler::emit_call_error_handler() {
+  emit_heavy_swapout();
+  a.mov(ARG1,c_p);
+  // ARG2 is set in module assembler
+  a.mov(ARG3,x_reg);
+  a.mov(ARG4,imm(am_undefined_function));
+  call((uint64_t)call_error_handler);
+  emit_heavy_swapin();
+  a.cmp(RET,0);
+  a.je(get_handle_error());
+  a.jmp(x86::qword_ptr(RET));
+}
+
+void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
+    a.lea(ARG2, x86::qword_ptr(x86::rip));
+    a.jmp(ga->get_call_error_handler());
+}
+
+void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {
+    /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
+    emit_swapout();
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x86::qword_ptr(I));
+    a.mov(ARG3, x_reg);
+    a.mov(ARG4, imm(mfa));
+    call((uint64_t)handle_error);
+    a.jmp(ga->get_post_error_handling());
+}
+
+void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
+    /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
+    emit_swapout();
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x86::qword_ptr(I));
+    a.mov(ARG3, x_reg);
+    make_patch(ARG4, imports[exp.getValue()].patches);
+    call((uint64_t)handle_error);
+    a.jmp(ga->get_post_error_handling());
+}
+
+// this is an alias for handle_error
+void BeamGlobalAssembler::emit_error_action_code() {
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, 0);
+  a.mov(ARG3, x_reg);
+  a.mov(ARG4, 0);
+  call((uint64_t)handle_error);
+  a.jmp(this->get_post_error_handling());
+}
+
+void BeamGlobalAssembler::emit_post_error_handling() {
+  Label dispatch = a.newLabel();
+  a.mov(TMP3, RET);
+  a.cmp(TMP3, 0);
+  a.jne(dispatch);
+  a.mov(RET, RET_do_schedule);
+  a.jmp(this->get_return());
+  a.bind(dispatch);
+  emit_swapin();
+  a.jmp(RET);
+}
+
+void BeamGlobalAssembler::emit_i_func_info() {
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
+  // I when the error happened is stored in TMP1
+  a.lea(TMP1, x86::qword_ptr(TMP1,offsetof(ErtsCodeInfo,mfa)));
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,current)), TMP1);
+  a.jmp(this->get_handle_error());
+}
+
+void BeamGlobalAssembler::emit_dbg() {
+  a.push(RET);
+  a.push(ARG1);
+  a.push(ARG2);
+  a.push(ARG3);
+  a.push(ARG4);
+  a.push(ARG5);
+  a.push(ARG6);
+  emit_swapout();
+  a.mov(ARG1, x86::qword_ptr(x86::rsp, (7 + 3) * sizeof(void*)));
+  a.mov(ARG2, c_p);
+  a.mov(ARG3, x_reg);
+  /* We read the current code location from the stack and then align it */
+  a.mov(ARG4, x86::qword_ptr(x86::rsp, (7) * sizeof(void*)));
+  a.and_(ARG4, Imm(~3ull));
+  call((uint64_t)&BeamModuleAssembler::dbg);
+  a.pop(ARG6);
+  a.pop(ARG5);
+  a.pop(ARG4);
+  a.pop(ARG3);
+  a.pop(ARG2);
+  a.pop(ARG1);
+  a.pop(RET);
+  a.ret();
+}
+
+void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, ERTS_PROC_LOCK_MAIN);
+    a.mov(qTMP1_MEM, RET);
+    call((uint64_t)erts_proc_lc_unrequire_lock);
+    a.mov(RET, qTMP1_MEM);
+#endif
+}
+
+void BeamModuleAssembler::emit_proc_lc_require(void) {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, ERTS_PROC_LOCK_MAIN);
+    a.mov(qTMP1_MEM, RET);
+    call((uint64_t)erts_proc_lc_require_lock);
+    a.mov(RET, qTMP1_MEM);
+#endif
 }

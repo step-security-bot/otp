@@ -179,6 +179,7 @@ atom connected
 atom connection_closed
 atom const
 atom context_switches
+atom continue_exit
 atom control
 atom copy
 atom copy_literals

@@ -622,7 +622,7 @@ sub emulator_output {
 	foreach (@{$specific_op{$key}}) {
 	    my($name, $hotness, @args) = @$_;
 	    my $print_name = print_name($name, @args);
-#            print STDOUT "$name: $print_name\n";
+            print STDOUT "$name: $print_name\n";
             my $asm_code_ref = $asm_code{$name};
             if (defined $asm_code_ref) {
                 my %bindings;

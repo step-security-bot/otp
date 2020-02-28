@@ -628,6 +628,8 @@ nif_bif.epilogue() {
     goto post_error_handling;
 }
 
+x64.call_nif(Func, NifMod, DirtyFunc);
+
 i_load_nif() {
     //| -no_next
     if (erts_try_seize_code_write_permission(c_p)) {
@@ -657,3 +659,5 @@ i_load_nif() {
         goto do_schedule;
     }
 }
+
+x64.i_load_nif();

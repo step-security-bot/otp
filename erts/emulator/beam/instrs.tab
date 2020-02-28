@@ -319,6 +319,8 @@ i_apply() {
     $HANDLE_APPLY_ERROR();
 }
 
+x64.i_apply();
+
 i_apply_last(Deallocate) {
     //| -no_next
     BeamInstr *next;
@@ -330,6 +332,8 @@ i_apply_last(Deallocate) {
     $HANDLE_APPLY_ERROR();
 }
 
+x64.i_apply_last(Deallocate);
+
 i_apply_only() {
     //| -no_next
     BeamInstr *next;
@@ -339,6 +343,8 @@ i_apply_only() {
     }
     $HANDLE_APPLY_ERROR();
 }
+
+x64.i_apply_only();
 
 FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
@@ -358,6 +364,8 @@ apply(Arity) {
     $HANDLE_APPLY_ERROR();
 }
 
+x64.apply(Arity);
+
 apply_last(Arity, Deallocate) {
     //| -no_next
     BeamInstr *next;
@@ -368,6 +376,8 @@ apply_last(Arity, Deallocate) {
     }
     $HANDLE_APPLY_ERROR();
 }
+
+x64.apply_last(Arity, Deallocate);
 
 APPLY_FUN(Next) {
     HEAVY_SWAPOUT;
@@ -390,6 +400,8 @@ i_apply_fun() {
     $HANDLE_APPLY_FUN_ERROR();
 }
 
+x64.i_apply_fun();
+
 i_apply_fun_last(Deallocate) {
     //| -no_next
     BeamInstr *next;
@@ -401,6 +413,8 @@ i_apply_fun_last(Deallocate) {
     $HANDLE_APPLY_FUN_ERROR();
 }
 
+x64.i_apply_fun_last(Deallocate);
+
 i_apply_fun_only() {
     //| -no_next
     BeamInstr *next;
@@ -410,6 +424,8 @@ i_apply_fun_only() {
     }
     $HANDLE_APPLY_FUN_ERROR();
 }
+
+x64.i_apply_fun_only();
 
 CALL_FUN(Fun, Next) {
     //| -no_next
@@ -429,6 +445,8 @@ i_call_fun(Fun) {
     $HANDLE_APPLY_FUN_ERROR();
 }
 
+x64.i_call_fun(Fun);
+
 i_call_fun_last(Fun, Deallocate) {
     //| -no_next
     BeamInstr *next;
@@ -439,6 +457,8 @@ i_call_fun_last(Fun, Deallocate) {
     }
     $HANDLE_APPLY_FUN_ERROR();
 }
+
+x64.i_call_fun_last(Fun, Deallocate);
 
 get_list(Src, Hd, Tl) {
     Eterm* tmp_ptr = list_val($Src);
@@ -631,6 +651,8 @@ i_make_fun(FunP, NumFree) {
     x(0) = new_fun(c_p, reg, (ErlFunEntry *) $FunP, $NumFree);
     HEAVY_SWAPIN;
 }
+
+x64.i_make_fun(FunP, NumFree);
 
 move_trim(Src, Dst, Words) {
     $Dst = $Src;
@@ -1403,22 +1425,8 @@ raw_raise() {
 
 x64.raw_raise();
 
-beamasm(C) {
-    BeamAsmContext ctx = { .HTOP = HTOP, .E = E, .I = I, .FCALLS = FCALLS };
-    BeamAsmFunc ba = (BeamAsmFunc)$C;
-    enum beamasm_ret res = beamasm_call(&ctx, c_p, reg, freg, EBS, ba);
-    I = ctx.I;
-    HTOP = ctx.HTOP;
-    E = ctx.E;
-    FCALLS = ctx.FCALLS;
-    switch (res) {
-    case RET_dispatch: Goto(*I); break;
-    case RET_do_schedule: goto do_schedule; break;
-    case RET_context_switch: goto context_switch;
-    case RET_context_switch2: goto context_switch2;
-    case RET_context_switch3: goto context_switch3;
-    case RET_context_switch_fun: goto context_switch_fun;
-    case RET_find_func_info: goto find_func_info;
-    default: ASSERT(0 && "NYI");
-    }
+call_error_handler() {
+
 }
+
+x64.call_error_handler();

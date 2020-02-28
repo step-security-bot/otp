@@ -6,8 +6,13 @@
          'is_float'/0, 'is_function'/0, is_function2/0, is_integer/0,
          is_list/0, is_map/0, is_number/0, is_port/0, is_pid/0,
          is_reference/0, is_tagged_tuple/0, is_tuple/0, is_tuple_of_arity/0,
-         guard_bif/0, length/0, call_light_bif/0, call_light_bif_only/0,
-         send/0]).
+         'fun'/0, 'funenv'/0,
+         call_external/0
+        %  guard_bif/0, length/0, call_light_bif/0, call_light_bif_only/0,
+        %  send/0
+        ]).
+
+-export([dummy/1]).
 
 -import(jit_tests,[id/1]).
 
@@ -15,6 +20,8 @@
 
 % l() ->
 %     receive a -> a after 0 -> ok end.
+
+dummy(Arg) -> id(Arg).
 
 %% Tests that the is_nil check at the end of the [A,B,C,D] is
 %% not eliminated by any optimizations.
@@ -299,6 +306,28 @@ is_tuple_of_arity({_}) ->
 is_tuple_of_arity(_) ->
     false.
 
+'fun'() ->
+    F0 = id(fun() -> ok end),
+    F2 = id(fun(A,B) -> {A,B} end),
+    FExport = fun jit_tests:id/1,    
+    ok = F0(),
+    {a,b} = F2(a,b),
+    a = FExport(a),
+    ok.
+
+'funenv'() ->
+    P = self(),
+    F0 = id(fun() -> P end),
+    F1 = id(fun(A) -> A =:= P end),
+    P = F0(),
+    false = F1(a),
+    true = F1(self()),
+    ok.
+
+call_external() ->
+    ok = ?MODULE:dummy(ok),
+    ?MODULE:dummy(ok).
+
 guard_bif() ->
     % body arity 1
     5 = byte_size(id(<<0,1,2,3,4>>)),
@@ -379,3 +408,4 @@ send() ->
         hej -> ok
     end,
     ok.
+

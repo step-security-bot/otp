@@ -64,6 +64,7 @@
 #if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
 #define HAVE_USE_DTRACE 1
 #endif
+#include "beam_asm.h"
 
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -335,7 +336,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   cp_val(c_p->stop[0]),
-				  BeamOpCodeAddr(op_call_nif_WWW),
+				  op_call_nif_WWW,
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -4341,28 +4342,56 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             ErlNifFunc* f = &entry->funcs[i];
 	    ErtsCodeInfo* ci;
             BeamInstr *code_ptr;
+            GenOp op;
 
 	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
 	    ci = *get_func_pp(this_mi->code_hdr, f_atom, f->arity);
             code_ptr = erts_codeinfo_to_code(ci);
 
-	    if (ci->u.gen_bp == NULL) {
-		code_ptr[0] = BeamOpCodeAddr(op_call_nif_WWW);
+            op.arity = 4;
+            op.next = NULL;
+            op.a = op.def_args;
+
+	//     if (f->flags) {
+	// 	code_ptr[3] = (BeamInstr) f->fptr;
+	// 	code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
+	// 	    (BeamInstr) static_schedule_dirty_io_nif :
+	// 	    (BeamInstr) static_schedule_dirty_cpu_nif;
+	//     }
+	//     else
+	// 	code_ptr[1] = (BeamInstr) f->fptr;
+	//     code_ptr[2] = (BeamInstr) lib;
+            if (f->flags) {
+                    op.a[2].type = TAG_i;
+                    op.a[2].val = f->fptr;
+                    op.a[0].type = TAG_i;
+                    if (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND)
+                        op.a[0].val = static_schedule_dirty_io_nif;
+                    else
+                        op.a[0].val = static_schedule_dirty_cpu_nif;
+            } else {
+                    op.a[2].type = TAG_i;
+                    op.a[2].val = 0;
+                    op.a[0].type = TAG_i;
+                    op.a[0].val = f->fptr;
+            }
+
+            op.a[1].type = TAG_i;
+            op.a[1].val = lib;
+
+            op.a[3].type = TAG_i;
+            op.a[3].val = ci;
+
+            if (ci->u.gen_bp == NULL) {
+                beamasm_emit_op(ci->mfa.module,
+                                op_call_nif_WWW, &op, code_ptr,
+                                BEAM_NATIVE_MIN_FUNC_SZ * 8, 0);
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		GenericBp* g = ci->u.gen_bp;
 		ASSERT(BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
 		g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
 	    }
-	    if (f->flags) {
-		code_ptr[3] = (BeamInstr) f->fptr;
-		code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
-		    (BeamInstr) static_schedule_dirty_io_nif :
-		    (BeamInstr) static_schedule_dirty_cpu_nif;
-	    }
-	    else
-		code_ptr[1] = (BeamInstr) f->fptr;
-	    code_ptr[2] = (BeamInstr) lib;
 	}
     }
     else {
