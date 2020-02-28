@@ -411,3 +411,4 @@ wait.execute(JumpTarget) {
 }
 
 x64.wait_locked(JumpTarget);
+x64.wait_timeout_locked(Src, JumpTarget);
