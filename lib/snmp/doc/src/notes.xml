@@ -1612,16 +1612,6 @@
       <title>Incompatibilities</title>
       <p>-</p>
 
-<!--
-      <list type="bulleted">
-        <item>
-          <p>foo. </p>
-          <p>Own Id: OTP-9718</p>
-        </item>
-
-      </list>
--->
-
     </section>
 
   </section> <!-- 4.21.5 -->
@@ -1636,25 +1626,10 @@
     <section>
       <title>Improvements and new features</title>
       <p>-</p>
-
-<!--
-      <list type="bulleted">
-        <item>
-          <p>[compiler] Improved version info printout from the
-          <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
-          <p>Own Id: OTP-9618</p>
-        </item>
-
-      </list>
--->
-
     </section>
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-<!--
-      <p>-</p>
--->
 
       <list type="bulleted">
         <item>
@@ -1668,16 +1643,6 @@
     <section>
       <title>Incompatibilities</title>
       <p>-</p>
-
-<!--
-      <list type="bulleted">
-        <item>
-          <p>foo. </p>
-          <p>Own Id: OTP-9718</p>
-        </item>
-
-      </list>
--->
 
     </section>
 
