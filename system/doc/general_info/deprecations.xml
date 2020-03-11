@@ -36,7 +36,7 @@
     deprecations. Deprecations made in other parts of the documentation are of
     course still valid. For more information regarding the strategy regarding
     deprecations see the documentation of
-    <seealso marker="../system_principles/misc#deprecation">Support, Compatibility,
+    <seealso marker="doc/system_principles:misc#deprecation">Support, Compatibility,
     Deprecations, and Removal</seealso>.</p>
   </section>
 
