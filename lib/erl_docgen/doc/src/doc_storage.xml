@@ -53,8 +53,8 @@
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="stdlib:shell_docs"><c>shell_docs(3)</c></seealso>,
-      <seealso marker="kernel:code#get_doc/1"><c>code:get_doc(3)</c></seealso>
+      <seeerl marker="stdlib:shell_docs"><c>shell_docs(3)</c></seeerl>,
+      <seemfa marker="kernel:code#get_doc/1"><c>code:get_doc(3)</c></seemfa>
     </p>
   </section>
 

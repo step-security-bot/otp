@@ -136,9 +136,9 @@
         </item>
         <item>
           <p>
-	    The documentation of <seealso
+	    The documentation of <seeguide
 	    marker="ssh:using_ssh#one-time-execution">One-Time
-	    Execution</seealso> in the User's Guide is updated with
+	    Execution</seeguide> in the User's Guide is updated with
 	    more examples.</p>
           <p>
 	    Own Id: OTP-16108 Aux Id: OTP-15417 </p>

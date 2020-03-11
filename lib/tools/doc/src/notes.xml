@@ -684,10 +684,10 @@
 	    Earlier, supervisor flags and child specs were given as
 	    tuples. While this is kept for backwards compatibility,
 	    it is now also allowed to give these parameters as maps,
-	    see <seealso
-	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
-	    and <seealso
-	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+	    see <seeerl
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seeerl>
+	    and <seeerl
+	    marker="stdlib:supervisor#child_spec">child_spec</seeerl>.</p>
           <p>
 	    Own Id: OTP-11043</p>
         </item>
