@@ -769,8 +769,8 @@
 	<p>
 	For blocksizes call <seemfa marker="#cipher_info/1">cipher_info/1</seemfa>.
 	</p>
-	<p>See <seemfa marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update/2">
-	examples in the User's Guide.</seemfa>
+	<p>See <seeguide marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seeguide>
 	</p>
       </desc>
     </func>
@@ -788,8 +788,8 @@
 	or
 	<seemfa marker="crypto#crypto_init/4">crypto_init/4</seemfa>.
 	</p>
-	<p>See <seemfa marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update/2">
-	examples in the User's Guide.</seemfa>
+	<p>See <seeguide marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
+	examples in the User's Guide.</seeguide>
 	</p>
       </desc>
     </func>
@@ -886,7 +886,7 @@
 	For setting other options, see
 	<seemfa marker="crypto#crypto_init/4">crypto_init/4</seemfa>.
 	</p>
-	<p>See <seemfa marker="crypto:new_api#example-of-crypto_one_time/5">examples in the User's Guide.</seemfa>
+	<p>See <seeguide marker="crypto:new_api#example-of-crypto_one_time-5">examples in the User's Guide.</seeguide>
 	</p>
       </desc>
     </func>
@@ -906,7 +906,7 @@
 	<p>For decryption, set the <c>EncryptFlag</c> to <c>false</c> and put the tag to be checked
 	in the argument	<c>TagOrTagLength</c>.
 	</p>
-	<p>See <seemfa marker="crypto:new_api#example-of-crypto_one_time_aead/6">examples in the User's Guide.</seemfa>
+	<p>See <seeguide marker="crypto:new_api#example-of-crypto_one_time_aead-6">examples in the User's Guide.</seeguide>
 	</p>
       </desc>
     </func>
