@@ -486,21 +486,21 @@ render_element({pre,_,Content},State,Pos,Ind,D) ->
     %% For pre we make sure to respect the newlines in pre
     trimnlnl(render_docs(Content, [pre|State], Pos, Ind+2, D));
 
-render_element({ul,[{class,"types"}],Content},State,_Pos,Ind,D) ->
+render_element({ul,[{class,<<"types">>}],Content},State,_Pos,Ind,D) ->
     {Docs, _} = render_docs(Content, [types|State], 0, Ind+2, D),
     trimnlnl(["Types:\n", Docs]);
 render_element({li,Attr,Content},[types|_] = State,Pos,Ind,C) ->
     Doc =
         case {proplists:get_value(name, Attr),proplists:get_value(class, Attr)} of
-            {undefined,Class} when Class =:= undefined; Class =:= "type" ->
+            {undefined,Class} when Class =:= undefined; Class =:= <<"type">> ->
                 %% Inline html for types
                 render_docs(Content,[type|State],Pos,Ind,C);
-            {_,"description"} ->
+            {_,<<"description">>} ->
                 %% Inline html for type descriptions
                 render_docs(Content,[type|State],Pos,Ind+2,C);
             {Name,_} ->
                 %% Try to render from type metadata
-                case render_type_signature(list_to_atom(Name),C) of
+                case render_type_signature(binary_to_atom(Name),C) of
                     undefined when Content =:= [] ->
                         %% Failed and no content, emit place-holder
                         {["-type ",Name,"() :: term()."],0};
