@@ -333,7 +333,7 @@ transform([{c,[],Content}|T],Acc) ->
 
 %% transform <code> to <pre><code>
 transform([{code,Attr,Content}|T],Acc) ->
-    transform(T, [{pre,[],[{code,Attr,transform(Content,[])}]}|Acc]);
+    transform(T, [{pre,[],[{code,a2b(Attr),transform(Content,[])}]}|Acc]);
 %% transform <pre> to <pre><code>
 transform([{pre,Attr,Content}|T],Acc) ->
     transform(T, [{pre,[],[{code,Attr,transform(Content,[])}]}|Acc]);
@@ -357,15 +357,15 @@ transform([{desc,_Attr,Content}|T],Acc) ->
 transform([{strong,Attr,Content}|T],Acc) ->
     transform([{em,Attr,Content}|T],Acc);
 %% transform <marker id="name"/>  to <a id="name"/>....
-transform([{marker,Attr,Content}|T],Acc) ->
-    transform(T,[{a,Attr,transform(Content,[])}|Acc]);
+transform([{marker,Attrs,Content}|T],Acc) ->
+    transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
 %% transform <url href="external URL"> Content</url> to <a href....
-transform([{url,Attr,Content}|T],Acc) ->
-    transform(T,[{a,Attr,transform(Content,[])}|Acc]);
+transform([{url,Attrs,Content}|T],Acc) ->
+    transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
 %% transform note/warning/do/don't to <p class="thing">
 transform([{What,[],Content}|T],Acc)
   when What =:= note; What =:= warning; What =:= do; What =:= dont ->
-    WhatP = {p,[{class,atom_to_list(What)}], transform(Content,[])},
+    WhatP = {p,[{class,atom_to_binary(What)}], transform(Content,[])},
     transform(T,[WhatP|Acc]);
 
 transform([{type,_,[]}|_] = Dom,Acc) ->
@@ -388,18 +388,18 @@ transform([{type,_,[]}|_] = Dom,Acc) ->
                                        NameA < NameB
                                end
                        end,
-            transform(T,[{ul,[{class,"types"}],lists:sort(NameSort,Types)}|Acc])
+            transform(T,[{ul,[{class,<<"types">>}],lists:sort(NameSort,Types)}|Acc])
     end;
 transform([{type_desc,Attr,_Content}|T],Acc) ->
     %% We skip any type_desc with the variable attribute
     true = proplists:is_defined(variable, Attr),
     transform(T,Acc);
 transform([{type,[],Content}|T],Acc) ->
-    transform(T,[{ul,[{class,"types"}],transform(Content,[])}|Acc]);
+    transform(T,[{ul,[{class,<<"types">>}],transform(Content,[])}|Acc]);
 transform([{v,[],Content}|T],Acc) ->
-    transform(T, [{li,[{class,"type"}],transform(Content,[])}|Acc]);
+    transform(T, [{li,[{class,<<"type">>}],transform(Content,[])}|Acc]);
 transform([{d,[],Content}|T],Acc) ->
-    transform(T, [{li,[{class,"description"}],transform(Content,[])}|Acc]);
+    transform(T, [{li,[{class,<<"description">>}],transform(Content,[])}|Acc]);
 
 transform([Elem = {See,_Attr,_Content}|T],Acc)
   when See =:= seemfa; See =:= seeerl; See =:= seetype; See =:= seeapp;
@@ -418,6 +418,9 @@ transform([{input,_,Content}|T],Acc) ->
     %% Just remove input as it is not used by anything
     transform(T,[transform(Content,[])|Acc]);
 
+transform([{p,Attr,Content}|T],Acc) ->
+    transform(T,[{p,a2b(Attr),transform(Content,[])}|Acc]);
+
 %% Tag and Attr is used as is but Content is transformed
 transform([{Tag,Attr,Content}|T],Acc) ->
     transform(T,[{Tag,Attr,transform(Content,[])}|Acc]);
@@ -434,7 +437,7 @@ transform_list(_,Content) ->
 transform_types([{type,Attr,[]}|T],Acc) ->
     case proplists:is_defined(name,Attr) of
         true ->
-            transform_types(T, [{li,Attr,[]}|Acc]);
+            transform_types(T, [{li,a2b(Attr),[]}|Acc]);
         false ->
             true = proplists:is_defined(variable, Attr),
             transform_types(T, Acc)
@@ -443,7 +446,7 @@ transform_types([{type_desc,Attr,Content}|T],Acc) ->
     case proplists:is_defined(name,Attr) of
         true ->
             TypeDesc = transform(Content,[]),
-            transform_types(T, [{li,Attr ++ [{class,"description"}],TypeDesc}|Acc]);
+            transform_types(T, [{li,a2b(Attr) ++ [{class,<<"description">>}],TypeDesc}|Acc]);
         false ->
             true = proplists:is_defined(variable, Attr),
             transform_types(T, Acc)
@@ -613,7 +616,7 @@ transform_see({See,[{marker,Marker}],Content}) ->
                 end
         end,
     {a, [{href,iolist_to_binary(AbsMarker)},
-         {rel,"https://erlang.org/doc/link/"++atom_to_list(See)}], Content}.
+         {rel,<<"https://erlang.org/doc/link/",(atom_to_binary(See))/binary>>}], Content}.
 
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
@@ -772,3 +775,6 @@ find_spec(AST, Func, Arity) ->
             io:format("Could not find spec for ~p/~p~n",[Func,Arity]),
             exit(1)
     end.
+
+a2b(Attrs) ->
+    [{Tag,unicode:characters_to_binary(Value)} || {Tag,Value} <- Attrs].

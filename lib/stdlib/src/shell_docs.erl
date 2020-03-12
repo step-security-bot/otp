@@ -89,7 +89,10 @@ validate({Tag,Attr,Content}) ->
         true ->
             ok
     end,
-    true = is_list(Attr),
+    case lists:all(fun({Key,Val}) -> is_atom(Key) andalso is_binary(Val) end,Attr) of
+        true -> ok;
+        false -> throw({invalid_attribute,{Tag,Attr}})
+    end,
     validate(Content);
 validate([Chars | T]) when is_binary(Chars) ->
     validate(T);
