@@ -603,14 +603,6 @@ transform_datatype(Dom,_Acc) ->
 transform_see({See,[{marker,Marker}],Content}) ->
     {a, [{href,Marker},{rel,"https://erlang.org/doc/link/"++atom_to_list(See)}], Content}.
 
-stringmap(Fun,String) ->
-    case string:next_grapheme(String) of
-        [GC | T ] ->
-            [Fun(GC) | stringmap(Fun,T)];
-        [] ->
-            []
-    end.
-
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
 
