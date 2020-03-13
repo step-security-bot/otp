@@ -38,12 +38,46 @@
 
     <p><c>erl_prim_loader</c> knows about the environment and how to
       fetch modules.</p>
-
-    <p>Command-line flag <c>-loader Loader</c> can be used to
-      choose the method used by <c>erl_prim_loader</c>. Two
-      <c>Loader</c> methods are supported by the Erlang runtime system:
-      <c>efile</c> and <c>inet</c>.</p>
   </description>
+
+  <section>
+    <title>Command-Line Flags</title>
+    <p>The <c>erl_prim_loader</c> module interprets the following
+    command-line flags:</p>
+
+    <taglist>
+      <tag><c>-loader Loader</c></tag>
+      <item>
+        <p>Specifies the name of the loader used by
+        <c>erl_prim_loader</c>. <c>Loader</c> can be <c>efile</c>
+        (use the local file system) or <c>inet</c> (load using
+        the <c>boot_server</c> on another Erlang node).</p>
+        <p>If flag <c>-loader</c> is omitted, it defaults to
+        <c>efile</c>.</p>
+      </item>
+      <tag><c>-loader_debug</c></tag>
+      <item>
+        <p>Makes the <c>efile</c> loader write some debug information,
+        such as the reason for failures, while it handles files.</p>
+      </item>
+      <tag><c>-hosts Hosts</c></tag>
+      <item>
+        <p>Specifies which other Erlang nodes the <c>inet</c> loader
+        can use. This flag is mandatory if flag <c>-loader inet</c>
+        is present. On each host, there must be on Erlang node
+        with the <seeerl marker="kernel:erl_boot_server">
+        <c>erl_boot_server(3)</c></seeerl>,
+        which handles the load requests.
+        <c>Hosts</c> is a list of IP addresses (hostnames
+        are not acceptable).</p>
+      </item>
+      <tag><c>-setcookie Cookie</c></tag>
+      <item>
+        <p>Specifies the cookie of the Erlang runtime system. This flag
+        is mandatory if flag <c>-loader inet</c> is present.</p>
+      </item>
+    </taglist>
+  </section>
 
   <funcs>
     <func>
@@ -140,45 +174,6 @@
       </desc>
     </func>
   </funcs>
-
-  <section>
-    <title>Command-Line Flags</title>
-    <p>The <c>erl_prim_loader</c> module interprets the following
-      command-line flags:</p>
-
-    <taglist>
-      <tag><c>-loader Loader</c></tag>
-      <item>
-        <p>Specifies the name of the loader used by
-          <c>erl_prim_loader</c>. <c>Loader</c> can be <c>efile</c>
-          (use the local file system) or <c>inet</c> (load using
-          the <c>boot_server</c> on another Erlang node).</p>
-        <p>If flag <c>-loader</c> is omitted, it defaults to
-          <c>efile</c>.</p>
-      </item>
-      <tag><c>-loader_debug</c></tag>
-      <item>
-          <p>Makes the <c>efile</c> loader write some debug information,
-            such as the reason for failures, while it handles files.</p>
-      </item>
-      <tag><c>-hosts Hosts</c></tag>
-      <item>
-        <p>Specifies which other Erlang nodes the <c>inet</c> loader
-          can use. This flag is mandatory if flag <c>-loader inet</c>
-          is present. On each host, there must be on Erlang node
-          with the <seeerl marker="kernel:erl_boot_server">
-          <c>erl_boot_server(3)</c></seeerl>,
-          which handles the load requests.
-          <c>Hosts</c> is a list of IP addresses (hostnames
-          are not acceptable).</p>
-      </item>
-      <tag><c>-setcookie Cookie</c></tag>
-      <item>
-        <p>Specifies the cookie of the Erlang runtime system. This flag
-          is mandatory if flag <c>-loader inet</c> is present.</p>
-      </item>
-    </taglist>
-  </section>
 
   <section>
     <title>See Also</title>

@@ -1035,7 +1035,7 @@
     </func>
 
   </funcs>
-  <section>
+  <example>
     <title>Examples</title>
     <marker id="examples"></marker>
     <code type="none">
@@ -1065,5 +1065,5 @@ server(Addr, Port) ->
    ok = socket:close(Sock),
    ok = socket:close(LSock).
     </code>
-  </section>
+  </example>
 </erlref>

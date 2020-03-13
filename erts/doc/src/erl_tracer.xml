@@ -53,6 +53,69 @@
         sorts of strange behavior, including, but not limited to, infinite
         recursions.</p>
     </warning>
+
+    <section>
+      <title>Callback Functions</title>
+      <p>The following functions are to be exported from an <c>erl_tracer</c>
+      callback module:</p>
+
+      <taglist>
+        <tag><seemfa marker="#Module:enabled/3">
+        <c>Module:enabled/3</c></seemfa></tag>
+        <item>Mandatory</item>
+        <tag><seemfa marker="#Module:trace/5">
+        <c>Module:trace/5</c></seemfa></tag>
+        <item>Mandatory</item>
+        <tag><seemfa marker="#Module:enabled_call/3">
+        <c>Module:enabled_call/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_call/5">
+        <c>Module:trace_call/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_garbage_collection/3">
+        <c>Module:enabled_garbage_collection/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_garbage_collection/5">
+        <c>Module:trace_garbage_collection/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_ports/3">
+        <c>Module:enabled_ports/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_ports/5">
+        <c>Module:trace_ports/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_procs/3">
+        <c>Module:enabled_procs/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_procs/5">
+        <c>Module:trace_procs/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_receive/3">
+        <c>Module:enabled_receive/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_receive/5">
+        <c>Module:trace_receive/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_running_ports/3">
+        <c>Module:enabled_running_ports/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_running_ports/5">
+        <c>Module:trace_running_ports/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_running_procs/3">
+        <c>Module:enabled_running_procs/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_running_procs/5">
+        <c>Module:trace_running_procs/5</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:enabled_send/3">
+        <c>Module:enabled_send/3</c></seemfa></tag>
+        <item>Optional</item>
+        <tag><seemfa marker="#Module:trace_send/5">
+        <c>Module:trace_send/5</c></seemfa></tag>
+        <item>Optional</item>
+      </taglist>
+    </section>
   </description>
 
   <datatypes>
@@ -130,70 +193,7 @@
     </datatype>
   </datatypes>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions are to be exported from an <c>erl_tracer</c>
-      callback module:</p>
-
-    <taglist>
-      <tag><seemfa marker="#Module:enabled/3">
-        <c>Module:enabled/3</c></seemfa></tag>
-      <item>Mandatory</item>
-      <tag><seemfa marker="#Module:trace/5">
-        <c>Module:trace/5</c></seemfa></tag>
-      <item>Mandatory</item>
-      <tag><seemfa marker="#Module:enabled_call/3">
-        <c>Module:enabled_call/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_call/5">
-        <c>Module:trace_call/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_garbage_collection/3">
-        <c>Module:enabled_garbage_collection/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_garbage_collection/5">
-        <c>Module:trace_garbage_collection/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_ports/3">
-        <c>Module:enabled_ports/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_ports/5">
-        <c>Module:trace_ports/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_procs/3">
-        <c>Module:enabled_procs/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_procs/5">
-        <c>Module:trace_procs/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_receive/3">
-        <c>Module:enabled_receive/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_receive/5">
-        <c>Module:trace_receive/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_running_ports/3">
-        <c>Module:enabled_running_ports/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_running_ports/5">
-        <c>Module:trace_running_ports/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_running_procs/3">
-        <c>Module:enabled_running_procs/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_running_procs/5">
-        <c>Module:trace_running_procs/5</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:enabled_send/3">
-        <c>Module:enabled_send/3</c></seemfa></tag>
-      <item>Optional</item>
-      <tag><seemfa marker="#Module:trace_send/5">
-        <c>Module:trace_send/5</c></seemfa></tag>
-      <item>Optional</item>
-   </taglist>
-  </section>
-
-  <funcs>
+  <callbacks>
     <func>
       <name since="OTP 19.0">Module:enabled(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
@@ -629,9 +629,9 @@
           is called instead.</p>
       </desc>
     </func>
-  </funcs>
+  </callbacks>
 
-  <section>
+  <example>
     <marker id="example"></marker>
     <title>Erl Tracer Module Example</title>
     <p>In this example, a tracer module with a NIF back end sends a
@@ -777,5 +777,5 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     return enif_make_atom(env, "ok");
 }</pre>
-  </section>
+  </example>
 </erlref>
