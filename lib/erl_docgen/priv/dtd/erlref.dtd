@@ -22,8 +22,8 @@
 <!ENTITY % common.refs SYSTEM "common.refs.dtd" >
 %common.refs;
 
-<!ELEMENT erlref              (header,module,modulesummary,description, 
-			       (section|funcs|datatypes)*,authors?) >
+<!ELEMENT erlref              (header,module,modulesummary,description,section*,
+			       datatypes?,(funcs|callbacks),callbacks?,section*,seealso?,authors?) >
 <!ELEMENT module              (#PCDATA) >
 <!ATTLIST module               since CDATA #IMPLIED>
 <!ELEMENT modulesummary       (#PCDATA) >

@@ -25,9 +25,10 @@
 <!ENTITY % common.header SYSTEM "common.header.dtd" >
 %common.header;
 
-<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do|section)* >
 <!ATTLIST description          ghlink CDATA #IMPLIED>
 <!ELEMENT funcs               (func)+ >
+<!ELEMENT callbacks           (func)+ >
 <!ELEMENT func                (name+,fsummary,(type|type_desc)*,desc?) >
 <!ATTLIST func                 ghlink CDATA #IMPLIED>
 <!-- ELEMENT name is defined in each ref dtd -->
@@ -42,9 +43,14 @@
 <!ELEMENT authors             (aname,email)+ >
 <!ELEMENT aname               (#PCDATA) >
 <!ELEMENT email               (#PCDATA) >
-<!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
-                               warning|note|dont|do|section)*) >
+<!ENTITY % section_content    "(marker*,title,(%block;|quote|br|marker|
+                               warning|note|dont|do|section)*)" >
+<!ELEMENT section              %section_content; >
 <!ATTLIST section              ghlink CDATA #IMPLIED>
+<!ELEMENT example              %section_content; >
+<!ATTLIST example              ghlink CDATA #IMPLIED>
+<!ELEMENT seealso              %section_content; >
+<!ATTLIST seealso              ghlink CDATA #IMPLIED>
 <!ELEMENT datatypes           (datatype_title?,datatype)+ >
 <!ELEMENT datatype_title      (#PCDATA) >
 <!ELEMENT datatype            (name+,desc?) >

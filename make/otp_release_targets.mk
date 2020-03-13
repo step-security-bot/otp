@@ -174,7 +174,7 @@ ifneq ($(filter-out $(ALL_XI_INC_GEN_FILES),$(filter %.xml,$(XML_GEN_FILES))),)
 	$(error "$(filter-out $(ALL_XI_INC_GEN_FILES),$(filter %.xml,$(XML_GEN_FILES))) in $$XML_GEN_FILES but not in $$ALL_XI_INC_FILES");
 endif
 	@echo "xmllint $(LINT_XI_INC_GEN_FILES)"
-	@xmllint --noout --valid --nodefdtd --loaddtd --path \
+	-@xmllint --noout --valid --nodefdtd --loaddtd --path \
 	$(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities:$(XMLLINT_SRCDIRS) \
 	$(LINT_XI_INC_GEN_FILES)
 
