@@ -294,12 +294,12 @@ A transport must exit if a handshake is not successful.</p>
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_tcp;, &man_sctp;</p>
 
-</section>
+</seealso>
 
 </erlref>

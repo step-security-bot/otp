@@ -1504,10 +1504,10 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>calendar(3), erlc(1) </p>
-  </section>
+  </seealso>
 
   
 </erlref>

@@ -1554,13 +1554,13 @@ Evaluates a predefined analysis.
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title><p>
       <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>,
       <seeerl marker="stdlib:digraph">digraph(3)</seeerl>,
       <seeerl marker="stdlib:digraph_utils">digraph_utils(3)</seeerl>,
       <seeerl marker="stdlib:re">re(3)</seeerl>,
       <seeguide marker="xref_chapter">TOOLS User's Guide</seeguide></p>
-  </section>
+  </seealso>
 </erlref>
 

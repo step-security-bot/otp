@@ -181,11 +181,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>ets(3), dets(3), snmp_generic(3)
       </p>
-  </section>
+  </seealso>
   
 </erlref>
 

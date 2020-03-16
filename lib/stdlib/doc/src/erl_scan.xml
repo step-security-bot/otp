@@ -321,10 +321,10 @@ Module:format_error(ErrorDescriptor)</code>
       Williams: 'Concurrent Programming in Erlang', Chapter 13.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="erl_anno"><c>erl_anno(3)</c></seeerl>,
       <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
       <seeerl marker="io"><c>io(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>

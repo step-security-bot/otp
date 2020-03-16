@@ -908,11 +908,11 @@ create_file_slow(FD, M, N) ->
       it will appear as functions randomly burn virtual machine time.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>dbg(3), <seeerl marker="eprof">eprof</seeerl>(3), erlang(3), 
       io(3), 
       <seeguide marker="fprof_chapter">Tools User's Guide</seeguide></p>
-  </section>
+  </seealso>
 </erlref>
 

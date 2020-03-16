@@ -155,11 +155,11 @@
       at other places than expressions.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>,
       <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
       <seeerl marker="io"><c>io(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

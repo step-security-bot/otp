@@ -670,13 +670,11 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
   </funcs>
 
-  <section>
+  <callbacks><description>
     <title>Callback Functions</title>
     <p>The following function must be exported from a
       <c>supervisor</c> callback module.</p>
-  </section>
-
-  <funcs>
+  </description>
     <func>
       <name since="">Module:init(Args) -> Result</name>
       <fsummary>Return a supervisor specification.</fsummary>
@@ -720,14 +718,14 @@ child_spec() = #{id => child_id(),       % mandatory
           a Supervisor</seeguide> in OTP Design Principles.</p>
       </desc>
     </func>
-  </funcs>
+  </callbacks>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>, 
       <seeerl marker="gen_statem"><c>gen_statem(3)</c></seeerl>,
       <seeerl marker="gen_server"><c>gen_server(3)</c></seeerl>, 
       <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

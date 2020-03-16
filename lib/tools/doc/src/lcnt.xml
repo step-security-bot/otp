@@ -527,8 +527,8 @@
 	</func>
     </funcs>
 
-    <section>
+    <seealso>
 	<title>See Also</title>
 	<p> <seeguide marker="lcnt_chapter">LCNT User's Guide</seeguide></p>
-    </section>
+    </seealso>
 </erlref>

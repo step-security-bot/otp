@@ -125,13 +125,11 @@
     </func>
   </funcs>
 
-  <section>
+  <callbacks><description>
     <title>Callback Functions</title>
     <p>The following functions must be exported from a
       <c>supervisor_bridge</c> callback module.</p>
-  </section>
-
-  <funcs>
+  </description>
     <func>
       <name since="">Module:init(Args) -> Result</name>
       <fsummary>Initialize process and start subsystem.</fsummary>
@@ -184,12 +182,12 @@
           <c>Module:init/1</c>.</p>
       </desc>
     </func>
-  </funcs>
+  </callbacks>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="supervisor"><c>supervisor(3)</c></seeerl>, 
       <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

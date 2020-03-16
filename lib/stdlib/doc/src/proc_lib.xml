@@ -472,12 +472,12 @@ init(Parent) ->
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="kernel:error_logger">
       <c>error_logger(3)</c></seeerl></p>
     <p><seeerl marker="kernel:logger">
       <c>logger(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

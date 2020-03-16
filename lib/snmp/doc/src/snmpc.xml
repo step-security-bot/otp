@@ -272,11 +272,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>erlc(1)
       </p>
-  </section>
+  </seealso>
   
 </erlref>
 

@@ -180,12 +180,12 @@ the buffer size.</p>
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_main;, &man_transport;, &gen_sctp;, &inet;</p>
 
-</section>
+</seealso>
 
 </erlref>

@@ -243,12 +243,12 @@ ok</code>
 
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>
       <seeerl marker="logger"><c>logger(3)</c></seeerl>
     </p>
-  </section>
+  </seealso>
 </erlref>
 
 

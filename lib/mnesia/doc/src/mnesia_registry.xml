@@ -90,11 +90,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeapp marker="erl_interface:index">erl_interface(3)</seeapp>,
       <seeerl marker="mnesia:mnesia">mnesia(3)</seeerl></p>
-  </section>
+  </seealso>
 
 </erlref>
 

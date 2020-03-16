@@ -92,11 +92,11 @@
       </desc>
     </func>
   </funcs>
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><seeerl marker="erts:init"><c>erts:init(3)</c></seeerl>,
       <seeerl marker="erts:erl_prim_loader"><c>erts:erl_prim_loader(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 
 

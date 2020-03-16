@@ -310,10 +310,10 @@ update_counter(Key, Incr, D) ->
       be in the dictionary, otherwise function <c>find/2</c>.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="dict"><c>dict(3)</c></seeerl>,
       <seeerl marker="gb_trees"><c>gb_trees(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

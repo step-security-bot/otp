@@ -526,9 +526,9 @@ line_of(Token) ->
 lib/parsetools/include/yeccpre.hrl    </code>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>Aho &amp; Johnson: 'LR Parsing', ACM Computing Surveys, vol. 6:2, 1974.</p>
-  </section>
+  </seealso>
 </erlref>
 

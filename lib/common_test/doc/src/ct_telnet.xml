@@ -603,10 +603,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
       <p><seeerl marker="unix_telnet"><c>unix_telnet</c></seeerl></p>
-  </section>
+  </seealso>
 
 </erlref>
 

@@ -224,12 +224,12 @@ The local address is either returned from&start; or passed in a
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_main;, &man_transport;, &gen_tcp;, &inet;, &ssl;</p>
 
-</section>
+</seealso>
 
 </erlref>

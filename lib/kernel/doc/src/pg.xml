@@ -187,9 +187,9 @@
 
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeapp marker="kernel_app"><c>kernel(6)</c></seeapp></p>
-  </section>
+  </seealso>
 </erlref>
 

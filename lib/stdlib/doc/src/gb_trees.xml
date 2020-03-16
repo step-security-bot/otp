@@ -358,10 +358,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="dict"><c>dict(3)</c></seeerl>,
       <seeerl marker="gb_sets"><c>gb_sets(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

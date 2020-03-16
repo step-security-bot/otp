@@ -465,11 +465,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="gb_trees"><c>gb_trees(3)</c></seeerl>,
       <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl>,
       <seeerl marker="sets"><c>sets(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

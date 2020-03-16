@@ -144,9 +144,9 @@
       <c>disk_log</c>.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="disk_log"><c>disk_log(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

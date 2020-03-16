@@ -385,10 +385,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
   <title>See Also</title>
     <p><seeerl marker="int"><c>int(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 
 

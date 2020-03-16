@@ -977,7 +977,7 @@ pi() -> 3.1416.
 Module:format_error(ErrorDescriptor)</code>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>
       <seeerl marker="stdlib:epp">epp(3)</seeerl>,
@@ -985,6 +985,6 @@ Module:format_error(ErrorDescriptor)</code>
       <seeerl marker="stdlib:erl_lint">erl_lint(3)</seeerl>,
       <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>
     </p>
-  </section>
+  </seealso>
 </erlref>
 

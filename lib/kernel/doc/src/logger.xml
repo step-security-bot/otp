@@ -1337,7 +1337,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>
       <seefile marker="config"><c>config(4)</c></seefile>,
@@ -1349,5 +1349,5 @@ logger:set_proxy_config(maps:merge(Old, Config)).
       <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>,
       <seeerl marker="stdlib:unicode"><c>unicode(3)</c></seeerl>
     </p>
-  </section>
+  </seealso>
 </erlref>

@@ -296,9 +296,9 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
       <seeerl marker="erl_scan"><c>erl_scan(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>

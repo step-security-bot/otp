@@ -280,10 +280,10 @@
     </list>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="global"><c>global(3)</c></seeerl>,
       <seecom marker="erts:erl"><c>erl(1)</c></seecom></p>
-  </section>
+  </seealso>
 </erlref>
 

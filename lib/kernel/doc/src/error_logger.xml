@@ -527,13 +527,13 @@ ok</pre>
       <c>Module:handle_info/2</c>, as the event handler must also take care of
       some system-internal messages.</p>
   </section>
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>,
        <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>,
        <seeerl marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seeerl>,
        <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>,
        <seeapp marker="sasl:sasl_app"><c>sasl(6)</c></seeapp></p>
-  </section>
+  </seealso>
 </erlref>
 

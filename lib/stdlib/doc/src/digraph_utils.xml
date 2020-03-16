@@ -401,9 +401,9 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="digraph"><c>digraph(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

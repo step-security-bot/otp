@@ -228,10 +228,10 @@
 
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref>,
       <seecom marker="erts:erl">erl(1)</seecom></p>
-  </section>
+  </seealso>
 </erlref>
 

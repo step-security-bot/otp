@@ -421,13 +421,13 @@ yecc:file(File, Options)</code>
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="filename"><c>filename(3)</c></seeerl>,
       <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl>,
       <seeerl marker="erts:erlang"><c>erlang(3)</c></seeerl>,
       <seeerl marker="parsetools:yecc"><c>yecc(3)</c></seeerl>,
       <seeerl marker="tools:xref"><c>xref(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

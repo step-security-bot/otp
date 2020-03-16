@@ -230,13 +230,13 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See also</title>
     <p><seeerl marker="kernel:error_logger">error_logger(3)</seeerl>,
       <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
     <p><c>syslogd(1M)</c>, <c>syslog.conf(4)</c> in the Solaris
       documentation.</p>
     <p></p>
-  </section>
+  </seealso>
 </erlref>
 

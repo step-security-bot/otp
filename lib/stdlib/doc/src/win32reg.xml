@@ -262,11 +262,11 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><c>erl_posix_msg</c>,
       The Windows 95 Registry (book from O'Reilly),
       Win32 Programmer's Reference (from Microsoft)</p>
-  </section>
+  </seealso>
 </erlref>
 

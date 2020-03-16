@@ -95,11 +95,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeapp marker="os_mon_app">os_mon(6)</seeapp>,
       <seeerl marker="os_sup">os_sup(3)</seeerl></p>
     <p>Windows NT documentation</p>
-  </section>
+  </seealso>
 </erlref>
 

@@ -134,7 +134,7 @@
     </list>
   </section>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <list type="bulleted">
       <item>Richard M. Stallman.  GNU Emacs Manual, chapter "Editing Programs",
@@ -143,6 +143,6 @@
       <item>Anders Lindgren.  The Erlang editing mode for Emacs. Ericsson,
        1998.</item>
     </list>
-  </section>
+  </seealso>
 </erlref>
 

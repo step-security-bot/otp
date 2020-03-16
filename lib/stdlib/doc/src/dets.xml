@@ -1211,11 +1211,11 @@ fun(X) -> {continue, X} end.</pre>
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="ets"><c>ets(3)</c></seeerl>,
       <seeerl marker="mnesia:mnesia"><c>mnesia(3)</c></seeerl>,
       <seeerl marker="qlc"><c>qlc(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

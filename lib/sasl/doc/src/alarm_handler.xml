@@ -119,10 +119,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="kernel:error_logger"><c>error_logger(3)</c></seeerl>,
       <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

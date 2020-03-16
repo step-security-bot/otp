@@ -379,10 +379,10 @@ foo:bar([baz, '1', '2']).</code>
 error</pre>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>, 
       <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

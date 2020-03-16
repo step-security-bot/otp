@@ -186,12 +186,12 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><seeerl marker="httpc">httpc(3)</seeerl>,
     <seeerl marker="httpd">httpd(3)</seeerl>
     </p>
-  </section>
+  </seealso>
   
 </erlref>
 

@@ -146,9 +146,9 @@ Modules.
     <p></p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="compiler:compile"><c>compile(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

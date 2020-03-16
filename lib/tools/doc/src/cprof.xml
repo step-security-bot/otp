@@ -284,12 +284,12 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="eprof">eprof</seeerl>(3), 
       <seeerl marker="fprof">fprof</seeerl>(3), 
       erlang(3), 
       <seeguide marker="cprof_chapter">User's Guide</seeguide></p>
-  </section>
+  </seealso>
 </erlref>
 

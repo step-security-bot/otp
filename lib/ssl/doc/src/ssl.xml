@@ -1870,12 +1870,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
    
   </funcs> 
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><seeerl marker="kernel:inet">inet(3)</seeerl> and
       <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>
       <seeerl marker="kernel:gen_udp">gen_udp(3)</seeerl>
     </p>
-  </section>
+  </seealso>
 
 </erlref>

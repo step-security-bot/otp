@@ -575,10 +575,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="digraph_utils"><c>digraph_utils(3)</c></seeerl>,
       <seeerl marker="ets"><c>ets(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

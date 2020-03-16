@@ -969,14 +969,14 @@
     </taglist>
   </section>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><seeerl marker="kernel:file">file(3)</seeerl>
        <seeerl marker="stdlib:filename">filename(3)</seeerl>
        and J. Postel and J. Reynolds: File Transfer Protocol
       (<url href="http://www.ietf.org/rfc/rfc959.txt">RFC 959</url>).
       </p>
-  </section>
+  </seealso>
   
 </erlref>
 

@@ -1170,9 +1170,9 @@
       </desc>
     </func>
   </funcs>
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seecref marker="erts:erl_driver"><c>erts:erl_driver(4)</c></seecref>,
        <seecref marker="erts:driver_entry"><c>erts:driver_entry(4)</c></seecref></p>
-  </section>
+  </seealso>
 </erlref>

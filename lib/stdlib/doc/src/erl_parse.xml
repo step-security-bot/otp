@@ -349,13 +349,13 @@
 Module:format_error(ErrorDescriptor)</code>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="erl_anno"><c>erl_anno(3)</c></seeerl>,
        <seeerl marker="erl_scan"><c>erl_scan(3)</c></seeerl>,
        <seeerl marker="io"><c>io(3)</c></seeerl>,
         section <seeguide marker="erts:absform">The Abstract Format</seeguide>
         in the ERTS User's Guide</p>
-  </section>
+  </seealso>
 </erlref>
 

@@ -547,9 +547,9 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p>code(3), compile(3)</p>
-  </section>
+  </seealso>
 </erlref>
 

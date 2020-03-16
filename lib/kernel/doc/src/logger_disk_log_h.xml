@@ -157,12 +157,12 @@ erl -kernel logger '[{handler,default,logger_disk_log_h,
 
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="logger"><c>logger(3)</c></seeerl>,
       <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>,
       <seeerl marker="disk_log"><c>disk_log(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 
 

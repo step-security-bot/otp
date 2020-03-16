@@ -1747,13 +1747,13 @@ images2(SetOfSets, BinRel) ->
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="dict"><c>dict(3)</c></seeerl>,
       <seeerl marker="digraph"><c>digraph(3)</c></seeerl>,
       <seeerl marker="orddict"><c>orddict(3)</c></seeerl>,
       <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl>,
       <seeerl marker="sets"><c>sets(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

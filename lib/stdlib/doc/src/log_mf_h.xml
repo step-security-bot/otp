@@ -78,10 +78,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>,
       <seeerl marker="sasl:rb"><c>rb(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

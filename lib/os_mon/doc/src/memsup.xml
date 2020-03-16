@@ -320,10 +320,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>,
       <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
-  </section>
+  </seealso>
 </erlref>
 

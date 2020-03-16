@@ -341,10 +341,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="global_group"><c>global_group(3)</c></seeerl>,
       <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

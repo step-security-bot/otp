@@ -225,7 +225,7 @@
     
   </funcs>
   
-  <section>
+  <callbacks><description>
     <title>Callback Functions</title>
     <p>
       The following functions are to be exported from a
@@ -239,9 +239,7 @@
       If the time-out occurs, <seemfa marker="#Module:handle_msg/2">handle_msg/2</seemfa>
       is called as <c>handle_msg(timeout, State)</c>.</p>
     </section>
-  </section>
-
-  <funcs>
+  </description>
     <func>
       <name since="OTP 21.0">Module:code_change(OldVsn, State, Extra) -> {ok,
       NewState}</name>
@@ -434,6 +432,6 @@
       </desc>
     </func>
     
-  </funcs>
+  </callbacks>
   
 </erlref>

@@ -124,11 +124,11 @@
     </func>
    </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
       <p><seeerl marker="ct"><c>ct</c></seeerl>,
         <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl></p>
-  </section>
+  </seealso>
 
 </erlref>
 

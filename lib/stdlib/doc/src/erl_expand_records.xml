@@ -53,10 +53,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>Section <seeguide marker="erts:absform">The Abstract Format</seeguide>
       in ERTS User's Guide.</p>
-  </section>
+  </seealso>
 </erlref>
 

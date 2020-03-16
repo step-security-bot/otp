@@ -87,10 +87,10 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>error_logger(3)</p>
-  </section>
+  </seealso>
   
 </erlref>
 

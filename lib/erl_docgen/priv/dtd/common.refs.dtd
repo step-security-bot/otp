@@ -25,10 +25,10 @@
 <!ENTITY % common.header SYSTEM "common.header.dtd" >
 %common.header;
 
-<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do|section)* >
+<!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do|title)* >
 <!ATTLIST description          ghlink CDATA #IMPLIED>
-<!ELEMENT funcs               (func)+ >
-<!ELEMENT callbacks           (func)+ >
+<!ELEMENT funcs               (description?,func+) >
+<!ELEMENT callbacks           (description?,func+) >
 <!ELEMENT func                (name+,fsummary,(type|type_desc)*,desc?) >
 <!ATTLIST func                 ghlink CDATA #IMPLIED>
 <!-- ELEMENT name is defined in each ref dtd -->

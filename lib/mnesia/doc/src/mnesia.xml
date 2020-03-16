@@ -3028,7 +3028,7 @@ raise(Name, Amount) ->
       default value is chosen.</p>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="kernel:application">application(3)</seeerl>,
       <seeerl marker="stdlib:dets">dets(3)</seeerl>,
@@ -3036,7 +3036,7 @@ raise(Name, Amount) ->
       <seeerl marker="stdlib:ets">ets(3)</seeerl>,
       <seeerl marker="mnesia:mnesia_registry">mnesia_registry(3)</seeerl>,
       <seeerl marker="stdlib:qlc">qlc(3)</seeerl></p>
-  </section>
+  </seealso>
   
 </erlref>
 

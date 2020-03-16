@@ -383,12 +383,12 @@ Encode a Diameter message.
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
 
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_compile;, &man_app;, &man_dict;, &man_make;</p>
 
-</section>
+</seealso>
 
 </erlref>

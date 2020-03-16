@@ -1456,7 +1456,7 @@ ets:match_spec_run(
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="dets"><c>dets(3)</c></seeerl>,
       <seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>,
@@ -1471,5 +1471,5 @@ ets:match_spec_run(
         Erlang Reference Manual</seeguide>,
       <seeguide marker="system/programming_examples:index">
         Programming Examples</seeguide></p>
-  </section>
+  </seealso>
 </erlref>

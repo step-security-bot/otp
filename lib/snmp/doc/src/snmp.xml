@@ -642,11 +642,11 @@
 
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>calendar(3)
       </p>
-  </section>
+  </seealso>
   
 </erlref>
 

@@ -665,13 +665,11 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
   </funcs>
 
-  <section>
+  <callbacks><description>
     <title>Callback Functions</title>
     <p>The following functions
       are to be exported from a <c>gen_server</c> callback module.</p>
-  </section>
-
-  <funcs>
+  </description>
     <func>
       <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
@@ -1029,15 +1027,15 @@ gen_server:abcast     -----> Module:handle_cast/2
           <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
       </desc>
     </func>
-  </funcs>
+  </callbacks>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>,
       <seeerl marker="gen_statem"><c>gen_statem(3)</c></seeerl>,
       <seeerl marker="proc_lib"><c>proc_lib(3)</c></seeerl>,
       <seeerl marker="supervisor"><c>supervisor(3)</c></seeerl>,
       <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 

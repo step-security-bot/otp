@@ -236,12 +236,12 @@ Unrecognized options are silently ignored.</p>
 
 <!-- ===================================================================== -->
 
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_compile;, &man_dict;</p>
 
-</section>
+</seealso>
 
 </erlref>

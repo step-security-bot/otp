@@ -2288,12 +2288,12 @@ Unsubscribe to event messages from a service.</p>
 
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
-<section>
+<seealso>
 <title>SEE ALSO</title>
 
 <p>
 &man_app;, &man_transport;, &man_dict;</p>
 
-</section>
+</seealso>
 
 </erlref>

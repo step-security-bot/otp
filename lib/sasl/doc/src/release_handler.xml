@@ -809,7 +809,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </taglist>
   </section>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeguide marker="system/design_principles:index">OTP Design Principles</seeguide>,
       <seefile marker="kernel:config"><c>config(4)</c></seefile>,
@@ -818,5 +818,5 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       <seefile marker="script"><c>script(4)</c></seefile>,
       <seeerl marker="stdlib:sys"><c>sys(3)</c></seeerl>,
       <seeerl marker="systools"><c>systools(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>

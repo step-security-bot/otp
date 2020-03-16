@@ -336,7 +336,7 @@ exit_reason: "It crashed"</code>
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p>
       <seeerl marker="stdlib:calendar"><c>calendar(3)</c></seeerl>,
@@ -348,7 +348,7 @@ exit_reason: "It crashed"</code>
       <seeapp marker="sasl:sasl_app"><c>sasl(6)</c></seeapp>,
       <seeerl marker="stdlib:unicode"><c>unicode(3)</c></seeerl>
     </p>
-  </section>
+  </seealso>
 </erlref>
 
 

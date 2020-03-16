@@ -1178,13 +1178,13 @@ Transport: TLS
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
     <seeerl marker="inets">inets(3)</seeerl>,
     <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
-  </section>
+  </seealso>
 
 </erlref>
 

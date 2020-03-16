@@ -287,11 +287,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>SEE ALSO</title>
     <p><seeerl marker="httpd">httpd(3)</seeerl>,
       <seeerl marker="mod_alias">mod_alias(3)</seeerl></p>
-  </section>
+  </seealso>
   
 </erlref>
 

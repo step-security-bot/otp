@@ -175,11 +175,11 @@
     </func>
   </funcs>
 
-  <section>
+  <seealso>
     <title>See Also</title>
     <p><seeerl marker="init"><c>init(3)</c></seeerl>,
       <seeerl marker="kernel:erl_boot_server">
       <c>erl_boot_server(3)</c></seeerl></p>
-  </section>
+  </seealso>
 </erlref>
 
