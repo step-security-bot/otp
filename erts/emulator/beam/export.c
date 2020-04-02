@@ -28,6 +28,8 @@
 #include "export.h"
 #include "hash.h"
 
+#include "beam_asm.h"
+
 #define EXPORT_INITIAL_SIZE   4000
 #define EXPORT_LIMIT  (512*1024)
 

@@ -49,6 +49,8 @@
 #  include "hipe_stack.h"
 #endif
 
+#include "beam_asm.h"
+
 static struct {
     Eterm module;
     erts_mtx_t mtx;
