@@ -2426,6 +2426,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     funp->creator = p->common.id;
     funp->arity = (int)fe->address[-1] - num_free;
     for (i = 0; i < num_free; i++) {
+        ASSERT(size_object(reg[i]) < 0xFFFFFF);
 	*hp++ = reg[i];
     }
     return make_fun(funp);

@@ -112,8 +112,6 @@ void BeamModuleAssembler::emit_update_map_assoc(ArgVal Src, ArgVal Dst, ArgVal L
     call((uint64_t)erts_gc_update_map_assoc);
     mov(Dst, RET);
 
-    a.hlt();
-
     emit_heavy_swapin();
 }
 

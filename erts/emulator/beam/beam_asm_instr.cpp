@@ -107,6 +107,29 @@ void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
 
 /* Instrs */
 
+void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
+    a.push(x86::rbx);
+    a.push(x86::rbp);
+    a.push(x86::r12);
+    a.push(x86::r13);
+    a.push(x86::r14);
+    a.push(x86::r15);
+
+    for(unsigned i = 0; i < Arity.getValue(); i++) {
+        a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
+        a.mov(ARG2, (uint64_t)NULL);
+        a.mov(RET, (uint64_t)size_object_x);
+        a.call(RET);
+    }
+
+    a.pop(x86::r15);
+    a.pop(x86::r14);
+    a.pop(x86::r13);
+    a.pop(x86::r12);
+    a.pop(x86::rbp);
+    a.pop(x86::rbx);
+}
+
 void BeamModuleAssembler::emit_allocate_heap(ArgVal NeedStack, ArgVal NeedHeap, ArgVal Live, Instruction *Inst) {
   ArgVal needed = NeedStack + 1;
   emit_gc_test(needed, NeedHeap, Live);
@@ -645,7 +668,7 @@ void BeamModuleAssembler::emit_move_src_window4(ArgVal Src, ArgVal D1, ArgVal D2
   mov(D1, TMP1);
   mov(D2, TMP2);
   mov(D3, TMP3);
-  mov(D3, TMP4);
+  mov(D4, TMP4);
 }
 
 void BeamModuleAssembler::emit_move_window2(ArgVal S1, ArgVal S2, ArgVal D, Instruction *Inst) {

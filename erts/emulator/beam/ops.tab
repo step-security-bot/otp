@@ -975,9 +975,11 @@ move S=c x==0 | call_ext Ar=u Func=u$is_not_bif => i_move_call_ext S Func
 move S=c x==0 | call_ext_last Ar=u Func=u$is_not_bif D => i_move_call_ext_last Func D S
 move S=c x==0 | call_ext_only Ar=u Func=u$is_not_bif => i_move_call_ext_only Func S
 
-call_ext Ar Func        => i_call_ext Func
-call_ext_last Ar Func D => i_call_ext_last Func D
-call_ext_only Ar Func   => i_call_ext_only Func
+call_ext Ar Func        => i_validate Ar | i_call_ext Func
+call_ext_last Ar Func D => i_validate Ar | i_call_ext_last Func D
+call_ext_only Ar Func   => i_validate Ar | i_call_ext_only Func
+
+i_validate t
 
 i_apply
 i_apply_last Q
@@ -1076,9 +1078,9 @@ move S=cx x==0 | call_only Ar P=f => move_call_only S P
 move_call_only/2
 move_call_only cx f
 
-call Ar Func        => i_call Func
-call_last Ar Func D => i_call_last Func D
-call_only Ar Func   => i_call_only Func
+call Ar Func        => i_validate Ar | i_call Func
+call_last Ar Func D => i_validate Ar | i_call_last Func D
+call_only Ar Func   => i_validate Ar | i_call_only Func
 
 i_call f
 i_call_last f Q
@@ -1094,8 +1096,8 @@ i_move_call_ext_only e c
 
 # Fun calls.
 
-call_fun Arity | deallocate D | return => i_call_fun_last Arity D
-call_fun Arity => i_call_fun Arity
+call_fun Arity | deallocate D | return => i_validate Arity | i_call_fun_last Arity D
+call_fun Arity => i_validate Arity | i_call_fun Arity
 
 i_call_fun t
 i_call_fun_last t Q

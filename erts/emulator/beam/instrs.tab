@@ -26,6 +26,12 @@
 // the layout of stack frames.
 //
 
+i_validate(Arity) {
+    (void)$Arity;
+}
+
+x64.i_validate(Arity);
+
 allocate(NeedStack, Live) {
     $AH($NeedStack, 0, $Live);
 }

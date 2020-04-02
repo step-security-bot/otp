@@ -98,7 +98,6 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
   a.section(rodata);
   a.bind(label);
 
-  comment("Dumping instruction data");
   for(int i = index; i < (index + count); i++) {
       ArgVal &arg = instr->args[i];
 
@@ -106,8 +105,6 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
           BeamInstr as_beam;
           char as_char[1];
       } data;
-
-      comment("\t%i, %p", arg.getType(), arg.getValue());
 
       switch (arg.getType()) {
           case TAG_x:
