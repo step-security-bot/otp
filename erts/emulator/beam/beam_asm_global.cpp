@@ -210,7 +210,7 @@ void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
     a.mov(ARG1, c_p);
     a.mov(ARG2, x86::qword_ptr(I));
     a.mov(ARG3, x_reg);
-    make_patch(ARG4, imports[exp.getValue()].patches);
+    make_move_patch(ARG4, imports[exp.getValue()].patches);
     call((uint64_t)handle_error);
     a.jmp(ga->get_post_error_handling());
 }

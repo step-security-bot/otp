@@ -83,6 +83,62 @@ void BeamModuleAssembler::embed_rodata(char *labelName, char *buff, size_t size)
   a.section(code.textSection());
 }
 
+Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int count) {
+  Label label = a.newLabel();
+
+  if (!rodata) {
+    Error err = code.newSection(
+      &rodata,
+      ".rodata",           // Section name
+      SIZE_MAX,            // Name length if the name is not null terminated (or SIZE_MAX).
+      Section::kFlagConst, // Section flags, see Section::Flags.
+      8);                  // Section alignment, must be power of 2.
+  }
+
+  a.section(rodata);
+  a.bind(label);
+
+  comment("Dumping instruction data");
+  for(int i = index; i < (index + count); i++) {
+      ArgVal &arg = instr->args[i];
+
+      union {
+          BeamInstr as_beam;
+          char as_char[1];
+      } data;
+
+      comment("\t%i, %p", arg.getType(), arg.getValue());
+
+      switch (arg.getType()) {
+          case TAG_x:
+            data.as_beam = make_loader_x_reg(arg.getValue());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+          case TAG_y:
+            data.as_beam = make_loader_y_reg(arg.getValue());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+          case TAG_a:
+            data.as_beam = make_atom(arg.getValue());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+          case TAG_i:
+            data.as_beam = make_small(arg.getValue());
+            a.embed(&data.as_char, sizeof(data.as_beam));
+            break;
+          case TAG_q:
+            make_word_patch(literals[arg.getValue()].patches);
+            break;
+          default:
+            ERTS_ASSERT(!"error");
+      }
+  }
+
+  a.section(code.textSection());
+
+  return label;
+}
+
 bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, BeamInstr *I) {
   Instruction i = {specific_op, args, I};
   if (specific_op == op_i_func_info_IaaI) {
@@ -205,10 +261,10 @@ void BeamModuleAssembler::patchImport(unsigned index, BeamInstr I) {
 
   for (auto l : imports[index].patches) {
     /* We patch the movabs instruction with the correct literal */
-    void *pp = getCode(l.where);
-    Eterm *where = (Eterm*)(pp+2);
+    char *pp = reinterpret_cast<char*>(getCode(l.where));
+    Eterm *where = (Eterm*)(pp+l.ptr_offs);
     ASSERT(LLONG_MAX == *where);
-    *where = I + l.offs;
+    *where = I + l.val_offs;
   }
 }
 
@@ -216,17 +272,17 @@ void BeamModuleAssembler::patchLiteral(unsigned index, Eterm lit) {
 
   for (auto l : literals[index].patches) {
     /* We patch the movabs instruction with the correct literal */
-    void *pp = getCode(l.where);
-    Eterm *where = (Eterm*)(pp+2);
+    char *pp = reinterpret_cast<char*>(getCode(l.where));
+    Eterm *where = (Eterm*)(pp+l.ptr_offs);
     ASSERT(LLONG_MAX == *where);
-    *where = lit;
+    *where = lit + l.val_offs;
   }
 }
 
 void BeamModuleAssembler::patchStrings(byte *strtab) {
 
   for (auto s : strings) {
-    void *pp = getCode(s.second.where);
+    char *pp = reinterpret_cast<char*>(getCode(s.second.where));
     byte **where = (byte**)(pp+2);
     ASSERT(LLONG_MAX == (Eterm)*where);
     *where = strtab + s.first;

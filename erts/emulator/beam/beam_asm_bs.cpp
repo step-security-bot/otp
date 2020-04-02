@@ -186,7 +186,7 @@ static bool i_bs_match_string(Eterm Ctx, Uint bits, byte *bytes) {
 void BeamModuleAssembler::emit_i_bs_match_string(ArgVal Ctx, ArgVal Fail, ArgVal Bits, ArgVal Ptr, Instruction *I) {
   mov(ARG1, Ctx);
   a.mov(ARG2, Bits.getValue());
-  make_patch(ARG3, strings[Ptr.getValue()]);
+  make_move_patch(ARG3, strings[Ptr.getValue()]);
   call((uint64_t)i_bs_match_string);
   a.cmp(RET, 0);
   a.je(labels[Fail.getValue()]);

@@ -232,7 +232,7 @@ void BeamModuleAssembler::emit_dispatch_export(ArgVal Exp) {
   a.mov(x86::edi, x86::dword_ptr(TMP1));
 
   /* Load addressv */
-  make_patch(TMP2, imports[Exp.getValue()].patches, offsetof(Export, addressv));
+  make_move_patch(TMP2, imports[Exp.getValue()].patches, offsetof(Export, addressv));
   a.mov(TMP3, x86::qword_ptr(TMP2, x86::edi, 3 /* scale of TMP1 */));
 
   /* Check if we have to yield */

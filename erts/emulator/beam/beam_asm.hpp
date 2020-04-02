@@ -319,7 +319,7 @@ class BeamModuleAssembler : public BeamAssembler {
   typedef std::unordered_map<BeamLabel, Label> LabelMap;
   LabelMap labels;
 
-  struct patch { x86::Gp to; Label where; int64_t offs; };
+  struct patch { Label where; int64_t ptr_offs; int64_t val_offs; };
 
   /* Map of import entry to patch labels and mfa */
   struct patch_import { std::vector<struct patch> patches; ErtsCodeMFA mfa; };
@@ -376,6 +376,7 @@ public:
   void *getCode(Label label);
   byte *getCode(char *labelName);
   void embed_rodata(char *labelName, char *buff, size_t size);
+  Label embed_instr_rodata(Instruction *instr, int index, int count);
   unsigned getCodeSize() { ASSERT(module); return code.codeSize(); }
   void getCodeHeader(BeamCodeHeader **);
   void patchLiteral(unsigned index, Eterm lit);
@@ -468,25 +469,41 @@ private:
     dealloc(1);
   }
 
-  void make_patch(x86::Gp to, struct patch &patches, int64_t offs = 0) {
-    Label patch = a.newLabel();
-    a.bind(patch);
-    patches = {to,patch,offs};
+  void make_move_patch(x86::Gp to, struct patch &patches, int64_t offset = 0) {
+    Label lbl = a.newLabel();
+
+    a.bind(lbl);
     a.mov(to, imm(LLONG_MAX));
+
+    /* Offset of 0x2 = movabs */
+    patches = {lbl, 0x2, offset};
   }
 
-  void make_patch(x86::Gp to, std::vector<struct patch> &patches, int64_t offs = 0) {
-    Label patch = a.newLabel();
-    a.bind(patch);
-    patches.push_back({to,patch,offs});
+  void make_move_patch(x86::Gp to, std::vector<struct patch> &patches, int64_t offset = 0) {
+    Label lbl = a.newLabel();
+
+    a.bind(lbl);
     a.mov(to, imm(LLONG_MAX));
+
+    /* Offset of 0x2 = movabs */
+    patches.push_back({lbl, 0x2, offset});
+  }
+
+  void make_word_patch(std::vector<struct patch> &patches) {
+    Label lbl = a.newLabel();
+    UWord word = LLONG_MAX;
+
+    a.bind(lbl);
+    a.embed(reinterpret_cast<char*>(&word), sizeof(word));
+
+    patches.push_back({lbl, 0, 0});
   }
 
   void mov(x86::Gp to, ArgVal from) {
     if (from.isMem())
       a.mov(to, getRef(from));
     else  if (from.isLiteral()) {
-      make_patch(to, literals[from.getValue()].patches);
+      make_move_patch(to, literals[from.getValue()].patches);
     } else {
       comment("TODO: Optimize move from constant arg to reg");
       a.mov(to, from.getValue());
