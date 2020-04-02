@@ -89,7 +89,6 @@ extern "C" {
     apply->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_apply), ArgVal(ArgVal::i, 3)});
     apply->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
     apply->emit(op_i_apply, {});
-    apply->align();
     apply->emit(op_label_L, {ArgVal(ArgVal::i, 3)});
     apply->emit(op_normal_exit, {});
     apply->codegen();

@@ -686,7 +686,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      int i;
 
      if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
-         c_p->i = beam_exit;
+         c_p->i = beam_exit[0];
          c_p->arity = 0;
          c_p->current = NULL;
          goto do_schedule;

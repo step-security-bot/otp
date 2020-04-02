@@ -282,8 +282,6 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(return)                                     \
   _(garbage_collect)                            \
   _(gc_after_bif)                               \
-  _(normal_exit)                                \
-  _(continue_exit)                              \
   _(post_error_handling)                        \
   _(error_action_code)                          \
   _(call_error_handler)                         \
@@ -292,7 +290,6 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(call_nif)                                   \
   _(dispatch_nif)                               \
   _(call)
-
 
 #define DECL_FUNC(NAME)                         \
   void (*NAME##_code)();                        \

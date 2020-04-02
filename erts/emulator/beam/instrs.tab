@@ -1436,3 +1436,21 @@ call_error_handler() {
 }
 
 x64.call_error_handler();
+
+normal_exit() {
+
+}
+
+x64.normal_exit();
+
+continue_exit() {
+
+}
+
+x64.continue_exit();
+
+error_action_code() {
+
+}
+
+x64.error_action_code();

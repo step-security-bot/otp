@@ -154,27 +154,6 @@ void BeamGlobalAssembler::emit_return() {
     emit_function_postamble(STACK_SLOTS);
 }
 
-void BeamGlobalAssembler::emit_normal_exit() {
-  emit_heavy_swapout();
-  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
-  a.mov(x86::qword_ptr(c_p,offsetof(Process,arity)), 0);
-  a.mov(ARG1,c_p);
-  a.mov(ARG2,imm(am_normal));
-  call((uint64_t)erts_do_exit_process);
-  emit_heavy_swapin();
-  a.mov(RET,RET_do_schedule);
-  a.jmp(this->get_return());
-}
-
-void BeamGlobalAssembler::emit_continue_exit() {
-  emit_heavy_swapout();
-  a.mov(ARG1,c_p);
-  call((uint64_t)erts_continue_exit_process);
-  emit_heavy_swapin();
-  a.mov(RET,RET_do_schedule);
-  a.jmp(this->get_return());
-}
-
 void BeamGlobalAssembler::emit_call_error_handler() {
   emit_heavy_swapout();
   a.mov(ARG1,c_p);

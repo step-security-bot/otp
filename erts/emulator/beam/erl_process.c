@@ -9903,8 +9903,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
         /* if exiting, we *shall* exit... */
         ASSERT(!(state & ERTS_PSFLG_EXITING)
-               || p->i == (BeamInstr *) beam_exit
-               || p->i == (BeamInstr *) beam_continue_exit);
+               || p->i == (BeamInstr *) beam_exit[0]
+               || p->i == (BeamInstr *) beam_continue_exit[0]);
 
 #ifdef DEBUG
         if (is_normal_sched) {
@@ -12526,7 +12526,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
     c_p->freason = EXTAG_EXIT;
     KILL_CATCHES(c_p);
-    c_p->i = (BeamInstr *) beam_exit;
+    c_p->i = (BeamInstr *) beam_exit[0];
 
     /* Always active when exiting... */
     ASSERT(state & ERTS_PSFLG_ACTIVE);
@@ -13718,7 +13718,7 @@ restart:
         p->scheduler_data->free_process = p;
     }
 
-    p->i = (BeamInstr *) beam_continue_exit;
+    p->i = (BeamInstr *) beam_continue_exit[0];
 
     /* Why is this lock take??? */
     if (!(curr_locks & ERTS_PROC_LOCK_STATUS)) {
@@ -13839,11 +13839,11 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
     ErtsCodeMFA *cmfa = find_function_from_pc(x);
     if (cmfa == NULL) {
-        if (x == beam_exit) {
+        if (x == (BeamInstr*)beam_exit[0]) {
             erts_print(to, to_arg, "<terminate process>");
-        } else if (x == beam_continue_exit) {
+        } else if (x == (BeamInstr*)beam_continue_exit[0]) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply[1]) {
+        } else if (x == (BeamInstr*)beam_apply[1]) {
             erts_print(to, to_arg, "<terminate process normally>");
 	} else if (x == 0) {
             erts_print(to, to_arg, "invalid");

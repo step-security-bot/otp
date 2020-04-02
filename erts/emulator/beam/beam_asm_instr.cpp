@@ -30,6 +30,7 @@ extern "C" {
   Eterm call_fun(void);
   Eterm apply_fun(void);
   Eterm new_fun(void);
+  void handle_error(void);
   erts_atomic32_t the_active_code_index;
 }
 
@@ -108,26 +109,26 @@ void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
 /* Instrs */
 
 void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
-    a.push(x86::rbx);
-    a.push(x86::rbp);
-    a.push(x86::r12);
-    a.push(x86::r13);
-    a.push(x86::r14);
-    a.push(x86::r15);
+    // a.push(x86::rbx);
+    // a.push(x86::rbp);
+    // a.push(x86::r12);
+    // a.push(x86::r13);
+    // a.push(x86::r14);
+    // a.push(x86::r15);
 
-    for(unsigned i = 0; i < Arity.getValue(); i++) {
-        a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
-        a.mov(ARG2, (uint64_t)NULL);
-        a.mov(RET, (uint64_t)size_object_x);
-        a.call(RET);
-    }
+    // for(unsigned i = 0; i < Arity.getValue(); i++) {
+    //     a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
+    //     a.mov(ARG2, (uint64_t)NULL);
+    //     a.mov(RET, (uint64_t)size_object_x);
+    //     a.call(RET);
+    // }
 
-    a.pop(x86::r15);
-    a.pop(x86::r14);
-    a.pop(x86::r13);
-    a.pop(x86::r12);
-    a.pop(x86::rbp);
-    a.pop(x86::rbx);
+    // a.pop(x86::r15);
+    // a.pop(x86::r14);
+    // a.pop(x86::r13);
+    // a.pop(x86::r12);
+    // a.pop(x86::rbp);
+    // a.pop(x86::rbx);
 }
 
 void BeamModuleAssembler::emit_allocate_heap(ArgVal NeedStack, ArgVal NeedHeap, ArgVal Live, Instruction *Inst) {
@@ -308,6 +309,42 @@ void BeamModuleAssembler::emit_i_call_ext_last(ArgVal Exp, ArgVal Deallocate, In
 void BeamModuleAssembler::emit_i_move_call_ext_last(ArgVal Exp, ArgVal Deallocate, ArgVal Src, Instruction *Inst) {
   mov(x0, Src);
   emit_i_call_ext_last(Exp, Deallocate);
+}
+
+void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
+  emit_heavy_swapout();
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,arity)), 0);
+  a.mov(ARG1,c_p);
+  a.mov(ARG2,imm(am_normal));
+  call((uint64_t)erts_do_exit_process);
+  emit_heavy_swapin();
+
+  a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
+  a.mov(RET,RET_do_schedule);
+  a.jmp(ga->get_return());
+}
+
+void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
+  emit_heavy_swapout();
+  a.mov(ARG1,c_p);
+  call((uint64_t)erts_continue_exit_process);
+  emit_heavy_swapin();
+
+  a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
+  a.mov(RET,RET_do_schedule);
+  a.jmp(ga->get_return());
+}
+
+// this is an alias for handle_error
+void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, 0);
+  a.mov(ARG3, x_reg);
+  a.mov(ARG4, 0);
+  call((uint64_t)handle_error);
+  a.jmp(ga->get_post_error_handling());
 }
 
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
