@@ -634,7 +634,7 @@ void BeamModuleAssembler::emit_move_src_window3(ArgVal Src, ArgVal D1, ArgVal D2
   mov(TMP3, Src + 2);
   mov(D1, TMP1);
   mov(D2, TMP2);
-  mov(D3, TMP2);
+  mov(D3, TMP3);
 }
 
 void BeamModuleAssembler::emit_move_src_window4(ArgVal Src, ArgVal D1, ArgVal D2, ArgVal D3, ArgVal D4, Instruction *Inst) {
@@ -644,7 +644,7 @@ void BeamModuleAssembler::emit_move_src_window4(ArgVal Src, ArgVal D1, ArgVal D2
   mov(TMP4, Src + 3);
   mov(D1, TMP1);
   mov(D2, TMP2);
-  mov(D3, TMP2);
+  mov(D3, TMP3);
   mov(D3, TMP4);
 }
 
