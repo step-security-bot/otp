@@ -1382,9 +1382,10 @@ void BeamModuleAssembler::emit_if_end(Instruction *Inst) {
 }
 
 void BeamModuleAssembler::emit_catch(ArgVal Y, ArgVal Fail, Instruction *Inst) {
+  BeamInstr **catch_ptr = nullptr;
 
-  catch_no = beam_catches_cons(nullptr, catch_no, nullptr);
-  catches.push_back(std::make_pair(labels[Fail.getValue()],catch_no));
+  catch_no = beam_catches_cons(nullptr, catch_no, &catch_ptr);
+  catches.push_back({labels[Fail.getValue()],catch_no,catch_ptr});
 
   a.inc(x86::qword_ptr(c_p, offsetof(Process, catches)));
   emit_move(ArgVal(ArgVal::i, make_catch(catch_no)), Y);

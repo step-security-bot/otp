@@ -628,6 +628,7 @@ nif_bif.epilogue() {
     goto post_error_handling;
 }
 
+x64.call_bif(Func);
 x64.call_nif(Func, NifMod, DirtyFunc);
 
 i_load_nif() {

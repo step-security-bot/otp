@@ -75,7 +75,7 @@ typedef struct export_
             BeamInstr address;  /* Address of the traced function */
         } trace;
 
-        BeamInstr raw[3];       /* For use in address comparisons, should not
+        BeamInstr raw[5];       /* For use in address comparisons, should not
                                  * be tampered directly. */
     } trampoline;
 } Export;

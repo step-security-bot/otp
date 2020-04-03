@@ -141,9 +141,29 @@ extern "C" {
     return ba->emit(specific_op, args, I);
   }
 
+  BeamInstr *beamasm_emit_trampoline(ErtsCodeMFA *mfa, unsigned specific_op, GenOp *op, int debug) {
+    beamasm_init();
+    if (specific_op == op_call_error_handler) {
+      return (BeamInstr*)call_error_handler->getCode(1);
+    } else {
+      BeamModuleAssembler *ba = new BeamModuleAssembler(rt, bga, mfa->module, 1);
+
+      ba->setDebug(debug);
+
+      ba->embed(&mfa->module,sizeof(mfa->module));
+      ba->embed(&mfa->function,sizeof(mfa->function));
+      ba->embed(&mfa->arity,sizeof(mfa->arity));
+      ba->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+      beamasm_emit(ba, specific_op, op, nullptr);
+      ba->codegen();
+
+      return (BeamInstr*)ba->getCode(1);
+    }
+  }
+
   void
-  beamasm_emit_op(Eterm module, unsigned specific_op, GenOp *op,
-                  char *buff, unsigned buff_len, int debug) {
+  beamasm_emit_patch(Eterm module, unsigned specific_op, GenOp *op,
+                     char *buff, unsigned buff_len, int debug) {
     beamasm_init();
     if (specific_op == op_call_error_handler) {
       ERTS_ASSERT(call_error_handler->getCodeSize() <= buff_len);

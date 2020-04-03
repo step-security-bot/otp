@@ -235,9 +235,13 @@ void *BeamModuleAssembler::codegen() {
   Func module;
   Error err = rt->add(&module,&code);
   ERTS_ASSERT(!err && "Failed to create module");
-//   for (std::pair<Label, BeamInstr**> p : catches) {
-//     *p.second = (BeamInstr*)(((char*)module) + code.labelOffset(p.first));
-//   }
+
+  /* FIXME: */
+  for (auto p : catches) {
+      BeamInstr *addr = (BeamInstr*)(((char*)module) + code.labelOffset(p.label));
+      *p.ptr = addr;
+  }
+
 //   module(labels);
 //   *catch_no = this->catch_no;
   this->module = (void*)module;

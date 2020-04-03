@@ -5241,9 +5241,9 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
                              stp->export[i].arity);
 
         /* Fill in BIF stubs with a proper call to said BIF. */
-        // if (ep->bif_number != -1) {
-        //     erts_write_bif_wrapper(ep, address);
-        // }
+        if (ep->bif_number != -1) {
+            erts_write_bif_wrapper(ep, address);
+        }
 
         if (on_load) {
             /*

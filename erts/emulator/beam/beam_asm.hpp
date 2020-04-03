@@ -272,6 +272,10 @@ public:
     a.ret();
   }
 
+  void embed(void *data, uint32_t size) {
+    a.embed((char*)data, size);
+  }
+
   void align(unsigned alignment = 8) {
     a.align(kAlignCode, alignment);
   }
@@ -288,6 +292,7 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(call_error_handler)                         \
   _(i_func_info)                                \
   _(dbg)                                        \
+  _(call_bif)                                   \
   _(call_nif)                                   \
   _(dispatch_nif)                               \
   _(call)
@@ -325,13 +330,17 @@ class BeamModuleAssembler : public BeamAssembler {
   ImportMap imports;
 
   /* Map of literals to patch labels */
-  struct patch_literal { Eterm preview; std::vector<struct patch> patches; };
+  struct patch_literal { std::vector<struct patch> patches; };
   typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
   LiteralMap literals;
 
   /* Map of strings to patch labels */
   typedef std::unordered_map<unsigned, struct patch> StringMap;
   StringMap strings;
+
+  struct patch_catch { Label label; unsigned no; BeamInstr **ptr; };
+  std::vector<patch_catch> catches;
+  unsigned catch_no = BEAM_CATCHES_NIL;
 
   /* All functions that have been seen so far */
   std::vector<BeamLabel> functions;
@@ -346,9 +355,6 @@ class BeamModuleAssembler : public BeamAssembler {
   } Instruction;
   std::vector<Instruction> instrs;
   Instruction inst; /* Current instruction */
-
-  std::vector<std::pair<Label, unsigned>> catches;
-  unsigned catch_no = BEAM_CATCHES_NIL;
 
   /* Used by emit to populate the labelToMFA map */
   std::vector<ArgVal> currFunction;

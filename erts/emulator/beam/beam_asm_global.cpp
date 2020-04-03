@@ -132,6 +132,8 @@ void BeamGlobalAssembler::emit_call() {
 }
 
 void BeamGlobalAssembler::emit_return() {
+    // Update the process state
+    emit_heavy_swapout();
 
     // Put the BeamAsmContext in TMP1
     a.mov(TMP1, x86::qword_ptr(x86::rsp, (STACK_SLOTS - 7) * 8));
@@ -187,9 +189,10 @@ void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
     /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
     emit_swapout();
     a.mov(ARG1, c_p);
-    a.mov(ARG2, x86::qword_ptr(I));
+    /* FIXME: MOV -> LEA */
+    a.lea(ARG2, x86::qword_ptr(I));
     a.mov(ARG3, x_reg);
-    make_move_patch(ARG4, imports[exp.getValue()].patches);
+    a.mov(ARG4, (uint64_t)&imports[exp.getValue()].mfa);
     call((uint64_t)handle_error);
     a.jmp(ga->get_post_error_handling());
 }

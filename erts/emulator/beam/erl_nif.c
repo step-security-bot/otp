@@ -4383,9 +4383,9 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             op.a[3].val = ci;
 
             if (ci->u.gen_bp == NULL) {
-                beamasm_emit_op(ci->mfa.module,
-                                op_call_nif_WWW, &op, code_ptr,
-                                BEAM_NATIVE_MIN_FUNC_SZ * 8, 0);
+                beamasm_emit_patch(ci->mfa.module,
+                                   op_call_nif_WWW, &op, code_ptr,
+                                   BEAM_NATIVE_MIN_FUNC_SZ * 8, 0);
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		GenericBp* g = ci->u.gen_bp;

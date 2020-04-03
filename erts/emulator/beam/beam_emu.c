@@ -799,12 +799,14 @@ static void install_bifs(void) {
         ep->info.mfa.arity = entry->arity;
         ep->bif_number = i;
 
-        memset(&ep->trampoline, 0, sizeof(ep->trampoline));
-        beamasm_emit_op(ep->info.mfa.module, op_call_error_handler, NULL,
-                        ep->trampoline.raw, sizeof(ep->trampoline), 0);
+        {
+            BeamInstr *trampoline = beamasm_emit_trampoline(&ep->info.mfa, op_call_error_handler, NULL, 0);
 
-        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
-            ep->addressv[j] = ep->trampoline.raw;
+            for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
+                ep->addressv[j] = trampoline;
+            }
+    
+            memset(&ep->trampoline, 0, sizeof(ep->trampoline));
         }
 
         /* Set up a hidden export entry so we can trap to this BIF without

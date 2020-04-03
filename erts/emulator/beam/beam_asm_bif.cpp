@@ -37,10 +37,10 @@ void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
   comment("yield");
   if (!only) {
     cont = a.newLabel();
-    a.mov(RET, x86::qword_ptr(cont));
+    a.lea(RET, x86::qword_ptr(cont));
     mov(CP, RET);
   }
-  a.lea(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
   a.mov(RET,RET_context_switch);
   a.jmp(ga->get_return());
   a.bind(error);
@@ -74,7 +74,9 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.bind(import);
   a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
 
-  a.call(ga->get_gc_after_bif());
+  a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
+  a.mov(TMP1, ga->get_gc_after_bif());
+  a.call(TMP1);
 
   emit_swapin();
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
@@ -99,7 +101,8 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   call(Bif);
 
   a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
-  a.call(ga->get_gc_after_bif());
+  a.mov(TMP1, ga->get_gc_after_bif());
+  a.call(TMP1);
 
   emit_proc_lc_require();
 
@@ -327,6 +330,79 @@ call_nif(Process *c_p, BeamInstr *I, Eterm *reg, NifF *fp, struct erl_module_nif
                                                     reg, bif_nif_arity);
     }
     return nif_bif_result;
+}
+
+
+void BeamGlobalAssembler::emit_call_bif(void)
+{
+  Label check_trap = a.newLabel(), error = a.newLabel();
+
+  /* ARG1 = I (rip), ARG2 = function to be called. */
+
+  /* In case we apply process_info/1,2 or load_nif/1
+   *
+   * c_p->current = codemfa; */
+  a.lea(TMP3, x86::qword_ptr(ARG1, -sizeof(ErtsCodeMFA)));
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP3);
+
+  /* In case we apply check_process_code/2.
+   *
+   * c_p->i = I */
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
+
+  /* To allow garbage collection on ourselves
+   * (check_process_code/2, put/2, etc).
+   *
+   * c_p->arity = 0 */
+  a.sub(TMP3, TMP3);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
+
+  a.dec(FCALLS);
+  emit_heavy_swapout();
+
+  /* nif_bif_result = (*bf)(c_p, reg, I); */
+  a.mov(RET, ARG2);
+  a.mov(ARG3, ARG1);
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.call(RET);
+
+  emit_heavy_swapin();
+  a.cmp(RET, THE_NON_VALUE);
+  a.je(check_trap);
+  comment("Do return and dispatch to it");
+  a.mov(getRef(x0), RET);
+  a.mov(RET,getRef(CP));
+  a.mov(TMP1,NIL);
+  a.mov(getRef(CP),TMP1);
+  a.jmp(RET);
+
+  a.bind(check_trap);
+  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+  a.jne(error);
+  comment("yield");
+  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+  a.mov(RET,RET_context_switch);
+  a.mov(TMP1, get_return());
+  a.jmp(TMP1);
+  a.bind(error);
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, qTMP1_MEM);
+  a.mov(ARG3, x_reg);
+  a.lea(ARG4, x86::qword_ptr(ARG2, -24));
+  call((uint64_t)handle_error);
+  a.jmp(get_post_error_handling());
+}
+
+void BeamModuleAssembler::emit_call_bif(ArgVal Func, Instruction *I)
+{
+  /* This must be the first instruction.
+   *
+   * -7 is a filthy hack to make it refer to the current instruction. */
+  a.lea(ARG1, x86::qword_ptr(x86::rip, -7));
+  mov(ARG2, Func);
+  a.mov(RET,ga->get_call_bif());
+  a.jmp(RET);
 }
 
 void BeamGlobalAssembler::emit_call_nif(void)

@@ -134,16 +134,17 @@ export_alloc(struct export_entry* tmpl_e)
         obj->bif_number = -1;
         obj->is_bif_traced = 0;
 
-        memset(&obj->trampoline, 0, sizeof(obj->trampoline));
-        beamasm_emit_op(obj->info.mfa.module, op_call_error_handler, NULL,
-                        obj->trampoline.raw, sizeof(obj->trampoline), 0);
+        {
+            BeamInstr *trampoline = beamasm_emit_trampoline(&obj->info.mfa, op_call_error_handler, NULL, 0);
+            memset(&obj->trampoline, 0, sizeof(obj->trampoline));
+            for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
+                obj->addressv[ix] = trampoline;
 
-	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-	    obj->addressv[ix] = obj->trampoline.raw;
+                blob->entryv[ix].slot.index = -1;
+                blob->entryv[ix].ep = &blob->exp;
+            }
+        }
 
-	    blob->entryv[ix].slot.index = -1;
-	    blob->entryv[ix].ep = &blob->exp;
-	}
 	ix = 0;
 
 	DBG_TRACE_MFA_P(&obj->info.mfa, "export allocation at %p", obj);

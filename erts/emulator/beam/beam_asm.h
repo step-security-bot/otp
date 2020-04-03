@@ -71,6 +71,9 @@ unsigned int beamasm_get_catches(void *ba);
 void beamasm_patch_import(void *ba, int index, BeamInstr import);
 void beamasm_patch_literal(void *instance, int index, Eterm lit);
 void beamasm_patch_strings(void *instance, byte *strtab);
-void beamasm_emit_op(Eterm module, unsigned specific_op, GenOp *op, char *buff,
-                     unsigned buf_len, int debug);
+void beamasm_emit_patch(Eterm module, unsigned specific_op, GenOp *op, char *buff,
+                        unsigned buf_len, int debug);
 Uint beamasm_get_header(void *ba, BeamCodeHeader **);
+
+/* FIXME: filthy hack */
+BeamInstr *beamasm_emit_trampoline(ErtsCodeMFA *mfa, unsigned specific_op, GenOp *op, int debug);

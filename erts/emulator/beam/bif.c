@@ -4993,13 +4993,9 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     op.a = op.def_args;
     op.next = NULL;
     op.a[0].type = TAG_f;
-    op.a[0].val = bif;
+    op.a[0].val = (BeamInstr)bif;
 
     sys_memset((void *) ep, 0, sizeof(Export));
-
-    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-        ep->addressv[i] = ep->trampoline.raw;
-    }
 
     ep->bif_number = -1;
 
@@ -5008,9 +5004,12 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
 
-    ep->trampoline.op = op_call_bif_W;
-    beamasm_emit_op(ep->info.mfa.module, op_call_bif_W, &op, ep->trampoline.raw,
-                    sizeof(ep->trampoline.raw), 0);
+    {
+        BeamInstr *trampoline = beamasm_emit_trampoline(&ep->info.mfa, op_call_bif_W, &op, 0);
+        for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+            ep->addressv[i] = trampoline;
+        }
+    }
 }
 
 /*
@@ -5018,9 +5017,17 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
  */
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
     BifEntry *entry = &bif_table[export->bif_number];
+    GenOp op;
 
-    address[0] = BeamOpCodeAddr(op_call_bif_W);
-    address[1] = (BeamInstr)entry->f;
+    op.arity = 1;
+    op.a = op.def_args;
+    op.next = NULL;
+    op.a[0].type = TAG_f;
+    op.a[0].val = (BeamInstr)entry->f;
+
+    beamasm_emit_patch(export->info.mfa.module, op_call_bif_W, &op,
+                       (char*)address,
+                       BEAM_NATIVE_MIN_FUNC_SZ, 0);
 }
 
 void erts_init_bif(void)
