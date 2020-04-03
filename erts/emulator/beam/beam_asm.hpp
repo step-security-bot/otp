@@ -90,6 +90,7 @@ public:
 
   bool isMem() { return type == x || type == y; }
   bool isLiteral() { return type == q; }
+  bool isImmed() { return type == i; }
 
   ArgVal operator +(const int val)  {
     ArgVal res(type, val + value);
@@ -508,7 +509,7 @@ private:
   }
 
   void mov(x86::Mem to, ArgVal from) {
-    if (from.isMem() || from.isLiteral()) {
+    if (from.isMem() || from.isLiteral() || from.isImmed()) {
       mov(TMP1, from);
       a.mov(to, TMP1);
     } else {

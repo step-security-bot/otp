@@ -103,39 +103,47 @@ void BeamModuleAssembler::emit_dispatch_return(x86::Gp dest) {
 
 void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
   mov(dest,CP);
-  mov(CP,ArgVal(ArgVal::TYPE::i,NIL));
+  mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MIN_SMALL)));
 }
 
 /* Instrs */
 
 void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
-    // a.push(x86::rbx);
-    // a.push(x86::rbp);
-    // a.push(x86::r12);
-    // a.push(x86::r13);
-    // a.push(x86::r14);
-    // a.push(x86::r15);
+    a.push(x86::rbx);
+    a.push(x86::rbp);
+    a.push(x86::r12);
+    a.push(x86::r13);
+    a.push(x86::r14);
+    a.push(x86::r15);
 
-    // for(unsigned i = 0; i < Arity.getValue(); i++) {
-    //     a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
-    //     a.mov(ARG2, (uint64_t)NULL);
-    //     a.mov(RET, (uint64_t)size_object_x);
-    //     a.call(RET);
-    // }
+    /* Crash if return address is not a valid CP. */
+    Label next = a.newLabel();
+    mov(TMP1, CP);
+    a.test(TMP1, _CPMASK);
+    a.je(next);
+    a.hlt();
+    a.bind(next);
 
-    // a.pop(x86::r15);
-    // a.pop(x86::r14);
-    // a.pop(x86::r13);
-    // a.pop(x86::r12);
-    // a.pop(x86::rbp);
-    // a.pop(x86::rbx);
+    for(unsigned i = 0; i < Arity.getValue(); i++) {
+        a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
+        a.mov(ARG2, (uint64_t)NULL);
+        a.mov(RET, (uint64_t)size_object_x);
+        a.call(RET);
+    }
+
+    a.pop(x86::r15);
+    a.pop(x86::r14);
+    a.pop(x86::r13);
+    a.pop(x86::r12);
+    a.pop(x86::rbp);
+    a.pop(x86::rbx);
 }
 
 void BeamModuleAssembler::emit_allocate_heap(ArgVal NeedStack, ArgVal NeedHeap, ArgVal Live, Instruction *Inst) {
   ArgVal needed = NeedStack + 1;
   emit_gc_test(needed, NeedHeap, Live);
   alloc(needed * sizeof(Eterm));
-  mov(CP,NIL);
+  mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MAX_SMALL)));
 }
 
 void BeamModuleAssembler::emit_allocate(ArgVal NeedStack, ArgVal Live, Instruction *Inst) {
@@ -163,8 +171,8 @@ void BeamModuleAssembler::emit_test_heap(ArgVal Nh, ArgVal Live, Instruction *In
 }
 
 void BeamModuleAssembler::emit_return(Instruction *Inst) {
-  emit_setup_return(TMP1);
-  emit_dispatch_return(TMP1);
+  emit_setup_return(TMP4);
+  emit_dispatch_return(TMP4);
 }
 
 void BeamModuleAssembler::emit_move_return(ArgVal Src, Instruction *Inst) {
