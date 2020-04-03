@@ -1524,8 +1524,8 @@ sorted_put_map_exact Fail Src=xy Dst Live Size Rest=* => \
 sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
    move Src x | update_map_exact x Fail Dst Live Size Rest
 
-new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
-   gen_new_small_map_lit(Dst, Live, Size, Rest)
+# new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
+#   gen_new_small_map_lit(Dst, Live, Size, Rest)
 
 new_map d t I
 i_new_small_map_lit d t q

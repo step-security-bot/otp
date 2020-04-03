@@ -52,6 +52,11 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
   a.align(kAlignCode, 8);
   a.bind(codeHeader);
   a.embed(hdr_mem, sizeof(BeamCodeHeader) + sizeof(ErtsCodeInfo*) * (num_functions - 1));
+
+  /* FIXME: Isn't hdr_mem supposed to be populated?
+   *
+   * Do we do this later? Is this just a reservation? */
+  erts_free(ERTS_ALC_T_TMP, hdr_mem);
 }
 
 void *BeamModuleAssembler::getCode(Label label) {

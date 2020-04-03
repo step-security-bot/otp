@@ -324,7 +324,7 @@ class BeamModuleAssembler : public BeamAssembler {
   ImportMap imports;
 
   /* Map of literals to patch labels */
-  struct patch_literal { std::vector<struct patch> patches; };
+  struct patch_literal { Eterm preview; std::vector<struct patch> patches; };
   typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
   LiteralMap literals;
 
