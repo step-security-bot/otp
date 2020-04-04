@@ -22,6 +22,7 @@
 
 extern "C" {
 #include "erl_bif_table.h"
+#include "bif.h"
   ErtsCodeMFA *ubif2mfa(void* uf);
   void handle_error(void);
 }
@@ -63,6 +64,8 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   // TODO: Add fcalls check here
 
   emit_swapout();
+  emit_proc_lc_unrequire();
+
   a.add(FCALLS, -1);
   a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
@@ -78,7 +81,9 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.mov(TMP1, ga->get_gc_after_bif());
   a.call(TMP1);
 
+  emit_proc_lc_require();
   emit_swapin();
+
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
   emit_yield_error_test(entry, Exp, true);
 }
@@ -89,9 +94,9 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   a.align(kAlignCode, 8);
   a.bind(entry);
 
+  emit_swapout();
   emit_proc_lc_unrequire();
 
-  emit_swapout();
   a.add(FCALLS, -1);
   a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
@@ -105,8 +110,8 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   a.call(TMP1);
 
   emit_proc_lc_require();
-
   emit_swapin();
+
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
   emit_yield_error_test(entry, Exp, false);
 }
@@ -272,6 +277,50 @@ void BeamModuleAssembler::emit_send(Instruction *I) {
 #  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
+static Eterm
+call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
+    ErlHeapFragment *live_hf_end;
+    ErtsCodeMFA *codemfa;
+    Eterm result;
+
+    codemfa = erts_code_to_codemfa(I);
+
+    /* In case we apply process_info/1,2 or load_nif/1 */
+    c_p->current = codemfa;
+    
+    /* In case we apply check_process_code/2. */
+    c_p->i = I;
+
+    /* To allow garbage collection on ourselves
+     * (check_process_code/2, put/2, etc). */
+    c_p->arity = 0;
+
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    {
+
+        live_hf_end = c_p->mbuf;
+
+        ERTS_CHK_MBUF_SZ(c_p);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+        result = vbf(c_p, reg, I);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+        ERTS_CHK_MBUF_SZ(c_p);
+
+        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+        ERTS_HOLE_CHECK(c_p);
+
+    }
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+
+    if (ERTS_IS_GC_DESIRED(c_p)) {
+        result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg,
+                                            codemfa->arity);
+    }
+
+    return result;
+}
+
 enum nif_ret {
   RET_NIF_next,
   RET_NIF_handle_error,
@@ -324,50 +373,19 @@ call_nif(Process *c_p, BeamInstr *I, Eterm *reg, NifF *fp, struct erl_module_nif
     }
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     ERTS_HOLE_CHECK(c_p);
+
     if (ERTS_IS_GC_DESIRED(c_p)) {
         nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
                                                     nif_bif_result,
                                                     reg, bif_nif_arity);
     }
+
     return nif_bif_result;
 }
 
-
-void BeamGlobalAssembler::emit_call_bif(void)
-{
+void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
   Label check_trap = a.newLabel(), error = a.newLabel();
 
-  /* ARG1 = I (rip), ARG2 = function to be called. */
-
-  /* In case we apply process_info/1,2 or load_nif/1
-   *
-   * c_p->current = codemfa; */
-  a.lea(TMP3, x86::qword_ptr(ARG1, -sizeof(ErtsCodeMFA)));
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP3);
-
-  /* In case we apply check_process_code/2.
-   *
-   * c_p->i = I */
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
-
-  /* To allow garbage collection on ourselves
-   * (check_process_code/2, put/2, etc).
-   *
-   * c_p->arity = 0 */
-  a.sub(TMP3, TMP3);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
-
-  a.dec(FCALLS);
-  emit_heavy_swapout();
-
-  /* nif_bif_result = (*bf)(c_p, reg, I); */
-  a.mov(RET, ARG2);
-  a.mov(ARG3, ARG1);
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.call(RET);
-
-  emit_heavy_swapin();
   a.cmp(RET, THE_NON_VALUE);
   a.je(check_trap);
   comment("Do return and dispatch to it");
@@ -394,13 +412,33 @@ void BeamGlobalAssembler::emit_call_bif(void)
   a.jmp(get_post_error_handling());
 }
 
+void BeamGlobalAssembler::emit_call_bif(void)
+{
+  a.dec(FCALLS);
+
+  emit_heavy_swapout();
+
+  /* These arguments have already been provided:
+   *
+   *    ARG3 = I (rip)
+   *    ARG4 = function to be called
+   */
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(RET, (uint64_t)call_bif);
+  a.call(RET);
+
+  emit_heavy_swapin();
+  emit_bif_nif_epilogue();
+}
+
 void BeamModuleAssembler::emit_call_bif(ArgVal Func, Instruction *I)
 {
   /* This must be the first instruction.
    *
    * -7 is a filthy hack to make it refer to the current instruction. */
-  a.lea(ARG1, x86::qword_ptr(x86::rip, -7));
-  mov(ARG2, Func);
+  a.lea(ARG3, x86::qword_ptr(x86::rip, -7));
+  mov(ARG4, Func);
   a.mov(RET,ga->get_call_bif());
   a.jmp(RET);
 }
@@ -408,8 +446,10 @@ void BeamModuleAssembler::emit_call_bif(ArgVal Func, Instruction *I)
 void BeamGlobalAssembler::emit_call_nif(void)
 {
   Label check_trap = a.newLabel(), error = a.newLabel();
+
   a.dec(FCALLS);
   emit_heavy_swapout();
+
   a.mov(ARG1, c_p);
   a.mov(qTMP1_MEM, ARG2);
   // a.mov(ARG2, ARG2); THIS IS SUPPLIED AS ARGUMENT
@@ -418,31 +458,9 @@ void BeamGlobalAssembler::emit_call_nif(void)
   a.mov(ARG5, x86::qword_ptr(ARG2, 16));
   a.mov(ARG6, x86::qword_ptr(ARG2, 24));
   call((uint64_t)call_nif);
-  emit_heavy_swapin();
-  a.cmp(RET, THE_NON_VALUE);
-  a.je(check_trap);
-  comment("Do return and dispatch to it");
-  a.mov(getRef(x0), RET);
-  a.mov(RET,getRef(CP));
-  a.mov(TMP1,NIL);
-  a.mov(getRef(CP),TMP1);
-  a.jmp(RET);
 
-  a.bind(check_trap);
-  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
-  a.jne(error);
-  comment("yield");
-  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
-  a.mov(RET,RET_context_switch);
-  a.mov(TMP1, get_return());
-  a.jmp(TMP1);
-  a.bind(error);
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, qTMP1_MEM);
-  a.mov(ARG3, x_reg);
-  a.lea(ARG4, x86::qword_ptr(ARG2, -24));
-  call((uint64_t)handle_error);
-  a.jmp(get_post_error_handling());
+  emit_heavy_swapin();
+  emit_bif_nif_epilogue();
 }
 
 void BeamGlobalAssembler::emit_dispatch_nif(void) {

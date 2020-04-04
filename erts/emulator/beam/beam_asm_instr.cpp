@@ -339,7 +339,6 @@ void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
 }
 
 void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
-
   emit_heavy_swapout();
   emit_proc_lc_unrequire();
 

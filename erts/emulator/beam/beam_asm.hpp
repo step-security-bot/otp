@@ -295,6 +295,7 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(call_bif)                                   \
   _(call_nif)                                   \
   _(dispatch_nif)                               \
+  _(bif_nif_epilogue)                           \
   _(call)
 
 #define DECL_FUNC(NAME)                         \
