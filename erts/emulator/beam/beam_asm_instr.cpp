@@ -30,7 +30,9 @@ extern "C" {
   Eterm call_fun(void);
   Eterm apply_fun(void);
   Eterm new_fun(void);
-  void handle_error(void);
+
+  BeamInstr* handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa);
+
   erts_atomic32_t the_active_code_index;
 }
 
@@ -362,16 +364,16 @@ void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
   a.jmp(ga->get_return());
 }
 
-// // this is an alias for handle_error
-// void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
-//   emit_swapout();
-//   a.mov(ARG1, c_p);
-//   a.mov(ARG2, 0);
-//   a.mov(ARG3, x_reg);
-//   a.mov(ARG4, 0);
-//   call((uint64_t)handle_error);
-//   a.jmp(ga->get_post_error_handling());
-// }
+// this is an alias for handle_error
+void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, 0);
+  a.mov(ARG3, x_reg);
+  a.mov(ARG4, 0);
+  call((uint64_t)handle_error);
+  a.jmp(ga->get_post_error_handling());
+}
 
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   Label dispatch = a.newLabel();
@@ -1501,6 +1503,7 @@ void BeamModuleAssembler::emit_build_stacktrace(Instruction *Inst) {
   a.mov(ARG1, c_p);
   mov(ARG2, x0);
   call((uint64_t)build_stacktrace);
+  mov(x0, RET);
   emit_swapin();
 }
 

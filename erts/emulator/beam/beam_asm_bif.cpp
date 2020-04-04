@@ -57,7 +57,7 @@ void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
 }
 
 void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
-  Label entry = a.newLabel(), import = a.newLabel();
+  Label entry = a.newLabel();
   a.align(kAlignCode, 8);
   a.bind(entry);
 
@@ -74,10 +74,9 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.lea(ARG3, x86::qword_ptr(entry));
   call(Bif);
 
-  a.bind(import);
-  a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
+  make_move_patch(ARG5, imports[Exp.getValue()].patches, offsetof(Export, info.mfa.arity));
+  a.mov(ARG5, x86::qword_ptr(ARG5));
 
-  a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
   a.mov(TMP1, ga->get_gc_after_bif());
   a.call(TMP1);
 
@@ -105,7 +104,9 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   a.lea(ARG3, x86::qword_ptr(entry));
   call(Bif);
 
-  a.mov(ARG5, imports[Exp.getValue()].mfa.arity);
+  make_move_patch(ARG5, imports[Exp.getValue()].patches, offsetof(Export, info.mfa.arity));
+  a.mov(ARG5, x86::qword_ptr(ARG5));
+
   a.mov(TMP1, ga->get_gc_after_bif());
   a.call(TMP1);
 
@@ -422,6 +423,10 @@ void BeamGlobalAssembler::emit_call_bif(void)
    *    ARG3 = I (rip)
    *    ARG4 = function to be called
    */
+
+  /* Save current I for the epilogue. */
+  a.mov(qTMP1_MEM, ARG3);
+
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(RET, (uint64_t)call_bif);

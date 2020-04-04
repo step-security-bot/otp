@@ -285,7 +285,10 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
     ASSERT(memcmp(&ci->mfa,&orig_hdr->functions[i]->mfa,sizeof(ci->mfa)) == 0);
     code_hdr->functions[i] = ci;
   }
-  erts_free(ERTS_ALC_T_CODE, orig_hdr);
+
+  /* FIXME: keep original header alive; we need the line table etc. */
+  //erts_free(ERTS_ALC_T_CODE, orig_hdr);
+
   *hdr = code_hdr;
 }
 

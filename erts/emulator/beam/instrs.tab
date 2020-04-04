@@ -1449,8 +1449,8 @@ continue_exit() {
 
 x64.continue_exit();
 
-// error_action_code() {
-// 
-// }
-// 
-// x64.error_action_code();
+error_action_code() {
+
+}
+
+x64.error_action_code();

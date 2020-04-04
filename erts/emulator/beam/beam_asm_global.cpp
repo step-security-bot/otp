@@ -196,7 +196,7 @@ void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
     /* FIXME: MOV -> LEA */
     a.lea(ARG2, x86::qword_ptr(I));
     a.mov(ARG3, x_reg);
-    a.mov(ARG4, (uint64_t)&imports[exp.getValue()].mfa);
+    make_move_patch(ARG4, imports[exp.getValue()].patches, offsetof(Export, info.mfa));
     call((uint64_t)handle_error);
     a.jmp(ga->get_post_error_handling());
 }
