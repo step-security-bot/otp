@@ -42,6 +42,14 @@ static bool decode_dist(Process *c_p, ErtsMessage *msgp, Eterm *HTOP, Eterm *E) 
   return true;
 }
 
+void BeamModuleAssembler::emit_i_recv_mark(Instruction *I) {
+    a.nop();
+}
+
+void BeamModuleAssembler::emit_i_recv_set(Instruction *I) {
+    a.nop();
+}
+
 void BeamModuleAssembler::emit_i_loop_rec(ArgVal Dest, Instruction *I) {
   Label check_is_distributed = a.newLabel(), next = a.newLabel(),
     restart = a.newLabel(), await = a.newLabel();

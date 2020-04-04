@@ -23,6 +23,8 @@
 using namespace asmjit;
 
 extern "C" {
+  #include "erl_map.h"
+
   Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
                                  Uint n, BeamInstr* new_p) ERTS_NOINLINE;
   Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
@@ -65,6 +67,91 @@ void BeamModuleAssembler::emit_i_get_map_element(ArgVal Fail, ArgVal Src, ArgVal
     a.cmp(RET, THE_NON_VALUE);
     a.je(labels[Fail.getValue()]);
     mov(Dst, RET);
+}
+
+
+#define PUT_TERM_REG(term, desc)		\
+do {						\
+    switch (loader_tag(desc)) {			\
+    case LOADER_X_REG:				\
+	reg[loader_x_reg_index(desc)] = (term);	\
+	break;					\
+    case LOADER_Y_REG:				\
+	E[loader_y_reg_index(desc)] = (term);	\
+	break;					\
+    default:					\
+	ASSERT(0);				\
+	break;					\
+    }						\
+} while(0)
+
+
+static Uint i_get_map_elements(Eterm map, Eterm *reg, Eterm *E, Uint n, BeamInstr *fs) {
+    Uint sz;
+
+    /* This instruction assumes Arg1 is a map,
+     * i.e. that it follows a test is_map if needed.
+     */
+
+    if (is_flatmap(map)) {
+	flatmap_t *mp;
+	Eterm *ks;
+	Eterm *vs;
+
+	mp = (flatmap_t *)flatmap_val(map);
+	sz = flatmap_get_size(mp);
+
+	if (sz == 0) {
+        return 0;
+	}
+
+	ks = flatmap_get_keys(mp);
+	vs = flatmap_get_values(mp);
+
+	while(sz) {
+	    if (EQ((Eterm) fs[0], *ks)) {
+		PUT_TERM_REG(*vs, fs[1]);
+		n--;
+		fs += 3;
+		/* no more values to fetch, we are done */
+		if (n == 0) {
+                    return 1;
+		}
+	    }
+	    ks++, sz--, vs++;
+	}
+        return 0;
+    } else {
+	const Eterm *v;
+	Uint32 hx;
+	ASSERT(is_hashmap(map));
+	while(n--) {
+	    hx = fs[2];
+	    ASSERT(hx == hashmap_make_hash((Eterm)fs[0]));
+	    if ((v = erts_hashmap_get(hx, (Eterm)fs[0], map)) == NULL) {
+		    return 0;
+	    }
+	    PUT_TERM_REG(*v, fs[1]);
+	    fs += 3;
+	}
+        return 1;
+    }
+}
+
+#undef PUT_TERM_REG
+
+// x64.i_get_map_elements(Fail, Src, Key, Dst);
+void BeamModuleAssembler::emit_i_get_map_elements(ArgVal Fail, ArgVal Src, ArgVal N, Instruction *Inst) {
+    Label data = embed_instr_rodata(Inst, 3, N.getValue());
+
+    mov(ARG1, Src);
+    a.mov(ARG2, x_reg);
+    a.lea(ARG3, x86::qword_ptr(E, sizeof(Eterm)));
+    a.mov(ARG4, (N.getValue() / 3));
+    a.lea(ARG5, x86::qword_ptr(data));
+    call((uint64_t)i_get_map_elements);
+    a.cmp(RET, 0);
+    a.je(labels[Fail.getValue()]);
 }
 
 // x64.i_get_map_element_hash(Fail, Src, Key, Hx, Dst);

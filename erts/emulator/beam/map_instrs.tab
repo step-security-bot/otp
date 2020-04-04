@@ -135,6 +135,8 @@ i_get_map_elements(Fail, Src, N) {
     }
 }
 
+x64.i_get_map_elements(Fail, Src, N);
+
 update_map_assoc := update_map_assoc.fetch.execute;
 
 update_map_assoc.head() {

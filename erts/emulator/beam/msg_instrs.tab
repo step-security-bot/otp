@@ -50,6 +50,8 @@ i_recv_mark() {
     ERTS_RECV_MARK_SAVE(c_p);
 }
 
+x64.i_recv_mark();
+
 i_recv_set() {
     /*
      * If previously saved recv mark, set peek position to it
@@ -59,6 +61,8 @@ i_recv_set() {
     goto loop_rec_top__;
     //| -no_next
 }
+
+x64.i_recv_set();
 
 i_loop_rec(Dest) {
     //| -no_prefetch

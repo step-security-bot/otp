@@ -135,16 +135,13 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
             data.as_beam = make_loader_y_reg(arg.getValue());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-          case TAG_a:
-            data.as_beam = make_atom(arg.getValue());
-            a.embed(&data.as_char, sizeof(data.as_beam));
-            break;
-          case TAG_i:
-            data.as_beam = make_small(arg.getValue());
-            a.embed(&data.as_char, sizeof(data.as_beam));
-            break;
           case TAG_q:
             make_word_patch(literals[arg.getValue()].patches);
+            break;
+          case TAG_i:
+            /* Tagged immediate. */
+            data.as_beam = arg.getValue();
+            a.embed(&data.as_char, sizeof(data.as_beam));
             break;
           default:
             ERTS_ASSERT(!"error");
