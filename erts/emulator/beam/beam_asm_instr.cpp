@@ -319,13 +319,18 @@ void BeamModuleAssembler::emit_i_move_call_ext_last(ArgVal Exp, ArgVal Deallocat
   emit_i_call_ext_last(Exp, Deallocate);
 }
 
+
 void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
   emit_heavy_swapout();
-  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
+  emit_proc_lc_unrequire();
+
+  a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_NORMAL);
   a.mov(x86::qword_ptr(c_p,offsetof(Process,arity)), 0);
   a.mov(ARG1,c_p);
   a.mov(ARG2,imm(am_normal));
   call((uint64_t)erts_do_exit_process);
+
+  emit_proc_lc_require();
   emit_heavy_swapin();
 
   a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
@@ -334,9 +339,14 @@ void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
 }
 
 void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
+
   emit_heavy_swapout();
+  emit_proc_lc_unrequire();
+
   a.mov(ARG1,c_p);
   call((uint64_t)erts_continue_exit_process);
+
+  emit_proc_lc_require();
   emit_heavy_swapin();
 
   a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
