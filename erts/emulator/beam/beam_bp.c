@@ -203,7 +203,7 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 	for (fi = 0; fi < num_functions; fi++) {
 
 	    ci = code_hdr->functions[fi];
-	    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	    //ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	    if (erts_is_function_native(ci)) {
 		continue;
 	    }
@@ -653,7 +653,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     Uint bp_flags;
     ErtsBpIndex ix = erts_active_bp_ix();
 
-    ASSERT(BeamIsOpCode(info->op, op_i_func_info_IaaI));
+    //ASSERT(BeamIsOpCode(info->op, op_i_func_info_IaaI));
 
     g = info->u.gen_bp;
     bp = &g->data[ix];
@@ -1065,7 +1065,7 @@ erts_find_local_func(ErtsCodeMFA *mfa) {
     n = (BeamInstr) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	ci = code_hdr->functions[i];
-	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	//ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	ASSERT(mfa->module == ci->mfa.module || is_nil(ci->mfa.module));
 	if (mfa->function == ci->mfa.function &&
 	    mfa->arity == ci->mfa.arity) {
@@ -1457,7 +1457,7 @@ check_break(ErtsCodeInfo *ci, Uint break_flags)
 {
     GenericBp* g = ci->u.gen_bp;
 
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+    //ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
     if (erts_is_function_native(ci)) {
 	return 0;
     }

@@ -362,6 +362,7 @@ class BeamModuleAssembler : public BeamAssembler {
   Label currLabel;
   unsigned prev_op = 0;
   Label codeHeader;
+  Label funcInfo;
 
   void *module = nullptr;
   Eterm mod;

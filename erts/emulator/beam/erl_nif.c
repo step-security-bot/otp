@@ -3952,7 +3952,7 @@ static ErtsCodeInfo** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsign
     int j;
     for (j = 0; j < n; ++j) {
 	ErtsCodeInfo* ci = mod_code->functions[j];
-	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	//ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	if (f_atom == ci->mfa.function
 	    && arity == ci->mfa.arity) {
 	    return mod_code->functions+j;
@@ -4389,7 +4389,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		GenericBp* g = ci->u.gen_bp;
-		ASSERT(BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
+		//ASSERT(BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
 		g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
 	    }
 	}

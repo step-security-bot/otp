@@ -30,8 +30,11 @@ std::string getAtom(Eterm atom) {
   return std::string((const char*)ap->name, ap->len);
 }
 
-BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga, Eterm mod, unsigned num_labels) : BeamAssembler(rt, getAtom(mod) + ".asm") {
-
+BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt,
+                                         BeamGlobalAssembler *ga,
+                                         Eterm mod,
+                                         unsigned num_labels) :
+    BeamAssembler(rt, getAtom(mod) + ".asm") {
   this->ga = ga;
   this->mod = mod;
 
@@ -39,7 +42,6 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
     std::string lblName = "label_" + std::to_string(i);
     labels[i] = a.newNamedLabel(lblName.data());
   }
-
 }
 
 BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga,
@@ -52,6 +54,19 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
   a.align(kAlignCode, 8);
   a.bind(codeHeader);
   a.embed(hdr_mem, sizeof(BeamCodeHeader) + sizeof(ErtsCodeInfo*) * (num_functions - 1));
+
+  /* FIXME: see op_i_func_info_IaaI in `emit` for details. */
+  funcInfo = a.newLabel();
+  a.align(kAlignCode, 8);
+  a.bind(funcInfo);
+
+  /* Pop the ErtsCodeInfo address into ARG1 and mask out the offset added by
+   * the call instruction. */
+  a.pop(ARG1);
+  a.and_(ARG1, ~0x7);
+
+  a.mov(RET, ga->get_i_func_info());
+  a.jmp(RET);
 
   /* FIXME: Isn't hdr_mem supposed to be populated?
    *
@@ -168,16 +183,6 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
   switch (inst.op) {
 #include "beamasm_emit.h"
   case op_i_func_info_IaaI: {
-    ErtsCodeInfo info;
-
-    if (I == nullptr) {
-      I = (BeamInstr*)&info;
-      info.op = op_i_func_info_IaaI;
-      info.mfa.module = inst.args[1].getValue();
-      info.mfa.function = inst.args[2].getValue();
-      info.mfa.arity = inst.args[3].getValue();
-    }
-
     //code.flatten();
     if (functions.size() > 0) {
       Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
@@ -199,8 +204,29 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
              >= sizeof(padbuff));
     }
 
-    comment("%T:%T/%d", inst.args[1].getValue(), inst.args[2].getValue(), inst.args[3].getValue());
-    a.embed(I, sizeof(ErtsCodeInfo));
+    if (I != nullptr) {
+        Eterm module, function;
+        void *bp_ptr;
+        Uint arity;
+
+        module = inst.args[1].getValue();
+        function = inst.args[2].getValue();
+        arity = inst.args[3].getValue();
+        bp_ptr = NULL;
+
+        comment("%T:%T/%d", module, function, arity);
+
+        /* This is an ErtsCodeInfo structure that has a valid x86 opcode as its
+        * `op` field, which *calls* the funcInfo trampoline so we can trace it
+        * back to this particular function. */
+        a.call(funcInfo);
+        a.align(kAlignCode, 8);
+        a.embed(&bp_ptr, sizeof(bp_ptr));
+        a.embed(&module, sizeof(module));
+        a.embed(&function, sizeof(function));
+        a.embed(&arity, sizeof(arity));
+    }
+
     break;
   }
   case op_label_L:
