@@ -23,6 +23,7 @@
 using namespace asmjit;
 
 extern "C" {
+  BeamInstr beam_exit[1];
   void call_error_handler(void);
   void handle_error(void);
 }
@@ -138,8 +139,15 @@ void BeamGlobalAssembler::emit_return() {
     // Put the BeamAsmContext in TMP1
     a.mov(TMP1, x86::qword_ptr(x86::rsp, (STACK_SLOTS - 7) * 8));
 
+    Label next = a.newLabel();
     // Set I to be the return address, the address is stored in TMP3
+    //
+    // FIXME: This must not be set when handle_error returns NULL. Handle this
+    // in post_error_handling instead.
+    a.cmp(TMP3, 0);
+    a.je(next);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), TMP3);
+    a.bind(next);
 
     // Restore the rest of the emulator state
     a.mov(x86::qword_ptr(TMP1, offsetof(BeamAsmContext, FCALLS)), FCALLS);

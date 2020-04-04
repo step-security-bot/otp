@@ -366,13 +366,7 @@ void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
 
 // this is an alias for handle_error
 void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
-  emit_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, 0);
-  a.mov(ARG3, x_reg);
-  a.mov(ARG4, 0);
-  call((uint64_t)handle_error);
-  a.jmp(ga->get_post_error_handling());
+  a.jmp(ga->get_error_action_code());
 }
 
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {

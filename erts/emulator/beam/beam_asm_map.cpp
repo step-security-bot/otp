@@ -52,31 +52,9 @@ void BeamModuleAssembler::emit_new_map(ArgVal Dst, ArgVal Live, ArgVal N, Instru
     emit_heavy_swapin();
 }
 
-// x64.i_new_small_map_lit(Dst, Live, N);
+// x64.i_new_small_map_lit(Dst, Live, Keys);
 void BeamModuleAssembler::emit_i_new_small_map_lit(ArgVal Dst, ArgVal Live, ArgVal Keys, Instruction *Inst) {
-    Eterm literal_keys;
-    Uint map_size;
-    Label data;
-
-    /* FIXME: Keys is not an actual literal here, and the number of arguments
-     * depends on its value. For now I've fixed this by avoiding this
-     * instruction altogether. */
-    literal_keys = Keys.getValue();
-    map_size = arityval(*tuple_val(literal_keys));
-
-    data = embed_instr_rodata(Inst, 3, map_size);
-
-    emit_heavy_swapout();
-
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, x_reg);
-    make_move_patch(ARG3, literals[Keys.getValue()].patches);
-    a.mov(ARG4, Live.getValue());
-    a.lea(ARG5, x86::qword_ptr(data));
-    call((uint64_t)erts_gc_new_small_map_lit);
-    mov(Dst, RET);
-
-    emit_heavy_swapin();
+    a.hlt();
 }
 
 // x64.i_get_map_element(Fail, Src, Key, Dst);
