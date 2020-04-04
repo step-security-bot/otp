@@ -166,12 +166,16 @@ void BeamGlobalAssembler::emit_call_error_handler() {
   emit_heavy_swapin();
   a.cmp(RET,0);
   a.je(get_handle_error());
-  a.jmp(x86::qword_ptr(RET));
+  a.jmp(RET);
 }
 
 void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
-    a.lea(ARG2, x86::qword_ptr(x86::rip));
-    a.jmp(ga->get_call_error_handler());
+  /* ARG2 contains an (Export*)
+   *
+   * This is a filthy hack to please call_error_handler which expects the
+   * second argument to be an instruction pointer placed just after an MFA. */
+  a.add(ARG2, offsetof(Export, info.mfa) + sizeof(ErtsCodeMFA));
+  a.jmp(ga->get_call_error_handler());
 }
 
 void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {

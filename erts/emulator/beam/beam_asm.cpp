@@ -141,10 +141,15 @@ extern "C" {
     return ba->emit(specific_op, args, I);
   }
 
+  BeamInstr *beamasm_get_error_handler() {
+      beamasm_init();
+      return (BeamInstr*)call_error_handler->getCode(1);
+  }
+
   BeamInstr *beamasm_emit_trampoline(ErtsCodeMFA *mfa, unsigned specific_op, GenOp *op, int debug) {
     beamasm_init();
     if (specific_op == op_call_error_handler) {
-      return (BeamInstr*)call_error_handler->getCode(1);
+      return beamasm_get_error_handler();
     } else {
       BeamModuleAssembler *ba = new BeamModuleAssembler(rt, bga, mfa->module, 1);
 

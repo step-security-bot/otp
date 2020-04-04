@@ -800,7 +800,7 @@ static void install_bifs(void) {
         ep->bif_number = i;
 
         {
-            BeamInstr *trampoline = beamasm_emit_trampoline(&ep->info.mfa, op_call_error_handler, NULL, 0);
+            BeamInstr *trampoline = beamasm_get_error_handler();
 
             for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
                 ep->addressv[j] = trampoline;

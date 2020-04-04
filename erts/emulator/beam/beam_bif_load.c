@@ -831,7 +831,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     continue;
                 }
 
-                ep->addressv[code_ix] = beamasm_emit_trampoline(&ep->info.mfa, op_call_error_handler, NULL, 0);
+                ep->addressv[code_ix] = beamasm_get_error_handler();
             }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -2207,7 +2207,7 @@ delete_code(Module* modp)
                 ep->is_bif_traced = 0;
             }
 
-	    ep->addressv[code_ix] = beamasm_emit_trampoline(&ep->info.mfa, op_call_error_handler, NULL, 0);
+	    ep->addressv[code_ix] = beamasm_get_error_handler();
 	    ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);

@@ -57,11 +57,9 @@ void BeamModuleAssembler::emit_dispatch(x86::Gp where, enum beamasm_ret how)
 {
   Label yield = a.newLabel();
   // Test if we have to do a yield here
-  a.cmp(FCALLS,0);
-  a.jle(yield);
-
   /* Do the call */
   a.sub(FCALLS,1);
+  a.jl(yield);
   a.jmp(where);
   a.bind(yield);
   // we store the address to jump to in TMP3
@@ -258,24 +256,35 @@ void BeamModuleAssembler::emit_move_call_only(ArgVal Src, ArgVal CallDest, Instr
 }
 
 void BeamModuleAssembler::emit_dispatch_export(ArgVal Exp) {
-  Label yield = a.newLabel(), dispatch;
+  Label yield = a.newLabel(), dispatch = a.newLabel();
 
-  a.mov(TMP1, imm((uint64_t)(&the_active_code_index)));
-  a.mov(x86::edi, x86::dword_ptr(TMP1));
+  a.mov(ARG1, (uint64_t)(&the_active_code_index));
+  a.mov(x86::edi, x86::dword_ptr(ARG1));
 
-  /* Load addressv */
-  make_move_patch(TMP2, imports[Exp.getValue()].patches, offsetof(Export, addressv));
-  a.mov(TMP3, x86::qword_ptr(TMP2, x86::edi, 3 /* scale of TMP1 */));
-
-  /* Check if we have to yield */
-  a.cmp(FCALLS,0);
-  a.jle(yield);
+  /* Load export pointer / addressv */
+  ERTS_CT_ASSERT(offsetof(Export, addressv) == 0);
+  make_move_patch(ARG2, imports[Exp.getValue()].patches);
+  a.mov(TMP3, x86::qword_ptr(ARG2, x86::edi, 3));
 
   /* Do the call */
   a.sub(FCALLS,1);
+  a.jl(yield);
+  a.bind(dispatch);
   a.jmp(TMP3);
 
   a.bind(yield);
+
+  /* FIXME: the error handler assumes that the export entry to the called
+   * function lives in ARG2, so we cannot yield when calling into a module that
+   * has yet to be loaded.
+   *
+   * This filthy hack is necessary because the error handler no longer executes
+   * code from within the export entry, so we can no longer infer the MFA from
+   * the instruction pointer. */
+  a.mov(RET, (uint64_t)beamasm_get_error_handler());
+  a.cmp(TMP3, RET);
+  a.je(dispatch);
+
   /* Yield address is in TMP3 */
   a.mov(RET, RET_context_switch);
   a.jmp(ga->get_return());

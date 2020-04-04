@@ -135,7 +135,7 @@ export_alloc(struct export_entry* tmpl_e)
         obj->is_bif_traced = 0;
 
         {
-            BeamInstr *trampoline = beamasm_emit_trampoline(&obj->info.mfa, op_call_error_handler, NULL, 0);
+            BeamInstr *trampoline = beamasm_get_error_handler();
             memset(&obj->trampoline, 0, sizeof(obj->trampoline));
             for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
                 obj->addressv[ix] = trampoline;

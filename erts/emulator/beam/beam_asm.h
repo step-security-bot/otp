@@ -77,3 +77,4 @@ Uint beamasm_get_header(void *ba, BeamCodeHeader **);
 
 /* FIXME: filthy hack */
 BeamInstr *beamasm_emit_trampoline(ErtsCodeMFA *mfa, unsigned specific_op, GenOp *op, int debug);
+BeamInstr *beamasm_get_error_handler(void);

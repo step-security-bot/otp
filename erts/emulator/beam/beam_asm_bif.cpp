@@ -297,7 +297,6 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
 
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     {
-
         live_hf_end = c_p->mbuf;
 
         ERTS_CHK_MBUF_SZ(c_p);
@@ -472,7 +471,7 @@ void BeamGlobalAssembler::emit_dispatch_nif(void) {
 void BeamModuleAssembler::emit_call_nif(ArgVal Func, ArgVal NifMod, ArgVal DirtyFunc, Instruction *I)
 {
   uint64_t val;
-  Label entry = a.newLabel(), mfa = a.newLabel();
+  Label entry = a.newLabel();
 
   // The start of this function has to mimic the layout of ErtsNativeFunc...
   a.jmp(entry); // call_op
