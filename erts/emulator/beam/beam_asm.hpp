@@ -325,6 +325,9 @@ class BeamModuleAssembler : public BeamAssembler {
 
   struct patch { Label where; int64_t ptr_offs; int64_t val_offs; };
 
+  struct patch_catch { struct patch patch; Label handler; };
+  std::vector<struct patch_catch> catches;
+
   /* Map of import entry to patch labels and mfa */
   struct patch_import { std::vector<struct patch> patches; ErtsCodeMFA mfa; };
   typedef std::unordered_map<unsigned, struct patch_import> ImportMap;
@@ -339,9 +342,6 @@ class BeamModuleAssembler : public BeamAssembler {
   typedef std::unordered_map<unsigned, struct patch> StringMap;
   StringMap strings;
 
-  struct patch_catch { Label label; unsigned no; BeamInstr **ptr; };
-  std::vector<patch_catch> catches;
-  unsigned catch_no = BEAM_CATCHES_NIL;
 
   /* All functions that have been seen so far */
   std::vector<BeamLabel> functions;
@@ -385,6 +385,7 @@ public:
   Label embed_instr_rodata(Instruction *instr, int index, int count);
   unsigned getCodeSize() { ASSERT(module); return code.codeSize(); }
   void getCodeHeader(BeamCodeHeader **);
+  unsigned patchCatches();
   void patchLiteral(unsigned index, Eterm lit);
   void patchImport(unsigned index, BeamInstr I);
   void patchStrings(byte *strtab);

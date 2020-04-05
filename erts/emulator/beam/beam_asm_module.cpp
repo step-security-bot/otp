@@ -259,12 +259,6 @@ void *BeamModuleAssembler::codegen() {
   Error err = rt->add(&module,&code);
   ERTS_ASSERT(!err && "Failed to create module");
 
-  /* FIXME: */
-  for (auto p : catches) {
-      BeamInstr *addr = (BeamInstr*)(((char*)module) + code.labelOffset(p.label));
-      *p.ptr = addr;
-  }
-
 //   module(labels);
 //   *catch_no = this->catch_no;
   this->module = (void*)module;
@@ -287,6 +281,26 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
   //erts_free(ERTS_ALC_T_CODE, orig_hdr);
 
   *hdr = code_hdr;
+}
+
+unsigned BeamModuleAssembler::patchCatches() {
+  unsigned catch_no = BEAM_CATCHES_NIL;
+
+  for (auto c : catches) {
+    const auto &patch = c.patch;
+    BeamInstr *handler;
+
+    handler = reinterpret_cast<BeamInstr*>(getCode(c.handler));
+    catch_no = beam_catches_cons(handler, catch_no, nullptr);
+
+    /* We patch the movabs instruction with the correct literal */
+    char *pp = reinterpret_cast<char*>(getCode(patch.where));
+    Eterm *where = (Eterm*)(pp+patch.ptr_offs);
+    ASSERT(LLONG_MAX == *where);
+    *where = make_catch(catch_no);
+  }
+
+  return catch_no;
 }
 
 void BeamModuleAssembler::patchImport(unsigned index, BeamInstr I) {

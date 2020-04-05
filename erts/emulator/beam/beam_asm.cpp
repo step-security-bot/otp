@@ -217,7 +217,7 @@ extern "C" {
   }
   unsigned int beamasm_get_catches(void *instance) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
-    return 0;
+    return ba->patchCatches();
   }
   void beamasm_patch_import(void *instance, int index, BeamInstr import) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);

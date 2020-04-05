@@ -1405,14 +1405,16 @@ void BeamModuleAssembler::emit_if_end(Instruction *Inst) {
 }
 
 void BeamModuleAssembler::emit_catch(ArgVal Y, ArgVal Fail, Instruction *Inst) {
-  BeamInstr **catch_ptr = nullptr;
-
-  catch_no = beam_catches_cons(nullptr, catch_no, &catch_ptr);
-  catches.push_back({labels[Fail.getValue()],catch_no,catch_ptr});
-
-  comment("Catch label %d, number %d", Fail.getValue(), catch_no);
   a.inc(x86::qword_ptr(c_p, offsetof(Process, catches)));
-  mov(Y, ArgVal(ArgVal::i, make_catch(catch_no)));
+
+  Label patch_addr = a.newLabel();
+
+  a.bind(patch_addr);
+  a.mov(TMP1, imm(LLONG_MAX));
+  mov(Y, TMP1);
+
+  /* Offset of 0x2 = movabs */
+  catches.push_back({{patch_addr, 0x2, 0}, labels[Fail.getValue()]});
 }
 
 void BeamModuleAssembler::emit_catch_end(ArgVal Y, Instruction *Inst) {
