@@ -107,7 +107,7 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr, BeamInstr ***cppp)
     int i;
     struct bc_pool* p = &bccix[erts_staging_code_ix()];
 
-    //ASSERT(p->is_staging);
+    ASSERT(p->is_staging);
     /*
      * Allocate from free_list while it is non-empty.
      * If free_list is empty, allocate at high_mark.
