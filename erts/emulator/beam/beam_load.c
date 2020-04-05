@@ -3206,39 +3206,6 @@ is_heavy_bif(LoaderState* stp, GenOpArg Bif)
     return 0;
 }
 
-/*
- * Generate an instruction for element/2.
- */
-
-static GenOp*
-gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
-		      GenOpArg Tuple, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-
-    if (Index.type == TAG_i && Index.val > 0 &&
-        Index.val <= ERTS_MAX_TUPLE_SIZE &&
-	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
-	GENOP_NAME_ARITY(op, i_fast_element, 4);
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
-	op->a[2].type = TAG_u;
-	op->a[2].val = Index.val;
-	op->a[3] = Dst;
-    } else {
-        GENOP_NAME_ARITY(op, i_element, 4);
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
-	op->a[2] = Index;
-	op->a[3] = Dst;
-    }
-
-    return op;
-}
-
 static GenOp*
 gen_bs_save(LoaderState* stp, GenOpArg Reg, GenOpArg Index)
 {

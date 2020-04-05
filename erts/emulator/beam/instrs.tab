@@ -552,59 +552,6 @@ i_get_tuple_element3(Src, Element, Dst) {
 
 x64.i_get_tuple_element3(Src, Element, Dst);
 
-i_element := element_group.fetch.execute;
-
-
-element_group.head() {
-    Eterm element_tuple;
-}
-
-element_group.fetch(Src) {
-    element_tuple = $Src;
-}
-
-element_group.execute(Fail, Index, Dst) {
-    Eterm element_index = $Index;
-    if (ERTS_LIKELY(is_small(element_index) && is_tuple(element_tuple))) {
-        Eterm* tp = tuple_val(element_tuple);
-
-        if ((signed_val(element_index) >= 1) &&
-            (signed_val(element_index) <= arityval(*tp))) {
-            $Dst = tp[signed_val(element_index)];
-            $NEXT0();
-        }
-    }
-    c_p->freason = BADARG;
-    $BIF_ERROR_ARITY_2($Fail, BIF_element_2, element_index, element_tuple);
-}
-
-x64.i_element(Src, Fail, Index, Dst);
-
-i_fast_element := fast_element_group.fetch.execute;
-
-fast_element_group.head() {
-    Eterm fast_element_tuple;
-}
-
-fast_element_group.fetch(Src) {
-    fast_element_tuple = $Src;
-}
-
-fast_element_group.execute(Fail, Index, Dst) {
-    if (ERTS_LIKELY(is_tuple(fast_element_tuple))) {
-        Eterm* tp = tuple_val(fast_element_tuple);
-        Eterm pos = $Index;	/* Untagged integer >= 1 */
-        if (pos <= arityval(*tp)) {
-            $Dst = tp[pos];
-            $NEXT0();
-	}
-    }
-    c_p->freason = BADARG;
-    $BIF_ERROR_ARITY_2($Fail, BIF_element_2, make_small($Index), fast_element_tuple);
-}
-
-x64.i_fast_element(Src, Fail, Index, Dst);
-
 init(Y) {
     make_blank($Y);
 }
