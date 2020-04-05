@@ -427,6 +427,7 @@ private:
   void emit_yield_error_test(Label entry, T exp, bool only);
   void emit_handle_error(Label I, ErtsCodeMFA *mfa = nullptr);
   void emit_handle_error(Label I, ArgVal exp);
+  void emit_validate(ArgVal arity);
 
   void emit_select_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
   void emit_select_tuple_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);

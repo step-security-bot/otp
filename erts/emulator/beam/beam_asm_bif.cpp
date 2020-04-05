@@ -194,6 +194,71 @@ void BeamModuleAssembler::emit_i_bif3(ArgVal Src1, ArgVal Src2, ArgVal Src3, Arg
   a.bind(next);
 }
 
+void BeamModuleAssembler::emit_i_element(ArgVal Src, ArgVal Fail, ArgVal Index, ArgVal Dst, Instruction *Inst) {
+  Label entry = a.newLabel(), error = a.newLabel(), next = a.newLabel();
+
+  a.bind(entry);
+
+  /* Is the index a small? */
+  mov(TMP3, Index);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, _TAG_IMMED1_SMALL);
+  a.jne(error);
+
+  a.sar(TMP3, _TAG_IMMED1_SIZE);
+  a.cmp(TMP3, 1);
+  a.jl(error);
+
+  /* Is the source a tuple? */
+  mov(TMP1, Src);
+  emit_is_boxed(error, TMP1);
+  a.mov(TMP2, emit_boxed_val(TMP1));
+  a.mov(TMP1, TMP2);
+  a.and_(TMP1, _TAG_HEADER_MASK);
+  a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
+  a.jne(error);
+
+  /* Is the index within bounds? */
+  a.mov(TMP4, x86::qword_ptr(TMP2));
+  a.shr(TMP4, _HEADER_ARITY_OFFS);
+  a.cmp(TMP3, TMP4);
+  a.jg(error);
+
+  a.mov(TMP1, x86::qword_ptr(TMP2, TMP3, 3));
+  mov(Dst, TMP1);
+
+  a.jmp(next);
+
+  a.bind(error);
+  emit_bif_arg_error({Src, Index}, entry, &bif_trap_export[BIF_element_2].info.mfa);
+
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_fast_element(ArgVal Src, ArgVal Fail, ArgVal Index, ArgVal Dst, Instruction *Inst) {
+  Label entry = a.newLabel(), error = a.newLabel(), next = a.newLabel();
+
+  a.bind(entry);
+
+  mov(TMP1, Src);
+  emit_is_boxed(error, TMP1);
+  a.mov(TMP2, emit_boxed_val(TMP1));
+  a.mov(TMP1, TMP2);
+  a.and_(TMP1, _TAG_HEADER_MASK);
+  a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
+  a.jne(error);
+
+  a.mov(TMP1, x86::qword_ptr(TMP2, Index.getValue() * sizeof(Eterm)));
+  mov(Dst, TMP1);
+
+  a.jmp(next);
+
+  a.bind(error);
+  ArgVal index_small(ArgVal::TYPE::i, make_small(Index.getValue()));
+  emit_bif_arg_error({Src, index_small}, entry, &bif_trap_export[BIF_element_2].info.mfa);
+  a.bind(next);
+}
+
 void BeamModuleAssembler::emit_i_length_setup(ArgVal Live, ArgVal Src, Instruction *I) {
   ArgVal slot(ArgVal::TYPE::x, Live.getValue());
 
@@ -538,3 +603,5 @@ void BeamModuleAssembler::emit_i_load_nif(Instruction *I) {
   emit_handle_error(currLabel, &mfa);
   a.bind(next);
 }
+
+

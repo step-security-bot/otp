@@ -106,9 +106,9 @@ void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
   mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MIN_SMALL)));
 }
 
-/* Instrs */
+void BeamModuleAssembler::emit_validate(ArgVal arity) {
+    emit_heavy_swapout();
 
-void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
     a.push(x86::rbx);
     a.push(x86::rbp);
     a.push(x86::r12);
@@ -124,7 +124,7 @@ void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
     a.hlt();
     a.bind(next);
 
-    for(unsigned i = 0; i < Arity.getValue(); i++) {
+    for(unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
         a.mov(ARG2, (uint64_t)NULL);
         a.mov(RET, (uint64_t)size_object_x);
@@ -137,6 +137,12 @@ void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
     a.pop(x86::r12);
     a.pop(x86::rbp);
     a.pop(x86::rbx);
+}
+
+/* Instrs */
+
+void BeamModuleAssembler::emit_i_validate(ArgVal Arity, Instruction *Inst) {
+    emit_validate(Arity);
 }
 
 void BeamModuleAssembler::emit_allocate_heap(ArgVal NeedStack, ArgVal NeedHeap, ArgVal Live, Instruction *Inst) {
@@ -171,6 +177,9 @@ void BeamModuleAssembler::emit_test_heap(ArgVal Nh, ArgVal Live, Instruction *In
 }
 
 void BeamModuleAssembler::emit_return(Instruction *Inst) {
+  /* Validate return address and {x,0} */
+  emit_validate(ArgVal(ArgVal::u, 1));
+
   emit_setup_return(TMP4);
   emit_dispatch_return(TMP4);
 }
@@ -1401,8 +1410,9 @@ void BeamModuleAssembler::emit_catch(ArgVal Y, ArgVal Fail, Instruction *Inst) {
   catch_no = beam_catches_cons(nullptr, catch_no, &catch_ptr);
   catches.push_back({labels[Fail.getValue()],catch_no,catch_ptr});
 
+  comment("Catch label %d, number %d", Fail.getValue(), catch_no);
   a.inc(x86::qword_ptr(c_p, offsetof(Process, catches)));
-  emit_move(ArgVal(ArgVal::i, make_catch(catch_no)), Y);
+  mov(Y, ArgVal(ArgVal::i, make_catch(catch_no)));
 }
 
 void BeamModuleAssembler::emit_catch_end(ArgVal Y, Instruction *Inst) {
