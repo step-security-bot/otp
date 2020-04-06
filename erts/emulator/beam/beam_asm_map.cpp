@@ -146,7 +146,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(ArgVal Fail, ArgVal Src, ArgVa
 
     mov(ARG1, Src);
     a.mov(ARG2, x_reg);
-    a.lea(ARG3, x86::qword_ptr(E, sizeof(Eterm)));
+    a.mov(ARG3, E);
     a.mov(ARG4, (N.getValue() / 3));
     a.lea(ARG5, x86::qword_ptr(data));
     call((uint64_t)i_get_map_elements);
