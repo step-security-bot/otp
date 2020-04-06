@@ -393,12 +393,14 @@ void BeamModuleAssembler::emit_i_bs_skip_bits2(ArgVal Ctx, ArgVal Bits, ArgVal F
   a.and_(TMP2, _TAG_IMMED1_MASK);
   a.cmp(TMP2, _TAG_IMMED1_SMALL);
   a.jne(labels[Fail.getValue()]);
-  a.cmp(RET, 0);
-  a.jl(labels[Fail.getValue()]);
+
+  /* Size = signed_val(Size) && Size >= 0 */
+  a.sar(RET, _TAG_IMMED1_SIZE);
+  a.js(labels[Fail.getValue()]);
 
   /* RAX = (Bits) * (Unit) */
   a.mov(TMP2, Unit.getValue());
-  a.mul(TMP2);
+  a.mul(TMP2); /* CLOBBERS ARG3! */
   a.jo(labels[Fail.getValue()]);
 
   emit_bs_skip_bits(Fail, Ctx);
@@ -408,4 +410,46 @@ void BeamModuleAssembler::emit_i_bs_skip_bits2(ArgVal Ctx, ArgVal Bits, ArgVal F
 void BeamModuleAssembler::emit_i_bs_skip_bits_imm2(ArgVal Fail, ArgVal Ctx, ArgVal Bits, Instruction *I) {
   mov(RET, Bits);
   emit_bs_skip_bits(Fail, Ctx);
+}
+
+//x64.i_bs_get_binary2(Ctx, Fail, Live, Sz, Flags, Dst);
+void BeamModuleAssembler::emit_i_bs_get_binary2(ArgVal Ctx, ArgVal Fail, ArgVal Live,
+                                                ArgVal Size, ArgVal Flags, ArgVal Dst,
+                                                Instruction *I) {
+  Label fail = a.newLabel(), next = a.newLabel();
+
+  mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
+  emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,EXTRACT_SUB_BIN_HEAP_NEED), Live + 1);
+  mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
+
+  /* is_small(Size) */
+  mov(RET, Size);
+  a.mov(TMP2, RET);
+  a.and_(TMP2, _TAG_IMMED1_MASK);
+  a.cmp(TMP2, _TAG_IMMED1_SMALL);
+  a.jne(fail);
+
+  /* Size = signed_val(Size) && Size >= 0 */
+  a.sar(RET, _TAG_IMMED1_SIZE);
+  a.js(fail);
+
+  /* Size = (Size) * (Unit) */
+  a.mov(TMP2, (Flags.getValue() >> 3));
+  a.mul(TMP2); /* CLOBBERS ARG3! */
+  a.jo(fail);
+
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, RET);
+  a.mov(ARG3, Flags.getValue());
+  a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  call((uint64_t)erts_bs_get_binary_2);
+  emit_swapin();
+
+  a.cmp(RET, THE_NON_VALUE);
+  a.jne(next);
+  a.bind(fail);
+  a.jmp(labels[Fail.getValue()]);
+  a.bind(next);
+  mov(Dst, RET);
 }

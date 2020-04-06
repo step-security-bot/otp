@@ -804,7 +804,8 @@ void BeamModuleAssembler::emit_swap2(ArgVal R1, ArgVal R2, ArgVal R3, Instructio
 }
 
 void BeamModuleAssembler::emit_node(ArgVal Dst, Instruction *Inst) {
-  a.mov(TMP1, imm((uint64_t)&erts_this_node->sysname));
+  a.mov(TMP1, imm(&erts_this_node->sysname));
+  a.mov(TMP1, x86::qword_ptr(TMP1));
   mov(Dst, TMP1);
 }
 

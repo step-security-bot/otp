@@ -248,28 +248,28 @@ void BeamGlobalAssembler::emit_i_func_info() {
 }
 
 void BeamGlobalAssembler::emit_dbg() {
-  a.push(RET);
-  a.push(ARG1);
-  a.push(ARG2);
-  a.push(ARG3);
-  a.push(ARG4);
-  a.push(ARG5);
-  a.push(ARG6);
-  emit_swapout();
-  a.mov(ARG1, x86::qword_ptr(x86::rsp, (7 + 3) * sizeof(void*)));
-  a.mov(ARG2, c_p);
-  a.mov(ARG3, x_reg);
-  /* We read the current code location from the stack and then align it */
-  a.mov(ARG4, x86::qword_ptr(x86::rsp, (7) * sizeof(void*)));
-  a.and_(ARG4, Imm(~3ull));
-  call((uint64_t)&BeamModuleAssembler::dbg);
-  a.pop(ARG6);
-  a.pop(ARG5);
-  a.pop(ARG4);
-  a.pop(ARG3);
-  a.pop(ARG2);
-  a.pop(ARG1);
-  a.pop(RET);
+//   a.push(RET);
+//   a.push(ARG1);
+//   a.push(ARG2);
+//   a.push(ARG3);
+//   a.push(ARG4);
+//   a.push(ARG5);
+//   a.push(ARG6);
+//   emit_swapout();
+//   a.mov(ARG1, x86::qword_ptr(x86::rsp, (7 + 3) * sizeof(void*)));
+//   a.mov(ARG2, c_p);
+//   a.mov(ARG3, x_reg);
+//   /* We read the current code location from the stack and then align it */
+//   a.mov(ARG4, x86::qword_ptr(x86::rsp, (7) * sizeof(void*)));
+//   a.and_(ARG4, Imm(~3ull));
+//   call((uint64_t)&BeamModuleAssembler::dbg);
+//   a.pop(ARG6);
+//   a.pop(ARG5);
+//   a.pop(ARG4);
+//   a.pop(ARG3);
+//   a.pop(ARG2);
+//   a.pop(ARG1);
+//   a.pop(RET);
   a.ret();
 }
 
