@@ -205,6 +205,12 @@ public:
     a.call(RET);
   }
 
+  /* This is a special call that we have to use if we want to do far jumps */
+  void farjmp(uint64_t addr) {
+    a.mov(TMP6, addr);
+    a.jmp(TMP6);
+  }
+
   x86::Mem getRef(ArgVal val) {
     x86::Gp base;
     switch (val.getType()) {

@@ -89,7 +89,7 @@ void BeamModuleAssembler::emit_i_loop_rec(ArgVal Dest, Instruction *I) {
   a.jl(restart);
   // We are got an exit signal while looking for new messages, schedule out process
   a.mov(RET, RET_do_schedule);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
   a.bind(await);
   a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), F_DELAY_GC);
   a.jmp(labels[Dest.getValue()]);
@@ -239,7 +239,7 @@ void BeamModuleAssembler::emit_loop_rec_end(ArgVal Dest, Instruction *I) {
 void BeamModuleAssembler::emit_wait_locked(ArgVal Dest, Instruction *I) {
   a.lea(TMP3, x86::qword_ptr(labels[Dest.getValue()]));
   a.mov(RET, RET_do_wait);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 enum tmo_ret {

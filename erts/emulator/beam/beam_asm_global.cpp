@@ -92,7 +92,6 @@ void BeamGlobalAssembler::emit_gc_after_bif() {
     call((uint64_t)erts_gc_after_bif_call_lhf);
 
     emit_function_postamble();
-
 }
 
 #define STACK_SLOTS 12
@@ -125,10 +124,14 @@ void BeamGlobalAssembler::emit_call() {
     emit_swapin();
 
     // Check if we are just returning from a dirty nif/bif call and if so we
-    // need to do a bit of cleaning up before continueing.
+    // need to do a bit of cleaning up before continuing.
     a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
     a.cmp(x86::qword_ptr(RET), op_call_nif_WWW);
-    a.je(get_dispatch_nif());
+
+    Label next = a.newLabel();
+    a.jne(next);
+    farjmp(get_dispatch_nif());
+    a.bind(next);
     a.jmp(RET);
 }
 
@@ -183,7 +186,7 @@ void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
    * This is a filthy hack to please call_error_handler which expects the
    * second argument to be an instruction pointer placed just after an MFA. */
   a.add(ARG2, offsetof(Export, info.mfa) + sizeof(ErtsCodeMFA));
-  a.jmp(ga->get_call_error_handler());
+  farjmp(ga->get_call_error_handler());
 }
 
 void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {
@@ -194,7 +197,7 @@ void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {
     a.mov(ARG3, x_reg);
     a.mov(ARG4, imm(mfa));
     call((uint64_t)handle_error);
-    a.jmp(ga->get_post_error_handling());
+    farjmp(ga->get_post_error_handling());
 }
 
 void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
@@ -206,7 +209,7 @@ void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
     a.mov(ARG3, x_reg);
     make_move_patch(ARG4, imports[exp.getValue()].patches, offsetof(Export, info.mfa));
     call((uint64_t)handle_error);
-    a.jmp(ga->get_post_error_handling());
+    farjmp(ga->get_post_error_handling());
 }
 
 // this is an alias for handle_error
@@ -217,7 +220,7 @@ void BeamGlobalAssembler::emit_error_action_code() {
   a.mov(ARG3, x_reg);
   a.mov(ARG4, 0);
   call((uint64_t)handle_error);
-  a.jmp(this->get_post_error_handling());
+  farjmp(this->get_post_error_handling());
 }
 
 void BeamGlobalAssembler::emit_post_error_handling() {
@@ -226,7 +229,7 @@ void BeamGlobalAssembler::emit_post_error_handling() {
   a.cmp(TMP3, 0);
   a.jne(dispatch);
   a.mov(RET, RET_do_schedule);
-  a.jmp(this->get_return());
+  farjmp(this->get_return());
   a.bind(dispatch);
   emit_swapin();
   a.jmp(RET);
@@ -238,32 +241,32 @@ void BeamGlobalAssembler::emit_i_func_info() {
 
   a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
   a.mov(x86::qword_ptr(c_p,offsetof(Process,current)), TMP1);
-  a.jmp(this->get_handle_error());
+  farjmp(this->get_handle_error());
 }
 
 void BeamGlobalAssembler::emit_dbg() {
-  a.push(RET);
-  a.push(ARG1);
-  a.push(ARG2);
-  a.push(ARG3);
-  a.push(ARG4);
-  a.push(ARG5);
-  a.push(ARG6);
-  emit_swapout();
-  a.mov(ARG1, x86::qword_ptr(x86::rsp, (7 + 3) * sizeof(void*)));
-  a.mov(ARG2, c_p);
-  a.mov(ARG3, x_reg);
-  /* We read the current code location from the stack and then align it */
-  a.mov(ARG4, x86::qword_ptr(x86::rsp, (7) * sizeof(void*)));
-  a.and_(ARG4, Imm(~3ull));
-  call((uint64_t)&BeamModuleAssembler::dbg);
-  a.pop(ARG6);
-  a.pop(ARG5);
-  a.pop(ARG4);
-  a.pop(ARG3);
-  a.pop(ARG2);
-  a.pop(ARG1);
-  a.pop(RET);
+//   a.push(RET);
+//   a.push(ARG1);
+//   a.push(ARG2);
+//   a.push(ARG3);
+//   a.push(ARG4);
+//   a.push(ARG5);
+//   a.push(ARG6);
+//   emit_swapout();
+//   a.mov(ARG1, x86::qword_ptr(x86::rsp, (7 + 3) * sizeof(void*)));
+//   a.mov(ARG2, c_p);
+//   a.mov(ARG3, x_reg);
+//   /* We read the current code location from the stack and then align it */
+//   a.mov(ARG4, x86::qword_ptr(x86::rsp, (7) * sizeof(void*)));
+//   a.and_(ARG4, Imm(~3ull));
+//   call((uint64_t)&BeamModuleAssembler::dbg);
+//   a.pop(ARG6);
+//   a.pop(ARG5);
+//   a.pop(ARG4);
+//   a.pop(ARG3);
+//   a.pop(ARG2);
+//   a.pop(ARG1);
+//   a.pop(RET);
   a.ret();
 }
 

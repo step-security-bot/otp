@@ -43,7 +43,7 @@ void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
   }
   a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
   a.mov(RET,RET_context_switch);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
   a.bind(error);
   emit_handle_error(entry, exp);
   a.bind(next);
@@ -228,7 +228,7 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
   a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), Live.getValue() + 3);
   a.lea(TMP3, x86::qword_ptr(entry));
   a.mov(RET,RET_context_switch3);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 
   a.bind(error);
   emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry, &bif_trap_export[BIF_length_1].info.mfa);
@@ -409,7 +409,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
   a.mov(ARG3, x_reg);
   a.lea(ARG4, x86::qword_ptr(ARG2, -24));
   call((uint64_t)handle_error);
-  a.jmp(get_post_error_handling());
+  farjmp(get_post_error_handling());
 }
 
 void BeamGlobalAssembler::emit_call_bif(void)
@@ -523,7 +523,7 @@ load_nif(Process *c_p, BeamInstr *I, Eterm *reg) {
 }
 
 void BeamModuleAssembler::emit_i_load_nif(Instruction *I) {
-  Label next = a.newLabel();
+  Label next = a.newLabel(), schedule = a.newLabel();
   emit_swapout();
   a.mov(ARG1, c_p);
   a.lea(ARG2, x86::qword_ptr(currLabel));
@@ -531,11 +531,13 @@ void BeamModuleAssembler::emit_i_load_nif(Instruction *I) {
   call((uint64_t)load_nif);
   emit_swapin();
   a.cmp(RET, RET_NIF_do_schedule);
-  a.je(ga->get_return());
+  a.je(schedule);
   a.cmp(RET, RET_NIF_next);
   a.je(next);
   static ErtsCodeMFA mfa = {am_erlang, am_load_nif, 2};
   emit_handle_error(currLabel, &mfa);
+  a.bind(schedule);
+  farjmp(ga->get_return());
   a.bind(next);
 }
 

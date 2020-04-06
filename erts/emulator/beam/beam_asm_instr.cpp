@@ -68,7 +68,7 @@ void BeamModuleAssembler::emit_dispatch(x86::Gp where, enum beamasm_ret how)
   if (where != TMP3)
     a.mov(TMP3, where);
   a.mov(RET,how);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 void BeamModuleAssembler::emit_dispatch_rel(ArgVal CallDest) {
@@ -98,7 +98,7 @@ void BeamModuleAssembler::emit_dispatch_return(x86::Gp dest) {
   a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
   a.mov(TMP3, dest);
   a.mov(RET,RET_context_switch3);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
@@ -298,7 +298,7 @@ void BeamModuleAssembler::emit_dispatch_export(ArgVal Exp) {
 
   /* Yield address is in TMP3 */
   a.mov(RET, RET_context_switch);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 void BeamModuleAssembler::emit_i_call_ext(ArgVal Exp, Instruction *Inst) {
@@ -355,7 +355,7 @@ void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
 
   a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
   a.mov(RET,RET_do_schedule);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
@@ -370,12 +370,12 @@ void BeamModuleAssembler::emit_continue_exit(Instruction *Inst) {
 
   a.mov(TMP3, x86::qword_ptr(c_p,offsetof(Process,i)));
   a.mov(RET,RET_do_schedule);
-  a.jmp(ga->get_return());
+  farjmp(ga->get_return());
 }
 
 // this is an alias for handle_error
 void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
-  a.jmp(ga->get_error_action_code());
+  farjmp(ga->get_error_action_code());
 }
 
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
