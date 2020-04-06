@@ -4152,7 +4152,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	return op;
     }
 
-    if (size <= 10) {
+    if (size <= 4) {
         /* Use linear search. Reserve place for a sentinel. */
         align = 1;
     }

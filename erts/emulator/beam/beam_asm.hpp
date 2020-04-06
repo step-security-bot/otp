@@ -214,15 +214,15 @@ public:
   }
 
   x86::Mem getRef(ArgVal val) {
-    x86::Gp base;
     switch (val.getType()) {
-    case ArgVal::TYPE::x: base = x_reg; break;
-    case ArgVal::TYPE::y: base = E; break;
+    case ArgVal::TYPE::x:
+        return x86::qword_ptr(x_reg, val.getValue() * sizeof(Eterm));
+    case ArgVal::TYPE::y:
+        return x86::qword_ptr(E, val.getValue() * sizeof(Eterm));
     default:
       int i = *(int*)(0);
       ASSERT(i && "NYI");
     }
-    return x86::qword_ptr(base, val.getValue() * sizeof(Eterm));
   }
 
   void reset() {

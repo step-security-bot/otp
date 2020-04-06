@@ -51,7 +51,7 @@ void BeamModuleAssembler::emit_gc_test(ArgVal Ns, ArgVal Nh, ArgVal Live) {
   a.jg(after_gc_check);
   a.mov(ARG2,need);
   a.mov(ARG4,Live.getValue());
-  a.call(ga->get_garbage_collect());
+  call((uint64_t)ga->get_garbage_collect());
   a.bind(after_gc_check);
 }
 
@@ -1452,7 +1452,7 @@ void BeamModuleAssembler::emit_catch_end(ArgVal Y, Instruction *Inst) {
   mov(x0, x2);
   a.mov(ARG2, 3);
   a.mov(ARG4, 1);
-  a.call(ga->get_garbage_collect());
+  call((uint64_t)ga->get_garbage_collect());
   mov(x2, x0);
 
   a.bind(build_exit_tuple);

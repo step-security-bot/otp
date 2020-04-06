@@ -314,6 +314,9 @@ timeout() {
     JOIN_MESSAGE(c_p);
 }
 
+x64.timeout_locked();
+x64.timeout();
+
 TIMEOUT_VALUE() {
     c_p->freason = EXC_TIMEOUT_VALUE;
     goto find_func_info;

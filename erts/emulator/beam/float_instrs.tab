@@ -53,7 +53,7 @@ fconv(Src, Dst) {
     }
 }
 
-x64.fconv(Reg, Dst);
+x64.fconv(Src, Dst);
 
 FLOAT_OP(Src1, OP, Src2, Dst) {
     ERTS_NO_FPE_CHECK_INIT(c_p);
@@ -94,6 +94,7 @@ i_fnegate(Src, Dst) {
 x64.i_fnegate(Src, Dst);
 
 %unless NO_FPE_SIGNALS
+
 fclearerror() {
     ERTS_FP_CHECK_INIT(c_p);
 }
@@ -105,4 +106,5 @@ i_fcheckerror() {
 }
 
 x64.i_fcheckerror();
+
 %endif

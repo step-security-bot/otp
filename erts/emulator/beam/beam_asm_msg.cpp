@@ -298,3 +298,25 @@ void BeamModuleAssembler::emit_wait_timeout_locked(ArgVal Src, ArgVal Dest, Inst
   align();
   a.bind(next);
 }
+
+static void timeout(Process *c_p)
+{
+    c_p->flags &= ~F_TIMO;
+    JOIN_MESSAGE(c_p);
+}
+
+static void timeout_locked(Process *c_p)
+{
+    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+    timeout(c_p);
+}
+
+void BeamModuleAssembler::emit_timeout_locked(Instruction *I) {
+  a.mov(ARG1, c_p);
+  call((uint64_t)timeout_locked);
+}
+
+void BeamModuleAssembler::emit_timeout(Instruction *I) {
+  a.mov(ARG1, c_p);
+  call((uint64_t)timeout);
+}

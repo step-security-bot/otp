@@ -74,6 +74,14 @@ void BeamModuleAssembler::emit_i_select_val_lins(ArgVal Src, ArgVal Fail, ArgVal
   a.jmp(labels[Fail.getValue()]);
 }
 
+void BeamModuleAssembler::emit_i_select_val_bins(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
+  /* Cheat by emitting a linear scan.
+   *
+   * This should be very easy to implement once embed_instr_rodata supports
+   * labels. */
+  emit_i_select_val_lins(Src, Fail, N, I);
+}
+
 void BeamModuleAssembler::emit_i_jump_on_val_zero(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
   Label fail = a.newLabel();
   mov(TMP1, Src);

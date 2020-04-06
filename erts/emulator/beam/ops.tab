@@ -432,8 +432,8 @@ label L | wait_timeout Fail Src | smp_already_locked(L) => \
     label L | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-wait_timeout_unlocked Src=aiq Fail => gen_literal_timeout(Fail, Src)
-wait_timeout_locked Src=aiq Fail => gen_literal_timeout_locked(Fail, Src)
+# wait_timeout_unlocked Src=aiq Fail => gen_literal_timeout(Fail, Src)
+# wait_timeout_locked Src=aiq Fail => gen_literal_timeout_locked(Fail, Src)
 
 label L | wait Fail | smp_already_locked(L) => label L | wait_locked Fail
 wait Fail => wait_unlocked Fail
@@ -1597,32 +1597,32 @@ gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
 gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Dst
 
-gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
-  i_times Fail S1 S2 Dst
-
-gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
-  i_m_div Fail S1 S2 Dst
-gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
-  i_int_div Fail S1 S2 Dst
-
-gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
-  i_rem S1 S2 Fail Dst
-
-gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
-  i_bsl S1 S2 Fail Dst
-gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
-  i_bsr S1 S2 Fail Dst
-
-gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
-  i_band S1 S2 Fail Dst
-
-gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
-  i_bor Fail S1 S2 Dst
-
-gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
-  i_bxor Fail S1 S2 Dst
-
-gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src Dst
+# gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
+#   i_times Fail S1 S2 Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
+#   i_m_div Fail S1 S2 Dst
+# gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
+#   i_int_div Fail S1 S2 Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
+#   i_rem S1 S2 Fail Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
+#   i_bsl S1 S2 Fail Dst
+# gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
+#   i_bsr S1 S2 Fail Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
+#   i_band S1 S2 Fail Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
+#   i_bor Fail S1 S2 Dst
+# 
+# gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
+#   i_bxor Fail S1 S2 Dst
+# 
+# gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src Dst
 
 i_increment rxy W d
 

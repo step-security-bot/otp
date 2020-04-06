@@ -884,7 +884,8 @@ BEAMASM_OBJS = \
 	$(OBJDIR)/beam_asm_module.o     $(OBJDIR)/beam_asm_instr.o  \
 	$(OBJDIR)/beam_asm_arith.o      $(OBJDIR)/beam_asm_bs.o     \
 	$(OBJDIR)/beam_asm_bif.o        $(OBJDIR)/beam_asm_map.o    \
-    $(OBJDIR)/beam_asm_msg.o        $(OBJDIR)/beam_asm_select.o
+	$(OBJDIR)/beam_asm_msg.o        $(OBJDIR)/beam_asm_select.o \
+	$(OBJDIR)/beam_asm_float.o
 
 ifeq ($(USE_ESOCK), yes)
 

@@ -75,6 +75,8 @@ select_val_bins.select(Fail, NumElements) {
     $JUMP($Fail);
 }
 
+x64.i_select_val_bins(Src, Fail, NumElements);
+
 i_select_tuple_arity2 := select_val2.src.get_arity.execute;
 i_select_val2 := select_val2.src.execute;
 
