@@ -109,7 +109,10 @@ void BeamGlobalAssembler::emit_call() {
     a.mov(x86::qword_ptr(x86::rsp, --slot * 8), f_reg);
 
     a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG1); // ctx
-    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG5); // *EBS
+
+    a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG5);
+    ASSERT(x86::qword_ptr(x86::rsp, slot * 8) == EBS);
+
     a.mov(x86::qword_ptr(x86::rsp, --slot * 8), ARG6); // neg_o_reds
 
     // We need three extra slots of guard bif calls and other things

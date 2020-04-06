@@ -101,19 +101,24 @@ Eterm i_bs_init(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP, Eterm BsOp1, 
   }
 }
 
-void BeamModuleAssembler::emit_i_bs_init(ArgVal Size, ArgVal Live, ArgVal Dst, Instruction *I) {
+void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal Live, ArgVal Dst, Instruction *I) {
   emit_swapout();
   a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
   mov(ARG4, Size);
-  a.mov(ARG5, 0);
+  mov(ARG5, Heap);
   mov(ARG6, Live);
   call((uint64_t)i_bs_init);
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
   emit_swapin();
   mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_bs_init(ArgVal Size, ArgVal Live, ArgVal Dst, Instruction *I) {
+  ArgVal Heap(ArgVal::TYPE::u, 0);
+  emit_i_bs_init_heap(Size, Heap, Live, Dst, I);
 }
 
 void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail, ArgVal Sz, ArgVal Flags, Instruction *I) {

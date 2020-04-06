@@ -471,6 +471,7 @@ bs_init.execute(Live, Dst) {
     }
 }
 
+x64.i_bs_init_heap(Size, Heap, Live, Dst);
 x64.i_bs_init(Size, Live, Dst);
 
 #
