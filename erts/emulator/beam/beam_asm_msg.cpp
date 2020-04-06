@@ -236,6 +236,17 @@ void BeamModuleAssembler::emit_loop_rec_end(ArgVal Dest, Instruction *I) {
   a.jmp(labels[Dest.getValue()]);
 }
 
+static void take_receive_lock(Process *c_p) {
+    erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+}
+
+void BeamModuleAssembler::emit_wait_unlocked(ArgVal Dest, Instruction *I) {
+  a.mov(ARG1, c_p);
+  call((uint64_t)take_receive_lock);
+
+  emit_wait_locked(Dest, I);
+}
+
 void BeamModuleAssembler::emit_wait_locked(ArgVal Dest, Instruction *I) {
   a.lea(TMP3, x86::qword_ptr(labels[Dest.getValue()]));
   a.mov(RET, RET_do_wait);
@@ -280,6 +291,13 @@ wait_timeout(Process *c_p, Eterm timeout_value, BeamInstr *next)
         }
     }
     return RET_wait;
+}
+
+void BeamModuleAssembler::emit_wait_timeout_unlocked(ArgVal Src, ArgVal Dest, Instruction *I) {
+  a.mov(ARG1, c_p);
+  call((uint64_t)take_receive_lock);
+
+  emit_wait_timeout_locked(Src, Dest, I);
 }
 
 void BeamModuleAssembler::emit_wait_timeout_locked(ArgVal Src, ArgVal Dest, Instruction *I) {
