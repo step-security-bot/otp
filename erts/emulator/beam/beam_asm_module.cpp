@@ -327,10 +327,10 @@ void BeamModuleAssembler::patchLiteral(unsigned index, Eterm lit) {
 
 void BeamModuleAssembler::patchStrings(byte *strtab) {
 
-  for (auto s : strings) {
-    char *pp = reinterpret_cast<char*>(getCode(s.second.where));
+  for (const auto &s : strings) {
+    char *pp = reinterpret_cast<char*>(getCode(s.where));
     byte **where = (byte**)(pp+2);
     ASSERT(LLONG_MAX == (Eterm)*where);
-    *where = strtab + s.first;
+    *where = strtab + s.val_offs;
   }
 }

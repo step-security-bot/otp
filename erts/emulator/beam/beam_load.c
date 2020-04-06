@@ -5081,21 +5081,9 @@ freeze_code(LoaderState* stp)
     /*
      * Patch all instructions that refer to the string table.
      */
-    {
-	StringPatch* sp = stp->string_patches;
+    if (strtab_size)
+        beamasm_patch_strings(stp->ba, beamasm_get_rodata(stp->ba, "str"));
 
-	while (sp != 0) {
-	    BeamInstr* op_ptr;
-	    byte* strp;
-
-	    op_ptr = codev + sp->pos;
-	    strp = str_table + op_ptr[0];
-	    op_ptr[0] = (BeamInstr) strp;
-	    sp = sp->next;
-	}
-        if (strtab_size)
-            beamasm_patch_strings(stp->ba, beamasm_get_rodata(stp->ba, "str"));
-    }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*

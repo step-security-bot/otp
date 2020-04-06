@@ -116,6 +116,13 @@ void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal L
   mov(Dst, RET);
 }
 
+void BeamModuleAssembler::emit_bs_put_string(ArgVal Ptr, ArgVal Size, Instruction *I) {
+  a.mov(ARG1, EBS);
+  make_move_patch(ARG2, strings, Ptr.getValue());
+  mov(ARG3, Size);
+  call((uint64_t)erts_new_bs_put_string);
+}
+
 void BeamModuleAssembler::emit_i_bs_init(ArgVal Size, ArgVal Live, ArgVal Dst, Instruction *I) {
   ArgVal Heap(ArgVal::TYPE::u, 0);
   emit_i_bs_init_heap(Size, Heap, Live, Dst, I);
@@ -191,7 +198,7 @@ static bool i_bs_match_string(Eterm Ctx, Uint bits, byte *bytes) {
 void BeamModuleAssembler::emit_i_bs_match_string(ArgVal Ctx, ArgVal Fail, ArgVal Bits, ArgVal Ptr, Instruction *I) {
   mov(ARG1, Ctx);
   a.mov(ARG2, Bits.getValue());
-  make_move_patch(ARG3, strings[Ptr.getValue()]);
+  make_move_patch(ARG3, strings, Ptr.getValue());
   call((uint64_t)i_bs_match_string);
   a.cmp(RET, 0);
   a.je(labels[Fail.getValue()]);
@@ -255,6 +262,31 @@ void BeamModuleAssembler::emit_i_bs_get_integer_16(ArgVal Ctx, ArgVal Fail, ArgV
   mov(Dst, RET);
 }
 
+static Eterm i_bs_get_integer_32(Process *c_p, Eterm context) {
+  Eterm _result;
+  ErlBinMatchBuffer* _mb = ms_matchbuffer(context);
+
+  if (_mb->size - _mb->offset < 32) {
+    return THE_NON_VALUE;
+  }
+  if (BIT_OFFSET(_mb->offset) != 0) {
+    _result = erts_bs_get_integer_2(c_p, 32, 0, _mb);
+  } else {
+    _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
+    _mb->offset += 32;
+  }
+  return _result;
+}
+
+void BeamModuleAssembler::emit_i_bs_get_integer_32(ArgVal Ctx, ArgVal Fail, ArgVal Dst, Instruction *I) {
+  a.mov(ARG1, c_p);
+  mov(ARG2, Ctx);
+  call((uint64_t)i_bs_get_integer_32);
+  a.cmp(RET, THE_NON_VALUE);
+  a.je(labels[Fail.getValue()]);
+  mov(Dst, RET);
+}
+
 void BeamModuleAssembler::emit_i_bs_get_integer_imm(
   ArgVal Ctx, ArgVal Size, ArgVal Live, ArgVal Fail, ArgVal Flags, ArgVal Dst, Instruction *I) {
   mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
@@ -292,8 +324,9 @@ void BeamModuleAssembler::emit_bs_set_position(ArgVal Ctx, ArgVal Pos, Instructi
   a.mov(x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.offset)), TMP2);
 }
 
-void BeamModuleAssembler::emit_i_bs_get_binary_all2(
-  ArgVal Ctx, ArgVal Fail, ArgVal Live, ArgVal Unit, ArgVal Dst, Instruction *I) {
+void BeamModuleAssembler::emit_i_bs_get_binary_all2(ArgVal Ctx, ArgVal Fail,
+                                                    ArgVal Live, ArgVal Unit,
+                                                    ArgVal Dst, Instruction *I) {
   mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
   emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,EXTRACT_SUB_BIN_HEAP_NEED), Live + 1);
   mov(TMP1, ArgVal(ArgVal::x, Live.getValue()));
@@ -310,4 +343,69 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(
   call((uint64_t)erts_bs_get_binary_all_2);
   emit_light_swapin();
   mov(Dst, RET);
+}
+
+static Eterm bs_get_tail(ErlBinMatchBuffer* mb, ErlSubBin *sb) {
+    Uint size, offs;
+
+    offs = mb->offset;
+    size = mb->size - offs;
+
+    sb->thing_word = HEADER_SUB_BIN;
+    sb->size = BYTE_OFFSET(size);
+    sb->bitsize = BIT_OFFSET(size);
+    sb->offs = BYTE_OFFSET(offs);
+    sb->bitoffs = BIT_OFFSET(offs);
+    sb->is_writable = 0;
+    sb->orig = mb->orig;
+
+    return make_binary(sb);
+}
+
+void BeamModuleAssembler::emit_bs_get_tail(ArgVal Ctx, ArgVal Dst, ArgVal Live, Instruction *I) {
+  mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
+  emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,ERL_SUB_BIN_SIZE), Live + 1);
+  mov(TMP1, ArgVal(ArgVal::x, Live.getValue()));
+
+  a.lea(ARG1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.mov(ARG2, HTOP);
+  call((uint64_t)bs_get_tail);
+  a.add(HTOP, ERL_SUB_BIN_SIZE * sizeof(Eterm));
+  mov(Dst, RET);
+}
+
+/* Bits to skip are passed in RET */
+void BeamModuleAssembler::emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx) {
+  mov(TMP1, Ctx);
+  a.lea(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.add(RET, x86::qword_ptr(TMP1, offsetof(ErlBinMatchBuffer, offset)));
+  a.cmp(RET, x86::qword_ptr(TMP1, offsetof(ErlBinMatchBuffer, size)));
+  a.jg(labels[Fail.getValue()]);
+  a.mov(x86::qword_ptr(TMP1, offsetof(ErlBinMatchBuffer, offset)), RET);
+}
+
+//x64.i_bs_skip_bits2(Ctx, Bits, Fail, Unit);
+void BeamModuleAssembler::emit_i_bs_skip_bits2(ArgVal Ctx, ArgVal Bits, ArgVal Fail, ArgVal Unit, Instruction *I) {
+  mov(RET, Bits);
+
+  /* is_small(Bits) && Bits >= 0 */
+  a.mov(TMP2, RET);
+  a.and_(TMP2, _TAG_IMMED1_MASK);
+  a.cmp(TMP2, _TAG_IMMED1_SMALL);
+  a.jne(labels[Fail.getValue()]);
+  a.cmp(RET, 0);
+  a.jl(labels[Fail.getValue()]);
+
+  /* RAX = (Bits) * (Unit) */
+  a.mov(TMP2, Unit.getValue());
+  a.mul(TMP2);
+  a.jo(labels[Fail.getValue()]);
+
+  emit_bs_skip_bits(Fail, Ctx);
+}
+
+// x64.i_bs_skip_bits_imm2(Fail, Ms, Bits);
+void BeamModuleAssembler::emit_i_bs_skip_bits_imm2(ArgVal Fail, ArgVal Ctx, ArgVal Bits, Instruction *I) {
+  mov(RET, Bits);
+  emit_bs_skip_bits(Fail, Ctx);
 }

@@ -220,8 +220,7 @@ public:
     case ArgVal::TYPE::y:
         return x86::qword_ptr(E, val.getValue() * sizeof(Eterm));
     default:
-      int i = *(int*)(0);
-      ASSERT(i && "NYI");
+        ERTS_ASSERT(!"NYI");
     }
   }
 
@@ -346,10 +345,8 @@ class BeamModuleAssembler : public BeamAssembler {
   typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
   LiteralMap literals;
 
-  /* Map of strings to patch labels */
-  typedef std::unordered_map<unsigned, struct patch> StringMap;
-  StringMap strings;
-
+  /* All string patches */
+  std::vector<struct patch> strings;
 
   /* All functions that have been seen so far */
   std::vector<BeamLabel> functions;
@@ -396,7 +393,7 @@ public:
   unsigned patchCatches();
   void patchLiteral(unsigned index, Eterm lit);
   void patchImport(unsigned index, BeamInstr I);
-  void patchStrings(byte *strtab);
+  void patchStrings(byte *string);
   static void dbg(char *msg, Process *c_p, Eterm *reg, BeamInstr *I) {
     erts_printf("%T: %s\n",I, msg);
   }
@@ -437,6 +434,7 @@ private:
   void emit_handle_error(Label I, ErtsCodeMFA *mfa = nullptr);
   void emit_handle_error(Label I, ArgVal exp);
   void emit_validate(ArgVal arity);
+  void emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx);
 
   void emit_select_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
   void emit_select_tuple_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
@@ -483,16 +481,6 @@ private:
 
   void popY() {
     dealloc(1);
-  }
-
-  void make_move_patch(x86::Gp to, struct patch &patches, int64_t offset = 0) {
-    Label lbl = a.newLabel();
-
-    a.bind(lbl);
-    a.mov(to, imm(LLONG_MAX));
-
-    /* Offset of 0x2 = movabs */
-    patches = {lbl, 0x2, offset};
   }
 
   void make_move_patch(x86::Gp to, std::vector<struct patch> &patches, int64_t offset = 0) {

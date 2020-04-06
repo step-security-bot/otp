@@ -281,6 +281,8 @@ i_bs_skip_bits2.execute(Fail, Unit) {
     }
 }
 
+x64.i_bs_skip_bits2(Ctx, Bits, Fail, Unit);
+
 i_bs_skip_bits_imm2(Fail, Ms, Bits) {
     ErlBinMatchBuffer *_mb;
     size_t new_offset;
@@ -292,6 +294,8 @@ i_bs_skip_bits_imm2(Fail, Ms, Bits) {
         $FAIL($Fail);
     }
 }
+
+x64.i_bs_skip_bits_imm2(Fail, Ms, Bits);
 
 i_new_bs_put_binary(Fail, Sz, Flags, Src) {
     Eterm sz = $Sz;
@@ -697,6 +701,8 @@ bs_put_string(Len, Ptr) {
     erts_new_bs_put_string(ERL_BITS_ARGS_2((byte *) $Ptr, $Len));
 }
 
+x64.bs_put_string(Len, Ptr);
+
 i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst) {
     Uint live = $Live;
     Uint res;
@@ -1007,6 +1013,8 @@ i_bs_get_integer_32.execute(Fail, Dst) {
     _mb->offset += 32;
     $Dst = make_small(_integer);
 }
+
+x64.i_bs_get_integer_32(Ctx, Fail, Dst);
 %endif
 
 i_bs_get_integer_imm := bs_get_integer.fetch.execute;
@@ -1266,6 +1274,7 @@ bs_get_tail.execute(Dst, Live) {
     $Dst = make_binary(sb);
 }
 
+x64.bs_get_tail(Src, Dst, Live);
 
 %if ARCH_64
 
