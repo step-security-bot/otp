@@ -442,7 +442,8 @@ private:
   void emit_proc_lc_unrequire(void);
   void emit_proc_lc_require(void);
 
-  void emit_nyi() { comment("NYI"); emit_dbg("NYI"); a.mov(TMP1, x86::ptr_abs(0)); }
+  void emit_nyi(const char *msg);
+  void emit_nyi(void);
 
 #include "beamasm_protos.h"
 

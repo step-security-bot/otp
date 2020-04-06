@@ -153,6 +153,19 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
   return label;
 }
 
+static void i_emit_nyi(char *msg) {
+    erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
+}
+
+void BeamModuleAssembler::emit_nyi(const char *msg) {
+    a.mov(ARG1, imm(msg));
+    call((uint64_t)i_emit_nyi);
+}
+
+void BeamModuleAssembler::emit_nyi() {
+    emit_nyi("<unspecified>");
+}
+
 bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, BeamInstr *I) {
   Instruction i = {specific_op, args, I};
   if (specific_op == op_i_func_info_IaaI) {
@@ -238,12 +251,12 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
         a.embed(padbuff, sizeof(padbuff) - diff);
     ASSERT(a.offset() - code.labelOffsetFromBase(functions.back())
              >= sizeof(padbuff));
-    emit_nyi();
+    emit_nyi(opc[inst.op].name);
   }
   case op_line_I:
     break;
   default:
-    emit_nyi();
+    emit_nyi(opc[inst.op].name);
     break;
   }
   return true;
