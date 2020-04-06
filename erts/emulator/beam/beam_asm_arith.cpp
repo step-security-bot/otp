@@ -34,6 +34,40 @@ void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Label ent
     emit_handle_error(entry, mfa);
 }
 
+void BeamModuleAssembler::emit_i_increment(ArgVal Src, ArgVal Val, ArgVal Dst, Instruction *Inst) {
+    Label mixed = a.newLabel(), next = a.newLabel();
+
+    /* Place the values in ARG2 and ARG3 to prepare for the mixed call. Note
+     * that ARG3 is untagged at this point */
+    mov(ARG2, Src);
+    a.mov(ARG3, Val.getValue() << _TAG_IMMED1_SIZE);
+    a.mov(TMP4, ARG2);
+    a.and_(TMP4, _TAG_IMMED1_MASK);
+    a.cmp(TMP4, _TAG_IMMED1_SMALL);
+    a.jne(mixed);
+    a.mov(RET, ARG2);
+    a.add(RET, ARG3);
+    a.jno(next);
+
+    /* Call mixed addition */
+    a.bind(mixed);
+    a.mov(ARG1, c_p);
+    a.or_(ARG3, _TAG_IMMED1_SMALL);
+    call((uint64_t)erts_mixed_plus);
+
+    /* Check if addition worked */
+    a.cmp(RET,THE_NON_VALUE);
+    a.jne(next);
+
+    // TODO: Have to store I in a register here so that we know
+    //       what happened
+    a.je(labels[1]); // Jump to badarith code
+
+    /* all went well, store result in dst */
+    a.bind(next);
+    mov(Dst, RET);
+}
+
 void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, ArgVal Dst, Instruction *Inst) {
     Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel(), entry = a.newLabel();
 
