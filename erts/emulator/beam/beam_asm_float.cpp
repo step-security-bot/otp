@@ -24,14 +24,13 @@ extern "C" {
     #include "big.h"
 }
 
-static x86::Mem getFRef(x86::Gp Reg, ArgVal Dst) {
-    return x86::qword_ptr(Reg, Dst.getValue() * sizeof(double));
+static x86::Mem getFRef(x86::Gp Base, ArgVal Reg) {
+    ASSERT(Reg.getType() == ArgVal::TYPE::l);
+    return x86::qword_ptr(Base, Reg.getValue() * sizeof(double));
 }
 
 // x64.fload(Src, Dst);
 void BeamModuleAssembler::emit_fload(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     /* {thing_word,double} */
     mov(TMP1, Src);
     a.movsd(x86::xmm0, emit_boxed_val(TMP1, sizeof(Eterm)));
@@ -40,8 +39,6 @@ void BeamModuleAssembler::emit_fload(ArgVal Src, ArgVal Dst, Instruction *Inst) 
 
 // x64.fstore(Src, Dst);
 void BeamModuleAssembler::emit_fstore(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    ASSERT(Src.getType() == ArgVal::TYPE::l);
-
     /* {thing_word,double} */
     a.movsd(x86::xmm0, getFRef(f_reg, Src));
     a.mov(x86::qword_ptr(HTOP), HEADER_FLONUM);
@@ -72,8 +69,6 @@ static int handle_fconv(Eterm src, double *dst) {
 
 // x64.fconv(Src, Dst);
 void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     mov(TMP1, Src);
@@ -90,10 +85,6 @@ void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) 
 
 // x64.i_fadd(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    ASSERT(LHS.getType() == ArgVal::TYPE::l);
-    ASSERT(RHS.getType() == ArgVal::TYPE::l);
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
@@ -106,15 +97,11 @@ void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     emit_nyi();
 
     a.bind(next);
-    a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
+    a.movsd(getFRef(f_reg, Dst), x86::xmm0);
 }
 
 // x64.i_fsub(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    ASSERT(LHS.getType() == ArgVal::TYPE::l);
-    ASSERT(RHS.getType() == ArgVal::TYPE::l);
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
@@ -132,10 +119,6 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fmul(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    ASSERT(LHS.getType() == ArgVal::TYPE::l);
-    ASSERT(RHS.getType() == ArgVal::TYPE::l);
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
@@ -153,10 +136,6 @@ void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fdiv(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    ASSERT(LHS.getType() == ArgVal::TYPE::l);
-    ASSERT(RHS.getType() == ArgVal::TYPE::l);
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
@@ -174,9 +153,6 @@ void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fnegate(Src, Dst);
 void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    ASSERT(Src.getType() == ArgVal::TYPE::l);
-    ASSERT(Dst.getType() == ArgVal::TYPE::l);
-
     Label next = a.newLabel();
 
     /* xmm0 = 0.0 */
