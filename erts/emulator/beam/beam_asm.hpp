@@ -64,7 +64,8 @@ public:
     y = TAG_y,
     f = TAG_f,
     q = TAG_q,
-    e = TAG_r
+    e = TAG_r,
+    l = TAG_l /* float register */
   };
 
 private:
@@ -81,6 +82,7 @@ public:
     case TAG_f: type = f; break;
     case TAG_q: type = q; break;
     case TAG_r: type = e; break;
+    case TAG_l: type = l; break;
     default:
       ASSERT(0);
     }
