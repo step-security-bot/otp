@@ -196,7 +196,7 @@ INSTALL_TOP_BIN =
 INSTALL_MISC = $(UXETC)/format_man_pages $(UXETC)/makewhatis
 INSTALL_SRC = $(UXETC)/setuid_socket_wrap.c #delivered as an example
 ERLEXECDIR = .
-INSTALL_LIBS =
+INSTALL_LIBS = $(BINDIR)/jit-reader.so
 INSTALL_OBJS =
 INSTALL_INCLUDES =
 TEXTFILES = Install erl.src
@@ -462,7 +462,11 @@ $(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
 $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c ct_run.c
 
+$(OBJDIR)/jit-reader.o: $(ETC)/jit-reader.c $(ETC)/jit-reader.h
+	$(V_CC) $(CFLAGS) -fPIC -I $(ETC) -o $@ -c $<
 
+$(BINDIR)/jit-reader.so: $(OBJDIR)/jit-reader.o
+	$(V_LD) -shared $(LDFLAGS) -o $@ $^
 
 Install:	$(UXETC)/Install.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \

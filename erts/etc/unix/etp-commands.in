@@ -4597,6 +4597,7 @@ define etp-init
 
   set $etp_ets_tables_i = 0
   set disassembly-flavor intel
+  jit-reader-load @ERL_TOP@/bin/@TARGET@/jit-reader.so
 end
 
 document etp-init

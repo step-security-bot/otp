@@ -249,6 +249,8 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());
     if (diff <= sizeof(padbuff))
         a.embed(padbuff, sizeof(padbuff) - diff);
+    labels[labels.size()] = a.newLabel();
+    a.bind(labels[labels.size()-1]);
     ASSERT(a.offset() - code.labelOffsetFromBase(functions.back())
              >= sizeof(padbuff));
     emit_nyi(opc[inst.op].name);
@@ -261,6 +263,37 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
   }
   return true;
 }
+
+enum jit_actions : uint32_t {
+  JIT_NOACTION = 0,
+  JIT_REGISTER_FN,
+  JIT_UNREGISTER_FN,
+};
+
+struct jit_code_entry {
+  struct jit_code_entry *next_entry;
+  struct jit_code_entry *prev_entry;
+  const char *symfile_addr;
+  uint64_t symfile_size;
+};
+
+struct jit_descriptor {
+  uint32_t version;
+  jit_actions action_flag;
+  struct jit_code_entry *relevant_entry;
+  struct jit_code_entry *first_entry;
+};
+
+extern "C" {
+
+// GDB puts a breakpoint in this function.
+void __attribute__((noinline)) __jit_debug_register_code() {}
+
+// Make sure to specify the version statically, because the
+// debugger may check the version before we can set it.
+struct jit_descriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
+
+} // extern "C"
 
 void *BeamModuleAssembler::codegen() {
 
@@ -283,17 +316,52 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
   BeamCodeHeader *orig_hdr = *hdr;
   BeamCodeHeader *code_hdr = (BeamCodeHeader *)getCode(codeHeader);
   memcpy(code_hdr, orig_hdr, sizeof(BeamCodeHeader));
+  char *buff = (char*)erts_alloc(ERTS_ALC_T_TMP, 1024);
 
   for (unsigned i = 0; i < functions.size(); i++) {
     ErtsCodeInfo *ci = (ErtsCodeInfo*)getCode(functions[i]);
+    int n;
+    jit_code_entry *entry;
+    char *ptr;
     ASSERT(memcmp(&ci->mfa,&orig_hdr->functions[i]->mfa,sizeof(ci->mfa)) == 0);
     code_hdr->functions[i] = ci;
+    n = erts_snprintf(buff,1024,"%T_%T_%d",ci->mfa.module, ci->mfa.function,
+                      ci->mfa.arity);
+
+    entry = (jit_code_entry*)malloc(sizeof(jit_code_entry));
+    ptr = (char*)malloc(n + 1 + sizeof(uint64_t)*2);
+
+    /* Insert into linked list */
+    entry->next_entry = __jit_debug_descriptor.first_entry;
+    if (entry->next_entry) {
+      entry->next_entry->prev_entry = entry;
+    } else {
+      entry->prev_entry = nullptr;
+    }
+
+    /* Add address description */
+    entry->symfile_addr = ptr;
+    entry->symfile_size = sizeof(uint64_t) * 2 + 1 + n;
+    ((uint64_t*)ptr)[0] = (uint64_t)ci;
+    if (i + 1 < functions.size())
+      ((uint64_t*)ptr)[1] = (uint64_t)(getCode(functions[i]) - 1);
+    else
+      ((uint64_t*)ptr)[1] = (uint64_t)(getCode(labels.size()-1) - 1);
+    memcpy(ptr + sizeof(uint64_t)*2, buff, n + 1);
+
+    /* register with dbg */
+    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
+    __jit_debug_descriptor.first_entry = entry;
+    __jit_debug_descriptor.relevant_entry = entry;
+    __jit_debug_register_code();
   }
 
+  erts_free(ERTS_ALC_T_TMP, buff);
   /* FIXME: keep original header alive; we need the line table etc. */
   //erts_free(ERTS_ALC_T_CODE, orig_hdr);
 
   *hdr = code_hdr;
+
 }
 
 unsigned BeamModuleAssembler::patchCatches() {
