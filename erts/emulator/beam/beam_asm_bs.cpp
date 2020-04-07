@@ -116,7 +116,7 @@ void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal L
   mov(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_bs_put_string(ArgVal Ptr, ArgVal Size, Instruction *I) {
+void BeamModuleAssembler::emit_bs_put_string(ArgVal Size, ArgVal Ptr, Instruction *I) {
   a.mov(ARG1, EBS);
   make_move_patch(ARG2, strings, Ptr.getValue());
   mov(ARG3, Size);

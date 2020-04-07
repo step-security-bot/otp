@@ -106,6 +106,18 @@ void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
   mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MIN_SMALL)));
 }
 
+static void validate_term(Eterm term) {
+    if (is_boxed(term)) {
+        Eterm header = *boxed_val(term);
+
+        if (header_is_bin_matchstate(header)) {
+            return;
+        }
+    }
+
+    size_object_x(term, nullptr);
+}
+
 void BeamModuleAssembler::emit_validate(ArgVal arity) {
     emit_heavy_swapout();
 
@@ -126,9 +138,7 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
 
     for(unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
-        a.mov(ARG2, (uint64_t)NULL);
-        a.mov(RET, (uint64_t)size_object_x);
-        a.call(RET);
+        call((uint64_t)validate_term);
     }
 
     a.pop(x86::r15);
