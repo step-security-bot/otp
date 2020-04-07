@@ -48,7 +48,8 @@ void BeamModuleAssembler::emit_gc_test(ArgVal Ns, ArgVal Nh, ArgVal Live) {
   a.mov(TMP1, E);
   a.sub(TMP1, HTOP);
   a.cmp(TMP1, need * sizeof(Eterm));
-  a.jg(after_gc_check);
+  a.ja(after_gc_check);
+
   a.mov(ARG2,need);
   a.mov(ARG4,Live.getValue());
   call((uint64_t)ga->get_garbage_collect());
@@ -138,6 +139,10 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     /* Crash if the heap is not word-aligned */
     a.test(HTOP, 0x7);
     a.jne(crash);
+
+    /* Crash if HTOP > E */
+    a.cmp(HTOP, E);
+    a.ja(crash);
 
     for(unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
@@ -1461,8 +1466,8 @@ void BeamModuleAssembler::emit_catch_end(ArgVal Y, Instruction *Inst) {
 
   a.mov(TMP1, E);
   a.sub(TMP1, HTOP);
-  a.cmp(TMP1, 3);
-  a.jge(build_exit_tuple);
+  a.cmp(TMP1, 3 * sizeof(Eterm));
+  a.ja(build_exit_tuple);
 
   mov(x0, x2);
   a.mov(ARG2, 3);
