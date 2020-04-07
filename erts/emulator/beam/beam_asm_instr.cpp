@@ -1063,7 +1063,8 @@ void BeamModuleAssembler::emit_is_integer(ArgVal Fail, ArgVal Src, Instruction *
 void BeamModuleAssembler::emit_is_list(ArgVal Fail, ArgVal Src, Instruction *Inst) {
   Label next = a.newLabel();
   mov(TMP1, Src);
-  a.cmp(TMP1, NIL);
+  a.mov(TMP2, NIL);
+  a.cmp(TMP1, TMP2);
   a.je(next);
   emit_is_list(labels[Fail.getValue()], TMP1);
   a.bind(next);
@@ -1080,7 +1081,8 @@ void BeamModuleAssembler::emit_is_map(ArgVal Fail, ArgVal Src, Instruction *Inst
 }
 
 void BeamModuleAssembler::emit_is_nil(ArgVal Fail, ArgVal Src, Instruction *Inst) {
-  a.cmp(getRef(Src), NIL);
+  a.mov(TMP1, NIL);
+  a.cmp(getRef(Src), TMP1);
   a.jne(labels[Fail.getValue()]);
 }
 
@@ -1219,31 +1221,33 @@ void BeamModuleAssembler::emit_is_eq_exact(ArgVal Fail, ArgVal X, ArgVal Y, Inst
   mov(ARG2, Y);
   a.cmp(ARG1, ARG2);
   a.je(next);
-  a.mov(TMP3, ARG1);
 
   /* Fancy way of checking if both are immed */
+  a.mov(TMP3, ARG1);
   a.and_(TMP3, _TAG_PRIMARY_MASK);
   a.and_(TMP3, ARG2);
   a.cmp(TMP3, TAG_PRIMARY_IMMED1);
 
   a.je(labels[Fail.getValue()]);
   call((uint64_t)eq);
-  a.cmp(RET, 0);
-  a.je(labels[Fail.getValue()]);
+  a.test(RET, RET);
+  a.jz(labels[Fail.getValue()]);
 
   a.bind(next);
 }
 
 void BeamModuleAssembler::emit_i_is_eq_exact_literal(ArgVal Fail, ArgVal Src, ArgVal Literal, Instruction *Inst) {
   mov(ARG1, Src);
+
   a.mov(TMP2, ARG1);
   a.and_(TMP2, _TAG_IMMED1_MASK);
   a.cmp(TMP2, TAG_PRIMARY_IMMED1);
   a.je(labels[Fail.getValue()]);
-  mov(ARG2, Literal);
+
+  make_move_patch(ARG2, literals[Literal.getValue()].patches);
   call((uint64_t)eq);
-  a.cmp(RET, 0);
-  a.je(labels[Fail.getValue()]);
+  a.test(RET, RET);
+  a.jz(labels[Fail.getValue()]);
 }
 
 void BeamModuleAssembler::emit_is_ne_exact(ArgVal Fail, ArgVal X, ArgVal Y, Instruction *Inst) {
@@ -1252,31 +1256,36 @@ void BeamModuleAssembler::emit_is_ne_exact(ArgVal Fail, ArgVal X, ArgVal Y, Inst
   mov(ARG2, Y);
   a.cmp(ARG1, ARG2);
   a.je(labels[Fail.getValue()]);
-  a.mov(TMP3, ARG1);
 
   /* Fancy way of checking if both are immed */
+  a.mov(TMP3, ARG1);
   a.and_(TMP3, _TAG_PRIMARY_MASK);
   a.and_(TMP3, ARG2);
   a.cmp(TMP3, TAG_PRIMARY_IMMED1);
-
   a.je(next);
+
   call((uint64_t)eq);
-  a.cmp(RET, 0);
-  a.jne(labels[Fail.getValue()]);
+  a.test(RET, RET);
+  a.jnz(labels[Fail.getValue()]);
 
   a.bind(next);
 }
 
 void BeamModuleAssembler::emit_i_is_ne_exact_literal(ArgVal Fail, ArgVal Src, ArgVal Literal, Instruction *Inst) {
+  Label next = a.newLabel();
+
   mov(ARG1, Src);
   a.mov(TMP2, ARG1);
   a.and_(TMP2, _TAG_IMMED1_MASK);
   a.cmp(TMP2, TAG_PRIMARY_IMMED1);
-  a.jne(labels[Fail.getValue()]);
-  mov(ARG2, Literal);
+  a.je(next);
+
+  make_move_patch(ARG2, literals[Literal.getValue()].patches);
   call((uint64_t)eq);
-  a.cmp(RET, 0);
-  a.jne(labels[Fail.getValue()]);
+  a.test(RET, RET);
+  a.jnz(labels[Fail.getValue()]);
+
+  a.bind(next);
 }
 
 void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label next, Operand y, Operand x, unsigned EqOnly) {
