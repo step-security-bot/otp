@@ -91,7 +91,7 @@ void BeamModuleAssembler::emit_i_loop_rec(ArgVal Dest, Instruction *I) {
   a.mov(RET, RET_do_schedule);
   farjmp(ga->get_return());
   a.bind(await);
-  a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), F_DELAY_GC);
+  a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), ~F_DELAY_GC);
   a.jmp(labels[Dest.getValue()]);
   a.bind(check_is_distributed);
   a.cmp(x86::qword_ptr(TMP1, offsetof(ErtsSignal, common.tag)), THE_NON_VALUE);
