@@ -735,6 +735,8 @@ i_bs_utf8_size(Src, Dst) {
     $Dst = result;
 }
 
+x64.i_bs_utf8_size(Src, Dst);
+
 i_bs_put_utf8(Fail, Src) {
     if (!erts_bs_put_utf8(ERL_BITS_ARGS_1($Src))) {
         $BADARG($Fail);
@@ -1112,6 +1114,8 @@ i_bs_get_utf8.execute(Fail, Dst) {
     $Dst = result;
 }
 
+x64.i_bs_get_utf8(Ctx, Fail, Dst);
+
 i_bs_get_utf16 := i_bs_get_utf16.fetch.execute;
 
 i_bs_get_utf16.head() {
@@ -1132,6 +1136,8 @@ i_bs_get_utf16.execute(Fail, Flags, Dst) {
     $REFRESH_GEN_DEST();
     $Dst = result;
 }
+
+x64.i_bs_get_utf16(Ctx, Fail, Flags, Dst);
 
 bs_context_to_binary := ctx_to_bin.fetch.execute;
 

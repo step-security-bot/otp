@@ -454,3 +454,39 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(ArgVal Ctx, ArgVal Fail, ArgVal 
   a.bind(next);
   mov(Dst, RET);
 }
+
+void BeamModuleAssembler::emit_i_bs_utf8_size(ArgVal Src, ArgVal Dst, Instruction *I) {
+  Label next = a.newLabel();
+  mov(TMP1, Src);
+  a.cmp(TMP1, make_small(0x80UL));
+  a.mov(RET, 1);
+  a.jl(next);
+  a.cmp(TMP1, make_small(0x800UL));
+  a.mov(RET, 2);
+  a.jl(next);
+  a.cmp(TMP1, make_small(0x10000UL));
+  a.mov(RET, 3);
+  a.jl(next);
+  a.mov(RET, 4);
+  a.bind(next);
+  mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_bs_get_utf8(ArgVal Ctx, ArgVal Fail, ArgVal Dst, Instruction *I) {
+  mov(ARG1, Ctx);
+  a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  call((uint64_t)erts_bs_get_utf8);
+  a.cmp(RET, THE_NON_VALUE);
+  a.je(labels[Fail.getValue()]);
+  mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_bs_get_utf16(ArgVal Ctx, ArgVal Fail, ArgVal Flags, ArgVal Dst, Instruction *I) {
+  mov(ARG1, Ctx);
+  a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.mov(ARG2, Flags.getValue());
+  call((uint64_t)erts_bs_get_utf16);
+  a.cmp(RET, THE_NON_VALUE);
+  a.je(labels[Fail.getValue()]);
+  mov(Dst, RET);
+}
