@@ -673,6 +673,8 @@ bs_add(Fail, Src1, Src2, Unit, Dst) {
     ASSERT(0);
 }
 
+x64.bs_add(Fail, Src1, Src2, Unit, Dst);
+
 bs_put_string(Len, Ptr) {
     erts_new_bs_put_string(ERL_BITS_ARGS_2((byte *) $Ptr, $Len));
 }
@@ -694,6 +696,8 @@ i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst) {
     $Dst = res;
 }
 
+x64.i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst);
+
 i_bs_private_append(Fail, Unit, Size, Src, Dst) {
     Eterm res;
 
@@ -705,11 +709,15 @@ i_bs_private_append(Fail, Unit, Size, Src, Dst) {
     $Dst = res;
 }
 
+x64.i_bs_private_append(Fail, Unit, Size, Src, Dst);
+
 bs_init_writable() {
     HEAVY_SWAPOUT;
     r(0) = erts_bs_init_writable(c_p, r(0));
     HEAVY_SWAPIN;
 }
+
+x64.bs_init_writable();
 
 i_bs_utf8_size(Src, Dst) {
     Eterm arg = $Src;

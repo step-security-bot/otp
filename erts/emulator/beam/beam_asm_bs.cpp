@@ -512,3 +512,114 @@ void BeamModuleAssembler::emit_bs_test_unit(ArgVal Fail, ArgVal Ctx, ArgVal Unit
 
   a.jnz(labels[Fail.getValue()]);
 }
+
+// x64.bs_add(Fail, Src1, Src2, Unit, Dst);
+void BeamModuleAssembler::emit_bs_add(ArgVal Fail, ArgVal Src1, ArgVal Src2,
+                                      ArgVal Unit, ArgVal Dst, Instruction *I) {
+  Label entry = a.newLabel(), next = a.newLabel();
+  a.bind(entry);
+
+  mov(ARG1, Src1);
+  mov(ARG2, Src2);
+
+  /* Both arguments must be immediates on x64. */
+  a.mov(TMP3, ARG1);
+  a.and_(TMP3, _TAG_PRIMARY_MASK);
+  a.and_(TMP3, ARG2);
+  a.cmp(TMP3, TAG_PRIMARY_IMMED1);
+  a.jne(labels[Fail.getValue()]);
+
+  /* signed_val(ARG1) >= 0 && signed_val(ARG2) >= 0 */
+  a.sar(ARG1, _TAG_IMMED1_SIZE);
+  a.js(labels[Fail.getValue()]);
+  a.sar(ARG2, _TAG_IMMED1_SIZE);
+  a.js(labels[Fail.getValue()]);
+
+  a.mov(RET, Unit.getValue());
+  a.mul(ARG2); /* CLOBBERS RDX = ARG3! */
+  if (Fail.getValue() != 0) {
+    a.jo(labels[Fail.getValue()]);
+  } else {
+    a.jno(next);
+    emit_system_limit(Fail, I);
+    a.bind(next);
+  }
+  a.add(RET, ARG1);
+
+  a.shl(RET, _TAG_IMMED1_SIZE);
+  a.or_(RET, _TAG_IMMED1_SMALL);
+  mov(Dst, RET);
+}
+
+// x64.i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst);
+void BeamModuleAssembler::emit_i_bs_append(ArgVal Fail, ArgVal ExtraHeap,
+                                           ArgVal Live, ArgVal Unit,
+                                           ArgVal Size, ArgVal Dst,
+                                           Instruction *I) {
+    Label entry = a.newLabel(), next = a.newLabel();
+    a.bind(entry);
+
+    emit_heavy_swapout();
+
+    /* reg[live] = x(SCRATCH_X_REG); */
+    mov(TMP1, ArgVal(ArgVal::TYPE::x, 1023));
+    mov(ArgVal(ArgVal::TYPE::x, Live.getValue()), TMP1);
+
+    a.mov(ARG2, x_reg);
+    mov(ARG3, Live);
+    mov(ARG4, Size);
+    mov(ARG5, ExtraHeap);
+    mov(ARG6, Unit);
+    /* Must be last since mov() of immediates clobbers ARG1 */
+    a.mov(ARG1, c_p);
+    call((uint64_t)erts_bs_private_append);
+    emit_heavy_swapin();
+
+    a.cmp(RET, THE_NON_VALUE);
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_handle_error(entry);
+    }
+    a.bind(next);
+    mov(Dst, RET);
+}
+
+// x64.i_bs_private_append(Fail, Unit, Size, Src, Dst);
+void BeamModuleAssembler::emit_i_bs_private_append(ArgVal Fail, ArgVal Unit,
+                                                   ArgVal Size, ArgVal Src,
+                                                   ArgVal Dst, Instruction *I) {
+    Label entry = a.newLabel(), next = a.newLabel();
+
+    a.bind(entry);
+    mov(ARG2, Src);
+    mov(ARG3, Size);
+    mov(ARG4, Unit);
+    /* Must be last since mov() clobbers ARG1 */
+    a.mov(ARG1, c_p);
+    call((uint64_t)erts_bs_private_append);
+
+    /* FIXME: raise an exception on Fail == 0*/
+    a.cmp(RET, THE_NON_VALUE);
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_handle_error(entry);
+    }
+
+    a.bind(next);
+    mov(Dst, RET);
+}
+
+
+// x64.bs_init_writable();
+void BeamModuleAssembler::emit_bs_init_writable(Instruction *I) {
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    mov(ARG2, x0);
+    call((uint64_t)erts_bs_init_writable);
+    mov(x0, RET);
+    emit_heavy_swapin();
+}
