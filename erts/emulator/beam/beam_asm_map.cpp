@@ -207,8 +207,7 @@ void BeamModuleAssembler::emit_update_map_exact(ArgVal Src, ArgVal Fail, ArgVal 
     a.cmp(RET, THE_NON_VALUE);
     a.jne(next);
 
-    comment("HANDLE_UPDATE_MAP_EXACT_ERROR");
-    emit_nyi();
+    emit_nyi("handle_update_map_exact_error");
 
     a.bind(next);
     mov(Dst, RET);

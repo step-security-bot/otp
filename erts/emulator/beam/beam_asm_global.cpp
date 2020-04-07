@@ -196,7 +196,8 @@ void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {
     /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
     emit_swapout();
     a.mov(ARG1, c_p);
-    a.mov(ARG2, x86::qword_ptr(I));
+    /* FIXME: MOV -> LEA */
+    a.lea(ARG2, x86::qword_ptr(I));
     a.mov(ARG3, x_reg);
     a.mov(ARG4, imm(mfa));
     call((uint64_t)handle_error);

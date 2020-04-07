@@ -78,7 +78,7 @@ void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) 
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
 }
@@ -94,7 +94,7 @@ void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);
@@ -111,7 +111,7 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -128,7 +128,7 @@ void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -145,7 +145,7 @@ void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -163,7 +163,7 @@ void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *In
     a.je(next);
 
     /* BADARITH */
-    emit_nyi();
+    emit_nyi("float badarith");
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);

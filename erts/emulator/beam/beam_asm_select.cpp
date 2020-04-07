@@ -100,7 +100,7 @@ void BeamModuleAssembler::emit_i_jump_on_val_zero(ArgVal Src, ArgVal Fail, ArgVa
   if (Fail.getValue()) {
     a.jmp(labels[Fail.getValue()]);
   } else {
-    emit_nyi();
+    emit_nyi("i_jump_on_val_zero error");
   }
 }
 
@@ -123,6 +123,6 @@ void BeamModuleAssembler::emit_i_jump_on_val(ArgVal Src, ArgVal Fail, ArgVal N, 
   if (Fail.getValue()) {
     a.jmp(labels[Fail.getValue()]);
   } else {
-    emit_nyi();
+    emit_nyi("i_jump_on_val error");
   }
 }

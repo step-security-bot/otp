@@ -172,7 +172,8 @@ void BeamModuleAssembler::emit_i_bs_start_match3(ArgVal Src, ArgVal Live, ArgVal
 }
 
 void BeamModuleAssembler::emit_i_bs_start_match3_gp(ArgVal Src, ArgVal Live, ArgVal Fail, ArgVal Dst, ArgVal Pos, Instruction *I) {
-  emit_nyi();
+  emit_i_bs_start_match3(Src, Live, Fail, Dst);
+  emit_i_bs_get_position(Dst, Pos);
 }
 
 static bool i_bs_match_string(Eterm Ctx, Uint bits, byte *bytes) {

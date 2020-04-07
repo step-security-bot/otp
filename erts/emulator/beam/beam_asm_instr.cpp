@@ -389,8 +389,7 @@ x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  comment("HANDLE_APPLY_ERROR");
-  emit_nyi();
+  emit_nyi("handle_apply_error");
   a.bind(dispatch);
   return RET;
 }
@@ -436,8 +435,7 @@ x86::Gp BeamModuleAssembler::emit_apply(ArgVal Arity, uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  comment("HANDLE_APPLY_ERROR");
-  emit_nyi();
+  emit_nyi("handle_apply_error");
   a.bind(dispatch);
   return RET;
 }
@@ -474,8 +472,7 @@ x86::Gp BeamModuleAssembler::emit_call_fun(ArgVal Fun) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  comment("HANDLE_APPLY_FUN_ERROR");
-  emit_nyi();
+  emit_nyi("handle_apply_fun_error");
   a.bind(dispatch);
   return RET;
 }
@@ -512,8 +509,7 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  comment("HANDLE_APPLY_FUN_ERROR");
-  emit_nyi();
+  emit_nyi("handle_apply_fun_error");
   a.bind(dispatch);
   return RET;
 }
