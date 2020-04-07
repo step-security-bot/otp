@@ -119,6 +119,8 @@ static void validate_term(Eterm term) {
 }
 
 void BeamModuleAssembler::emit_validate(ArgVal arity) {
+    Label next = a.newLabel(), crash = a.newLabel();
+
     emit_heavy_swapout();
 
     a.push(x86::rbx);
@@ -129,12 +131,9 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.push(x86::r15);
 
     /* Crash if return address is not a valid CP. */
-    Label next = a.newLabel();
     mov(TMP1, CP);
     a.test(TMP1, _CPMASK);
-    a.je(next);
-    a.hlt();
-    a.bind(next);
+    a.jne(crash);
 
     for(unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
@@ -147,6 +146,11 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.pop(x86::r12);
     a.pop(x86::rbp);
     a.pop(x86::rbx);
+
+    a.jmp(next);
+    a.bind(crash);
+    a.hlt();
+    a.bind(next);
 }
 
 /* Instrs */

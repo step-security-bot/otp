@@ -127,8 +127,6 @@ protected:
   const x86::Gp ARG4 = x86::rcx;
   const x86::Gp ARG5 = x86::r8;
   const x86::Gp ARG6 = x86::r9;
-  const x86::Mem ARG7 = x86::qword_ptr(x86::rbp, 2*sizeof(Eterm));
-  const x86::Mem ARG8 = x86::qword_ptr(x86::rbp, 3*sizeof(Eterm));
   const x86::Gp RET  = x86::rax;
 
   const x86::Gp TMP1 = ARG1;
@@ -159,7 +157,7 @@ protected:
   const x86::Gp c_p = x86::r13;
   const x86::Gp FCALLS = x86::r14;
   const x86::Gp HTOP = x86::r15;
-  const x86::Gp f_reg = x86::r11; // This could use RBP but we want to use that as a scratch reg so we dont... for now
+  const x86::Gp f_reg = x86::rbp;
   const ArgVal CP = ArgVal(ArgVal::TYPE::y, 0);
   const x86::Mem EBS = x86::qword_ptr(x86::rsp, 0x20);
 
