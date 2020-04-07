@@ -901,13 +901,7 @@ bs_test_unit(Fail, Ctx, Unit) {
     }
 }
 
-bs_test_unit8(Fail, Ctx) {
-    ErlBinMatchBuffer *_mb;
-    _mb = ms_matchbuffer($Ctx);
-    if ((_mb->size - _mb->offset) & 7) {
-        $FAIL($Fail);
-    }
-}
+x64.bs_test_unit(Fail, Ctx, Unit);
 
 i_bs_get_integer_8 := i_bs_get_integer_8.fetch.execute;
 

@@ -1208,9 +1208,7 @@ bs_test_tail2 Fail=f Ms=xy Bits=u => bs_test_tail_imm2 Fail Ms Bits
 bs_test_zero_tail2 f? xy
 bs_test_tail_imm2 f? xy W
 
-bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
 bs_test_unit f? xy t
-bs_test_unit8 f? xy
 
 # Gets a bitstring from the tail of a context.
 bs_get_tail xy d t
