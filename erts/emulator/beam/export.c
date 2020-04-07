@@ -135,10 +135,13 @@ export_alloc(struct export_entry* tmpl_e)
         obj->is_bif_traced = 0;
 
         {
-            BeamInstr *trampoline = beamasm_get_error_handler();
-            memset(&obj->trampoline, 0, sizeof(obj->trampoline));
+            beamasm_emit_patch(obj->info.mfa.module,
+                               op_call_error_handler, NULL,
+                               (char*)&obj->trampoline.raw[0],
+                               sizeof(obj->trampoline), 0);
+
             for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-                obj->addressv[ix] = trampoline;
+                obj->addressv[ix] = &obj->trampoline.raw[0];
 
                 blob->entryv[ix].slot.index = -1;
                 blob->entryv[ix].ep = &blob->exp;

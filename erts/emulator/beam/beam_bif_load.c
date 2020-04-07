@@ -146,7 +146,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(&bif_trap_export[BIF_code_make_stub_module_3],
+	ERTS_BIF_YIELD3(bif_trap_export[BIF_code_make_stub_module_3],
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -281,7 +281,7 @@ finish_loading_1(BIF_ALIST_1)
     int do_commit = 0;
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(&bif_trap_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(bif_trap_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
     }
 
     /*
@@ -639,7 +639,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(&bif_trap_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(bif_trap_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
 
     {
@@ -765,7 +765,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(&bif_trap_export[BIF_finish_after_on_load_2],
+	ERTS_BIF_YIELD2(bif_trap_export[BIF_finish_after_on_load_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
@@ -831,7 +831,11 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     continue;
                 }
 
-                ep->addressv[code_ix] = beamasm_get_error_handler();
+                beamasm_emit_patch(ep->info.mfa.module,
+                                   op_call_error_handler, NULL,
+                                   (char*)&ep->trampoline.raw[0],
+                                   sizeof(ep->trampoline), 0);
+                ep->addressv[code_ix] = &ep->trampoline.raw[0];
             }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -1654,7 +1658,7 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
             ASSERT(old_area);
             ERTS_VBUMP_ALL_REDS(BIF_P);
-            BIF_TRAP0(&bif_trap_export[BIF_erts_internal_release_literal_area_switch_0],
+            BIF_TRAP0(bif_trap_export[BIF_erts_internal_release_literal_area_switch_0],
                       BIF_P);
         }
 
@@ -2016,7 +2020,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, BADARG);
 
 	if (!erts_try_seize_code_write_permission(BIF_P)) {
-	    ERTS_BIF_YIELD2(&bif_trap_export[BIF_erts_internal_purge_module_2],
+	    ERTS_BIF_YIELD2(bif_trap_export[BIF_erts_internal_purge_module_2],
 			    BIF_P, BIF_ARG_1, BIF_ARG_2);
 	}
 
@@ -2207,8 +2211,13 @@ delete_code(Module* modp)
                 ep->is_bif_traced = 0;
             }
 
-	    ep->addressv[code_ix] = beamasm_get_error_handler();
-	    ep->trampoline.not_loaded.deferred = 0;
+            beamasm_emit_patch(ep->info.mfa.module,
+                               op_call_error_handler, NULL,
+                               (char*)&ep->trampoline.raw[0],
+                               sizeof(ep->trampoline), 0);
+            ep->addressv[code_ix] = &ep->trampoline.raw[0];
+
+        ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

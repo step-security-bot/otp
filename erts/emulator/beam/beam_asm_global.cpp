@@ -184,12 +184,10 @@ void BeamGlobalAssembler::emit_call_error_handler() {
 }
 
 void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
-  /* ARG2 contains an (Export*)
-   *
-   * This is a filthy hack to please call_error_handler which expects the
-   * second argument to be an instruction pointer placed just after an MFA. */
-  a.add(ARG2, offsetof(Export, info.mfa) + sizeof(ErtsCodeMFA));
-  farjmp(ga->get_call_error_handler());
+  /* We're ALWAYS in an Export entry, just after an ErtsCodeMFA; prepare our
+   * `I` for use in erts_code_to_codemfa. */
+  a.lea(ARG2, x86::qword_ptr(x86::rip, -7));
+  farjmp((uint64_t)ga->get_call_error_handler());
 }
 
 void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {

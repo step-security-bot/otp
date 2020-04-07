@@ -99,7 +99,7 @@
  *
  */
 
-static Export term_to_binary_trap_export;
+static Export *term_to_binary_trap_export;
 
 static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_heap_header** off_heap);
 struct TTBEncodeContext_;
@@ -123,7 +123,7 @@ static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
 static ErtsExtSzRes encode_size_struct_int(TTBSizeContext*, ErtsAtomCacheMap *acmp,
                                            Eterm obj, unsigned dflags, Sint *reds, Uint *res);
 
-static Export binary_to_term_trap_export;
+static Export *binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
 static Sint transcode_dist_obuf(ErtsDistOutputBuf*, DistEntry*, Uint32 dflags, Sint reds);
 static byte *hopefull_bit_binary(TTBEncodeContext* ctx, byte **epp, Binary *pb_val, Eterm pb_term,
@@ -1362,14 +1362,14 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
         }
         if (Opts == am_undefined)
             ERTS_BIF_ERROR_TRAPPED1(BIF_P, SYSTEM_LIMIT,
-                                    &bif_trap_export[bif_ix], Term);
+                                    bif_trap_export[bif_ix], Term);
         else
             ERTS_BIF_ERROR_TRAPPED2(BIF_P, SYSTEM_LIMIT,
-                                    &bif_trap_export[bif_ix], Term, Opts);
+                                    bif_trap_export[bif_ix], Term, Opts);
     }
     if (is_tuple(res)) {
 	ASSERT(BIF_P->flags & F_DISABLE_GC);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+	BIF_TRAP1(term_to_binary_trap_export,BIF_P,res);
     } else {
         if (erts_set_gc_state(BIF_P, 1)
             || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P))
@@ -1393,7 +1393,7 @@ BIF_RETTYPE term_to_binary_1(BIF_ALIST_1)
     }
     if (is_tuple(res)) {
 	erts_set_gc_state(BIF_P, 0);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+	BIF_TRAP1(term_to_binary_trap_export,BIF_P,res);
     } else {
 	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
@@ -1414,7 +1414,7 @@ BIF_RETTYPE term_to_iovec_1(BIF_ALIST_1)
     }
     if (is_tuple(res)) {
 	erts_set_gc_state(BIF_P, 0);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+	BIF_TRAP1(term_to_binary_trap_export,BIF_P,res);
     } else {
 	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
@@ -1510,7 +1510,7 @@ BIF_RETTYPE term_to_binary_2(BIF_ALIST_2)
     }
     if (is_tuple(res)) {
 	erts_set_gc_state(BIF_P, 0);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+	BIF_TRAP1(term_to_binary_trap_export,BIF_P,res);
     } else {
 	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
@@ -1539,7 +1539,7 @@ BIF_RETTYPE term_to_iovec_2(BIF_ALIST_2)
     }
     if (is_tuple(res)) {
 	erts_set_gc_state(BIF_P, 0);
-	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
+	BIF_TRAP1(term_to_binary_trap_export,BIF_P,res);
     } else {
 	ASSERT(!(BIF_P->flags & F_DISABLE_GC));
 	BIF_RET(res);
@@ -1568,7 +1568,7 @@ erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts)
         }
         else if (is_tuple(res)) {
             erts_set_gc_state(p, 0);
-            ERTS_BIF_PREP_TRAP1(ret, &term_to_binary_trap_export,p,res);
+            ERTS_BIF_PREP_TRAP1(ret, term_to_binary_trap_export,p,res);
         }
         else {
             ASSERT(!(p->flags & F_DISABLE_GC));
@@ -1987,8 +1987,8 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
         case B2TBadArg:
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
 
-	    ASSERT(ctx->bif == &bif_trap_export[BIF_binary_to_term_1]
-		   || ctx->bif == &bif_trap_export[BIF_binary_to_term_2]);
+	    ASSERT(ctx->bif == bif_trap_export[BIF_binary_to_term_1]
+		   || ctx->bif == bif_trap_export[BIF_binary_to_term_2]);
 
 	    if (is_first_call)
 		ERTS_BIF_PREP_ERROR(ret_val, p, BADARG);
@@ -2054,7 +2054,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
     }
     BUMP_ALL_REDS(p);
 
-    ERTS_BIF_PREP_TRAP1(ret_val, &binary_to_term_trap_export,
+    ERTS_BIF_PREP_TRAP1(ret_val, binary_to_term_trap_export,
 			p, ctx->trap_bin);
 
     return ret_val;
@@ -2069,7 +2069,7 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
     ctx.flags = 0;
     ctx.used_bytes = 0;
     ctx.trap_bin = THE_NON_VALUE;
-    ctx.bif = &bif_trap_export[BIF_binary_to_term_1];
+    ctx.bif = bif_trap_export[BIF_binary_to_term_1];
     ctx.arg[0] = BIF_ARG_1;
     ctx.arg[1] = THE_NON_VALUE;
     return binary_to_term_int(BIF_P, BIF_ARG_1, &ctx);
@@ -2104,7 +2104,7 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
         goto error;
 
     ctx.trap_bin = THE_NON_VALUE;
-    ctx.bif = &bif_trap_export[BIF_binary_to_term_2];
+    ctx.bif = bif_trap_export[BIF_binary_to_term_2];
     ctx.arg[0] = BIF_ARG_1;
     ctx.arg[1] = BIF_ARG_2;
     return binary_to_term_int(BIF_P, BIF_ARG_1, &ctx);

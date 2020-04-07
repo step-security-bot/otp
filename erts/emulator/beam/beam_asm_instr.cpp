@@ -74,10 +74,11 @@ void BeamModuleAssembler::emit_dispatch(x86::Gp where, enum beamasm_ret how)
 
 void BeamModuleAssembler::emit_dispatch_rel(ArgVal CallDest) {
   a.lea(TMP3,x86::qword_ptr(labels[CallDest.getValue()]));
-  auto label = std::find(functions.begin(), functions.end(),
-                         CallDest.getValue()-1);
-    
+
+//  auto label = std::find(functions.begin(), functions.end(),
+//                         CallDest.getValue()-1);
 //    emit_dbg_call((ErtsCodeMFA*)getCode(*label));
+
   emit_dispatch(TMP3);
 }
 
@@ -307,18 +308,6 @@ void BeamModuleAssembler::emit_dispatch_export(ArgVal Exp) {
   a.jmp(TMP3);
 
   a.bind(yield);
-
-  /* FIXME: the error handler assumes that the export entry to the called
-   * function lives in ARG2, so we cannot yield when calling into a module that
-   * has yet to be loaded.
-   *
-   * This filthy hack is necessary because the error handler no longer executes
-   * code from within the export entry, so we can no longer infer the MFA from
-   * the instruction pointer. */
-  a.mov(RET, (uint64_t)beamasm_get_error_handler());
-  a.cmp(TMP3, RET);
-  a.je(dispatch);
-
   /* Yield address is in TMP3 */
   a.mov(RET, RET_context_switch);
   farjmp(ga->get_return());

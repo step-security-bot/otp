@@ -27,7 +27,6 @@ extern "C" {
 extern "C" BeamInstr *handle_error(void);
 
 void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Label entry, ErtsCodeMFA *mfa) {
-    Label dispatch = a.newLabel();
     comment("handle_error");
     for (unsigned i = 0; i < args.size(); i++)
         mov(ArgVal(ArgVal::x, i), args[i]);
@@ -117,7 +116,7 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, Ar
         a.jne(next);
     }
     a.bind(fail);
-    emit_bif_arg_error({Op1, Op2}, entry, &bif_trap_export[BIF_intdiv_2].info.mfa);
+    emit_bif_arg_error({Op1, Op2}, entry, &bif_trap_export[BIF_intdiv_2]->info.mfa);
 
     a.bind(next);
     mov(Dst, RET);

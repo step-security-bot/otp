@@ -81,7 +81,7 @@ static BIF_RETTYPE db_bif_fail(Process* p, Uint freason,
 {
     if (freason == TRAP) {
         if (!bif_exp)
-            bif_exp = &bif_trap_export[bif_ix];
+            bif_exp = bif_trap_export[bif_ix];
         p->arity = bif_exp->info.mfa.arity;
         p->i = (BeamInstr*) bif_exp->addressv[erts_active_code_ix()];
     }
@@ -401,15 +401,15 @@ static BIF_RETTYPE ets_select3(Process* p, DbTable*, Eterm tid, Eterm ms, Sint c
 /* 
  * Exported global
  */
-Export ets_select_delete_continue_exp;
-Export ets_select_count_continue_exp;
-Export ets_select_replace_continue_exp;
-Export ets_select_continue_exp;
+Export *ets_select_delete_continue_exp;
+Export *ets_select_count_continue_exp;
+Export *ets_select_replace_continue_exp;
+Export *ets_select_continue_exp;
 
 /*
  * Static traps
  */
-static Export ets_delete_continue_exp;
+static Export *ets_delete_continue_exp;
 
 static Export *ets_info_binary_trap = NULL;
 
@@ -1920,7 +1920,7 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
     }
     if (ctx->continuation_state != NULL) {
         erts_set_gc_state(p, 0);
-        BIF_TRAP2(&bif_trap_export[bix], p, tid, state_mref);
+        BIF_TRAP2(bif_trap_export[bix], p, tid, state_mref);
     }
     return ret;
 }
@@ -2527,7 +2527,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
         BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
+	BIF_TRAP1(ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
         BUMP_REDS(BIF_P, (initial_reds - reds));
@@ -2699,7 +2699,7 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
             tb->common.status |= DB_BUSY;
             db_unlock(tb, LCK_WRITE);
             BUMP_ALL_REDS(BIF_P);
-            BIF_TRAP2(&bif_trap_export[BIF_ets_internal_delete_all_2], BIF_P,
+            BIF_TRAP2(bif_trap_export[BIF_ets_internal_delete_all_2], BIF_P,
                       BIF_ARG_1, nitems_holder);
         }
         else {
@@ -2829,7 +2829,7 @@ static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
     
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
-                      &ets_select_delete_continue_exp);
+                      ets_select_delete_continue_exp);
 
     cret = tb->common.meth->db_select_delete_continue(p,tb,a1,&ret,&safety);
 
@@ -3313,7 +3313,7 @@ static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
-                      &ets_select_continue_exp);
+                      ets_select_continue_exp);
 
     cret = tb->common.meth->db_select_continue(p, tb, a1, &ret, &safety);
 
@@ -3481,7 +3481,7 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_READ, kind,
-                      &ets_select_count_continue_exp);
+                      ets_select_count_continue_exp);
 
     cret = tb->common.meth->db_select_count_continue(p, tb, a1, &ret, &safety);
 
@@ -3572,7 +3572,7 @@ static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1)
     ASSERT(arityval(*tptr) >= 1);
 
     DB_TRAP_GET_TABLE(tb, tptr[1], DB_WRITE, kind,
-                      &ets_select_replace_continue_exp);
+                      ets_select_replace_continue_exp);
 
     cret = tb->common.meth->db_select_replace_continue(p,tb,a1,&ret,&safety);
 
@@ -3864,7 +3864,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 	    BIF_RET(am_undefined);
 	}
 	if (rp == ERTS_PROC_LOCK_BUSY) {
-	    ERTS_BIF_YIELD1(&bif_trap_export[BIF_ets_info_1], BIF_P, BIF_ARG_1);
+	    ERTS_BIF_YIELD1(bif_trap_export[BIF_ets_info_1], BIF_P, BIF_ARG_1);
 	}
 	if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ)) == NULL
 	    || tb->common.owner != owner) {
@@ -3885,10 +3885,10 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
             db_unlock(tb, LCK_READ);
             hp = HAlloc(BIF_P, 3);
             tuple = TUPLE2(hp, res.trap_resume_state, table);
-            BIF_TRAP1(&bif_trap_export[BIF_ets_info_1], BIF_P, tuple);
+            BIF_TRAP1(bif_trap_export[BIF_ets_info_1], BIF_P, tuple);
         } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
             db_unlock(tb, LCK_READ);
-            BIF_TRAP1(&bif_trap_export[BIF_ets_info_1], BIF_P, table);
+            BIF_TRAP1(bif_trap_export[BIF_ets_info_1], BIF_P, table);
         } else {
             size = res.result[ERTS_DB_TABLE_NITEMS_COUNTER_ID];
             memory = res.result[ERTS_DB_TABLE_MEM_COUNTER_ID];
@@ -3959,10 +3959,10 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
             erts_flxctr_snapshot(&tb->common.counters, ERTS_ALC_T_ETS_CTRS, BIF_P);
         if (ERTS_FLXCTR_GET_RESULT_AFTER_TRAP == res.type) {
             db_unlock(tb, LCK_READ);
-            BIF_TRAP2(&bif_trap_export[BIF_ets_info_2], BIF_P, res.trap_resume_state, BIF_ARG_2);
+            BIF_TRAP2(bif_trap_export[BIF_ets_info_2], BIF_P, res.trap_resume_state, BIF_ARG_2);
         } else if (res.type == ERTS_FLXCTR_TRY_AGAIN_AFTER_TRAP) {
             db_unlock(tb, LCK_READ);
-            BIF_TRAP2(&bif_trap_export[BIF_ets_info_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
+            BIF_TRAP2(bif_trap_export[BIF_ets_info_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
         } else if (BIF_ARG_2 == am_size) {
             ret = erts_make_integer(res.result[ERTS_DB_TABLE_NITEMS_COUNTER_ID], BIF_P);
         } else { /* BIF_ARG_2 == am_memory */
@@ -4028,7 +4028,7 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     for (lst = BIF_ARG_1; is_list(lst); lst = CDR(list_val(lst))) {
 	if (++i > CONTEXT_REDS) {
 	    BUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP3(&bif_trap_export[BIF_ets_match_spec_run_r_3],
+	    BIF_TRAP3(bif_trap_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
 	res = db_prog_match(BIF_P, BIF_P,
@@ -4778,7 +4778,7 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
     reds = free_table_continue(BIF_P, tb, reds);
     if (reds < 0) {
         BUMP_ALL_REDS(BIF_P);
-        BIF_TRAP1(&ets_delete_continue_exp, BIF_P, cont);
+        BIF_TRAP1(ets_delete_continue_exp, BIF_P, cont);
     }
     else {
         BUMP_REDS(BIF_P, (initial_reds - reds));

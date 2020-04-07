@@ -67,6 +67,10 @@ typedef struct export_
             BeamInstr op;       /* op_call_error_handler, or 0 during the last
                                  * phase of code loading when on_load is
                                  * present. See above. */
+
+            /* FIXME: `deferred` is tested in a lot of places, so we'll keep
+             * it out of the way for now */
+            BeamInstr __massive_hack__[5];
             BeamInstr deferred;
         } not_loaded;
 
@@ -75,8 +79,8 @@ typedef struct export_
             BeamInstr address;  /* Address of the traced function */
         } trace;
 
-        BeamInstr raw[5];       /* For use in address comparisons, should not
-                                 * be tampered directly. */
+        BeamInstr raw[5];      /* For use in address comparisons, should not
+                                * be tampered directly. */
     } trampoline;
 } Export;
 

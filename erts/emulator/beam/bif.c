@@ -50,12 +50,12 @@
 #include "beam_asm.h"
 
 Export *erts_await_result;
-static Export await_exit_trap;
+static Export *await_exit_trap;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
-static Export dsend_continue_trap_export;
+static Export *dsend_continue_trap_export;
 Export *erts_convert_time_unit_trap = NULL;
 
 static Export *await_msacc_mod_trap = NULL;
@@ -1245,7 +1245,7 @@ erts_internal_await_exit_trap(BIF_ALIST_0)
     if (state & ERTS_PSFLG_EXITING)
         ERTS_BIF_EXITED(BIF_P);
 
-    ERTS_BIF_YIELD0(&await_exit_trap, BIF_P);
+    ERTS_BIF_YIELD0(await_exit_trap, BIF_P);
 }
 
 /**********************************************************************/
@@ -1280,7 +1280,7 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
              erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
              erts_proc_sig_fetch(c_p);
              erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
-             ERTS_BIF_PREP_TRAP0(ret_val, &await_exit_trap, c_p);
+             ERTS_BIF_PREP_TRAP0(ret_val, await_exit_trap, c_p);
          }
      }
      else if (is_internal_port(id)) {
@@ -1339,7 +1339,7 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
                  case ERTS_DSIG_SEND_CONTINUE:
                      BUMP_ALL_REDS(c_p);
                      erts_set_gc_state(c_p, 0);
-                     ERTS_BIF_PREP_TRAP1(ret_val, &dsend_continue_trap_export, c_p,
+                     ERTS_BIF_PREP_TRAP1(ret_val, dsend_continue_trap_export, c_p,
                                          erts_dsend_export_trap_context(c_p, &ctx));
                      break;
                  case ERTS_DSIG_SEND_OK:
@@ -2177,7 +2177,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD:
 	if (suspend) {
-	    ERTS_BIF_PREP_YIELD3(retval, &bif_trap_export[BIF_send_3], p, to, msg, opts);
+	    ERTS_BIF_PREP_YIELD3(retval, bif_trap_export[BIF_send_3], p, to, msg, opts);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	}
@@ -2208,7 +2208,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
+	ERTS_BIF_PREP_TRAP1(retval, dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
@@ -2251,7 +2251,7 @@ static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 
     case ERTS_DSIG_SEND_CONTINUE: { /*SEND_YIELD_CONTINUE*/
 	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP1(&dsend_continue_trap_export, BIF_P, BIF_ARG_1);
+	BIF_TRAP1(dsend_continue_trap_export, BIF_P, BIF_ARG_1);
     }
     case ERTS_DSIG_SEND_TOO_LRG: { /*SEND_SYSTEM_LIMIT*/
 	erts_set_gc_state(BIF_P, 1);
@@ -2294,7 +2294,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_PREP_RET(retval, msg);
 	break;
     case SEND_YIELD:
-	ERTS_BIF_PREP_YIELD2(retval, &bif_trap_export[BIF_send_2], p, to, msg);
+	ERTS_BIF_PREP_YIELD2(retval, bif_trap_export[BIF_send_2], p, to, msg);
 	break;
     case SEND_YIELD_RETURN:
     yield_return:
@@ -2319,7 +2319,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	break;
     case SEND_YIELD_CONTINUE:
 	BUMP_ALL_REDS(p);
-	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
+	ERTS_BIF_PREP_TRAP1(retval, dsend_continue_trap_export, p, ctx);
 	break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
@@ -2601,7 +2601,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     } else {
         ERTS_BIF_ERROR_TRAPPED1(BIF_P,
                                 BADARG,
-                                &bif_trap_export[BIF_iolist_size_1],
+                                bif_trap_export[BIF_iolist_size_1],
                                 input_list);
     }
 
@@ -2621,7 +2621,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     ESTACK_SAVE(s, &context->stack);
     erts_set_gc_state(BIF_P, 0);
     BUMP_ALL_REDS(BIF_P);
-    BIF_TRAP1(&bif_trap_export[BIF_iolist_size_1], BIF_P, state_mref);
+    BIF_TRAP1(bif_trap_export[BIF_iolist_size_1], BIF_P, state_mref);
 }
 
 /**********************************************************************/
@@ -3959,7 +3959,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
 	    erts_halt(pos_int_code);
-	    ERTS_BIF_YIELD2(&bif_trap_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
+	    ERTS_BIF_YIELD2(bif_trap_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
 	}
 	else {
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -4544,7 +4544,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
                 BIF_RET(am_enabled);
             case ERTS_SCHDLR_SSPND_YIELD_RESTART:
                 ERTS_VBUMP_ALL_REDS(BIF_P);
-                BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
+                BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
                           BIF_P, BIF_ARG_1, BIF_ARG_2);
             case ERTS_SCHDLR_SSPND_YIELD_DONE:
                 ERTS_BIF_YIELD_RETURN_X(BIF_P, am_enabled,
@@ -4569,7 +4569,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
+	    BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4733,7 +4733,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(&bif_trap_export[BIF_system_flag_2],
+	    BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4888,7 +4888,7 @@ BIF_RETTYPE phash2_1(BIF_ALIST_1)
     if (trap_state == THE_NON_VALUE) {
         BIF_RET(make_small(hash & ((1L << 27) - 1)));
     } else {
-        BIF_TRAP1(&bif_trap_export[BIF_phash2_1], BIF_P, trap_state);
+        BIF_TRAP1(bif_trap_export[BIF_phash2_1], BIF_P, trap_state);
     }
 }
 
@@ -4911,7 +4911,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     }
     hash = trapping_make_hash2(BIF_ARG_1, &trap_state, BIF_P);
     if (trap_state != THE_NON_VALUE) {
-        BIF_TRAP2(&bif_trap_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
+        BIF_TRAP2(bif_trap_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
     }
     if (range) {
 	final_hash = hash % range; /* [0..range-1] */
@@ -4982,19 +4982,22 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     BIF_RET(res);
 }
 
-Export bif_return_trap_export;
+Export *bif_return_trap_export;
 
-void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
+void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST))
 {
+    Export* ep;
     int i;
     GenOp op;
+
     op.arity = 1;
     op.a = op.def_args;
     op.next = NULL;
     op.a[0].type = TAG_f;
     op.a[0].val = (BeamInstr)bif;
 
+    ep = erts_alloc(ERTS_ALC_T_EXPORT, sizeof(Export));
     sys_memset((void *) ep, 0, sizeof(Export));
 
     ep->bif_number = -1;
@@ -5004,20 +5007,27 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
 
-    {
-        BeamInstr *trampoline = beamasm_emit_trampoline(&ep->info.mfa, op_call_bif_W, &op, 0);
-        for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-            ep->addressv[i] = trampoline;
-        }
+    for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
+        ep->addressv[i] = &ep->trampoline.raw[0];
     }
+
+    ERTS_CT_ASSERT(sizeof(ep->trampoline) >= BEAM_NATIVE_MIN_FUNC_SZ);
+    beamasm_emit_patch(ep->info.mfa.module, op_call_bif_W, &op,
+                       (char*)&ep->trampoline.raw[0],
+                       BEAM_NATIVE_MIN_FUNC_SZ, 0);
+
+    *epp = ep;
 }
 
 /*
  * Writes a BIF call wrapper to the given address.
  */
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
-    BifEntry *entry = &bif_table[export->bif_number];
+    BifEntry *entry;
     GenOp op;
+
+    ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
+    entry = &bif_table[export->bif_number];
 
     op.arity = 1;
     op.a = op.def_args;

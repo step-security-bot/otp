@@ -88,7 +88,6 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
 }
 
 void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
-  Export *exp = (Export*)Exp.getValue();
   Label entry = a.newLabel();
   a.align(kAlignCode, 8);
   a.bind(entry);
@@ -235,13 +234,14 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
   farjmp(ga->get_return());
 
   a.bind(error);
-  emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry, &bif_trap_export[BIF_length_1].info.mfa);
+  emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry,
+                     &bif_trap_export[BIF_length_1]->info.mfa);
 
   a.bind(next);
 }
 
 void BeamModuleAssembler::emit_send(Instruction *I) {
-  Label next = a.newLabel(), error = a.newLabel(), cont = a.newLabel(), entry = a.newLabel();
+  Label entry = a.newLabel();
   a.bind(entry);
 
   emit_proc_lc_unrequire();

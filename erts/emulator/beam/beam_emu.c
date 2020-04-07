@@ -799,15 +799,12 @@ static void install_bifs(void) {
         ep->info.mfa.arity = entry->arity;
         ep->bif_number = i;
 
-        {
-            BeamInstr *trampoline = beamasm_get_error_handler();
-
-            for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
-                ep->addressv[j] = trampoline;
-            }
-    
-            memset(&ep->trampoline, 0, sizeof(ep->trampoline));
+        for (j = 0; j < ERTS_NUM_CODE_IX; j++) {
+            ep->addressv[j] = &ep->trampoline.raw[0];
         }
+
+        ERTS_CT_ASSERT(sizeof(ep->trampoline) >= BEAM_NATIVE_MIN_FUNC_SZ);
+        erts_write_bif_wrapper(ep, &ep->trampoline.raw[0]);
 
         /* Set up a hidden export entry so we can trap to this BIF without
          * it being seen when tracing. */
@@ -1105,7 +1102,7 @@ ubif2mfa(void* uf)
     int i;
     for (i = 0; erts_u_bifs[i].bif; i++) {
 	if (erts_u_bifs[i].bif == uf)
-	    return &bif_trap_export[erts_u_bifs[i].exp_ix].info.mfa;
+	    return &bif_trap_export[erts_u_bifs[i].exp_ix]->info.mfa;
     }
     erts_exit(ERTS_ERROR_EXIT, "bad u bif: %p\n", uf);
     return NULL;
@@ -2199,7 +2196,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = &bif_trap_export[BIF_hibernate_3].info.mfa;
+    c_p->current = &bif_trap_export[BIF_hibernate_3]->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }
