@@ -121,9 +121,13 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
 // that the bifs expect them to be in....
 void BeamModuleAssembler::emit_call_guard_bif(std::vector<ArgVal> args, ArgVal bif, ArgVal Dst, Label entry, Label next) {
   Label fail = a.newLabel();
-  unsigned stackAdj = (args.size()+1) / 2 * sizeof(Eterm); // Allocate aligned stack
+  unsigned stackAdj;
+
+  /* Allocate 16-byte aligned stack */
+  stackAdj = ((args.size() + 1) * sizeof(Eterm)) & ~15;
   a.sub(x86::rsp, stackAdj);
-  // Store bif arguments on stack
+
+  /* Store bif arguments on stack */
   for (unsigned i = 0; i < args.size(); i++)
     mov(x86::qword_ptr(x86::rsp, i * sizeof(Eterm)), args[i]);
 
