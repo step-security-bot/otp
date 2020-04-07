@@ -1560,15 +1560,15 @@ i_get_map_element f? xy xy xy
 gen_plus/5
 gen_minus/5
 
-gc_bif1 Fail Live u$bif:erlang:splus/1 Src Dst => \
-   gen_plus Fail Live Src i Dst
-gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst => \
-   gen_plus Fail Live S1 S2 Dst
-
-gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst => \
-   gen_minus Fail Live i Src Dst
-gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
-   gen_minus Fail Live S1 S2 Dst
+# gc_bif1 Fail Live u$bif:erlang:splus/1 Src Dst => \
+#    gen_plus Fail Live Src i Dst
+# gc_bif2 Fail Live u$bif:erlang:splus/2 S1 S2 Dst => \
+#    gen_plus Fail Live S1 S2 Dst
+# 
+# gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst => \
+#    gen_minus Fail Live i Src Dst
+# gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
+#    gen_minus Fail Live S1 S2 Dst
 
 #
 # Optimize addition and subtraction of small literals using

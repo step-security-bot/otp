@@ -54,7 +54,7 @@ void BeamModuleAssembler::emit_fstore(ArgVal Src, ArgVal Dst, Instruction *Inst)
 static int handle_fconv(Eterm src, double *dst) {
     if (is_small(src)) {
         *dst = (double)signed_val(src);
-    } if (is_float(src)) {
+    } else if (is_float(src)) {
         GET_DOUBLE(src, *(FloatDef *)dst);
     } else if (is_big(src)) {
         if (big_to_double(src, dst) < 0) {
@@ -71,7 +71,7 @@ static int handle_fconv(Eterm src, double *dst) {
 void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) {
     Label next = a.newLabel();
 
-    mov(TMP1, Src);
+    mov(ARG1, Src);
     a.lea(ARG2, getFRef(f_reg, Dst));
     call((uint64_t)handle_fconv);
     a.test(RET, RET);
