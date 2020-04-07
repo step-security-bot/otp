@@ -264,19 +264,21 @@ void BeamModuleAssembler::emit_i_bs_get_integer_16(ArgVal Ctx, ArgVal Fail, ArgV
 }
 
 static Eterm i_bs_get_integer_32(Process *c_p, Eterm context) {
-  Eterm _result;
   ErlBinMatchBuffer* _mb = ms_matchbuffer(context);
+  Uint32 _result;
 
   if (_mb->size - _mb->offset < 32) {
     return THE_NON_VALUE;
   }
+
   if (BIT_OFFSET(_mb->offset) != 0) {
-    _result = erts_bs_get_integer_2(c_p, 32, 0, _mb);
+    _result = erts_bs_get_unaligned_uint32(_mb);
   } else {
-    _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
-    _mb->offset += 32;
+    _result = get_int32(_mb->base + _mb->offset / 8);
   }
-  return _result;
+
+  _mb->offset += 32;
+  return make_small(_result);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_integer_32(ArgVal Ctx, ArgVal Fail, ArgVal Dst, Instruction *I) {
