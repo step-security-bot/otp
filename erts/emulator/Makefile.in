@@ -650,7 +650,7 @@ beam/erl_db_insert_list.inc: $(YCF_EXECUTABLE) beam/erl_db.c
 GENERATE += beam/erl_db_insert_list.inc
 
 asmjit/CMakeLists.txt:
-	git submodule init
+	git submodule update --checkout
 
 asmjit/Makefile: asmjit/CMakeLists.txt
 	cd asmjit && cmake -DCMAKE_BUILD_TYPE="Debug" -DASMJIT_STATIC=true .
