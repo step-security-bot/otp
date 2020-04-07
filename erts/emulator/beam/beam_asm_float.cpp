@@ -48,7 +48,7 @@ void BeamModuleAssembler::emit_fstore(ArgVal Src, ArgVal Dst, Instruction *Inst)
     a.or_(TMP1, make_float(0));
     mov(Dst, TMP1);
 
-    a.add(HTOP, FLOAT_SIZE_OBJECT);
+    a.add(HTOP, FLOAT_SIZE_OBJECT * sizeof(Eterm));
 }
 
 static int handle_fconv(Eterm src, double *dst) {

@@ -135,6 +135,10 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.test(TMP1, _CPMASK);
     a.jne(crash);
 
+    /* Crash if the heap is not word-aligned */
+    a.test(HTOP, 0x7);
+    a.jne(crash);
+
     for(unsigned i = 0; i < arity.getValue(); i++) {
         a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
         call((uint64_t)validate_term);
