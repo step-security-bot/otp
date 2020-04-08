@@ -80,6 +80,7 @@ void *BeamModuleAssembler::getCode(Label label) {
 }
 
 BeamInstr BeamModuleAssembler::getCode(unsigned label) {
+  ASSERT(label < labels.size());
   return (BeamInstr)getCode(labels[label]);
 }
 
@@ -245,14 +246,17 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     currLabel = labels[inst.args[0].getValue()];
     break;
   case op_int_code_end: {
-    Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ];
+    Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
     uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());
     if (diff <= sizeof(padbuff))
         a.embed(padbuff, sizeof(padbuff) - diff);
-    labels[labels.size()] = a.newLabel();
-    a.bind(labels[labels.size()-1]);
     ASSERT(a.offset() - code.labelOffsetFromBase(functions.back())
              >= sizeof(padbuff));
+
+    /* This label is used by update_gdb_jit_info to figure out the end of the last function */
+    labels[labels.size()] = a.newLabel();
+    a.bind(labels[labels.size()-1]);
+
     emit_nyi(opc[inst.op].name);
   }
   case op_line_I:
@@ -295,6 +299,65 @@ struct jit_descriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
 
 } // extern "C"
 
+void BeamModuleAssembler::update_gdb_jit_info(void) {
+
+  uint64_t *buff = (uint64_t*)erts_alloc(ERTS_ALC_T_TMP, 1024 + sizeof(uint64_t) * 2);
+  Uint symfile_size = sizeof(uint64_t) * 3;
+  char *symfile = (char*)malloc(symfile_size);
+  int n;
+  jit_code_entry *entry;
+
+  entry = (jit_code_entry*)malloc(sizeof(jit_code_entry));
+
+  ((uint64_t*)symfile)[0] = functions.size();
+  ((uint64_t*)symfile)[1] = (uint64_t)module;
+  ((uint64_t*)symfile)[2] = (uint64_t)code.codeSize();
+  n = erts_snprintf((char*)buff,1024,"%T",((ErtsCodeInfo*)getCode(functions[0]))->mfa.module) + 1;
+
+  symfile = (char*)realloc(symfile, symfile_size + n);
+  memcpy(symfile + symfile_size, buff, n);
+  symfile_size += n;
+
+  for (unsigned i = 0; i < functions.size(); i++) {
+    ErtsCodeInfo* ci = (ErtsCodeInfo*)getCode(functions[i]);
+    buff[0] = (uint64_t)getCode(functions[i]+1);
+    if (i + 1 < functions.size())
+      buff[1] = (uint64_t)(getCode(functions[i+1]));
+    else
+      buff[1] = (uint64_t)(getCode(labels.size()-1) - 1);
+
+    n = erts_snprintf((char*)(buff+2),1024,"%T_%d",
+                      ci->mfa.function,ci->mfa.arity);
+
+    n += 1 + sizeof(uint64_t) * 2;
+
+    symfile = (char*)realloc(symfile, symfile_size + n);
+    memcpy(symfile + symfile_size, buff, n);
+    symfile_size += n;
+  }
+
+/* Add address description */
+  entry->symfile_addr = symfile;
+  entry->symfile_size = symfile_size;
+
+  /* Insert into linked list */
+  entry->next_entry = __jit_debug_descriptor.first_entry;
+  if (entry->next_entry) {
+    entry->next_entry->prev_entry = entry;
+  } else {
+    entry->prev_entry = nullptr;
+  }
+
+  /* register with dbg */
+  __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
+  __jit_debug_descriptor.first_entry = entry;
+  __jit_debug_descriptor.relevant_entry = entry;
+  __jit_debug_register_code();
+
+  erts_free(ERTS_ALC_T_TMP, buff);
+
+}
+
 void *BeamModuleAssembler::codegen() {
 
 //   if (!codegen(literals))
@@ -305,9 +368,14 @@ void *BeamModuleAssembler::codegen() {
   Error err = rt->add(&module,&code);
   ERTS_ASSERT(!err && "Failed to create module");
 
+
 //   module(labels);
 //   *catch_no = this->catch_no;
   this->module = (void*)module;
+
+  if (functions.size())
+    update_gdb_jit_info();
+
   return nullptr;
 }
 
@@ -315,48 +383,15 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
 
   BeamCodeHeader *orig_hdr = *hdr;
   BeamCodeHeader *code_hdr = (BeamCodeHeader *)getCode(codeHeader);
+
   memcpy(code_hdr, orig_hdr, sizeof(BeamCodeHeader));
-  char *buff = (char*)erts_alloc(ERTS_ALC_T_TMP, 1024);
 
   for (unsigned i = 0; i < functions.size(); i++) {
     ErtsCodeInfo *ci = (ErtsCodeInfo*)getCode(functions[i]);
-    int n;
-    jit_code_entry *entry;
-    char *ptr;
     ASSERT(memcmp(&ci->mfa,&orig_hdr->functions[i]->mfa,sizeof(ci->mfa)) == 0);
     code_hdr->functions[i] = ci;
-    n = erts_snprintf(buff,1024,"%T_%T_%d",ci->mfa.module, ci->mfa.function,
-                      ci->mfa.arity);
-
-    entry = (jit_code_entry*)malloc(sizeof(jit_code_entry));
-    ptr = (char*)malloc(n + 1 + sizeof(uint64_t)*2);
-
-    /* Insert into linked list */
-    entry->next_entry = __jit_debug_descriptor.first_entry;
-    if (entry->next_entry) {
-      entry->next_entry->prev_entry = entry;
-    } else {
-      entry->prev_entry = nullptr;
-    }
-
-    /* Add address description */
-    entry->symfile_addr = ptr;
-    entry->symfile_size = sizeof(uint64_t) * 2 + 1 + n;
-    ((uint64_t*)ptr)[0] = (uint64_t)ci;
-    if (i + 1 < functions.size())
-      ((uint64_t*)ptr)[1] = (uint64_t)(getCode(functions[i]) - 1);
-    else
-      ((uint64_t*)ptr)[1] = (uint64_t)(getCode(labels.size()-1) - 1);
-    memcpy(ptr + sizeof(uint64_t)*2, buff, n + 1);
-
-    /* register with dbg */
-    __jit_debug_descriptor.action_flag = JIT_REGISTER_FN;
-    __jit_debug_descriptor.first_entry = entry;
-    __jit_debug_descriptor.relevant_entry = entry;
-    __jit_debug_register_code();
   }
 
-  erts_free(ERTS_ALC_T_TMP, buff);
   /* FIXME: keep original header alive; we need the line table etc. */
   //erts_free(ERTS_ALC_T_CODE, orig_hdr);
 

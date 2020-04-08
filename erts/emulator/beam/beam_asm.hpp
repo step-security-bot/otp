@@ -380,7 +380,8 @@ public:
                       unsigned num_functions);
 
   bool emit(unsigned op, std::vector<ArgVal> args, BeamInstr *I = nullptr);
-  void *codegen();
+  void *codegen(void);
+  void update_gdb_jit_info(void);
   BeamInstr getCode(unsigned label);
   void *getCode(Label label);
   byte *getCode(char *labelName);
