@@ -215,7 +215,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
              >= sizeof(padbuff));
     }
 
-    if (I != nullptr) {
+    if (1) {
         Eterm module, function;
         void *bp_ptr;
         Uint arity;
@@ -230,7 +230,10 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
         /* This is an ErtsCodeInfo structure that has a valid x86 opcode as its
         * `op` field, which *calls* the funcInfo trampoline so we can trace it
         * back to this particular function. */
-        a.call(funcInfo);
+        if (I)
+          a.call(funcInfo);
+        else
+          a.call(currLabel);
         a.align(kAlignCode, 8);
         a.embed(&bp_ptr, sizeof(bp_ptr));
         a.embed(&module, sizeof(module));

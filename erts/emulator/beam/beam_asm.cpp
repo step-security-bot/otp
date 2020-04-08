@@ -78,11 +78,12 @@ extern "C" {
     apply = new BeamModuleAssembler(rt, bga, am_erts_internal, 3);
     apply->setDebug(false);
     apply->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    apply->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_apply), ArgVal(ArgVal::i, 3)});
+    apply->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_apply), ArgVal(ArgVal::i, 3)});
     apply->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
     apply->emit(op_i_apply, {});
     apply->emit(op_label_L, {ArgVal(ArgVal::i, 3)});
     apply->emit(op_normal_exit, {});
+    apply->emit(op_int_code_end, {});
     apply->codegen();
     beam_apply[0] = apply->getCode(2);
     beam_apply[1] = apply->getCode(3);
@@ -90,18 +91,20 @@ extern "C" {
     bma_exit = new BeamModuleAssembler(rt, bga, am_erts_internal, 2);
     bma_exit->setDebug(false);
     bma_exit->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    bma_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_exit), ArgVal(ArgVal::i, 3)});
+    bma_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_exit), ArgVal(ArgVal::i, 3)});
     bma_exit->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
     bma_exit->emit(op_error_action_code, {});
+    bma_exit->emit(op_int_code_end, {});
     bma_exit->codegen();
     beam_exit[0] = bma_exit->getCode(2);
 
     continue_exit = new BeamModuleAssembler(rt, bga, am_erts_internal, 2);
     continue_exit->setDebug(false);
     continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    continue_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_continue_exit), ArgVal(ArgVal::i, 3)});
+    continue_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_continue_exit), ArgVal(ArgVal::i, 3)});
     continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
     continue_exit->emit(op_continue_exit, {});
+    continue_exit->emit(op_int_code_end, {});
     continue_exit->codegen();
     beam_continue_exit[0] = continue_exit->getCode(2);
 
