@@ -837,7 +837,7 @@ $(OBJDIR)/%.o: nifs/common/%.c
 $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
-$(OBJDIR)/%.o: beam/%.cpp $(TTF_DIR)/usr/local/include/asmjit/asmjit.h
+$(OBJDIR)/%.o: beam/%.cpp beam/beam_asm.hpp $(TTF_DIR)/usr/local/include/asmjit/asmjit.h
 	$(V_CXX) $(CFLAGS) $(CXXFLAGS) --std=gnu++11 $(INCLUDES) -I $(TTF_DIR)/usr/local/include/ -c $< -o $@
 
 # ----------------------------------------------------------------------
