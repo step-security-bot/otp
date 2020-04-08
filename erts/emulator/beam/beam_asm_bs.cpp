@@ -102,8 +102,7 @@ Eterm i_bs_init(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP, Eterm BsOp1, 
 }
 
 void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal Live, ArgVal Dst, Instruction *I) {
-  emit_swapout();
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+  emit_heavy_swapout();
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
@@ -111,8 +110,7 @@ void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal L
   mov(ARG5, Heap);
   mov(ARG6, Live);
   call((uint64_t)i_bs_init);
-  a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
-  emit_swapin();
+  emit_heavy_swapin();
   mov(Dst, RET);
 }
 
@@ -123,9 +121,55 @@ void BeamModuleAssembler::emit_bs_put_string(ArgVal Size, ArgVal Ptr, Instructio
   call((uint64_t)erts_new_bs_put_string);
 }
 
+// Clobbers TMP1
+void BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit,
+                                                           ArgVal Fail, x86::Gp dest,
+                                                           Label entry) {
+  Label not_small = a.newLabel(), execute = a.newLabel();
+  mov(TMP1, Size);
+  a.mov(ARG4, TMP1);
+  a.and_(TMP1, _TAG_IMMED1_MASK);
+  a.cmp(TMP1, _TAG_IMMED1_SMALL);
+  a.jne(not_small);
+  a.sar(ARG4, _TAG_IMMED1_SIZE);
+  a.cmp(ARG4, 0);
+  a.jge(execute);
+  emit_badarg(entry, Fail);
+  a.bind(not_small);
+  emit_nyi("bs_init_fail_heap not small");
+  a.bind(execute);
+}
+
+void BeamModuleAssembler::emit_i_bs_init_fail_heap(ArgVal Size, ArgVal Heap,
+                                                   ArgVal Fail, ArgVal Live,
+                                                   ArgVal Dst, Instruction *I) {
+  Label entry = a.newLabel(), next = a.newLabel();
+  a.bind(entry);
+  // Clobbers TMP1
+  emit_bs_get_unchecked_field_size(Size, 1, Fail, ARG4, entry);
+  emit_heavy_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(ARG3, EBS);
+  // mov(ARG4, Size);, this is set by code above
+  mov(ARG5, Heap);
+  mov(ARG6, Live);
+  call((uint64_t)i_bs_init);
+  emit_heavy_swapin();
+  mov(Dst, RET);
+  a.bind(next);
+}
+
 void BeamModuleAssembler::emit_i_bs_init(ArgVal Size, ArgVal Live, ArgVal Dst, Instruction *I) {
   ArgVal Heap(ArgVal::TYPE::u, 0);
   emit_i_bs_init_heap(Size, Heap, Live, Dst, I);
+}
+
+void BeamModuleAssembler::emit_i_bs_init_fail(ArgVal Size, ArgVal Fail,
+                                              ArgVal Live, ArgVal Dst,
+                                              Instruction *I) {
+  ArgVal Heap(ArgVal::TYPE::u, 0);
+  emit_i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst, I);
 }
 
 void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail, ArgVal Sz, ArgVal Flags, Instruction *I) {
@@ -136,6 +180,66 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail,
   mov(ARG3, Sz);
   mov(ARG4, Flags);
   call((uint64_t)erts_new_bs_put_integer);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_new_bs_put_binary_all(ArgVal Src, ArgVal Fail,
+                                                       ArgVal Unit, Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
+  a.mov(ARG1, EBS);
+  mov(ARG2, Src);
+  mov(ARG3, Unit);
+  call((uint64_t)erts_new_bs_put_binary_all);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
+                                                       ArgVal Src, Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
+  a.mov(ARG1, EBS);
+  mov(ARG2, Src);
+  mov(ARG3, Sz);
+  call((uint64_t)erts_new_bs_put_binary);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal Flags,
+                                                  ArgVal Src, Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
+  // Clobbers TMP1
+  emit_bs_get_unchecked_field_size(Sz, Flags.getValue() << 3, Fail, ARG3, entry);
+  a.mov(ARG1, c_p);
+  mov(ARG2, Src);
+//  mov(ARG3, Sz); set by bs_get_unchecked...
+  mov(ARG4, Flags);
+  call((uint64_t)erts_new_bs_put_binary);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_new_bs_put_float_imm(ArgVal Fail, ArgVal Sz, ArgVal Flags,
+                                                      ArgVal Src, Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
+  a.mov(ARG1, c_p);
+  mov(ARG2, Src);
+  mov(ARG3, Sz);
+  mov(ARG4, Flags);
+  call((uint64_t)erts_new_bs_put_binary);
   a.cmp(RET, 0);
   a.jne(next);
   emit_badarg(entry, Fail);
@@ -461,17 +565,28 @@ void BeamModuleAssembler::emit_i_bs_utf8_size(ArgVal Src, ArgVal Dst, Instructio
   Label next = a.newLabel();
   mov(TMP1, Src);
   a.cmp(TMP1, make_small(0x80UL));
-  a.mov(RET, 1);
+  a.mov(RET, make_small(1));
   a.jl(next);
   a.cmp(TMP1, make_small(0x800UL));
-  a.mov(RET, 2);
+  a.mov(RET, make_small(2));
   a.jl(next);
   a.cmp(TMP1, make_small(0x10000UL));
-  a.mov(RET, 3);
+  a.mov(RET, make_small(3));
   a.jl(next);
-  a.mov(RET, 4);
+  a.mov(RET, make_small(4));
   a.bind(next);
   mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_bs_put_utf8(ArgVal Fail, ArgVal Src, Instruction *I) {
+  Label entry = a.newLabel(), next = a.newLabel();
+  a.bind(entry);
+  a.mov(ARG1, EBS);
+  mov(ARG2, Src);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_utf8(ArgVal Ctx, ArgVal Fail, ArgVal Dst, Instruction *I) {
@@ -572,16 +687,12 @@ void BeamModuleAssembler::emit_i_bs_append(ArgVal Fail, ArgVal ExtraHeap,
     mov(ARG6, Unit);
     /* Must be last since mov() of immediates clobbers ARG1 */
     a.mov(ARG1, c_p);
-    call((uint64_t)erts_bs_private_append);
+    call((uint64_t)erts_bs_append);
     emit_heavy_swapin();
 
     a.cmp(RET, THE_NON_VALUE);
-    if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
-    } else {
-        a.jne(next);
-        emit_handle_error(entry);
-    }
+    a.jne(next);
+    emit_fail_head_or_body(entry, Fail);
     a.bind(next);
     mov(Dst, RET);
 }
@@ -600,15 +711,9 @@ void BeamModuleAssembler::emit_i_bs_private_append(ArgVal Fail, ArgVal Unit,
     a.mov(ARG1, c_p);
     call((uint64_t)erts_bs_private_append);
 
-    /* FIXME: raise an exception on Fail == 0*/
     a.cmp(RET, THE_NON_VALUE);
-    if (Fail.getValue() != 0) {
-        a.je(labels[Fail.getValue()]);
-    } else {
-        a.jne(next);
-        emit_handle_error(entry);
-    }
-
+    a.jne(next);
+    emit_fail_head_or_body(entry, Fail);
     a.bind(next);
     mov(Dst, RET);
 }

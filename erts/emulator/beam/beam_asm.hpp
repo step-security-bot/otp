@@ -428,6 +428,7 @@ private:
   void emit_bif_arg_error(std::vector<ArgVal> args, Label entry, ErtsCodeMFA *mfa);
   void emit_fail_head_or_body(Label entry, ArgVal Fail);
   void emit_badarg(Label entry, ArgVal Fail);
+  void emit_bs_get_unchecked_field_size(ArgVal Size, int unit, ArgVal Fail, x86::Gp dest, Label entry);
   template<typename T>
   void emit_yield_error_test(Label entry, T exp, bool only);
   void emit_handle_error(Label I, ErtsCodeMFA *mfa = nullptr);

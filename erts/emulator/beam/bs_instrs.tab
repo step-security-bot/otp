@@ -297,11 +297,15 @@ i_new_bs_put_binary_all.execute(Fail, Unit) {
     }
 }
 
+x64.i_new_bs_put_binary_all(Src, Fail, Unit);
+
 i_new_bs_put_binary_imm(Fail, Sz, Src) {
     if (!erts_new_bs_put_binary(ERL_BITS_ARGS_2(($Src), ($Sz)))) {
         $BADARG($Fail);
     }
 }
+
+x64.i_new_bs_put_binary_imm(Fail, Sz, Src);
 
 i_new_bs_put_float(Fail, Sz, Flags, Src) {
     Eterm sz = $Sz;
@@ -313,11 +317,15 @@ i_new_bs_put_float(Fail, Sz, Flags, Src) {
     }
 }
 
+x64.i_new_bs_put_float(Fail, Sz, Flags, Src);
+
 i_new_bs_put_float_imm(Fail, Sz, Flags, Src) {
     if (!erts_new_bs_put_float(c_p, ($Src), ($Sz), ($Flags))) {
         $BADARG($Fail);
     }
 }
+
+x64.i_new_bs_put_float_imm(Fail, Sz, Flags, Src);
 
 i_new_bs_put_integer(Fail, Sz, Flags, Src) {
     Eterm sz = $Sz;
@@ -453,6 +461,8 @@ bs_init.execute(Live, Dst) {
 
 x64.i_bs_init_heap(Size, Heap, Live, Dst);
 x64.i_bs_init(Size, Live, Dst);
+x64.i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst);
+x64.i_bs_init_fail(Size, Fail, Live, Dst);
 
 #
 # i_bs_init_bits*
@@ -750,6 +760,8 @@ i_bs_put_utf8(Fail, Src) {
         $BADARG($Fail);
     }
 }
+
+x64.i_bs_put_utf8(Fail, Src);
 
 i_bs_utf16_size(Src, Dst) {
     Eterm arg = $Src;
