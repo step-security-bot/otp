@@ -49,9 +49,9 @@ void BeamModuleAssembler::emit_new_map(ArgVal Dst, ArgVal Live, ArgVal N, Instru
     a.mov(ARG4, N.getValue());
     a.lea(ARG5, x86::qword_ptr(data));
     call((uint64_t)erts_gc_new_map);
-    mov(Dst, RET);
 
     emit_heavy_swapin();
+    mov(Dst, RET);
 }
 
 // x64.i_new_small_map_lit(Dst, Live, Keys);
@@ -178,9 +178,9 @@ void BeamModuleAssembler::emit_update_map_assoc(ArgVal Src, ArgVal Dst, ArgVal L
     a.mov(ARG4, N.getValue());
     a.lea(ARG5, x86::qword_ptr(data));
     call((uint64_t)erts_gc_update_map_assoc);
-    mov(Dst, RET);
 
     emit_heavy_swapin();
+    mov(Dst, RET);
 }
 
 // x64.update_map_exact(Src, Fail, Dst, Live, N);

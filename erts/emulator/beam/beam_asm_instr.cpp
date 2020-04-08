@@ -558,8 +558,8 @@ void BeamModuleAssembler::emit_i_make_fun(ArgVal FunP, ArgVal NumFree, Instructi
   mov(ARG3, FunP);
   mov(ARG4, NumFree);
   call((uint64_t)new_fun);
-  mov(x0, RET);
   emit_heavy_swapin();
+  mov(x0, RET);
 }
 
 x86::Mem BeamModuleAssembler::emit_list_val(x86::Gp Src) {
@@ -1457,8 +1457,8 @@ void BeamModuleAssembler::emit_catch_end(ArgVal Y, Instruction *Inst) {
   mov(ARG2, x2);
   mov(ARG3, x3);
   call((uint64_t)add_stacktrace);
-  mov(x2, RET);
   emit_swapin();
+  mov(x2, RET);
 
   a.bind(not_error);
 
@@ -1524,11 +1524,13 @@ void BeamModuleAssembler::emit_i_raise(Instruction *Inst) {
 
 void BeamModuleAssembler::emit_build_stacktrace(Instruction *Inst) {
   emit_swapout();
+
   a.mov(ARG1, c_p);
   mov(ARG2, x0);
   call((uint64_t)build_stacktrace);
-  mov(x0, RET);
   emit_swapin();
+
+  mov(x0, RET);
 }
 
 static bool raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p) {

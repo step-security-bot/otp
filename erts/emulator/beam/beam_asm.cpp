@@ -26,19 +26,11 @@
 using namespace asmjit;
 
 void BeamAssembler::emit_light_swapin() {
-#ifdef DEBUG
-  emit_swapin();
-#else
   a.mov(HTOP,x86::qword_ptr(c_p, offsetof(Process, htop)));
-#endif
 }
 
 void BeamAssembler::emit_light_swapout() {
-#ifdef DEBUG
-  emit_swapout();
-#else
   a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
-#endif
 }
 
 void BeamAssembler::emit_swapin() {
