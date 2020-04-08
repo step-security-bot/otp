@@ -2072,7 +2072,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 				    code_ix);
 		literals = modp->old.code_hdr->literal_area;
 		modp->old.code_hdr->literal_area = NULL;
-		erts_free(ERTS_ALC_T_CODE, (void *) code);
+// TODO: Fix me		erts_free(ERTS_ALC_T_CODE, (void *) code);
 		modp->old.code_hdr = NULL;
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
