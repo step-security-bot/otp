@@ -144,7 +144,7 @@ extern "C" {
       ERTS_ASSERT(call_error_handler->getCodeSize() <= buff_len);
       memcpy(buff, (BeamInstr*)call_error_handler->getCode(1), call_error_handler->getCodeSize());
     } else {
-      BeamModuleAssembler ba(rt, bga, module, 1);
+      BeamModuleAssembler ba(rt, bga, am_erts_internal, 1);
       ba.setDebug(debug);
       ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
       beamasm_emit(&ba, specific_op, op, nullptr);
