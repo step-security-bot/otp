@@ -1580,3 +1580,8 @@ void BeamModuleAssembler::emit_raw_raise(Instruction *Inst) {
   a.bind(next);
   mov(x0, am_badarg);
 }
+
+void BeamModuleAssembler::emit_i_yield(Instruction *Inst) {
+  // Ignore for now... not important
+  mov(ArgVal(ArgVal::x, 0), am_true);
+};
