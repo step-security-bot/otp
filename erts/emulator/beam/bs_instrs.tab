@@ -231,6 +231,8 @@ i_bs_get_float2.execute(Fail, Live, Sz, Flags, Dst) {
     }
 }
 
+x64.i_bs_get_float2(Ctx, Fail, Live, Sz, Flags, Dst);
+
 i_bs_skip_bits2 := i_bs_skip_bits2.fetch.execute;
 
 i_bs_skip_bits2.head() {

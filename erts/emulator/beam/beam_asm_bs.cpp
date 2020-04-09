@@ -754,6 +754,38 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(ArgVal Ctx, ArgVal Fail, ArgVal 
   mov(Dst, RET);
 }
 
+void BeamModuleAssembler::emit_i_bs_get_float2(ArgVal Ctx, ArgVal Fail, ArgVal Live,
+                                               ArgVal Sz, ArgVal Flags, ArgVal Dst,
+                                               Instruction *I) {
+  Label fail = a.newLabel(), next = a.newLabel();
+
+  mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
+  emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,FLOAT_SIZE_OBJECT), Live + 1);
+  mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
+
+  mov(RET, Sz);
+  a.mov(TMP3, TMP1);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, _TAG_IMMED1_SMALL);
+  a.jne(fail);
+  a.sar(RET, _TAG_IMMED1_SIZE);
+  a.cmp(RET, 64);
+  a.jg(fail);
+  a.mov(TMP3, Flags.getValue() >> 3);
+  a.mul(TMP3);
+
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, RET);
+  a.mov(ARG3, Flags.getValue());
+  a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.cmp(RET, THE_NON_VALUE);
+  a.jne(next);
+  a.bind(fail);
+  a.jmp(labels[Fail.getValue()]);
+  a.bind(next);
+  mov(Dst, RET);
+}
+
 void BeamModuleAssembler::emit_i_bs_utf8_size(ArgVal Src, ArgVal Dst, Instruction *I) {
   Label next = a.newLabel();
   mov(TMP1, Src);
