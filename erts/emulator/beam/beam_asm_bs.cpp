@@ -38,23 +38,29 @@ void BeamModuleAssembler::emit_badarg(Label entry, ArgVal Fail) {
   emit_fail_head_or_body(entry, Fail);
 }
 
-// Clobbers TMP1
-void BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit,
-                                                           ArgVal Fail, x86::Gp dest,
-                                                           Label entry) {
-  Label not_small = a.newLabel(), execute = a.newLabel();
-  mov(TMP1, Size);
-  a.mov(ARG4, TMP1);
-  a.and_(TMP1, _TAG_IMMED1_MASK);
-  a.cmp(TMP1, _TAG_IMMED1_SMALL);
-  a.jne(not_small);
-  a.sar(ARG4, _TAG_IMMED1_SIZE);
-  a.cmp(ARG4, 0);
-  a.jge(execute);
-  emit_badarg(entry, Fail);
-  a.bind(not_small);
-  emit_nyi("bs_init_fail_heap not small");
-  a.bind(execute);
+// Clobbers RET + TMP3
+x86::Gp BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label fail) {
+
+  mov(RET, Size);
+  a.mov(TMP3, RET);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, _TAG_IMMED1_SMALL);
+  a.jne(fail);
+  a.sar(RET, _TAG_IMMED1_SIZE);
+  a.cmp(RET, 0);
+  a.jl(fail);
+
+  /* Size = (Size) * (Unit) */
+  a.mov(TMP3, unit);
+  a.mul(TMP3); /* CLOBBERS ARG3! */
+  return RET;
+}
+
+// Clobbers RET + TMP3
+x86::Gp BeamModuleAssembler::emit_bs_get_field_size(ArgVal Size, int unit, Label fail) {
+  x86::Gp ret = emit_bs_get_unchecked_field_size(Size, unit, fail);
+  a.jo(fail);
+  return ret;
 }
 
 void TEST_BIN_VHEAP(Process *c_p, Eterm *reg, Uint VNh, Uint Nh, Uint Live) {
@@ -137,20 +143,24 @@ void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal L
 void BeamModuleAssembler::emit_i_bs_init_fail_heap(ArgVal Size, ArgVal Heap,
                                                    ArgVal Fail, ArgVal Live,
                                                    ArgVal Dst, Instruction *I) {
-  Label entry = a.newLabel(), next = a.newLabel();
+  Label entry = a.newLabel(), next = a.newLabel(), fail = a.newLabel();
   a.bind(entry);
-  // Clobbers TMP1
-  emit_bs_get_unchecked_field_size(Size, 1, Fail, ARG4, entry);
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_unchecked_field_size(Size, 1, fail);
+  ASSERT(ret == RET);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
-  // mov(ARG4, Size);, this is set by code above
+  a.mov(ARG4, ret);
   mov(ARG5, Heap);
   mov(ARG6, Live);
   call((uint64_t)i_bs_init);
   emit_heavy_swapin();
   mov(Dst, RET);
+  a.jmp(next);
+  a.bind(fail);
+  emit_badarg(entry, Fail);
   a.bind(next);
 }
 
@@ -274,20 +284,24 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail(ArgVal NumBits, ArgVal Fail,
 // i_bs_init_bits_fail_heap(NumBits, Alloc, Fail, Live, Dst);
 void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(ArgVal NumBits, ArgVal Alloc,
                                                         ArgVal Fail, ArgVal Live, ArgVal Dst, Instruction *I) {
-  Label entry = a.newLabel(), next = a.newLabel();
+  Label entry = a.newLabel(), next = a.newLabel(), fail = a.newLabel();
   a.bind(entry);
-  // Clobbers TMP1
-  emit_bs_get_unchecked_field_size(NumBits, 1, Fail, ARG4, entry);
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_unchecked_field_size(NumBits, 1, fail);
+  ASSERT(ret == RET);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
-  // mov(ARG4, Size);, this is set by code above
+  a.mov(ARG4, ret);
   mov(ARG5, Alloc);
   mov(ARG6, Live);
   call((uint64_t)i_bs_init_bits);
   emit_heavy_swapin();
   mov(Dst, RET);
+  a.jmp(next);
+  a.bind(fail);
+  emit_badarg(entry, Fail);
   a.bind(next);
 }
 
@@ -314,17 +328,19 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail,
 
 void BeamModuleAssembler::emit_i_new_bs_put_integer(ArgVal Fail, ArgVal Sz, ArgVal Flags,
                                                     ArgVal Src, Instruction *I) {
-  Label next = a.newLabel(), entry = a.newLabel();
+  Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
   a.bind(entry);
-  // Clobbers TMP1
-  emit_bs_get_unchecked_field_size(Sz, Flags.getValue() << 3, Fail, ARG3, entry);
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
+  ASSERT(ret == RET);
   a.mov(ARG1, EBS);
   mov(ARG2, Src);
-//  mov(ARG3, Sz); set by bs_get_unchecked...
+  a.mov(ARG3, ret);
   mov(ARG4, Flags);
   call((uint64_t)erts_new_bs_put_integer);
   a.cmp(RET, 0);
   a.jne(next);
+  a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
 }
@@ -359,17 +375,19 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
 
 void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal Flags,
                                                   ArgVal Src, Instruction *I) {
-  Label next = a.newLabel(), entry = a.newLabel();
+  Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
   a.bind(entry);
-  // Clobbers TMP1
-  emit_bs_get_unchecked_field_size(Sz, Flags.getValue() << 3, Fail, ARG3, entry);
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
+  ASSERT(ret == RET);
   a.mov(ARG1, c_p);
   mov(ARG2, Src);
-//  mov(ARG3, Sz); set by bs_get_unchecked...
+  a.mov(ARG3, ret);
   mov(ARG4, Flags);
   call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
   a.jne(next);
+  a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
 }
@@ -559,6 +577,56 @@ void BeamModuleAssembler::emit_i_bs_get_integer_small_imm(
   mov(Dst, RET);
 }
 
+static Eterm i_bs_get_integer(Process *c_p, Eterm *reg, Eterm context,
+                              Uint flags, Uint size, Uint Live) {
+  ErlBinMatchBuffer* mb;
+
+  if (size >= SMALL_BITS) {
+    Uint wordsneeded;
+    /* Check bits size before potential gc.
+     * We do not want a gc and then realize we don't need
+     * the allocated space (i.e. if the op fails).
+     *
+     * Remember to re-acquire the matchbuffer after gc.
+     */
+
+    mb = ms_matchbuffer(context);
+    if (mb->size - mb->offset < size) {
+      return THE_NON_VALUE;
+    }
+    wordsneeded = 1+WSIZE(NBYTES((Uint) size));
+    reg[Live] = context;
+    GC_TEST(c_p, reg, 0, wordsneeded, Live+1);
+    context = reg[Live];
+  }
+  mb = ms_matchbuffer(context);
+  return erts_bs_get_integer_2(c_p, size, flags, mb);
+}
+
+void BeamModuleAssembler::emit_i_bs_get_integer(ArgVal Ctx, ArgVal Fail, ArgVal Live,
+                                                ArgVal FlagsAndUnit, ArgVal Sz, ArgVal Dst,
+                                                Instruction *I) {
+  Label fail = a.newLabel(), next = a.newLabel();
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_field_size(Sz, FlagsAndUnit.getValue() >> 3, fail);
+  ASSERT(ret == RET);
+  emit_heavy_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  mov(ARG3, Ctx);
+  mov(ARG4, FlagsAndUnit);
+  a.mov(ARG5, ret);
+  mov(ARG6, Live);
+  call((uint64_t)i_bs_get_integer);
+  emit_heavy_swapin();
+  a.cmp(RET, THE_NON_VALUE);
+  a.jne(next);
+  a.bind(fail);
+  a.jmp(labels[Fail.getValue()]);
+  a.bind(next);
+  mov(Dst, RET);
+}
+
 void BeamModuleAssembler::emit_bs_test_zero_tail2(ArgVal Fail, ArgVal Ctx, Instruction *I) {
   mov(TMP1, Ctx);
   a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.offset)));
@@ -636,23 +704,8 @@ void BeamModuleAssembler::emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx) {
 
 //x64.i_bs_skip_bits2(Ctx, Bits, Fail, Unit);
 void BeamModuleAssembler::emit_i_bs_skip_bits2(ArgVal Ctx, ArgVal Bits, ArgVal Fail, ArgVal Unit, Instruction *I) {
-  mov(RET, Bits);
-
-  /* is_small(Bits) && Bits >= 0 */
-  a.mov(TMP2, RET);
-  a.and_(TMP2, _TAG_IMMED1_MASK);
-  a.cmp(TMP2, _TAG_IMMED1_SMALL);
-  a.jne(labels[Fail.getValue()]);
-
-  /* Size = signed_val(Size) && Size >= 0 */
-  a.sar(RET, _TAG_IMMED1_SIZE);
-  a.js(labels[Fail.getValue()]);
-
-  /* RAX = (Bits) * (Unit) */
-  a.mov(TMP2, Unit.getValue());
-  a.mul(TMP2); /* CLOBBERS ARG3! */
-  a.jo(labels[Fail.getValue()]);
-
+  x86::Gp ret = emit_bs_get_field_size(Bits, Unit.getValue(), labels[Fail.getValue()]);
+  ASSERT(ret == RET);
   emit_bs_skip_bits(Fail, Ctx);
 }
 
@@ -668,29 +721,18 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(ArgVal Ctx, ArgVal Fail, ArgVal 
                                                 Instruction *I) {
   Label fail = a.newLabel(), next = a.newLabel();
 
+
   mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
   emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,EXTRACT_SUB_BIN_HEAP_NEED), Live + 1);
   mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
 
-  /* is_small(Size) */
-  mov(RET, Size);
-  a.mov(TMP2, RET);
-  a.and_(TMP2, _TAG_IMMED1_MASK);
-  a.cmp(TMP2, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-
-  /* Size = signed_val(Size) && Size >= 0 */
-  a.sar(RET, _TAG_IMMED1_SIZE);
-  a.js(fail);
-
-  /* Size = (Size) * (Unit) */
-  a.mov(TMP2, (Flags.getValue() >> 3));
-  a.mul(TMP2); /* CLOBBERS ARG3! */
-  a.jo(fail);
+  // Clobbers RET + TMP3
+  x86::Gp ret = emit_bs_get_field_size(Size, Flags.getValue() >> 3, fail);
+  ASSERT(ret == RET);
 
   emit_swapout();
   a.mov(ARG1, c_p);
-  a.mov(ARG2, RET);
+  a.mov(ARG2, ret);
   a.mov(ARG3, Flags.getValue());
   a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
   call((uint64_t)erts_bs_get_binary_2);

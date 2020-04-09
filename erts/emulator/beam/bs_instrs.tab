@@ -1100,6 +1100,8 @@ i_bs_get_integer.execute(Fail, Live, FlagsAndUnit, Sz, Dst) {
     $Dst = result;
 }
 
+x64.i_bs_get_integer(Ctx, Fail, Live, FlagsAndUnit, Sz, Dst);
+
 i_bs_get_utf8 := i_bs_get_utf8.fetch.execute;
 
 i_bs_get_utf8.head() {
