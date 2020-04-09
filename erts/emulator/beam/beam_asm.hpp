@@ -367,6 +367,9 @@ class BeamModuleAssembler : public BeamAssembler {
   Label codeHeader;
   Label funcInfo;
 
+  Label floatMax;
+  Label floatSignMask;
+
   void *module = nullptr;
   Eterm mod;
 
@@ -440,6 +443,8 @@ private:
 
   void emit_select_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
   void emit_select_tuple_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
+
+  void emit_check_float(Label entry, Label next, x86::Xmm value);
 
   void emit_proc_lc_unrequire(void);
   void emit_proc_lc_require(void);

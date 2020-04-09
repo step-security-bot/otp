@@ -88,6 +88,16 @@ void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) 
     a.bind(next);
 }
 
+void BeamModuleAssembler::emit_check_float(Label entry, Label next, x86::Xmm value) {
+    a.movsd(x86::xmm2, value);
+    a.movsd(x86::xmm1, x86::qword_ptr(floatMax));
+    a.andpd(x86::xmm2, x86::xmmword_ptr(floatSignMask));
+    a.ucomisd(x86::xmm1, x86::xmm2);
+    a.jnb(next);
+
+    emit_badarith(entry);
+}
+
 // x64.i_fadd(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
     Label next = a.newLabel(), entry = a.newLabel();
@@ -96,11 +106,8 @@ void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.addpd(x86::xmm0, x86::xmm1);
-    a.vucomisd(x86::xmm0, x86::xmm0);
-    a.je(next);
 
-    /* BADARITH */
-    emit_badarith(entry);
+    emit_check_float(entry, next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);
@@ -114,11 +121,8 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, LHS));
     a.subpd(x86::xmm0, x86::xmm1);
-    a.vucomisd(x86::xmm0, x86::xmm0);
-    a.je(next);
 
-    /* BADARITH */
-    emit_badarith(entry);
+    emit_check_float(entry, next, x86::xmm0);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -132,11 +136,8 @@ void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, LHS));
     a.mulpd(x86::xmm0, x86::xmm1);
-    a.vucomisd(x86::xmm0, x86::xmm0);
-    a.jnp(next);
 
-    /* BADARITH */
-    emit_badarith(entry);
+    emit_check_float(entry, next, x86::xmm0);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -150,11 +151,8 @@ void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.divpd(x86::xmm0, x86::xmm1);
-    a.vucomisd(x86::xmm0, x86::xmm0);
-    a.jnp(next);
 
-    /* BADARITH */
-    emit_badarith(entry);
+    emit_check_float(entry, next, x86::xmm0);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -169,11 +167,8 @@ void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *In
     a.psubd(x86::xmm0, x86::xmm0);
     a.movsd(x86::xmm1, getFRef(f_reg, Src));
     a.subpd(x86::xmm0, x86::xmm1);
-    a.vucomisd(x86::xmm0, x86::xmm0);
-    a.je(next);
 
-    /* BADARITH */
-    emit_badarith(entry);
+    emit_check_float(entry, next, x86::xmm0);
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);
@@ -182,11 +177,11 @@ void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *In
 #ifndef NO_FPE_SIGNALS
 
 void BeamModuleAssembler::emit_fclearerror(Instruction *Inst) {
-    a.hlt();
+    emit_nyi("emit_fclearerror");
 }
 
 void BeamModuleAssembler::emit_i_fcheckerror(Instruction *Inst) {
-    a.hlt();
+    emit_nyi("emit_i_fcheckerror");
 }
 
 #endif

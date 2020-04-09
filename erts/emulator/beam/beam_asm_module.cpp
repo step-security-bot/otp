@@ -55,6 +55,18 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
   a.bind(codeHeader);
   a.embed(hdr_mem, sizeof(BeamCodeHeader) + sizeof(ErtsCodeInfo*) * (num_functions - 1));
 
+  floatMax = a.newLabel();
+  a.align(kAlignCode, 8);
+  a.bind(floatMax);
+  double max = __DBL_MAX__;
+  a.embed((char*)&max, sizeof(double));
+
+  floatSignMask = a.newLabel();
+  a.align(kAlignCode, 16); /* 128-bit aligned */
+  a.bind(floatSignMask);
+  uint64_t signMask = 0x7FFFFFFFFFFFFFFFul;
+  a.embed((char*)&signMask, sizeof(double));
+
   /* FIXME: see op_i_func_info_IaaI in `emit` for details. */
   funcInfo = a.newLabel();
   a.align(kAlignCode, 8);
