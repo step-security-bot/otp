@@ -77,40 +77,6 @@ select_val_bins.select(Fail, NumElements) {
 
 x64.i_select_val_bins(Src, Fail, NumElements);
 
-i_select_tuple_arity2 := select_val2.src.get_arity.execute;
-i_select_val2 := select_val2.src.execute;
-
-select_val2.head() {
-    Eterm select_val2;
-}
-
-select_val2.src(Src) {
-    select_val2 = $Src;
-}
-
-select_val2.get_arity() {
-    if (ERTS_LIKELY(is_tuple(select_val2))) {
-        select_val2 = *tuple_val(select_val2);
-    } else {
-        select_val2 = NIL;
-    }
-}
-
-select_val2.execute(Fail, T1, T2) {
-    Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
-
-    if (select_val2 == $T1) {
-        $JUMP(jump_tab[0]);
-    } else if (select_val2 == $T2) {
-        $JUMP(jump_tab[1]);
-    } else {
-        $FAIL($Fail);
-    }
-}
-
-x64.i_select_val2(Src, Fail, T1, T2);
-x64.i_select_tuple_arity2(Src, Fail, T1, T2);
-
 i_select_tuple_arity := select_val_lin.fetch.get_arity.execute;
 i_select_val_lins := select_val_lin.fetch.execute;
 

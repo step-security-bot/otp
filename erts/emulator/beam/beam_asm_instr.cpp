@@ -180,11 +180,6 @@ void BeamModuleAssembler::emit_allocate(ArgVal NeedStack, ArgVal Live, Instructi
   emit_allocate_heap(NeedStack, ArgVal(ArgVal::TYPE::u, 0), Live);
 }
 
-void BeamModuleAssembler::emit_allocate_init(ArgVal NeedStack, ArgVal Live, ArgVal Y, Instruction *Inst) {
-  emit_allocate(NeedStack, Live);
-  emit_init(Y);
-}
-
 void BeamModuleAssembler::emit_allocate_heap_zero(ArgVal NeedStack, ArgVal NeedHeap, ArgVal Live, Instruction *Inst) {
   emit_allocate_heap(NeedStack, NeedHeap, Live);
   for (unsigned i = 0; i < NeedStack.getValue(); i++) {
@@ -208,48 +203,8 @@ void BeamModuleAssembler::emit_return(Instruction *Inst) {
   emit_dispatch_return(TMP4);
 }
 
-void BeamModuleAssembler::emit_move_return(ArgVal Src, Instruction *Inst) {
-  emit_move(Src, x0);
-  emit_return();
-}
-
 void BeamModuleAssembler::emit_deallocate(ArgVal Deallocate, Instruction *Inst) {
   dealloc(Deallocate);
-}
-
-void BeamModuleAssembler::emit_deallocate_return0(Instruction *Inst) {
-  emit_deallocate(ArgVal(ArgVal::u, (0+1) * sizeof(Eterm)));
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_deallocate_return1(Instruction *Inst) {
-  emit_deallocate(ArgVal(ArgVal::u, (1+1) * sizeof(Eterm)));
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_deallocate_return2(Instruction *Inst) {
-  emit_deallocate(ArgVal(ArgVal::u, (2+1) * sizeof(Eterm)));
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_deallocate_return3(Instruction *Inst) {
-  emit_deallocate(ArgVal(ArgVal::u, (3+1) * sizeof(Eterm)));
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_deallocate_return4(Instruction *Inst) {
-  emit_deallocate(ArgVal(ArgVal::u, (4+1) * sizeof(Eterm)));
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_deallocate_return(ArgVal Deallocate, Instruction *Inst) {
-  emit_deallocate(Deallocate);
-  emit_return();
-}
-
-void BeamModuleAssembler::emit_move_deallocate_return(ArgVal Src, ArgVal Deallocate, Instruction *Inst) {
-  emit_move(Src, x0);
-  emit_deallocate_return(Deallocate);
 }
 
 void BeamModuleAssembler::emit_i_call(ArgVal CallDest, Instruction *Inst) {
@@ -266,28 +221,13 @@ void BeamModuleAssembler::emit_i_call(ArgVal CallDest, Instruction *Inst) {
   a.bind(ret);
 }
 
-void BeamModuleAssembler::emit_move_call(ArgVal Src, ArgVal CallDest, Instruction *Inst) {
-  emit_move(Src, x0);
-  emit_i_call(CallDest);
-}
-
 void BeamModuleAssembler::emit_i_call_last(ArgVal CallDest, ArgVal Deallocate, Instruction *Inst) {
   emit_deallocate(Deallocate);
   emit_dispatch_rel(CallDest);
 }
 
-void BeamModuleAssembler::emit_move_call_last(ArgVal Src, ArgVal CallDest, ArgVal Deallocate, Instruction *Inst) {
-  emit_move(Src, x0);
-  emit_i_call_last(CallDest, Deallocate);
-}
-
 void BeamModuleAssembler::emit_i_call_only(ArgVal CallDest, Instruction *Inst) {
   emit_dispatch_rel(CallDest);
-}
-
-void BeamModuleAssembler::emit_move_call_only(ArgVal Src, ArgVal CallDest, Instruction *Inst) {
-  emit_move(Src, x0);
-  emit_i_call_only(CallDest);
 }
 
 void BeamModuleAssembler::emit_dispatch_export(ArgVal Exp) {
@@ -327,30 +267,14 @@ void BeamModuleAssembler::emit_i_call_ext(ArgVal Exp, Instruction *Inst) {
   a.bind(next);
 }
 
-void BeamModuleAssembler::emit_i_move_call_ext(ArgVal Src, ArgVal Exp, Instruction *Inst) {
-  mov(x0, Src);
-  emit_i_call_ext(Exp);
-}
-
 void BeamModuleAssembler::emit_i_call_ext_only(ArgVal Exp, Instruction *Inst) {
   emit_dispatch_export(Exp);
-}
-
-void BeamModuleAssembler::emit_i_move_call_ext_only(ArgVal Exp, ArgVal Src, Instruction *Inst) {
-  mov(x0, Src);
-  emit_i_call_ext_only(Exp);
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(ArgVal Exp, ArgVal Deallocate, Instruction *Inst) {
   emit_deallocate(Deallocate);
   emit_dispatch_export(Exp);
 }
-
-void BeamModuleAssembler::emit_i_move_call_ext_last(ArgVal Exp, ArgVal Deallocate, ArgVal Src, Instruction *Inst) {
-  mov(x0, Src);
-  emit_i_call_ext_last(Exp, Deallocate);
-}
-
 
 void BeamModuleAssembler::emit_normal_exit(Instruction *Inst) {
   emit_heavy_swapout();
@@ -618,68 +542,8 @@ void BeamModuleAssembler::emit_i_get_tuple_element(ArgVal Src, ArgVal Element, A
   mov(Dst, TMP1);
 }
 
-void BeamModuleAssembler::emit_i_get_tuple_element2(ArgVal Src, ArgVal Element, ArgVal Dst, Instruction *Inst) {
-  emit_i_get_tuple_element2_dst(Src, Element, Dst, Dst + 1);
-}
-
-void BeamModuleAssembler::emit_i_get_tuple_element2_dst(ArgVal Src, ArgVal Element, ArgVal Dst1, ArgVal Dst2, Instruction *Inst) {
-  mov(TMP1, Src);
-
-  x86::Mem element = emit_boxed_val(TMP1, Element.getValue());
-  a.mov(TMP2, element);
-  a.mov(TMP1, incr(element));
-
-  mov(Dst1, TMP2);
-  mov(Dst2, TMP1);
-}
-
-void BeamModuleAssembler::emit_i_get_tuple_element3(ArgVal Src, ArgVal Element, ArgVal Dst, Instruction *Inst) {
-  mov(TMP1, Src);
-
-  x86::Mem tuple = emit_boxed_val(TMP1, Element.getValue());
-  a.mov(TMP3, tuple);
-  a.mov(TMP2, incr(tuple));
-  a.mov(TMP1, incr(tuple));
-
-  mov(Dst, TMP3);
-  mov(Dst + 1, TMP2);
-  mov(Dst + 2, TMP1);
-}
-
 void BeamModuleAssembler::emit_init(ArgVal Y, Instruction *Inst) {
   mov(Y, NIL);
-}
-
-void BeamModuleAssembler::emit_init2(ArgVal Y1, ArgVal Y2, Instruction *Inst) {
-  emit_init(Y1);
-  emit_init(Y2);
-}
-
-void BeamModuleAssembler::emit_init3(ArgVal Y1, ArgVal Y2, ArgVal Y3, Instruction *Inst) {
-  emit_init(Y1);
-  emit_init(Y2);
-  emit_init(Y3);
-}
-
-void BeamModuleAssembler::emit_init_seq3(ArgVal Y, Instruction *Inst) {
-  emit_init(Y);
-  emit_init(Y+1);
-  emit_init(Y+2);
-}
-
-void BeamModuleAssembler::emit_init_seq4(ArgVal Y, Instruction *Inst) {
-  emit_init(Y);
-  emit_init(Y+1);
-  emit_init(Y+2);
-  emit_init(Y+3);
-}
-
-void BeamModuleAssembler::emit_init_seq5(ArgVal Y, Instruction *Inst) {
-  emit_init(Y);
-  emit_init(Y+1);
-  emit_init(Y+2);
-  emit_init(Y+3);
-  emit_init(Y+4);
 }
 
 void BeamModuleAssembler::emit_i_trim(ArgVal Words, Instruction *Inst) {
@@ -687,112 +551,8 @@ void BeamModuleAssembler::emit_i_trim(ArgVal Words, Instruction *Inst) {
   mov(CP, NIL);
 }
 
-void BeamModuleAssembler::emit_move_trim(ArgVal Src, ArgVal Dst, ArgVal Words, Instruction *Inst) {
-  emit_move(Src, Dst);
-  emit_i_trim(Words);
-}
-
 void BeamModuleAssembler::emit_move(ArgVal Src, ArgVal Dst,  Instruction *Inst) {
   mov(Dst, Src);
-}
-
-void BeamModuleAssembler::emit_move3(ArgVal Src1, ArgVal Dst1, ArgVal Src2, ArgVal Dst2, ArgVal Src3, ArgVal Dst3,Instruction *Inst) {
-  emit_move(Src1, Dst1);
-  emit_move(Src2, Dst2);
-  emit_move(Src3, Dst3);
-}
-
-void BeamModuleAssembler::emit_move2_par(ArgVal S1, ArgVal D1, ArgVal S2, ArgVal D2, Instruction *Inst) {
-  mov(TMP1,S1);
-  mov(TMP2,S2);
-  mov(D1,TMP1);
-  mov(D2,TMP2);
-}
-
-void BeamModuleAssembler::emit_move_shift(ArgVal Src, ArgVal SD, ArgVal D, Instruction *Inst) {
-  if (Src.isMem()) {
-    mov(TMP2, Src);
-    mov(D,SD); // This uses TMP1
-    mov(SD,TMP2);
-  } else {
-    mov(D,SD);
-    mov(SD,Src);
-  }
-}
-
-void BeamModuleAssembler::emit_move_src_window2(ArgVal Src, ArgVal D1, ArgVal D2, Instruction *Inst) {
-  mov(TMP1, Src + 0);
-  mov(TMP2, Src + 1);
-  mov(D1, TMP1);
-  mov(D2, TMP2);
-}
-
-void BeamModuleAssembler::emit_move_src_window3(ArgVal Src, ArgVal D1, ArgVal D2, ArgVal D3, Instruction *Inst) {
-  mov(TMP1, Src + 0);
-  mov(TMP2, Src + 1);
-  mov(TMP3, Src + 2);
-  mov(D1, TMP1);
-  mov(D2, TMP2);
-  mov(D3, TMP3);
-}
-
-void BeamModuleAssembler::emit_move_src_window4(ArgVal Src, ArgVal D1, ArgVal D2, ArgVal D3, ArgVal D4, Instruction *Inst) {
-  mov(TMP1, Src + 0);
-  mov(TMP2, Src + 1);
-  mov(TMP3, Src + 2);
-  mov(TMP4, Src + 3);
-  mov(D1, TMP1);
-  mov(D2, TMP2);
-  mov(D3, TMP3);
-  mov(D4, TMP4);
-}
-
-void BeamModuleAssembler::emit_move_window2(ArgVal S1, ArgVal S2, ArgVal D, Instruction *Inst) {
-  mov(TMP1, S1);
-  mov(TMP2, S2);
-  mov(D + 0, TMP1);
-  mov(D + 1, TMP2);
-}
-
-void BeamModuleAssembler::emit_move_window3(ArgVal S1, ArgVal S2, ArgVal S3, ArgVal D, Instruction *Inst) {
-  mov(TMP1, S1);
-  mov(TMP2, S2);
-  mov(TMP3, S3);
-  mov(D + 0, TMP1);
-  mov(D + 1, TMP2);
-  mov(D + 2, TMP3);
-}
-
-void BeamModuleAssembler::emit_move_window4(ArgVal S1, ArgVal S2, ArgVal S3, ArgVal S4, ArgVal D, Instruction *Inst) {
-  mov(TMP1, S1);
-  mov(TMP2, S2);
-  mov(TMP3, S3);
-  mov(TMP4, S4);
-  mov(D + 0, TMP1);
-  mov(D + 1, TMP2);
-  mov(D + 2, TMP3);
-  mov(D + 3, TMP4);
-}
-
-void BeamModuleAssembler::emit_move_window5(ArgVal S1, ArgVal S2, ArgVal S3, ArgVal S4, ArgVal S5, ArgVal D, Instruction *Inst) {
-  mov(TMP1, S1);
-  mov(TMP2, S2);
-  mov(TMP3, S3);
-  mov(TMP4, S4);
-  mov(TMP5, S5);
-  mov(D + 0, TMP1);
-  mov(D + 1, TMP2);
-  mov(D + 2, TMP3);
-  mov(D + 3, TMP4);
-  mov(D + 4, TMP5);
-}
-
-void BeamModuleAssembler::emit_move_x1(ArgVal Src, Instruction *Inst) {
-  emit_move(Src, x1);
-}
-
-void BeamModuleAssembler::emit_move_x2(ArgVal Src, Instruction *Inst) {
-  emit_move(Src, x2);
 }
 
 void BeamModuleAssembler::emit_swap(ArgVal R1, ArgVal R2, Instruction *Inst) {
@@ -802,24 +562,10 @@ void BeamModuleAssembler::emit_swap(ArgVal R1, ArgVal R2, Instruction *Inst) {
   mov(R1, TMP2);
 }
 
-void BeamModuleAssembler::emit_swap2(ArgVal R1, ArgVal R2, ArgVal R3, Instruction *Inst) {
-  mov(TMP1, R1);
-  mov(TMP2, R2);
-  mov(TMP3, R3);
-  mov(R2, TMP1);
-  mov(R3, TMP2);
-  mov(R1, TMP3);
-}
-
 void BeamModuleAssembler::emit_node(ArgVal Dst, Instruction *Inst) {
   a.mov(TMP1, imm(&erts_this_node->sysname));
   a.mov(TMP1, x86::qword_ptr(TMP1));
   mov(Dst, TMP1);
-}
-
-void BeamModuleAssembler::emit_test_heap_1_put_list(ArgVal Nh, ArgVal Reg, Instruction *Inst) {
-  emit_test_heap(Nh, ArgVal(ArgVal::TYPE::u, 1));
-  emit_put_list(Reg, x0, x0);
 }
 
 void BeamModuleAssembler::emit_put_list(ArgVal Hd, ArgVal Tl, ArgVal Dst, Instruction *Inst) {
@@ -897,11 +643,6 @@ void BeamModuleAssembler::emit_is_nonempty_list_get_tl(ArgVal Fail, ArgVal Src, 
 
 void BeamModuleAssembler::emit_jump(ArgVal Fail, Instruction *Inst) {
   a.jmp(labels[Fail.getValue()]);
-}
-
-void BeamModuleAssembler::emit_move_jump(ArgVal Fail, ArgVal Src, ArgVal Dst, Instruction *Inst) {
-  emit_move(Src, Dst);
-  emit_jump(Fail);
 }
 
 void BeamModuleAssembler::emit_is_atom(ArgVal Fail, ArgVal Src, Instruction *Inst) {
@@ -1185,13 +926,6 @@ void BeamModuleAssembler::emit_test_arity(ArgVal Fail, ArgVal Src, ArgVal Arity,
   mov(TMP1, Src);
   a.cmp(emit_boxed_val(TMP1), Arity.getValue());
   a.jne(labels[Fail.getValue()]);
-  // test_arity_get_tuple_element uses TMP1
-}
-
-void BeamModuleAssembler::emit_test_arity_get_tuple_element(ArgVal Fail, ArgVal Src, ArgVal Arity, ArgVal Pos, ArgVal Dst, Instruction *Inst) {
-  emit_test_arity(Fail, Src, Arity);
-  a.mov(TMP2, emit_boxed_val(TMP1, Pos.getValue()));
-  mov(Dst, TMP2);
 }
 
 void BeamModuleAssembler::emit_i_is_eq_exact_immed(ArgVal Fail, ArgVal X, ArgVal Y, Instruction *Inst) {

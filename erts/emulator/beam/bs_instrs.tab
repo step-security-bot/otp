@@ -902,17 +902,7 @@ bs_start_match.execute(Fail, Live, Slots, Dst) {
     }
 }
 
-bs_test_zero_tail2(Fail, Ctx) {
-    ErlBinMatchBuffer *_mb;
-    _mb = (ErlBinMatchBuffer*) ms_matchbuffer($Ctx);
-    if (_mb->size != _mb->offset) {
-        $FAIL($Fail);
-    }
-}
-
-x64.bs_test_zero_tail2(Fail, Ctx);
-
-bs_test_tail_imm2(Fail, Ctx, Offset) {
+bs_test_tail2(Fail, Ctx, Offset) {
     ErlBinMatchBuffer *_mb;
     _mb = ms_matchbuffer($Ctx);
     if (_mb->size - _mb->offset != $Offset) {
@@ -920,7 +910,7 @@ bs_test_tail_imm2(Fail, Ctx, Offset) {
     }
 }
 
-x64.bs_test_tail_imm2(Fail, Ctx, Offset);
+x64.bs_test_tail2(Fail, Ctx, Offset);
 
 bs_test_unit(Fail, Ctx, Unit) {
     ErlBinMatchBuffer *_mb;

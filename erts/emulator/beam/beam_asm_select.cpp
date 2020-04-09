@@ -23,21 +23,6 @@
 
 using namespace asmjit;
 
-void BeamModuleAssembler::emit_i_select_tuple_arity2(ArgVal Src, ArgVal Fail, ArgVal T1, ArgVal T2, Instruction* I) {
-  mov(TMP1, Src);
-  emit_is_boxed(labels[Fail.getValue()], TMP1);
-  a.mov(TMP1, emit_boxed_val(TMP1));
-  a.mov(TMP2, TMP1);
-  a.and_(TMP1, _TAG_HEADER_MASK);
-  a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
-  a.jne(labels[Fail.getValue()]);
-  cmp(TMP2, T1.getValue());
-  a.je(labels[I->args[4].getValue()]);
-  cmp(TMP2, T2.getValue());
-  a.je(labels[I->args[5].getValue()]);
-  a.jmp(labels[Fail.getValue()]);
-}
-
 void BeamModuleAssembler::emit_i_select_tuple_arity(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
   mov(TMP1, Src);
   emit_is_boxed(labels[Fail.getValue()], TMP1);
@@ -48,18 +33,10 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(ArgVal Src, ArgVal Fail, Arg
   a.jne(labels[Fail.getValue()]);
   for (unsigned i = 0; i < N.getValue(); i++) {
     ArgVal value = I->args[3 + i];
-    ArgVal label = I->args[3 + N.getValue() + i];
+    ArgVal label = I->args[3 + i + N.getValue()];
     cmp(TMP2, value.getValue());
     a.je(labels[label.getValue()]);
   }
-  a.jmp(labels[Fail.getValue()]);
-}
-
-void BeamModuleAssembler::emit_i_select_val2(ArgVal Src, ArgVal Fail, ArgVal T1, ArgVal T2, Instruction* I) {
-  cmp(getRef(Src), T1.getValue());
-  a.je(labels[I->args[4].getValue()]);
-  cmp(getRef(Src), T2.getValue());
-  a.je(labels[I->args[5].getValue()]);
   a.jmp(labels[Fail.getValue()]);
 }
 
@@ -67,7 +44,7 @@ void BeamModuleAssembler::emit_i_select_val_lins(ArgVal Src, ArgVal Fail, ArgVal
   mov(TMP2, Src);
   for (unsigned i = 0; i < N.getValue(); i++) {
     ArgVal value = I->args[3 + i];
-    ArgVal label = I->args[3 + N.getValue() + i];
+    ArgVal label = I->args[3 + i + N.getValue()];
     cmp(TMP2, value.getValue());
     a.je(labels[label.getValue()]);
   }

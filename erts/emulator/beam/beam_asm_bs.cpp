@@ -627,22 +627,20 @@ void BeamModuleAssembler::emit_i_bs_get_integer(ArgVal Ctx, ArgVal Fail, ArgVal 
   mov(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_bs_test_zero_tail2(ArgVal Fail, ArgVal Ctx, Instruction *I) {
+// x64.bs_test_tail2(Fail, Ctx, Offset);
+void BeamModuleAssembler::emit_bs_test_tail2(ArgVal Fail, ArgVal Ctx,
+                                             ArgVal Offset, Instruction *I) {
+  ASSERT(Offset.getType() == ArgVal::TYPE::u);
+
   mov(TMP1, Ctx);
-  a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.offset)));
-  a.mov(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.size)));
-  a.cmp(TMP1, TMP2);
+  a.mov(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.size)));
+  a.sub(TMP2, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb.offset)));
+
+  if (Offset.getValue() != 0) {
+    a.cmp(TMP2, Offset.getValue());
+  }
+
   a.jne(labels[Fail.getValue()]);
-}
-
-void BeamModuleAssembler::emit_bs_test_tail_imm2(ArgVal Fail, ArgVal Ctx, ArgVal Offset, Instruction *I) {
-  mov(ARG1, Ctx);
-
-  a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
-  a.mov(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, size)));
-  a.sub(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, offset)));
-  cmp(RET, Offset.getValue());
-  a.je(labels[Fail.getValue()]);
 }
 
 void BeamModuleAssembler::emit_bs_set_position(ArgVal Ctx, ArgVal Pos, Instruction *I) {
