@@ -635,6 +635,16 @@ void BeamModuleAssembler::emit_bs_test_zero_tail2(ArgVal Fail, ArgVal Ctx, Instr
   a.jne(labels[Fail.getValue()]);
 }
 
+void BeamModuleAssembler::emit_bs_test_tail_imm2(ArgVal Fail, ArgVal Ctx, ArgVal Offset, Instruction *I) {
+  mov(ARG1, Ctx);
+
+  a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.mov(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, size)));
+  a.sub(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, offset)));
+  cmp(RET, Offset.getValue());
+  a.je(labels[Fail.getValue()]);
+}
+
 void BeamModuleAssembler::emit_bs_set_position(ArgVal Ctx, ArgVal Pos, Instruction *I) {
   mov(TMP1, Ctx);
   mov(TMP2, Pos);

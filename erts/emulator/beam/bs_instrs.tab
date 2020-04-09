@@ -920,6 +920,8 @@ bs_test_tail_imm2(Fail, Ctx, Offset) {
     }
 }
 
+x64.bs_test_tail_imm2(Fail, Ctx, Offset);
+
 bs_test_unit(Fail, Ctx, Unit) {
     ErlBinMatchBuffer *_mb;
     _mb = ms_matchbuffer($Ctx);
