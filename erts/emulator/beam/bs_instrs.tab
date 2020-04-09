@@ -817,6 +817,8 @@ i_bs_validate_unicode(Fail, Src) {
     }
 }
 
+x64.i_bs_validate_unicode(Fail, Src);
+
 // Validate a value that has been matched out.
 i_bs_validate_unicode_retract(Fail, Src, Ms) {
     /*
@@ -837,6 +839,8 @@ i_bs_validate_unicode_retract(Fail, Src, Ms) {
         $BADARG($Fail);
     }
 }
+
+x64.i_bs_validate_unicode_retract(Fail, Src, Ms);
 
 
 //
