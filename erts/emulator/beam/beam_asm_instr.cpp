@@ -21,6 +21,10 @@
 #include "beam_asm.hpp"
 
 extern "C" {
+    #include "erl_bif_table.h"
+}
+
+extern "C" {
 #include "beam_catches.h"
   BeamInstr *apply(Process* p, Eterm* reg, BeamInstr *I, Uint offs);
   BeamInstr *fixed_apply(Process* p, Eterm* reg, BeamInstr *I, Uint offs);
@@ -315,7 +319,8 @@ void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
 }
 
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
-  Label dispatch = a.newLabel();
+  Label dispatch = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
@@ -325,7 +330,7 @@ x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_nyi("handle_apply_error");
+  emit_handle_error(entry, &bif_trap_export[BIF_apply_3]->info.mfa);
   a.bind(dispatch);
   return RET;
 }
@@ -356,7 +361,8 @@ void BeamModuleAssembler::emit_i_apply_only(Instruction *Inst) {
 }
 
 x86::Gp BeamModuleAssembler::emit_apply(ArgVal Arity, uint64_t deallocate) {
-  Label dispatch = a.newLabel();
+  Label dispatch = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
@@ -371,7 +377,7 @@ x86::Gp BeamModuleAssembler::emit_apply(ArgVal Arity, uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_nyi("handle_apply_error");
+  emit_handle_error(entry, &bif_trap_export[BIF_apply_3]->info.mfa);
   a.bind(dispatch);
   return RET;
 }
@@ -398,7 +404,8 @@ void BeamModuleAssembler::emit_apply_last(ArgVal Arity, ArgVal Deallocate, Instr
 }
 
 x86::Gp BeamModuleAssembler::emit_call_fun(ArgVal Fun) {
-  Label dispatch = a.newLabel();
+  Label entry = a.newLabel(), dispatch = a.newLabel();
+  a.bind(entry);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   mov(ARG2, Fun);
@@ -408,7 +415,7 @@ x86::Gp BeamModuleAssembler::emit_call_fun(ArgVal Fun) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_nyi("handle_apply_fun_error");
+  emit_handle_error(entry, nullptr);
   a.bind(dispatch);
   return RET;
 }
@@ -435,7 +442,8 @@ void BeamModuleAssembler::emit_i_call_fun_last(ArgVal Fun, ArgVal Deallocate, In
 }
 
 x86::Gp BeamModuleAssembler::emit_apply_fun() {
-  Label dispatch = a.newLabel();
+  Label dispatch = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   mov(ARG2, x0);
@@ -445,7 +453,7 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_nyi("handle_apply_fun_error");
+  emit_handle_error(entry, nullptr);
   a.bind(dispatch);
   return RET;
 }
