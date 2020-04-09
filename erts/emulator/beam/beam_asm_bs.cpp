@@ -38,6 +38,25 @@ void BeamModuleAssembler::emit_badarg(Label entry, ArgVal Fail) {
   emit_fail_head_or_body(entry, Fail);
 }
 
+// Clobbers TMP1
+void BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit,
+                                                           ArgVal Fail, x86::Gp dest,
+                                                           Label entry) {
+  Label not_small = a.newLabel(), execute = a.newLabel();
+  mov(TMP1, Size);
+  a.mov(ARG4, TMP1);
+  a.and_(TMP1, _TAG_IMMED1_MASK);
+  a.cmp(TMP1, _TAG_IMMED1_SMALL);
+  a.jne(not_small);
+  a.sar(ARG4, _TAG_IMMED1_SIZE);
+  a.cmp(ARG4, 0);
+  a.jge(execute);
+  emit_badarg(entry, Fail);
+  a.bind(not_small);
+  emit_nyi("bs_init_fail_heap not small");
+  a.bind(execute);
+}
+
 void TEST_BIN_VHEAP(Process *c_p, Eterm *reg, Uint VNh, Uint Nh, Uint Live) {
   int need = Nh;
   if (c_p->stop - c_p->htop < need || MSO(c_p).overhead + VNh >= BIN_VHEAP_SZ(c_p)) {
@@ -52,7 +71,8 @@ void GC_TEST(Process *c_p, Eterm *reg, Uint Ns, Uint Nh, Uint Live) {
   }
 }
 
-Eterm i_bs_init(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP, Eterm BsOp1, Eterm BsOp2, unsigned Live) {
+Eterm i_bs_init(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP, Eterm BsOp1,
+                Eterm BsOp2, unsigned Live) {
   if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
     ErlHeapBin* hb;
     Uint bin_need;
@@ -114,32 +134,6 @@ void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal L
   mov(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_bs_put_string(ArgVal Size, ArgVal Ptr, Instruction *I) {
-  a.mov(ARG1, EBS);
-  make_move_patch(ARG2, strings, Ptr.getValue());
-  mov(ARG3, Size);
-  call((uint64_t)erts_new_bs_put_string);
-}
-
-// Clobbers TMP1
-void BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit,
-                                                           ArgVal Fail, x86::Gp dest,
-                                                           Label entry) {
-  Label not_small = a.newLabel(), execute = a.newLabel();
-  mov(TMP1, Size);
-  a.mov(ARG4, TMP1);
-  a.and_(TMP1, _TAG_IMMED1_MASK);
-  a.cmp(TMP1, _TAG_IMMED1_SMALL);
-  a.jne(not_small);
-  a.sar(ARG4, _TAG_IMMED1_SIZE);
-  a.cmp(ARG4, 0);
-  a.jge(execute);
-  emit_badarg(entry, Fail);
-  a.bind(not_small);
-  emit_nyi("bs_init_fail_heap not small");
-  a.bind(execute);
-}
-
 void BeamModuleAssembler::emit_i_bs_init_fail_heap(ArgVal Size, ArgVal Heap,
                                                    ArgVal Fail, ArgVal Live,
                                                    ArgVal Dst, Instruction *I) {
@@ -172,12 +166,161 @@ void BeamModuleAssembler::emit_i_bs_init_fail(ArgVal Size, ArgVal Fail,
   emit_i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst, I);
 }
 
+
+static Eterm i_bs_init_bits(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP,
+                            Uint num_bits, Uint alloc, unsigned Live) {
+  Eterm new_binary;
+  Uint num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
+
+  if (num_bits & 7) {
+    alloc += ERL_SUB_BIN_SIZE;
+  }
+  if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
+    alloc += heap_bin_size(num_bytes);
+  } else {
+    alloc += PROC_BIN_SIZE;
+  }
+  GC_TEST(c_p, reg, 0, alloc, Live);
+
+  /* num_bits = Number of bits to build
+   * num_bytes = Number of bytes to allocate in the binary
+   * alloc = Total number of words to allocate on heap
+   * Operands: NotUsed NotUsed Dst
+   */
+  if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
+    ErlHeapBin* hb;
+
+    erts_bin_offset = 0;
+    erts_writable_bin = 0;
+    hb = (ErlHeapBin *) c_p->htop;
+    c_p->htop += heap_bin_size(num_bytes);
+    hb->thing_word = header_heap_bin(num_bytes);
+    hb->size = num_bytes;
+    erts_current_bin = (byte *) hb->data;
+    new_binary = make_binary(hb);
+
+  do_bits_sub_bin:
+    if (num_bits & 7) {
+      ErlSubBin* sb;
+
+      sb = (ErlSubBin *) c_p->htop;
+      c_p->htop += ERL_SUB_BIN_SIZE;
+      sb->thing_word = HEADER_SUB_BIN;
+      sb->size = num_bytes - 1;
+      sb->bitsize = num_bits & 7;
+      sb->offs = 0;
+      sb->bitoffs = 0;
+      sb->is_writable = 0;
+      sb->orig = new_binary;
+      new_binary = make_binary(sb);
+    }
+//    HEAP_SPACE_VERIFIED(0);
+    return new_binary;
+  } else {
+    Binary* bptr;
+    ProcBin* pb;
+
+    erts_bin_offset = 0;
+    erts_writable_bin = 0;
+
+    /*
+     * Allocate the binary struct itself.
+     */
+    bptr = erts_bin_nrml_alloc(num_bytes);
+    erts_current_bin = (byte *) bptr->orig_bytes;
+
+    /*
+     * Now allocate the ProcBin on the heap.
+     */
+    pb = (ProcBin *) c_p->htop;
+    c_p->htop += PROC_BIN_SIZE;
+    pb->thing_word = HEADER_PROC_BIN;
+    pb->size = num_bytes;
+    pb->next = MSO(c_p).first;
+    MSO(c_p).first = (struct erl_off_heap_header*) pb;
+    pb->val = bptr;
+    pb->bytes = (byte*) bptr->orig_bytes;
+    pb->flags = 0;
+    OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
+    new_binary = make_binary(pb);
+    goto do_bits_sub_bin;
+  }
+}
+
+// i_bs_init_bits(NumBits, Live, Dst);
+void BeamModuleAssembler::emit_i_bs_init_bits(ArgVal NumBits, ArgVal Live, ArgVal Dst, Instruction *I) {
+  ArgVal heap(ArgVal::TYPE::u, 0);
+  emit_i_bs_init_bits_heap(NumBits, heap, Live, Dst, I);
+}
+// i_bs_init_bits_heap(NumBits, Alloc, Live, Dst);
+void BeamModuleAssembler::emit_i_bs_init_bits_heap(ArgVal NumBits, ArgVal Alloc, ArgVal Live, ArgVal Dst, Instruction *I) {
+  emit_heavy_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(ARG3, EBS);
+  mov(ARG4, NumBits);
+  mov(ARG5, Alloc);
+  mov(ARG6, Live);
+  call((uint64_t)i_bs_init_bits);
+  emit_heavy_swapin();
+  mov(Dst, RET);
+}
+// i_bs_init_bits_fail(NumBits, Fail, Live, Dst);
+void BeamModuleAssembler::emit_i_bs_init_bits_fail(ArgVal NumBits, ArgVal Fail,
+                                                   ArgVal Live, ArgVal Dst, Instruction *I) {
+  ArgVal Heap(ArgVal::TYPE::u, 0);
+  emit_i_bs_init_bits_fail_heap(NumBits, Heap, Fail, Live, Dst, I);
+}
+// i_bs_init_bits_fail_heap(NumBits, Alloc, Fail, Live, Dst);
+void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(ArgVal NumBits, ArgVal Alloc,
+                                                        ArgVal Fail, ArgVal Live, ArgVal Dst, Instruction *I) {
+  Label entry = a.newLabel(), next = a.newLabel();
+  a.bind(entry);
+  // Clobbers TMP1
+  emit_bs_get_unchecked_field_size(NumBits, 1, Fail, ARG4, entry);
+  emit_heavy_swapout();
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(ARG3, EBS);
+  // mov(ARG4, Size);, this is set by code above
+  mov(ARG5, Alloc);
+  mov(ARG6, Live);
+  call((uint64_t)i_bs_init_bits);
+  emit_heavy_swapin();
+  mov(Dst, RET);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_bs_put_string(ArgVal Size, ArgVal Ptr, Instruction *I) {
+  a.mov(ARG1, EBS);
+  make_move_patch(ARG2, strings, Ptr.getValue());
+  mov(ARG3, Size);
+  call((uint64_t)erts_new_bs_put_string);
+}
+
 void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail, ArgVal Sz, ArgVal Flags, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
   a.mov(ARG1, EBS);
   mov(ARG2, Src);
   mov(ARG3, Sz);
+  mov(ARG4, Flags);
+  call((uint64_t)erts_new_bs_put_integer);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+void BeamModuleAssembler::emit_i_new_bs_put_integer(ArgVal Fail, ArgVal Sz, ArgVal Flags,
+                                                    ArgVal Src, Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel();
+  a.bind(entry);
+  // Clobbers TMP1
+  emit_bs_get_unchecked_field_size(Sz, Flags.getValue() << 3, Fail, ARG3, entry);
+  a.mov(ARG1, EBS);
+  mov(ARG2, Src);
+//  mov(ARG3, Sz); set by bs_get_unchecked...
   mov(ARG4, Flags);
   call((uint64_t)erts_new_bs_put_integer);
   a.cmp(RET, 0);
@@ -224,7 +367,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal
   mov(ARG2, Src);
 //  mov(ARG3, Sz); set by bs_get_unchecked...
   mov(ARG4, Flags);
-  call((uint64_t)erts_new_bs_put_binary);
+  call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
   a.jne(next);
   emit_badarg(entry, Fail);
@@ -239,7 +382,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float_imm(ArgVal Fail, ArgVal Sz, Ar
   mov(ARG2, Src);
   mov(ARG3, Sz);
   mov(ARG4, Flags);
-  call((uint64_t)erts_new_bs_put_binary);
+  call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
   a.jne(next);
   emit_badarg(entry, Fail);
@@ -583,6 +726,7 @@ void BeamModuleAssembler::emit_i_bs_put_utf8(ArgVal Fail, ArgVal Src, Instructio
   a.bind(entry);
   a.mov(ARG1, EBS);
   mov(ARG2, Src);
+  call((uint64_t)erts_bs_put_utf8);
   a.cmp(RET, 0);
   a.jne(next);
   emit_badarg(entry, Fail);

@@ -337,6 +337,8 @@ i_new_bs_put_integer(Fail, Sz, Flags, Src) {
     }
 }
 
+x64.i_new_bs_put_integer(Fail, Sz, Flags, Src);
+
 i_new_bs_put_integer_imm := i_new_bs_put_integer_imm.fetch.execute;
 
 i_new_bs_put_integer_imm.head() {
@@ -595,6 +597,11 @@ bs_init_bits.execute(Live, Dst) {
 	 goto do_bits_sub_bin;
      }
 }
+
+x64.i_bs_init_bits(NumBits, Live, Dst);
+x64.i_bs_init_bits_heap(NumBits, Alloc, Live, Dst);
+x64.i_bs_init_bits_fail(NumBits, Fail, Live, Dst);
+x64.i_bs_init_bits_fail_heap(NumBits, Alloc, Fail, Live, Dst);
 
 bs_add(Fail, Src1, Src2, Unit, Dst) {
     Eterm Op1 = $Src1;
