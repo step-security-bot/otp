@@ -307,9 +307,9 @@ void BeamModuleAssembler::emit_wait_timeout_locked(ArgVal Src, ArgVal Dest, Inst
   a.lea(ARG3, x86::qword_ptr(next));
   call((uint64_t)wait_timeout);
   a.cmp(RET, RET_wait);
-  a.jmp(wait);
+  a.je(wait);
   a.cmp(RET, RET_next);
-  a.jmp(next);
+  a.je(next);
   emit_handle_error(currLabel, (ErtsCodeMFA*)nullptr);
   a.bind(wait);
   emit_wait_locked(Dest, I);
