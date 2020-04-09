@@ -57,12 +57,22 @@ void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
 }
 
 void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
-  Label entry = a.newLabel();
+  Label entry = a.newLabel(), execute = a.newLabel();
   a.align(kAlignCode, 8);
   a.bind(entry);
 
-  // TODO: Add fcalls check here
+  // Check if we have run out of reductions before the bif call
+  a.cmp(FCALLS, 1);
+  a.jg(execute);
+  make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
+  a.mov(TMP3, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
+  a.lea(TMP3, x86::qword_ptr(entry));
+  a.mov(RET, RET_context_switch3);
+  farjmp(ga->get_return());
 
+  a.bind(execute);
   emit_swapout();
   emit_proc_lc_unrequire();
 
@@ -88,10 +98,22 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
 }
 
 void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
-  Label entry = a.newLabel();
+  Label entry = a.newLabel(), execute = a.newLabel();
   a.align(kAlignCode, 8);
   a.bind(entry);
 
+  // Check if we have run out of reductions before the bif call
+  a.cmp(FCALLS, 1);
+  a.jg(execute);
+  make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
+  a.mov(TMP3, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
+  a.lea(TMP3, x86::qword_ptr(entry));
+  a.mov(RET, RET_context_switch3);
+  farjmp(ga->get_return());
+
+  a.bind(execute);
   emit_swapout();
   emit_proc_lc_unrequire();
 
@@ -241,8 +263,19 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
 }
 
 void BeamModuleAssembler::emit_send(Instruction *I) {
-  Label entry = a.newLabel();
+  Label entry = a.newLabel(), execute = a.newLabel();
   a.bind(entry);
+
+  // Check if we have run out of reductions before the bif call
+  a.cmp(FCALLS, 1);
+  a.jg(execute);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 2);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+  a.lea(TMP3, x86::qword_ptr(entry));
+  a.mov(RET, RET_context_switch3);
+  farjmp(ga->get_return());
+
+  a.bind(execute);
 
   emit_proc_lc_unrequire();
 
