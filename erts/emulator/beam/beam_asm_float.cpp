@@ -29,6 +29,11 @@ static x86::Mem getFRef(x86::Gp Base, ArgVal Reg) {
     return x86::qword_ptr(Base, Reg.getValue() * sizeof(double));
 }
 
+void BeamModuleAssembler::emit_badarith(Label entry) {
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_BADARITH);
+  emit_handle_error(entry, nullptr);
+}
+
 // x64.fload(Src, Dst);
 void BeamModuleAssembler::emit_fload(ArgVal Src, ArgVal Dst, Instruction *Inst) {
     /* {thing_word,double} */
@@ -69,24 +74,25 @@ static int handle_fconv(Eterm src, double *dst) {
 
 // x64.fconv(Src, Dst);
 void BeamModuleAssembler::emit_fconv(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     mov(ARG1, Src);
     a.lea(ARG2, getFRef(f_reg, Dst));
     call((uint64_t)handle_fconv);
     a.test(RET, RET);
     a.je(next);
 
-    /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
 }
 
 // x64.i_fadd(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.addpd(x86::xmm0, x86::xmm1);
@@ -94,7 +100,7 @@ void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);
@@ -102,8 +108,9 @@ void BeamModuleAssembler::emit_i_fadd(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fsub(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, LHS));
     a.subpd(x86::xmm0, x86::xmm1);
@@ -111,7 +118,7 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
     a.je(next);
 
     /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -119,16 +126,17 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fmul(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, LHS));
     a.mulpd(x86::xmm0, x86::xmm1);
     a.vucomisd(x86::xmm0, x86::xmm0);
-    a.je(next);
+    a.jnp(next);
 
     /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -136,16 +144,17 @@ void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fdiv(Src1, Src2, Dst);
 void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
     a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.divpd(x86::xmm0, x86::xmm1);
     a.vucomisd(x86::xmm0, x86::xmm0);
-    a.je(next);
+    a.jnp(next);
 
     /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
     a.movsd(x86::qword_ptr(f_reg, Dst.getValue() * sizeof(double)), x86::xmm0);
@@ -153,8 +162,9 @@ void BeamModuleAssembler::emit_i_fdiv(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
 // x64.i_fnegate(Src, Dst);
 void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel();
+    Label next = a.newLabel(), entry = a.newLabel();
 
+    a.bind(entry);
     /* xmm0 = 0.0 */
     a.psubd(x86::xmm0, x86::xmm0);
     a.movsd(x86::xmm1, getFRef(f_reg, Src));
@@ -163,7 +173,7 @@ void BeamModuleAssembler::emit_i_fnegate(ArgVal Src, ArgVal Dst, Instruction *In
     a.je(next);
 
     /* BADARITH */
-    emit_nyi("float badarith");
+    emit_badarith(entry);
 
     a.bind(next);
     a.movsd(getFRef(f_reg, Dst), x86::xmm0);
