@@ -33,7 +33,7 @@ extern "C" {
 
   BeamInstr* handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa);
 
-  erts_atomic32_t the_active_code_index;
+  extern erts_atomic32_t the_active_code_index;
 }
 
 using namespace asmjit;

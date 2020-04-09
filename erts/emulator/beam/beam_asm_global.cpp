@@ -23,7 +23,8 @@
 using namespace asmjit;
 
 extern "C" {
-  BeamInstr beam_exit[1];
+  extern BeamInstr beam_exit[1];
+
   void call_error_handler(void);
   void handle_error(void);
 }
