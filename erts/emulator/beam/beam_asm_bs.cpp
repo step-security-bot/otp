@@ -792,6 +792,31 @@ void BeamModuleAssembler::emit_i_bs_get_utf8(ArgVal Ctx, ArgVal Fail, ArgVal Dst
   mov(Dst, RET);
 }
 
+void BeamModuleAssembler::emit_i_bs_utf16_size(ArgVal Src, ArgVal Dst, Instruction *I) {
+  Label next = a.newLabel();
+  mov(TMP1, Src);
+  a.mov(RET, make_small(2));
+  a.cmp(TMP1, make_small(0x10000UL));
+  a.jb(next);
+  a.mov(RET, make_small(4));
+  a.bind(next);
+  mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_bs_put_utf16(ArgVal Fail, ArgVal Flags, ArgVal Src, Instruction *I) {
+  Label entry = a.newLabel(), next = a.newLabel();
+  a.bind(entry);
+  /* mov may clobber TMP1 */
+  mov(ARG3, Flags);
+  mov(ARG2, Src);
+  a.mov(ARG1, EBS);
+  call((uint64_t)erts_bs_put_utf16);
+  a.cmp(RET, 0);
+  a.jne(next);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
 void BeamModuleAssembler::emit_i_bs_get_utf16(ArgVal Ctx, ArgVal Fail, ArgVal Flags, ArgVal Dst, Instruction *I) {
   mov(ARG1, Ctx);
   a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));

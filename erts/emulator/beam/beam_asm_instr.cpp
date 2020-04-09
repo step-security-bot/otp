@@ -145,10 +145,10 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.cmp(HTOP, E);
     a.ja(crash);
 
-    for(unsigned i = 0; i < arity.getValue(); i++) {
-        a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
-        call((uint64_t)validate_term);
-    }
+    // for(unsigned i = 0; i < arity.getValue(); i++) {
+    //     a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
+    //     call((uint64_t)validate_term);
+    // }
 
     a.pop(x86::r15);
     a.pop(x86::r14);

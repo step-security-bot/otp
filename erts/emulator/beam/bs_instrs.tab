@@ -788,11 +788,15 @@ i_bs_utf16_size(Src, Dst) {
     $Dst = result;
 }
 
+x64.i_bs_utf16_size(Src, Dst);
+
 bs_put_utf16(Fail, Flags, Src) {
     if (!erts_bs_put_utf16(ERL_BITS_ARGS_2($Src, $Flags))) {
         $BADARG($Fail);
     }
 }
+
+x64.bs_put_utf16(Fail, Flags, Src);
 
 // Validate a value about to be stored in a binary.
 i_bs_validate_unicode(Fail, Src) {
