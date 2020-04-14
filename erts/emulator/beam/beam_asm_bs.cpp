@@ -936,18 +936,20 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(ArgVal Fail, ArgVal
 //x64.bs_test_unit(Fail, Ctx, Unit);
 void BeamModuleAssembler::emit_bs_test_unit(ArgVal Fail, ArgVal Ctx, ArgVal Unit, Instruction *I) {
   unsigned int unit = Unit.getValue();
-  mov(ARG1, Ctx);
+  mov(TMP1, Ctx);
 
-  a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
-  a.mov(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, size)));
-  a.sub(RET, x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, offset)));
+  a.lea(TMP1, x86::qword_ptr(TMP1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  a.mov(RET, x86::qword_ptr(TMP1, offsetof(ErlBinMatchBuffer, size)));
+  a.sub(RET, x86::qword_ptr(TMP1, offsetof(ErlBinMatchBuffer, offset)));
 
   if ((unit & (unit - 1))) {
+    /* Clobbers TMP3 */
+    a.cqo();
     a.mov(TMP1, unit);
     a.div(TMP1);
     a.test(x86::rdx, x86::rdx);
   } else {
-    a.test(TMP1, unit - 1);
+    a.test(RET, unit - 1);
   }
 
   a.jnz(labels[Fail.getValue()]);
