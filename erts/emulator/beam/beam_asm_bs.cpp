@@ -759,7 +759,7 @@ void BeamModuleAssembler::emit_i_bs_get_float2(ArgVal Ctx, ArgVal Fail, ArgVal L
   mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
 
   mov(RET, Sz);
-  a.mov(TMP3, TMP1);
+  a.mov(TMP3, RET);
   a.and_(TMP3, _TAG_IMMED1_MASK);
   a.cmp(TMP3, _TAG_IMMED1_SMALL);
   a.jne(fail);
@@ -773,6 +773,7 @@ void BeamModuleAssembler::emit_i_bs_get_float2(ArgVal Ctx, ArgVal Fail, ArgVal L
   a.mov(ARG2, RET);
   a.mov(ARG3, Flags.getValue());
   a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+  call((uint64_t)erts_bs_get_float_2);
   a.cmp(RET, THE_NON_VALUE);
   a.jne(next);
   a.bind(fail);
