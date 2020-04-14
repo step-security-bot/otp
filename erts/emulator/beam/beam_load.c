@@ -863,8 +863,12 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     size = beamasm_get_header(stp->ba, &stp->hdr);
 
-    erts_printf("Load %T into %p - %p\r\n", stp->module, stp->hdr->functions[0], ((char*)stp->hdr->functions[0]) + size);
-
+#ifdef DEBUG
+    erts_printf("Load %T into %p - %p\r\n",
+                stp->module,
+                stp->hdr->functions[0],
+                ((char*)stp->hdr->functions[0]) + size);
+#endif
     erts_total_code_size += size;
 
     inst_p->code_hdr = stp->hdr;
