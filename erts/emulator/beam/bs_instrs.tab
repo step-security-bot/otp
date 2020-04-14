@@ -1285,62 +1285,6 @@ x64.bs_get_tail(Src, Dst, Live);
 
 %if ARCH_64
 
-i_bs_start_match3_gp := i_bs_start_match3_gp.fetch.execute;
-
-x64.i_bs_start_match3_gp(Src, Live, Fail, Dst, Pos);
-
-i_bs_start_match3_gp.head() {
-    Eterm context;
-}
-
-i_bs_start_match3_gp.fetch(Src) {
-    context = $Src;
-}
-
-i_bs_start_match3_gp.execute(Live, Fail, Dst, Pos) {
-    Eterm header;
-    Uint position, live;
-
-    live = $Live;
-
-    if (!is_boxed(context)) {
-        $FAIL($Fail);
-    }
-
-    header = *boxed_val(context);
-
-    if (header_is_bin_matchstate(header)) {
-        ErlBinMatchBuffer *mb;
-
-        ASSERT(HEADER_NUM_SLOTS(header) == 0);
-
-        mb = ms_matchbuffer(context);
-        position = mb->offset;
-
-        $Dst = context;
-    } else if (is_binary_header(header)) {
-        ErlBinMatchState *ms;
-
-        $GC_TEST_PRESERVE(ERL_BIN_MATCHSTATE_SIZE(0), live, context);
-        HEAP_TOP(c_p) = HTOP;
-#ifdef DEBUG
-        c_p->stop = E;	/* Needed for checking in HeapOnlyAlloc(). */
-#endif
-        ms = erts_bs_start_match_3(c_p, context);
-        HTOP = HEAP_TOP(c_p);
-        HEAP_SPACE_VERIFIED(0);
-
-        $REFRESH_GEN_DEST();
-        $Dst = make_matchstate(ms);
-        position = ms->mb.offset;
-    } else {
-        $FAIL($Fail);
-    }
-
-    ASSERT(IS_USMALL(0, position));
-    $Pos = make_small(position);
-}
-
 i_bs_start_match3 := i_bs_start_match3.fetch.execute;
 
 x64.i_bs_start_match3(Src, Live, Fail, Dst);
