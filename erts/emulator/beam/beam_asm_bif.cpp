@@ -228,12 +228,21 @@ void BeamModuleAssembler::emit_i_length_setup(ArgVal Live, ArgVal Src, Instructi
 }
 
 void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, Instruction *I) {
-  Label entry = a.newLabel(), next = a.newLabel(),
-    trap = a.newLabel(), error = a.newLabel();
+  Label entry, next, trap, error;
+
+  entry = a.newLabel();
+  next = a.newLabel();
+  trap = a.newLabel();
+
+  if (Fail.getValue() != 0) {
+      error = labels[Fail.getValue()];
+  } else {
+      error = a.newLabel();
+  }
 
   a.align(kAlignCode, 8);
   a.bind(entry),
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
   a.mov(ARG1, c_p);
   a.lea(ARG2, x86::qword_ptr(x_reg, Live.getValue()*sizeof(Eterm)));
   call((uint64_t)erts_trapping_length_1);
@@ -255,9 +264,11 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
   a.mov(RET,RET_context_switch3);
   farjmp(ga->get_return());
 
-  a.bind(error);
-  emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry,
-                     &bif_trap_export[BIF_length_1]->info.mfa);
+  if (Fail.getValue() == 0) {
+    a.bind(error);
+    emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry,
+                       &bif_trap_export[BIF_length_1]->info.mfa);
+  }
 
   a.bind(next);
 }
