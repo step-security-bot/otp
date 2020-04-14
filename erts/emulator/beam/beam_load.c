@@ -5086,6 +5086,9 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     Uint index;
     BeamInstr* codev = stp->codev;
     BeamInstr *imports;
+    int staging_ix;
+
+    staging_ix = erts_staging_code_ix();
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -5094,33 +5097,17 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     inst_p->catches = beamasm_get_catches(stp->ba);
 
     /*
-     * Export functions.
+     * HACK: Allocate entries for all exported functions.
+     *
+     * Note that we don't set them up yet; imports must be patched before we
+     * write the BIF wrappers or they'll be clobbered by
+     * BeamModuleAssembler::patchImport.
      */
 
     for (i = 0; i < stp->num_exps; i++) {
-        Export* ep;
-        BeamInstr* address = stp->export[i].address;
-
-        ep = erts_export_put(stp->module,
-                             stp->export[i].function,
-                             stp->export[i].arity);
-
-        /* Fill in BIF stubs with a proper call to said BIF. */
-        if (ep->bif_number != -1) {
-            erts_write_bif_wrapper(ep, address);
-        }
-
-        if (on_load) {
-            /*
-             * on_load: Don't make any of the exported functions
-             * callable yet. Keep any function in the current
-             * code callable.
-             */
-            ep->trampoline.not_loaded.deferred = (BeamInstr) address;
-        } else {
-            ep->addressv[erts_staging_code_ix()] = address;
-            stp->export[i].exp = ep;
-        }
+        (void)erts_export_put(stp->module,
+                              stp->export[i].function,
+                              stp->export[i].arity);
     }
 
 #ifdef DEBUG
@@ -5148,20 +5135,49 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     /*
      * Import functions and patch all callers.
      */
-
     for (i = 0; i < stp->num_imports; i++) {
-	Eterm mod;
-	Eterm func;
-	Uint arity;
-	BeamInstr import;
-	Uint current;
-	Uint next;
+        Eterm mod;
+        Eterm func;
+        Uint arity;
+        BeamInstr import;
+        Uint current;
+        Uint next;
 
-	mod = stp->import[i].module;
-	func = stp->import[i].function;
-	arity = stp->import[i].arity;
-	import = (BeamInstr) erts_export_put(mod, func, arity);
+        mod = stp->import[i].module;
+        func = stp->import[i].function;
+        arity = stp->import[i].arity;
+        import = (BeamInstr) erts_export_put(mod, func, arity);
         beamasm_patch_import(stp->ba, i, import);
+    }
+
+    /*
+     * HACK: Fix up all export entries, they were allocated earlier in this
+     * function to keep the import patching happy.
+     */
+    for (i = 0; i < stp->num_exps; i++) {
+        Export* ep;
+        BeamInstr* address = stp->export[i].address;
+
+        ep = erts_export_put(stp->module,
+                             stp->export[i].function,
+                             stp->export[i].arity);
+
+        /* Fill in BIF stubs with a proper call to said BIF. */
+        if (ep->bif_number != -1) {
+            erts_write_bif_wrapper(ep, address);
+        }
+
+        if (on_load) {
+            /*
+             * on_load: Don't make any of the exported functions
+             * callable yet. Keep any function in the current
+             * code callable.
+             */
+            ep->trampoline.not_loaded.deferred = (BeamInstr) address;
+        } else {
+            ep->addressv[staging_ix] = address;
+            stp->export[i].exp = ep;
+        }
     }
 
     /*
