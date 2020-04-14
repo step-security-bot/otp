@@ -1150,8 +1150,8 @@ void BeamModuleAssembler::emit_case_end(ArgVal Src, Instruction *Inst) {
 void BeamModuleAssembler::emit_system_limit(ArgVal Fail, Instruction *Inst) {
   Label entry = a.newLabel();
   a.bind(entry);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), SYSTEM_LIMIT);
   if (Fail.getValue() == 0) {
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), SYSTEM_LIMIT);
     emit_handle_error(entry);
   } else {
     a.jmp(labels[Fail.getValue()]);

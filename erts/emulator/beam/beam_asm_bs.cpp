@@ -537,12 +537,14 @@ static Eterm i_bs_get_integer_16(Process *c_p, Eterm context) {
   if (_mb->size - _mb->offset < 16) {
     return THE_NON_VALUE;
   }
+
   if (BIT_OFFSET(_mb->offset) != 0) {
     _result = erts_bs_get_integer_2(c_p, 16, 0, _mb);
   } else {
-    _result = make_small(_mb->base[BYTE_OFFSET(_mb->offset)]);
+    _result = make_small(get_int16(&_mb->base[BYTE_OFFSET(_mb->offset)]));
     _mb->offset += 16;
   }
+
   return _result;
 }
 
@@ -566,7 +568,7 @@ static Eterm i_bs_get_integer_32(Process *c_p, Eterm context) {
   if (BIT_OFFSET(_mb->offset) != 0) {
     _result = erts_bs_get_unaligned_uint32(_mb);
   } else {
-    _result = get_int32(_mb->base + _mb->offset / 8);
+    _result = get_int32(&_mb->base[BYTE_OFFSET(_mb->offset)]);
   }
 
   _mb->offset += 32;
@@ -954,7 +956,17 @@ void BeamModuleAssembler::emit_bs_test_unit(ArgVal Fail, ArgVal Ctx, ArgVal Unit
 // x64.bs_add(Fail, Src1, Src2, Unit, Dst);
 void BeamModuleAssembler::emit_bs_add(ArgVal Fail, ArgVal Src1, ArgVal Src2,
                                       ArgVal Unit, ArgVal Dst, Instruction *I) {
-  Label entry = a.newLabel(), next = a.newLabel();
+  Label entry, next, fail, system_limit;
+
+  entry = a.newLabel();
+  next = a.newLabel();
+
+  if (Fail.getValue() != 0) {
+      fail = labels[Fail.getValue()];
+  } else {
+      fail = a.newLabel();
+  }
+
   a.bind(entry);
 
   mov(ARG1, Src1);
@@ -965,23 +977,26 @@ void BeamModuleAssembler::emit_bs_add(ArgVal Fail, ArgVal Src1, ArgVal Src2,
   a.and_(TMP3, _TAG_PRIMARY_MASK);
   a.and_(TMP3, ARG2);
   a.cmp(TMP3, TAG_PRIMARY_IMMED1);
-  a.jne(labels[Fail.getValue()]);
+  a.jne(fail);
 
   /* signed_val(ARG1) >= 0 && signed_val(ARG2) >= 0 */
   a.sar(ARG1, _TAG_IMMED1_SIZE);
-  a.js(labels[Fail.getValue()]);
+  a.js(fail);
   a.sar(ARG2, _TAG_IMMED1_SIZE);
-  a.js(labels[Fail.getValue()]);
+  a.js(fail);
 
   a.mov(RET, Unit.getValue());
   a.mul(ARG2); /* CLOBBERS RDX = ARG3! */
-  if (Fail.getValue() != 0) {
-    a.jo(labels[Fail.getValue()]);
-  } else {
+  a.jo(fail);
+
+  if (Fail.getValue() == 0) {
     a.jno(next);
     emit_system_limit(Fail, I);
+    a.bind(fail);
+    emit_badarg(entry, Fail);
     a.bind(next);
   }
+
   a.add(RET, ARG1);
 
   a.shl(RET, _TAG_IMMED1_SIZE);
