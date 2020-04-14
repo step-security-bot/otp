@@ -112,6 +112,7 @@ void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
   mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MIN_SMALL)));
 }
 
+#ifdef DEBUG
 static void validate_term(Eterm term) {
     if (is_boxed(term)) {
         Eterm header = *boxed_val(term);
@@ -123,12 +124,39 @@ static void validate_term(Eterm term) {
 
     size_object_x(term, nullptr);
 }
+#endif
 
 void BeamModuleAssembler::emit_validate(ArgVal arity) {
+#ifdef DEBUG
     Label next = a.newLabel(), crash = a.newLabel();
 
+#ifdef HARD_DEBUG
     emit_heavy_swapout();
+#endif
 
+    /* Crash if the native stack is not 16-byte-aligned */
+    a.test(x86::rsp, 15);
+    a.jne(crash);
+
+    /* Crash if return address is not a valid CP. */
+    mov(TMP1, CP);
+    a.test(TMP1, _CPMASK);
+    a.jne(crash);
+
+    /* Crash if the Erlang heap is not word-aligned */
+    a.test(HTOP, sizeof(Eterm) - 1);
+    a.jne(crash);
+
+    /* Crash if HTOP > E */
+    a.cmp(HTOP, E);
+    a.ja(crash);
+
+    a.jmp(next);
+    a.bind(crash);
+    a.hlt();
+    a.bind(next);
+
+#ifdef HARD_DEBUG
     a.push(x86::rbx);
     a.push(x86::rbp);
     a.push(x86::r12);
@@ -136,23 +164,10 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.push(x86::r14);
     a.push(x86::r15);
 
-    /* Crash if return address is not a valid CP. */
-    mov(TMP1, CP);
-    a.test(TMP1, _CPMASK);
-    a.jne(crash);
-
-    /* Crash if the heap is not word-aligned */
-    a.test(HTOP, 0x7);
-    a.jne(crash);
-
-    /* Crash if HTOP > E */
-    a.cmp(HTOP, E);
-    a.ja(crash);
-
-    // for(unsigned i = 0; i < arity.getValue(); i++) {
-    //     a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
-    //     call((uint64_t)validate_term);
-    // }
+    for(unsigned i = 0; i < arity.getValue(); i++) {
+        a.mov(ARG1, x86::qword_ptr(x_reg, i * sizeof(Eterm)));
+        call((uint64_t)validate_term);
+    }
 
     a.pop(x86::r15);
     a.pop(x86::r14);
@@ -160,11 +175,8 @@ void BeamModuleAssembler::emit_validate(ArgVal arity) {
     a.pop(x86::r12);
     a.pop(x86::rbp);
     a.pop(x86::rbx);
-
-    a.jmp(next);
-    a.bind(crash);
-    a.hlt();
-    a.bind(next);
+#endif
+#endif
 }
 
 /* Instrs */

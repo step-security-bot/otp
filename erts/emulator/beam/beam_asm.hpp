@@ -375,8 +375,7 @@ class BeamModuleAssembler : public BeamAssembler {
 
   Section *rodata = nullptr;
 
-  bool debug = true;
-
+  bool debug;
 public:
   BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga, Eterm mod, unsigned num_labels);
   BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga, Eterm mod, unsigned num_labels,

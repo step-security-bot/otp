@@ -42,6 +42,12 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt,
     std::string lblName = "label_" + std::to_string(i);
     labels[i] = a.newNamedLabel(lblName.data());
   }
+
+#ifdef DEBUG
+  this->debug = true;
+#else
+  this->debug = false;
+#endif
 }
 
 BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga,
@@ -199,6 +205,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     break;
   default:
     emit_dbg(opc[inst.op].name);
+    break;
   }
 
   // #define InstrCnt() a.mov(TMP1, imm((uint64_t)&instrcnt)); a.mov(TMP2, x86::qword_ptr(TMP1)); a.inc(TMP2); a.mov(x86::qword_ptr(TMP1), TMP2);
