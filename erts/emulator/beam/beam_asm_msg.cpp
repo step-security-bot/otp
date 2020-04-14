@@ -79,6 +79,7 @@ void BeamModuleAssembler::emit_i_loop_rec(ArgVal Dest, Instruction *I) {
   a.lea(ARG5, get_out);
   call((uint64_t)erts_proc_sig_receive_helper);
   a.sub(FCALLS, RET);
+  emit_swapin();
   // Need to move msgp to TMP1 as check_is_distributed uses it
   a.mov(TMP1, msgp);
   a.cmp(TMP1, 0);
