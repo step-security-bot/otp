@@ -571,8 +571,9 @@ void BeamModuleAssembler::emit_swap(ArgVal R1, ArgVal R2, Instruction *Inst) {
 }
 
 void BeamModuleAssembler::emit_node(ArgVal Dst, Instruction *Inst) {
-  a.mov(TMP1, imm(&erts_this_node->sysname));
+  a.mov(TMP1, imm(&erts_this_node));
   a.mov(TMP1, x86::qword_ptr(TMP1));
+  a.mov(TMP1, x86::qword_ptr(TMP1, offsetof(ErlNode, sysname)));
   mov(Dst, TMP1);
 }
 
