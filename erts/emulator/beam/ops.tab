@@ -1148,18 +1148,9 @@ i_new_bs_put_float_imm j? W t s
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
-# In unoptimized code, the binary argument could be a literal. (In optimized code,
-# there would be a bs_put_string instruction.)
-i_new_bs_put_binary Fail Size Unit Lit=c => \
-   move Lit x | i_new_bs_put_binary Fail Size Unit x
-i_new_bs_put_binary_imm Fail Size Lit=c => \
-   move Lit x | i_new_bs_put_binary_imm Fail Size x
-i_new_bs_put_binary_all Lit=c Fail Unit => \
-   move Lit x | i_new_bs_put_binary_all x Fail Unit
-
-i_new_bs_put_binary j? S t S
-i_new_bs_put_binary_imm j? W S
-i_new_bs_put_binary_all xy j? t
+i_new_bs_put_binary j? s t s
+i_new_bs_put_binary_imm j? W s
+i_new_bs_put_binary_all s j? t
 
 #
 # Warning: The i_bs_put_string and i_new_bs_put_string instructions

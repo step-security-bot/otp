@@ -283,6 +283,9 @@ i_new_bs_put_binary(Fail, Sz, Flags, Src) {
         $BADARG($Fail);
     }
 }
+
+x64.i_new_bs_put_binary(Fail, Sz, Flags, Src);
+
 i_new_bs_put_binary_all := i_new_bs_put_binary_all.fetch.execute;
 
 i_new_bs_put_binary_all.head() {

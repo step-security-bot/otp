@@ -129,12 +129,13 @@ Eterm i_bs_init(Process *c_p, Eterm *reg, ERL_BITS_DECLARE_STATEP, Eterm BsOp1,
 
 void BeamModuleAssembler::emit_i_bs_init_heap(ArgVal Size, ArgVal Heap, ArgVal Live, ArgVal Dst, Instruction *I) {
   emit_heavy_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.mov(ARG3, EBS);
   mov(ARG4, Size);
   mov(ARG5, Heap);
   mov(ARG6, Live);
+  /* Must be last since mov() of immediates clobbers ARG1 */
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(ARG3, EBS);
   call((uint64_t)i_bs_init);
   emit_heavy_swapin();
   mov(Dst, RET);
@@ -149,12 +150,13 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(ArgVal Size, ArgVal Heap,
   x86::Gp ret = emit_bs_get_unchecked_field_size(Size, 1, fail);
   ASSERT(ret == RET);
   emit_heavy_swapout();
+  mov(ARG5, Heap);
+  mov(ARG6, Live);
+  /* Must be last since mov() of immediates clobbers ARG1 */
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
   a.mov(ARG4, ret);
-  mov(ARG5, Heap);
-  mov(ARG6, Live);
   call((uint64_t)i_bs_init);
   emit_heavy_swapin();
   mov(Dst, RET);
@@ -265,12 +267,13 @@ void BeamModuleAssembler::emit_i_bs_init_bits(ArgVal NumBits, ArgVal Live, ArgVa
 // i_bs_init_bits_heap(NumBits, Alloc, Live, Dst);
 void BeamModuleAssembler::emit_i_bs_init_bits_heap(ArgVal NumBits, ArgVal Alloc, ArgVal Live, ArgVal Dst, Instruction *I) {
   emit_heavy_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.mov(ARG3, EBS);
   mov(ARG4, NumBits);
   mov(ARG5, Alloc);
   mov(ARG6, Live);
+  /* Must be last since mov() of immediates clobbers ARG1 */
+  a.mov(ARG1, c_p);
+  a.mov(ARG2, x_reg);
+  a.mov(ARG3, EBS);
   call((uint64_t)i_bs_init_bits);
   emit_heavy_swapin();
   mov(Dst, RET);
@@ -290,12 +293,13 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(ArgVal NumBits, ArgVal A
   x86::Gp ret = emit_bs_get_unchecked_field_size(NumBits, 1, fail);
   ASSERT(ret == RET);
   emit_heavy_swapout();
+  mov(ARG5, Alloc);
+  mov(ARG6, Live);
+  /* Must be last since mov() of immediates clobbers ARG1 */
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
   a.mov(ARG3, EBS);
   a.mov(ARG4, ret);
-  mov(ARG5, Alloc);
-  mov(ARG6, Live);
   call((uint64_t)i_bs_init_bits);
   emit_heavy_swapin();
   mov(Dst, RET);
@@ -306,19 +310,21 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(ArgVal NumBits, ArgVal A
 }
 
 void BeamModuleAssembler::emit_bs_put_string(ArgVal Size, ArgVal Ptr, Instruction *I) {
-  a.mov(ARG1, EBS);
   make_move_patch(ARG2, strings, Ptr.getValue());
   mov(ARG3, Size);
+  /* Must be last since mov() of immediates clobbers ARG1 */
+  a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_string);
 }
 
 void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail, ArgVal Sz, ArgVal Flags, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
-  a.mov(ARG1, EBS);
   mov(ARG2, Src);
   mov(ARG3, Sz);
   mov(ARG4, Flags);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_integer);
   a.cmp(RET, 0);
   a.jne(next);
@@ -333,11 +339,33 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer(ArgVal Fail, ArgVal Sz, ArgV
   // Clobbers TMP3
   x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
   ASSERT(ret == RET);
-  a.mov(ARG1, EBS);
   mov(ARG2, Src);
-  a.mov(ARG3, ret);
   mov(ARG4, Flags);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG3, ret);
+  a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_integer);
+  a.cmp(RET, 0);
+  a.jne(next);
+  a.bind(fail);
+  emit_badarg(entry, Fail);
+  a.bind(next);
+}
+
+
+void BeamModuleAssembler::emit_i_new_bs_put_binary(ArgVal Fail, ArgVal Sz,
+                                                   ArgVal Flags, ArgVal Src,
+                                                   Instruction *I) {
+  Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
+  a.bind(entry);
+  // Clobbers TMP3
+  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
+  ASSERT(ret == RET);
+  mov(ARG2, Src);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, EBS);
+  a.mov(ARG3, ret);
+  call((uint64_t)erts_new_bs_put_binary);
   a.cmp(RET, 0);
   a.jne(next);
   a.bind(fail);
@@ -349,9 +377,10 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_all(ArgVal Src, ArgVal Fail,
                                                        ArgVal Unit, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
-  a.mov(ARG1, EBS);
   mov(ARG2, Src);
   mov(ARG3, Unit);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary_all);
   a.cmp(RET, 0);
   a.jne(next);
@@ -363,9 +392,10 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
                                                        ArgVal Src, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
-  a.mov(ARG1, EBS);
   mov(ARG2, Src);
   mov(ARG3, Sz);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary);
   a.cmp(RET, 0);
   a.jne(next);
@@ -380,10 +410,11 @@ void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal
   // Clobbers TMP3
   x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
   ASSERT(ret == RET);
-  a.mov(ARG1, c_p);
   mov(ARG2, Src);
-  a.mov(ARG3, ret);
   mov(ARG4, Flags);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, c_p);
+  a.mov(ARG3, ret);
   call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
   a.jne(next);
@@ -396,10 +427,11 @@ void BeamModuleAssembler::emit_i_new_bs_put_float_imm(ArgVal Fail, ArgVal Sz, Ar
                                                       ArgVal Src, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
-  a.mov(ARG1, c_p);
   mov(ARG2, Src);
   mov(ARG3, Sz);
   mov(ARG4, Flags);
+  /* Must be last since mov() of literals clobbers ARG1 */
+  a.mov(ARG1, c_p);
   call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
   a.jne(next);
