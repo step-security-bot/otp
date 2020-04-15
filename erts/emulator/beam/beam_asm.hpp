@@ -320,6 +320,12 @@ public:
   uint64_t get_handle_error() { return get_error_action_code(); }
 };
 
+/* When a 32-bit immediate operand is used in a 64-bit instruction, it's
+ * sign-extended to 64 bits.  */
+static constexpr int is_safe_i32_operand(Sint simm) {
+    return simm < (1ll << 31) && simm > (-1ll << 31);
+}
+
 class BeamModuleAssembler : public BeamAssembler {
 
   typedef unsigned BeamLabel;

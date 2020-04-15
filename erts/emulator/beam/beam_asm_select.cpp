@@ -108,8 +108,12 @@ void BeamModuleAssembler::emit_i_jump_on_val(ArgVal Src, ArgVal Fail, ArgVal N, 
   a.sar(TMP1, _TAG_IMMED1_SIZE);
 
   if (Base.getValue() != 0) {
-    a.mov(TMP2, Base.getValue());
-    a.sub(TMP1, TMP2);
+      if (is_safe_i32_operand(Base.getValue())) {
+        a.sub(TMP1, Base.getValue());
+      } else {
+        a.mov(TMP2, Base.getValue());
+        a.sub(TMP1, TMP2);
+      }
   }
 
   a.cmp(TMP1, N.getValue());
