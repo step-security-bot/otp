@@ -135,22 +135,6 @@ JUMP_ON_VAL(Fail, Index, N, Base) {
     $FAIL($Fail);
 }
 
-i_jump_on_val_zero := jump_on_val_zero.fetch.execute;
-
-jump_on_val_zero.head() {
-    Eterm index;
-}
-
-jump_on_val_zero.fetch(Src) {
-    index = $Src;
-}
-
-jump_on_val_zero.execute(Fail, N) {
-    $JUMP_ON_VAL($Fail, index, $N, 0);
-}
-
-x64.i_jump_on_val_zero(Src, Fail, N);
-
 i_jump_on_val := jump_on_val.fetch.execute;
 
 jump_on_val.head() {

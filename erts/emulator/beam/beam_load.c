@@ -3072,8 +3072,9 @@ use_jump_tab(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     Sint min, max;
     Sint i;
 
-    if (Size.val < 2 || Size.val % 2 != 0) {
-	return 0;
+    /* Tiny jump tables will likely do more harm than good */
+    if (Size.val <= (3*2) || Size.val % 2 != 0) {
+        return 0;
     }
 
     /* we may be called with sequences of tagged fixnums or atoms;
@@ -4015,11 +4016,7 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    if (min == 0) {
-	GENOP_NAME_ARITY(op, i_jump_on_val_zero, 3);
-    } else {
-	GENOP_NAME_ARITY(op, i_jump_on_val, 4);
-    }
+    GENOP_NAME_ARITY(op, i_jump_on_val, 4);
     fixed_args = op->arity;
     arity = fixed_args + size;
     GENOP_ARITY(op, arity);

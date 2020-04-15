@@ -145,6 +145,7 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
           char as_char[1];
       } data;
 
+      a.align(kAlignData, 8);
       switch (arg.getType()) {
           case TAG_x:
             data.as_beam = make_loader_x_reg(arg.getValue());
@@ -156,6 +157,9 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
             break;
           case TAG_q:
             make_word_patch(literals[arg.getValue()].patches);
+            break;
+          case TAG_f:
+            a.embedLabel(labels[arg.getValue()]);
             break;
           case TAG_i:
             /* Tagged immediate. */

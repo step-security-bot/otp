@@ -762,20 +762,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_xfI:
-    case op_i_jump_on_val_zero_yfI:
-	{
-	    int n = unpacked[-1];
-            Sint32* jump_tab = (Sint32 *) ap;
-
-            size += (n+1) / 2;
-            while (n-- > 0) {
-                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
-		erts_print(to, to_arg, "f(" HEXF ") ", target);
-                jump_tab++;
-	    }
-	}
-	break;
     case op_put_tuple2_xI:
     case op_put_tuple2_yI:
     case op_new_map_dtI:

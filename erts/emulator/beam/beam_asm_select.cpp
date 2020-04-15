@@ -23,6 +23,18 @@
 
 using namespace asmjit;
 
+void BeamModuleAssembler::emit_linear_search(x86::Gp val, Label fail,
+                                             int offset, int count,
+                                             const std::vector<ArgVal> &args) {
+  for (int i = 0; i < count; i++) {
+    ArgVal value = args[offset + i];
+    ArgVal label = args[offset + i + count];
+    cmp(val, value.getValue());
+    a.je(labels[label.getValue()]);
+  }
+  a.jmp(fail);
+}
+
 void BeamModuleAssembler::emit_i_select_tuple_arity(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
   mov(TMP1, Src);
   emit_is_boxed(labels[Fail.getValue()], TMP1);
@@ -31,75 +43,78 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(ArgVal Src, ArgVal Fail, Arg
   a.and_(TMP1, _TAG_HEADER_MASK);
   a.cmp(TMP1, _TAG_HEADER_ARITYVAL);
   a.jne(labels[Fail.getValue()]);
-  for (unsigned i = 0; i < N.getValue(); i++) {
-    ArgVal value = I->args[3 + i];
-    ArgVal label = I->args[3 + i + N.getValue()];
-    cmp(TMP2, value.getValue());
-    a.je(labels[label.getValue()]);
-  }
-  a.jmp(labels[Fail.getValue()]);
+
+  emit_linear_search(TMP2, labels[Fail.getValue()], 3, N.getValue(), I->args);
 }
 
 void BeamModuleAssembler::emit_i_select_val_lins(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
   mov(TMP2, Src);
-  for (unsigned i = 0; i < N.getValue(); i++) {
-    ArgVal value = I->args[3 + i];
-    ArgVal label = I->args[3 + i + N.getValue()];
-    cmp(TMP2, value.getValue());
-    a.je(labels[label.getValue()]);
-  }
-  a.jmp(labels[Fail.getValue()]);
+  emit_linear_search(TMP2, labels[Fail.getValue()], 3, N.getValue(), I->args);
+}
+
+static const BeamInstr select_val_bins(const Eterm select_val,
+                                       const uint64_t count,
+                                       const BeamInstr fail,
+                                       const BeamInstr *data) {
+    Eterm *low;
+    Eterm *high;
+    Eterm *mid;
+    Sint bdiff;
+
+    low = (Eterm*)data;
+    high = low + count;
+
+    while ((bdiff = (int)((char*)high - (char*)low)) > 0) {
+        unsigned int boffset;
+        Eterm mid_val;
+
+        boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(Eterm) - 1);
+        mid = (Eterm*)((char*)low + boffset);
+        mid_val = *mid;
+
+        if (select_val < mid_val) {
+            high = mid;
+        } else if (select_val > mid_val) {
+            low = mid + 1;
+        } else {
+            const BeamInstr *jump_tab = &data[count];
+            return jump_tab[mid - data];
+        }
+    }
+
+    return fail;
 }
 
 void BeamModuleAssembler::emit_i_select_val_bins(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
-  /* Cheat by emitting a linear scan.
-   *
-   * This should be very easy to implement once embed_instr_rodata supports
-   * labels. */
-  emit_i_select_val_lins(Src, Fail, N, I);
-}
+  /* FIXME: Emit this as a jump tree if it's relatively small. */
+  Label data = embed_instr_rodata(I, 3, N.getValue() * 2);
 
-void BeamModuleAssembler::emit_i_jump_on_val_zero(ArgVal Src, ArgVal Fail, ArgVal N, Instruction* I) {
-  Label fail = a.newLabel();
-  mov(TMP1, Src);
-  a.mov(TMP2, TMP1);
-  a.and_(TMP2, _TAG_IMMED1_MASK);
-  a.cmp(TMP2, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-  a.sar(TMP1, _TAG_IMMED1_SIZE);
-  a.cmp(TMP1, N.getValue());
-  a.jge(fail);
-  for (unsigned i = 0; i < N.getValue(); i++) {
-    a.cmp(TMP1, i);
-    a.je(labels[inst.args[i+3].getValue()]);
-  }
-  a.bind(fail);
-  if (Fail.getValue()) {
-    a.jmp(labels[Fail.getValue()]);
-  } else {
-    emit_nyi("i_jump_on_val_zero error");
-  }
+  mov(ARG1, Src);
+  a.mov(ARG2, N.getValue());
+  a.lea(ARG3, x86::qword_ptr(labels[Fail.getValue()]));
+  a.lea(ARG4, x86::qword_ptr(data));
+  call((uint64_t)select_val_bins);
+  a.jmp(RET);
 }
 
 void BeamModuleAssembler::emit_i_jump_on_val(ArgVal Src, ArgVal Fail, ArgVal N, ArgVal Base, Instruction* I) {
-  Label fail = a.newLabel();
+  Label data = embed_instr_rodata(I, 4, N.getValue());
+
   mov(TMP1, Src);
   a.mov(TMP2, TMP1);
   a.and_(TMP2, _TAG_IMMED1_MASK);
   a.cmp(TMP2, _TAG_IMMED1_SMALL);
-  a.jne(fail);
+  a.jne(labels[Fail.getValue()]);
   a.sar(TMP1, _TAG_IMMED1_SIZE);
-  a.sub(TMP1, Base.getValue());
+
+  if (Base.getValue() != 0) {
+    a.mov(TMP2, Base.getValue());
+    a.sub(TMP1, TMP2);
+  }
+
   a.cmp(TMP1, N.getValue());
-  a.jge(fail);
-  for (unsigned i = 0; i < N.getValue(); i++) {
-    a.cmp(TMP1, i);
-    a.je(labels[inst.args[i+4].getValue()]);
-  }
-  a.bind(fail);
-  if (Fail.getValue()) {
-    a.jmp(labels[Fail.getValue()]);
-  } else {
-    emit_nyi("i_jump_on_val error");
-  }
+  a.jae(labels[Fail.getValue()]);
+
+  a.lea(RET, x86::qword_ptr(data));
+  a.jmp(x86::qword_ptr(RET, TMP1, 3));
 }

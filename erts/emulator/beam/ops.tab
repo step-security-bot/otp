@@ -169,8 +169,6 @@ i_select_val_lins xy f? I
 
 i_select_tuple_arity xy f? I
 
-i_jump_on_val_zero xy f? I
-
 i_jump_on_val xy f? I W
 
 get_list xy xy xy

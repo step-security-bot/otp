@@ -443,8 +443,8 @@ private:
   void emit_validate(ArgVal arity);
   void emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx);
 
-  void emit_select_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
-  void emit_select_tuple_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
+  void emit_linear_search(x86::Gp val, Label fail, int offset, int count,
+                          const std::vector<ArgVal> &args);
 
   void emit_check_float(Label entry, Label next, x86::Xmm value);
 
