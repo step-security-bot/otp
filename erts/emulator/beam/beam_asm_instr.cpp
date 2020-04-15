@@ -908,9 +908,10 @@ void BeamModuleAssembler::emit_is_tuple(ArgVal Fail, ArgVal Src, Instruction *In
 }
 
 void BeamModuleAssembler::emit_is_tuple_of_arity(ArgVal Fail, ArgVal Src, ArgVal Arity, Instruction *Inst) {
-
   mov(TMP1, Src);
+
   emit_is_boxed(labels[Fail.getValue()], TMP1);
+
   a.mov(TMP2, emit_boxed_val(TMP1));
   a.cmp(TMP2, Arity.getValue());
   a.jne(labels[Fail.getValue()]);
@@ -934,8 +935,9 @@ void BeamModuleAssembler::emit_i_is_ne_exact_immed(ArgVal Fail, ArgVal X, ArgVal
 
 void BeamModuleAssembler::emit_is_eq_exact(ArgVal Fail, ArgVal X, ArgVal Y, Instruction *Inst) {
   Label next = a.newLabel();
+
+  mov(ARG2, Y); /* May clobber ARG1 */
   mov(ARG1, X);
-  mov(ARG2, Y);
   a.cmp(ARG1, ARG2);
   a.je(next);
 
@@ -954,14 +956,14 @@ void BeamModuleAssembler::emit_is_eq_exact(ArgVal Fail, ArgVal X, ArgVal Y, Inst
 }
 
 void BeamModuleAssembler::emit_i_is_eq_exact_literal(ArgVal Fail, ArgVal Src, ArgVal Literal, Instruction *Inst) {
+  mov(ARG2, Literal); /* May clobber ARG1 */
   mov(ARG1, Src);
 
-  a.mov(TMP2, ARG1);
-  a.and_(TMP2, _TAG_IMMED1_MASK);
-  a.cmp(TMP2, TAG_PRIMARY_IMMED1);
+  a.mov(TMP3, ARG1);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, TAG_PRIMARY_IMMED1);
   a.je(labels[Fail.getValue()]);
 
-  make_move_patch(ARG2, literals[Literal.getValue()].patches);
   call((uint64_t)eq);
   a.test(RET, RET);
   a.jz(labels[Fail.getValue()]);
@@ -969,8 +971,10 @@ void BeamModuleAssembler::emit_i_is_eq_exact_literal(ArgVal Fail, ArgVal Src, Ar
 
 void BeamModuleAssembler::emit_is_ne_exact(ArgVal Fail, ArgVal X, ArgVal Y, Instruction *Inst) {
   Label next = a.newLabel();
+
+  mov(ARG2, Y); /* May clobber ARG1 */
   mov(ARG1, X);
-  mov(ARG2, Y);
+
   a.cmp(ARG1, ARG2);
   a.je(labels[Fail.getValue()]);
 
@@ -991,13 +995,14 @@ void BeamModuleAssembler::emit_is_ne_exact(ArgVal Fail, ArgVal X, ArgVal Y, Inst
 void BeamModuleAssembler::emit_i_is_ne_exact_literal(ArgVal Fail, ArgVal Src, ArgVal Literal, Instruction *Inst) {
   Label next = a.newLabel();
 
+  mov(ARG2, Literal); /* May clobber ARG1 */
   mov(ARG1, Src);
-  a.mov(TMP2, ARG1);
-  a.and_(TMP2, _TAG_IMMED1_MASK);
-  a.cmp(TMP2, TAG_PRIMARY_IMMED1);
+
+  a.mov(TMP3, ARG1);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, TAG_PRIMARY_IMMED1);
   a.je(next);
 
-  make_move_patch(ARG2, literals[Literal.getValue()].patches);
   call((uint64_t)eq);
   a.test(RET, RET);
   a.jnz(labels[Fail.getValue()]);
@@ -1074,8 +1079,8 @@ void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label n
 
 void BeamModuleAssembler::emit_is_eq(ArgVal Fail, ArgVal A, ArgVal B, Instruction *Inst) {
   Label next = a.newLabel();
+  mov(ARG2, B); /* May clobber ARG1 */
   mov(ARG1, A);
-  mov(ARG2, B);
   comment("X == Y -> next");
   a.cmp(ARG1, ARG2);
   a.je(next);
@@ -1085,8 +1090,8 @@ void BeamModuleAssembler::emit_is_eq(ArgVal Fail, ArgVal A, ArgVal B, Instructio
 
 void BeamModuleAssembler::emit_is_ne(ArgVal Fail, ArgVal A, ArgVal B, Instruction *Inst) {
   Label next = a.newLabel();
+  mov(ARG2, B); /* May clobber ARG1 */
   mov(ARG1, A);
-  mov(ARG2, B);
   comment("X == Y -> fail");
   a.cmp(ARG1, ARG2);
   a.je(labels[Fail.getValue()]);
@@ -1096,8 +1101,8 @@ void BeamModuleAssembler::emit_is_ne(ArgVal Fail, ArgVal A, ArgVal B, Instructio
 
 void BeamModuleAssembler::emit_is_lt(ArgVal Fail, ArgVal A, ArgVal B, Instruction *Inst) {
   Label next = a.newLabel();
+  mov(ARG2, B); /* May clobber ARG1 */
   mov(ARG1, A);
-  mov(ARG2, B);
   comment("X == Y -> fail");
   a.cmp(ARG1, ARG2);
   a.je(labels[Fail.getValue()]);
@@ -1107,8 +1112,8 @@ void BeamModuleAssembler::emit_is_lt(ArgVal Fail, ArgVal A, ArgVal B, Instructio
 
 void BeamModuleAssembler::emit_is_ge(ArgVal Fail, ArgVal A, ArgVal B, Instruction *Inst) {
   Label next = a.newLabel();
+  mov(ARG2, B); /* May clobber ARG1 */
   mov(ARG1, A);
-  mov(ARG2, B);
   comment("X == Y -> next");
   a.cmp(ARG1, ARG2);
   a.je(next);
