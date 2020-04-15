@@ -56,7 +56,20 @@ void BeamModuleAssembler::emit_new_map(ArgVal Dst, ArgVal Live, ArgVal N, Instru
 
 // x64.i_new_small_map_lit(Dst, Live, Keys);
 void BeamModuleAssembler::emit_i_new_small_map_lit(ArgVal Dst, ArgVal Live, ArgVal Keys, Instruction *Inst) {
-    a.hlt();
+    Label data = embed_instr_rodata(Inst, 3, (Inst->args.size() - 3));
+
+    emit_heavy_swapout();
+
+    ASSERT(Keys.isLiteral());
+    mov(ARG3, Keys); /* Might clobber ARG1 */
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG4, Live.getValue());
+    a.lea(ARG5, x86::qword_ptr(data));
+    call((uint64_t)erts_gc_new_small_map_lit);
+
+    emit_heavy_swapin();
+    mov(Dst, RET);
 }
 
 // x64.i_get_map_element(Fail, Src, Key, Dst);
