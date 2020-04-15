@@ -42,12 +42,22 @@ static bool decode_dist(Process *c_p, ErtsMessage *msgp, Eterm *HTOP, Eterm *E) 
   return true;
 }
 
+static void recv_mark_save(Process *p) {
+    ERTS_RECV_MARK_SAVE(p);
+}
+
+static void recv_mark_set(Process *p) {
+    ERTS_RECV_MARK_SET(p);
+}
+
 void BeamModuleAssembler::emit_i_recv_mark(Instruction *I) {
-    a.nop();
+    a.mov(ARG1, c_p);
+    call((uint64_t)recv_mark_save);
 }
 
 void BeamModuleAssembler::emit_i_recv_set(Instruction *I) {
-    a.nop();
+    a.mov(ARG1, c_p);
+    call((uint64_t)recv_mark_set);
 }
 
 void BeamModuleAssembler::emit_i_loop_rec(ArgVal Dest, Instruction *I) {
