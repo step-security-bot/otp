@@ -804,8 +804,7 @@ void BeamModuleAssembler::emit_is_map(ArgVal Fail, ArgVal Src, Instruction *Inst
 }
 
 void BeamModuleAssembler::emit_is_nil(ArgVal Fail, ArgVal Src, Instruction *Inst) {
-  a.mov(TMP1, NIL);
-  a.cmp(getRef(Src), TMP1);
+  a.cmp(getRef(Src), NIL);
   a.jne(labels[Fail.getValue()]);
 }
 

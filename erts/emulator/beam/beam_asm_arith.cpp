@@ -92,10 +92,7 @@ void BeamModuleAssembler::emit_i_plus(ArgVal LHS, ArgVal RHS,
     comment("add with overflow check");
     a.mov(RET, ARG2);
     a.mov(TMP4, ARG3);
-
-    a.mov(TMP5, ~(uint64_t)_TAG_IMMED1_MASK);
-    a.and_(TMP4, TMP5);
-
+    a.and_(TMP4, ~_TAG_IMMED1_MASK);
     a.add(RET, TMP4);
     a.jno(next);
 
@@ -131,10 +128,7 @@ void BeamModuleAssembler::emit_i_minus(ArgVal LHS, ArgVal RHS,
     comment("sub with overflow check");
     a.mov(RET, ARG2);
     a.mov(TMP4, ARG3);
-
-    a.mov(TMP5, ~(uint64_t)_TAG_IMMED1_MASK);
-    a.and_(TMP4, TMP5);
-
+    a.and_(TMP4, ~_TAG_IMMED1_MASK);
     a.sub(RET, TMP4);
     a.jno(next);
 
@@ -256,10 +250,7 @@ void BeamModuleAssembler::emit_i_times(ArgVal Fail, ArgVal LHS, ArgVal RHS,
     comment("mul overflow");
     a.mov(RET, ARG5);
     a.mov(TMP3, ARG6);
-
-    a.mov(TMP4, ~(uint64_t)_TAG_IMMED1_MASK);
-    a.and_(RET, TMP4);
-
+    a.and_(RET, ~_TAG_IMMED1_MASK);
     a.sar(TMP3, _TAG_IMMED1_SIZE);
     a.imul(RET, TMP3); /* Clobbers TMP3 */
     a.jo(generic);
