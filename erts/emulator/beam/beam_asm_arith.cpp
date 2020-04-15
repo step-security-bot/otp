@@ -33,8 +33,21 @@ void BeamModuleAssembler::emit_bif_arg_error(std::vector<ArgVal> args, Label ent
     emit_handle_error(entry, mfa);
 }
 
+void BeamModuleAssembler::emit_is_both_small(Label fail, x86::Gp A, x86::Gp B) {
+    ASSERT(TMP1 != A && TMP1 != B);
+
+    comment("is_both_small(X, Y)");
+    a.mov(TMP1, A);
+    a.and_(TMP1, B);
+    a.and_(TMP1,_TAG_IMMED1_MASK);
+    a.cmp(TMP1,_TAG_IMMED1_SMALL);
+    a.jne(fail);
+}
+
 void BeamModuleAssembler::emit_i_increment(ArgVal Src, ArgVal Val, ArgVal Dst, Instruction *Inst) {
-    Label mixed = a.newLabel(), next = a.newLabel();
+    Label entry = a.newLabel(), mixed = a.newLabel(), next = a.newLabel();
+
+    a.bind(entry);
 
     /* Place the values in ARG2 and ARG3 to prepare for the mixed call. Note
      * that ARG3 is untagged at this point */
@@ -58,46 +71,129 @@ void BeamModuleAssembler::emit_i_increment(ArgVal Src, ArgVal Val, ArgVal Dst, I
     a.cmp(RET,THE_NON_VALUE);
     a.jne(next);
 
-    // TODO: Have to store I in a register here so that we know
-    //       what happened
-    a.je(labels[1]); // Jump to badarith code
+    emit_badarith(entry);
 
     /* all went well, store result in dst */
     a.bind(next);
     mov(Dst, RET);
 }
 
-void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, ArgVal Dst, Instruction *Inst) {
-    Label next = a.newLabel(), generic = a.newLabel(), fail = a.newLabel(), entry = a.newLabel();
+void BeamModuleAssembler::emit_i_plus(ArgVal LHS, ArgVal RHS,
+                                      ArgVal Fail, ArgVal Dst,
+                                      Instruction *I) {
+    Label entry = a.newLabel(), next = a.newLabel(), generic = a.newLabel();
 
     a.bind(entry);
-    mov(ARG3, Op2);
-    comment("Test div by zero");
-    a.cmp(ARG3, SMALL_ZERO);
-    a.mov(x86::qword_ptr(c_p, offsetof(Process,freason)), BADARITH);
-    a.je(fail);
 
-    mov(ARG2, Op1);
+    mov(ARG2,LHS); // Used by erts_mixed_plus in this slot
+    mov(ARG3,RHS); // Used by erts_mixed_plus in this slot
+    emit_is_both_small(generic, ARG2, ARG3);
 
-    comment("is_both_small");
-    mov(TMP1,Op1);
-    a.and_(TMP1,ARG2);
-    a.and_(TMP1,_TAG_IMMED1_MASK);
-    a.cmp(TMP1,_TAG_IMMED1_SMALL);
-    a.jne(generic);
-
+    comment("add with overflow check");
     a.mov(RET, ARG2);
-    a.mov(TMP1, ARG3);
+    a.mov(TMP4, ARG3);
+
+    a.mov(TMP5, ~(uint64_t)_TAG_IMMED1_MASK);
+    a.and_(TMP4, TMP5);
+
+    a.add(RET, TMP4);
+    a.jno(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 and ARG3 set above
+    call((uint64_t)erts_mixed_plus);
+    a.cmp(RET,THE_NON_VALUE);
+
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_bif_arg_error({LHS, RHS}, entry, &bif_trap_export[BIF_splus_2]->info.mfa);
+    }
+
+    a.bind(next);
+    mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_minus(ArgVal LHS, ArgVal RHS,
+                                       ArgVal Fail, ArgVal Dst,
+                                       Instruction *I) {
+    Label entry = a.newLabel(), next = a.newLabel(), generic = a.newLabel();
+
+    a.bind(entry);
+
+    comment("is_both_small(X, Y)");
+    mov(ARG2,LHS); // Used by erts_mixed_plus in this slot
+    mov(ARG3,RHS); // Used by erts_mixed_plus in this slot
+    emit_is_both_small(generic, ARG2, ARG3);
+
+    comment("sub with overflow check");
+    a.mov(RET, ARG2);
+    a.mov(TMP4, ARG3);
+
+    a.mov(TMP5, ~(uint64_t)_TAG_IMMED1_MASK);
+    a.and_(TMP4, TMP5);
+
+    a.sub(RET, TMP4);
+    a.jno(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    // ARG2 and ARG3 set above
+    call((uint64_t)erts_mixed_minus);
+    a.cmp(RET,THE_NON_VALUE);
+
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_bif_arg_error({LHS, RHS}, entry,
+                           &bif_trap_export[BIF_sminus_2]->info.mfa);
+    }
+
+    a.bind(next);
+    mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal LHS, ArgVal RHS,
+                                         ArgVal Dst, Instruction *Inst) {
+    Label next, generic, fail, entry;
+
+    next = a.newLabel();
+    generic = a.newLabel();
+    fail = a.newLabel();
+    entry = a.newLabel();
+
+    a.bind(entry);
+    mov(ARG5, LHS);
+    mov(ARG6, RHS);
+
+    comment("Test div by zero");
+    a.cmp(ARG6, SMALL_ZERO);
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.mov(x86::qword_ptr(c_p, offsetof(Process,freason)), BADARITH);
+        a.je(fail);
+    }
+
+    emit_is_both_small(generic, ARG5, ARG6);
+
+    a.mov(RET, ARG5);
+    a.mov(TMP1, ARG6);
     a.sar(RET, _TAG_IMMED1_SIZE);
     a.sar(TMP1, _TAG_IMMED1_SIZE);
     a.cqo(); // This clobbers ARG3
     a.idiv(TMP1); // Result in rax aka RET
+
     comment("IS_SSMALL");
     a.mov(TMP1, RET);
     a.sar(TMP1, SMALL_BITS-1);
     a.inc(TMP1);
     a.cmp(TMP1, 2);
     a.jge(generic);
+
     comment("tag small");
     a.sal(RET, _TAG_IMMED1_SIZE);
     a.or_(RET, _TAG_IMMED1_SMALL);
@@ -105,20 +201,88 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal Op1, ArgVal Op2, Ar
 
     a.bind(generic);
     a.mov(ARG1, c_p);
-    // ARG2 set above
-    mov(ARG3, Op2); // ARG3 may have been clobbered by cqto so re-read
+    a.mov(ARG2, ARG5);
+    a.mov(ARG3, ARG6);
     call((uint64_t)erts_int_div);
     a.cmp(RET,THE_NON_VALUE);
+
     if (Fail.getValue() != 0) {
         a.je(labels[Fail.getValue()]);
-        a.jmp(next);
     } else {
         a.jne(next);
+        a.bind(fail);
+        emit_bif_arg_error({LHS, RHS}, entry,
+                           &bif_trap_export[BIF_intdiv_2]->info.mfa);
     }
-    a.bind(fail);
-    emit_bif_arg_error({Op1, Op2}, entry, &bif_trap_export[BIF_intdiv_2]->info.mfa);
 
     a.bind(next);
     mov(Dst, RET);
+}
 
+void BeamModuleAssembler::emit_i_m_div(ArgVal Fail, ArgVal LHS, ArgVal RHS,
+                                       ArgVal Dst, Instruction *Inst) {
+    Label next = a.newLabel(), entry = a.newLabel();
+
+    a.bind(entry);
+    mov(ARG2, LHS);
+    mov(ARG3, RHS);
+    /* Must be set last since mov() may clobber TMP1 */
+    a.mov(ARG1, c_p);
+    call((uint64_t)erts_mixed_div);
+    a.cmp(RET,THE_NON_VALUE);
+
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_bif_arg_error({LHS, RHS}, entry,
+                           &bif_trap_export[BIF_div_2]->info.mfa);
+    }
+
+    a.bind(next);
+    mov(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_i_times(ArgVal Fail, ArgVal LHS, ArgVal RHS,
+                                       ArgVal Dst, Instruction *Inst) {
+    Label entry = a.newLabel(), next = a.newLabel(), generic = a.newLabel();
+
+    a.bind(entry);
+
+    mov(ARG5, LHS);
+    mov(ARG6, RHS);
+    emit_is_both_small(generic, ARG5, ARG6);
+
+    comment("mul overflow");
+    a.mov(RET, ARG5);
+    a.mov(TMP3, ARG6);
+
+    a.mov(TMP4, ~(uint64_t)_TAG_IMMED1_MASK);
+    a.and_(RET, TMP4);
+
+    a.sar(TMP3, _TAG_IMMED1_SIZE);
+    a.imul(RET, TMP3); /* Clobbers TMP3 */
+    a.jo(generic);
+
+    comment("tag small");
+    a.or_(RET, _TAG_IMMED1_SMALL);
+    a.jmp(next);
+
+    a.bind(generic);
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, ARG5);
+    a.mov(ARG3, ARG6);
+    call((uint64_t)erts_mixed_times);
+    a.cmp(RET,THE_NON_VALUE);
+
+    if (Fail.getValue() != 0) {
+        a.je(labels[Fail.getValue()]);
+    } else {
+        a.jne(next);
+        emit_bif_arg_error({LHS, RHS}, entry,
+                           &bif_trap_export[BIF_stimes_2]->info.mfa);
+    }
+
+    a.bind(next);
+    mov(Dst, RET);
 }

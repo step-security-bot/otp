@@ -320,6 +320,8 @@ public:
   uint64_t get_handle_error() { return get_error_action_code(); }
 };
 
+static char crash_buf[4096];
+
 class BeamModuleAssembler : public BeamAssembler {
 
   typedef unsigned BeamLabel;
@@ -395,8 +397,9 @@ public:
   void patchLiteral(unsigned index, Eterm lit);
   void patchImport(unsigned index, BeamInstr I);
   void patchStrings(byte *string);
+
   static void dbg(char *msg, Process *c_p, Eterm *reg, BeamInstr *I) {
-    erts_printf("%T: %s\n",I, msg);
+    erts_snprintf(crash_buf, 4095, "%T: %s\n", I, msg);
   }
 
   void setDebug(bool debug) {
@@ -444,6 +447,8 @@ private:
   void emit_select_tuple_val(ArgVal Src, ArgVal Fail, ArgVal N, Instruction *I);
 
   void emit_check_float(Label entry, Label next, x86::Xmm value);
+
+  void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);
 
   void emit_proc_lc_unrequire(void);
   void emit_proc_lc_require(void);
