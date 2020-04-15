@@ -648,13 +648,15 @@ void BeamModuleAssembler::emit_is_atom(ArgVal Fail, ArgVal Src, Instruction *Ins
 void BeamModuleAssembler::emit_is_boolean(ArgVal Fail, ArgVal Src, Instruction *Inst) {
   Label next = a.newLabel();
 
-  // TODO: These checks can be optimized, check gcc gen for details
-  a.cmp(getRef(Src), am_true);
-  a.je(next);
-  a.cmp(getRef(Src), am_false);
-  a.jne(labels[Fail.getValue()]);
+  /* Since am_true and am_false differ by a single bit, we can simplify the
+   * check by clearing said bit and comparing against the lesser one. */
+  ERTS_CT_ASSERT(am_false == make_atom(0));
+  ERTS_CT_ASSERT(am_true == make_atom(1));
 
-  a.bind(next);
+  mov(TMP1, Src);
+  a.and_(TMP1, ~(am_true & ~_TAG_IMMED1_MASK));
+  a.cmp(TMP1, am_false);
+  a.jne(labels[Fail.getValue()]);
 }
 
 void BeamModuleAssembler::emit_is_boxed(Label Fail, x86::Gp Src) {
