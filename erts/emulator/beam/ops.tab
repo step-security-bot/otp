@@ -469,10 +469,6 @@ is_integer Fail=f i =>
 is_integer Fail=f an => jump Fail
 is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
-is_integer Fail=f S=x | allocate Need Regs => is_integer_allocate Fail S Need Regs
-
-is_integer_allocate f? x t t
-
 is_integer f? xy
 
 is_list Fail=f n =>
@@ -482,23 +478,6 @@ is_list f? x
 %cold
 is_list f? y
 %hot
-
-is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
-
-is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
-  is_nonempty_list_get_list Fail S D1 D2
-
-is_nonempty_list Fail=f S=x | get_hd S Dst=x => \
-  is_nonempty_list_get_hd Fail S Dst
-
-is_nonempty_list Fail=f S=x | get_tl S Dst=x => \
-  is_nonempty_list_get_tl Fail S Dst
-
-is_nonempty_list_allocate f? rx t t
-
-is_nonempty_list_get_list f? rx x x
-is_nonempty_list_get_hd f? x x
-is_nonempty_list_get_tl f? x x
 
 is_nonempty_list f? xy
 
@@ -797,8 +776,10 @@ i_perf_counter
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
-bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=x Dst=x => is_nonempty_list_get_hd Fail Src Dst
-bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=x Dst=x => is_nonempty_list_get_tl Fail Src Dst
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src Dst=> \
+    is_nonempty_list Fail Src | get_hd Src Dst
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst=> \
+    is_nonempty_list Fail Src | get_tl Src Dst
 
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
@@ -918,12 +899,6 @@ i_bs_match_string xy f W W
 bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm Ms Bits Fail Flags Y=y => \
-   i_bs_get_integer_small_imm Ms Bits Fail Flags x | move x Y
-
-i_bs_get_integer_imm Ms Bits Live Fail Flags Y=y => \
-   i_bs_get_integer_imm Ms Bits Live Fail Flags x | move x Y
-
 i_bs_get_integer_small_imm xy W f? t x
 i_bs_get_integer_imm xy W t f? t x
 i_bs_get_integer xy f? t t s d
@@ -1035,9 +1010,6 @@ i_bs_validate_unicode_retract j s S
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
 
-bs_init2 Fail Sz Words Regs Flags Dst=y => \
-   bs_init2 Fail Sz Words Regs Flags x | move x Dst
-
 bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
 
 bs_init2 Fail Sz=u Words Regs Flags Dst => \
@@ -1048,33 +1020,33 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail xy j? t? x
+i_bs_init_fail xy j? t? xy
 
-i_bs_init_fail_heap s I j? t? x
+i_bs_init_fail_heap s I j? t? xy
 
-i_bs_init W t? x
+i_bs_init W t? xy
 
-i_bs_init_heap W I t? x
+i_bs_init_heap W I t? xy
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
-bs_init_bits Fail Sz Words Regs Flags Dst=y => \
-   bs_init_bits Fail Sz Words Regs Flags x | move x Dst
 
-bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init_bits Sz Regs Dst
-bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Regs Dst
+bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => \
+    i_bs_init_bits Sz Regs Dst
+bs_init_bits Fail Sz=u Words Regs Flags Dst => \
+    i_bs_init_bits_heap Sz Words Regs Dst
 
 bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
   i_bs_init_bits_fail Sz Fail Regs Dst
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail xy j? t? x
+i_bs_init_bits_fail xy j? t? xy
 
-i_bs_init_bits_fail_heap s I j? t? x
+i_bs_init_bits_fail_heap s I j? t? xy
 
-i_bs_init_bits W t? x
-i_bs_init_bits_heap W I t? x
+i_bs_init_bits W t? xy
+i_bs_init_bits_heap W I t? xy
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 

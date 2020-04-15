@@ -623,11 +623,6 @@ void BeamModuleAssembler::emit_set_tuple_element(ArgVal Element, ArgVal Tuple, A
   mov(emit_boxed_val(TMP2, Offset.getValue()), Element); // May use TMP1
 }
 
-void BeamModuleAssembler::emit_is_integer_allocate(ArgVal Fail, ArgVal Src, ArgVal NS, ArgVal Live, Instruction *Inst) {
-  emit_is_integer(Fail, Src);
-  emit_allocate(NS, Live);
-}
-
 void BeamModuleAssembler::emit_is_list(Label Fail, x86::Gp Src) {
   a.and_(Src, _TAG_PRIMARY_MASK-TAG_PRIMARY_LIST);
   a.cmp(Src, 0);
@@ -637,29 +632,6 @@ void BeamModuleAssembler::emit_is_list(Label Fail, x86::Gp Src) {
 void BeamModuleAssembler::emit_is_nonempty_list(ArgVal Fail, ArgVal Src, Instruction *Inst) {
   mov(TMP1, Src);
   emit_is_list(labels[Fail.getValue()], TMP1);
-}
-
-void BeamModuleAssembler::emit_is_nonempty_list_allocate(ArgVal Fail, ArgVal Src, ArgVal NS, ArgVal Live, Instruction *Inst) {
-  emit_is_nonempty_list(Fail, Src);
-  emit_allocate(NS, Live);
-}
-
-void BeamModuleAssembler::emit_is_nonempty_list_get_list(ArgVal Fail, ArgVal Src, ArgVal Hd, ArgVal Tl, Instruction *Inst) {
-  // TODO: Optimize load of Src
-  emit_is_nonempty_list(Fail, Src);
-  emit_get_list(Src, Hd, Tl);
-}
-
-void BeamModuleAssembler::emit_is_nonempty_list_get_hd(ArgVal Fail, ArgVal Src, ArgVal Hd, Instruction *Inst) {
-  // TODO: Optimize load of Src
-  emit_is_nonempty_list(Fail, Src);
-  emit_get_hd(Src, Hd);
-}
-
-void BeamModuleAssembler::emit_is_nonempty_list_get_tl(ArgVal Fail, ArgVal Src, ArgVal Tl, Instruction *Inst) {
-  // TODO: Optimize load of Src
-  emit_is_nonempty_list(Fail, Src);
-  emit_get_tl(Src, Tl);
 }
 
 void BeamModuleAssembler::emit_jump(ArgVal Fail, Instruction *Inst) {

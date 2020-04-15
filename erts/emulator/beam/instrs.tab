@@ -484,14 +484,6 @@ test_heap(Nh, Live) {
 
 x64.test_heap(Nh, Live);
 
-is_integer_allocate(Fail, Src, NeedStack, Live) {
-    //| -no_prefetch
-    $is_integer($Fail, $Src);
-    $AH($NeedStack, 0, $Live);
-}
-
-x64.is_integer_allocate(Fail, Src, NeedStack, Live);
-
 is_nonempty_list(Fail, Src) {
     //| -no_prefetch
     if (is_not_list($Src)) {
@@ -500,38 +492,6 @@ is_nonempty_list(Fail, Src) {
 }
 
 x64.is_nonempty_list(Fail, Src);
-
-is_nonempty_list_allocate(Fail, Src, Need, Live) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, $Src);
-    $AH($Need, 0, $Live);
-}
-
-x64.is_nonempty_list_allocate(Fail, Src, Need, Live);
-
-is_nonempty_list_get_list(Fail, Src, Hd, Tl) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, $Src);
-    $get_list($Src, $Hd, $Tl);
-}
-
-x64.is_nonempty_list_get_list(Fail, Src, Hd, Tl);
-
-is_nonempty_list_get_hd(Fail, Src, Hd) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, $Src);
-    $get_hd($Src, $Hd);
-}
-
-x64.is_nonempty_list_get_hd(Fail, Src, Hd);
-
-is_nonempty_list_get_tl(Fail, Src, Tl) {
-    //| -no_prefetch
-    $is_nonempty_list($Fail, $Src);
-    $get_tl($Src, $Tl);
-}
-
-x64.is_nonempty_list_get_tl(Fail, Src, Tl);
 
 jump(Fail) {
     $JUMP($Fail);
