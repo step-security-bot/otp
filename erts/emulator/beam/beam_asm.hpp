@@ -232,7 +232,14 @@ public:
 
   void setLogger(std::string log) {
     FILE *f = fopen(log.data(),"w+");
-    setvbuf(f, NULL, _IONBF, 0);
+
+    /* FIXME: Don't crash when loading multiple modules with the same name.
+     *
+     * setLogger(nullptr) disables logging. */
+    if (f) {
+        setvbuf(f, NULL, _IONBF, 0);
+    }
+
     setLogger(f);
   }
 
