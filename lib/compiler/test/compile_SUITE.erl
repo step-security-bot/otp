@@ -396,7 +396,10 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     ok = file:delete(filename:join(Listings, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
     do_listing(Simple, TargetDir, to_kernel, ".kernel"),
-    do_listing(Simple, TargetDir, to_dis, ".dis"),
+
+    %% FIXME: erts_debug_disassemble_1 hasn't been updated to work with the
+    %% template JIT.
+    %%do_listing(Simple, TargetDir, to_dis, ".dis"),
 
     %% Final clean up.
     lists:foreach(fun(F) -> ok = file:delete(F) end,
@@ -414,8 +417,8 @@ listings_big(Config) when is_list(Config) ->
             {dkern, ".kernel"},
             {dssa, ".ssa"},
             {dssaopt, ".ssaopt"},
-            {dprecg, ".precodegen"},
-            {to_dis, ".dis"}],
+            {dprecg, ".precodegen"}],
+            %% {to_dis, ".dis"}], %% FIXME:
     p_listings(List, Big, TargetDir).
 
 p_listings(List, File, BaseDir) ->
