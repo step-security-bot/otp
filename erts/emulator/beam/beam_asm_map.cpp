@@ -199,12 +199,15 @@ void BeamModuleAssembler::emit_update_map_assoc(ArgVal Src, ArgVal Dst, ArgVal L
 // x64.update_map_exact(Src, Fail, Dst, Live, N);
 void BeamModuleAssembler::emit_update_map_exact(ArgVal Src, ArgVal Fail, ArgVal Dst, ArgVal Live, ArgVal N, Instruction *Inst) {
     /* We _KNOW_ Src is a map */
-    Label data, error, next;
+    Label data, entry, error, next;
 
     data = embed_instr_rodata(Inst, 5, N.getValue());
 
+    entry = a.newLabel();
     error = a.newLabel();
     next = a.newLabel();
+
+    a.bind(entry);
 
     emit_heavy_swapout();
     mov(x86::qword_ptr(x_reg, Live.getValue() * sizeof(Eterm)), Src);
@@ -220,7 +223,7 @@ void BeamModuleAssembler::emit_update_map_exact(ArgVal Src, ArgVal Fail, ArgVal 
     a.cmp(RET, THE_NON_VALUE);
     a.jne(next);
 
-    emit_nyi("handle_update_map_exact_error");
+    emit_fail_head_or_body(entry, Fail);
 
     a.bind(next);
     mov(Dst, RET);
