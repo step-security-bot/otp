@@ -899,8 +899,8 @@ i_bs_match_string xy f W W
 bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm xy W f? t x
-i_bs_get_integer_imm xy W t f? t x
+i_bs_get_integer_small_imm xy W f? t d
+i_bs_get_integer_imm xy W t f? t d
 i_bs_get_integer xy f? t t s d
 i_bs_get_integer_8 xy f? d
 i_bs_get_integer_16 xy f? d
