@@ -2201,8 +2201,9 @@ delete_code(Module* modp)
 		    erts_clear_export_break(modp, ep);
 		}
 		else {
+            /* FIXME: HACK:
                     ASSERT(BeamIsOpCode(ep->trampoline.op, op_call_error_handler) ||
-                           !erts_initialized);
+                           !erts_initialized); */
                 }
             }
 
