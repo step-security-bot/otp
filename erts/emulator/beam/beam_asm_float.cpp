@@ -119,7 +119,7 @@ void BeamModuleAssembler::emit_i_fsub(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
     a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
-    a.movsd(x86::xmm1, getFRef(f_reg, LHS));
+    a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.subpd(x86::xmm0, x86::xmm1);
 
     emit_check_float(entry, next, x86::xmm0);
@@ -134,7 +134,7 @@ void BeamModuleAssembler::emit_i_fmul(ArgVal LHS, ArgVal RHS, ArgVal Dst, Instru
 
     a.bind(entry);
     a.movsd(x86::xmm0, getFRef(f_reg, LHS));
-    a.movsd(x86::xmm1, getFRef(f_reg, LHS));
+    a.movsd(x86::xmm1, getFRef(f_reg, RHS));
     a.mulpd(x86::xmm0, x86::xmm1);
 
     emit_check_float(entry, next, x86::xmm0);
