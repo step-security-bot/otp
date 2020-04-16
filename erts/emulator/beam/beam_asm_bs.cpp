@@ -38,29 +38,63 @@ void BeamModuleAssembler::emit_badarg(Label entry, ArgVal Fail) {
   emit_fail_head_or_body(entry, Fail);
 }
 
-// Clobbers RET + TMP3
-x86::Gp BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label fail) {
+// Clobbers RET + TMP3, storing Size * Unit in RET
+//
+// If max_size > 0, we jump to the fail label when Size > max_size
+//
+// Returns -1 when the field check always fails, 1 if it may fail, and 0 if it
+// never fails.
+int BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size,
+    int unit, Label fail, x86::Gp &out, unsigned max_size) {
 
-  mov(RET, Size);
-  a.mov(TMP3, RET);
-  a.and_(TMP3, _TAG_IMMED1_MASK);
-  a.cmp(TMP3, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-  a.sar(RET, _TAG_IMMED1_SIZE);
-  a.cmp(RET, 0);
-  a.jl(fail);
+  if (Size.isImmed()) {
+    if (!is_small(Size.getValue()) ||
+         signed_val(Size.getValue()) < 0 ||
+         (max_size && signed_val(Size.getValue()) > max_size)) {
+      a.jmp(fail);
+      return -1;
+    }
 
-  /* Size = (Size) * (Unit) */
-  a.mov(TMP3, unit);
-  a.mul(TMP3); /* CLOBBERS ARG3! */
-  return RET;
+    a.mov(RET, signed_val(Size.getValue()) * unit);
+
+    out = RET;
+    return 0;
+  } else {
+    mov(RET, Size);
+    a.mov(TMP3, RET);
+    a.and_(TMP3, _TAG_IMMED1_MASK);
+    a.cmp(TMP3, _TAG_IMMED1_SMALL);
+    a.jne(fail);
+
+    a.sar(RET, _TAG_IMMED1_SIZE);
+    if (max_size) {
+      ASSERT (is_safe_i32_operand(max_size));
+      a.cmp(RET, max_size);
+      a.ja(fail);
+    } else {
+      a.cmp(RET, 0);
+      a.jl(fail);
+    }
+
+    /* Size = (Size) * (Unit) */
+    a.mov(TMP3, unit);
+    a.mul(TMP3); /* CLOBBERS ARG3! */
+
+    out = RET;
+    return 1;
+  }
 }
 
 // Clobbers RET + TMP3
-x86::Gp BeamModuleAssembler::emit_bs_get_field_size(ArgVal Size, int unit, Label fail) {
-  x86::Gp ret = emit_bs_get_unchecked_field_size(Size, unit, fail);
-  a.jo(fail);
-  return ret;
+int BeamModuleAssembler::emit_bs_get_field_size(ArgVal Size, int unit,
+    Label fail, x86::Gp &out, unsigned max_size) {
+  int fails = emit_bs_get_unchecked_field_size(Size, unit, fail, out, max_size);
+
+  if (fails > 0) {
+    a.jo(fail);
+  }
+
+  return fails;
 }
 
 void TEST_BIN_VHEAP(Process *c_p, Eterm *reg, Uint VNh, Uint Nh, Uint Live) {
@@ -145,22 +179,27 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(ArgVal Size, ArgVal Heap,
                                                    ArgVal Fail, ArgVal Live,
                                                    ArgVal Dst, Instruction *I) {
   Label entry = a.newLabel(), next = a.newLabel(), fail = a.newLabel();
+  x86::Gp ret;
+
   a.bind(entry);
+
   // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_unchecked_field_size(Size, 1, fail);
-  ASSERT(ret == RET);
-  emit_heavy_swapout();
-  mov(ARG5, Heap);
-  mov(ARG6, Live);
-  /* Must be last since mov() of immediates clobbers ARG1 */
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.mov(ARG3, EBS);
-  a.mov(ARG4, ret);
-  call((uint64_t)i_bs_init);
-  emit_heavy_swapin();
-  mov(Dst, RET);
-  a.jmp(next);
+  if (emit_bs_get_unchecked_field_size(Size, 1, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    emit_heavy_swapout();
+    mov(ARG5, Heap);
+    mov(ARG6, Live);
+    /* Must be last since mov() of immediates clobbers ARG1 */
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG3, EBS);
+    a.mov(ARG4, ret);
+    call((uint64_t)i_bs_init);
+    emit_heavy_swapin();
+    mov(Dst, RET);
+    a.jmp(next);
+  }
+
   a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -288,22 +327,27 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail(ArgVal NumBits, ArgVal Fail,
 void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(ArgVal NumBits, ArgVal Alloc,
                                                         ArgVal Fail, ArgVal Live, ArgVal Dst, Instruction *I) {
   Label entry = a.newLabel(), next = a.newLabel(), fail = a.newLabel();
+  x86::Gp ret;
+
   a.bind(entry);
+
   // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_unchecked_field_size(NumBits, 1, fail);
-  ASSERT(ret == RET);
-  emit_heavy_swapout();
-  mov(ARG5, Alloc);
-  mov(ARG6, Live);
-  /* Must be last since mov() of immediates clobbers ARG1 */
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.mov(ARG3, EBS);
-  a.mov(ARG4, ret);
-  call((uint64_t)i_bs_init_bits);
-  emit_heavy_swapin();
-  mov(Dst, RET);
-  a.jmp(next);
+  if (emit_bs_get_unchecked_field_size(NumBits, 1, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    emit_heavy_swapout();
+    mov(ARG5, Alloc);
+    mov(ARG6, Live);
+    /* Must be last since mov() of immediates clobbers ARG1 */
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    a.mov(ARG3, EBS);
+    a.mov(ARG4, ret);
+    call((uint64_t)i_bs_init_bits);
+    emit_heavy_swapin();
+    mov(Dst, RET);
+    a.jmp(next);
+  }
+
   a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -323,7 +367,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail,
   mov(ARG2, Src);
   mov(ARG3, Sz);
   mov(ARG4, Flags);
-  /* Must be last since mov() of literals clobbers ARG1 */
+  /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_integer);
   a.cmp(RET, 0);
@@ -335,18 +379,23 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail,
 void BeamModuleAssembler::emit_i_new_bs_put_integer(ArgVal Fail, ArgVal Sz, ArgVal Flags,
                                                     ArgVal Src, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
+  x86::Gp ret;
+
   a.bind(entry);
+
   // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
-  ASSERT(ret == RET);
-  mov(ARG2, Src);
-  mov(ARG4, Flags);
-  /* Must be last since mov() of literals clobbers ARG1 */
-  a.mov(ARG3, ret);
-  a.mov(ARG1, EBS);
-  call((uint64_t)erts_new_bs_put_integer);
-  a.cmp(RET, 0);
-  a.jne(next);
+  if (emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    mov(ARG2, Src);
+    mov(ARG4, Flags);
+    /* Must be last since mov() may clobber ARG1 */
+    a.mov(ARG3, ret);
+    a.mov(ARG1, EBS);
+    call((uint64_t)erts_new_bs_put_integer);
+    a.cmp(RET, 0);
+    a.jne(next);
+  }
+
   a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -357,17 +406,22 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary(ArgVal Fail, ArgVal Sz,
                                                    ArgVal Flags, ArgVal Src,
                                                    Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
+  x86::Gp ret;
+
   a.bind(entry);
+
   // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
-  ASSERT(ret == RET);
-  mov(ARG2, Src);
-  /* Must be last since mov() of literals clobbers ARG1 */
-  a.mov(ARG1, EBS);
-  a.mov(ARG3, ret);
-  call((uint64_t)erts_new_bs_put_binary);
-  a.cmp(RET, 0);
-  a.jne(next);
+  if (emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    mov(ARG2, Src);
+    /* Must be last since mov() may clobber ARG1 */
+    a.mov(ARG1, EBS);
+    a.mov(ARG3, ret);
+    call((uint64_t)erts_new_bs_put_binary);
+    a.cmp(RET, 0);
+    a.jne(next);
+  }
+
   a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -379,7 +433,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_all(ArgVal Src, ArgVal Fail,
   a.bind(entry);
   mov(ARG2, Src);
   mov(ARG3, Unit);
-  /* Must be last since mov() of literals clobbers ARG1 */
+  /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary_all);
   a.cmp(RET, 0);
@@ -394,7 +448,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
   a.bind(entry);
   mov(ARG2, Src);
   mov(ARG3, Sz);
-  /* Must be last since mov() of literals clobbers ARG1 */
+  /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary);
   a.cmp(RET, 0);
@@ -406,18 +460,23 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
 void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal Flags,
                                                   ArgVal Src, Instruction *I) {
   Label next = a.newLabel(), entry = a.newLabel(), fail = a.newLabel();
+  x86::Gp ret;
+
   a.bind(entry);
+
   // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail);
-  ASSERT(ret == RET);
-  mov(ARG2, Src);
-  mov(ARG4, Flags);
-  /* Must be last since mov() of literals clobbers ARG1 */
-  a.mov(ARG1, c_p);
-  a.mov(ARG3, ret);
-  call((uint64_t)erts_new_bs_put_float);
-  a.cmp(RET, 0);
-  a.jne(next);
+  if (emit_bs_get_unchecked_field_size(Sz, Flags.getValue() >> 3, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    mov(ARG2, Src);
+    mov(ARG4, Flags);
+    /* Must be last since mov() may clobber ARG1 */
+    a.mov(ARG1, c_p);
+    a.mov(ARG3, ret);
+    call((uint64_t)erts_new_bs_put_float);
+    a.cmp(RET, 0);
+    a.jne(next);
+  }
+
   a.bind(fail);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -430,7 +489,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float_imm(ArgVal Fail, ArgVal Sz, Ar
   mov(ARG2, Src);
   mov(ARG3, Sz);
   mov(ARG4, Flags);
-  /* Must be last since mov() of literals clobbers ARG1 */
+  /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, c_p);
   call((uint64_t)erts_new_bs_put_float);
   a.cmp(RET, 0);
@@ -635,25 +694,30 @@ static Eterm i_bs_get_integer(Process *c_p, Eterm *reg, Eterm context,
 void BeamModuleAssembler::emit_i_bs_get_integer(ArgVal Ctx, ArgVal Fail, ArgVal Live,
                                                 ArgVal FlagsAndUnit, ArgVal Sz, ArgVal Dst,
                                                 Instruction *I) {
-  Label fail = a.newLabel(), next = a.newLabel();
-  // Clobbers TMP3
-  x86::Gp ret = emit_bs_get_field_size(Sz, FlagsAndUnit.getValue() >> 3, fail);
-  ASSERT(ret == RET);
-  emit_heavy_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  mov(ARG3, Ctx);
-  mov(ARG4, FlagsAndUnit);
-  a.mov(ARG5, ret);
-  mov(ARG6, Live);
-  call((uint64_t)i_bs_get_integer);
-  emit_heavy_swapin();
-  a.cmp(RET, THE_NON_VALUE);
-  a.jne(next);
-  a.bind(fail);
-  a.jmp(labels[Fail.getValue()]);
-  a.bind(next);
-  mov(Dst, RET);
+  x86::Gp ret;
+  Label fail;
+
+  fail = labels[Fail.getValue()];
+
+  /* Clobbers TMP3, returns a negative result if we always fail and further
+   * work is redundant. */
+  if (emit_bs_get_field_size(Sz, FlagsAndUnit.getValue() >> 3, fail, ret) >= 0) {
+    ASSERT(ret == RET);
+
+    emit_heavy_swapout();
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, x_reg);
+    mov(ARG3, Ctx);
+    mov(ARG4, FlagsAndUnit);
+    a.mov(ARG5, ret);
+    mov(ARG6, Live);
+    call((uint64_t)i_bs_get_integer);
+    emit_heavy_swapin();
+    a.cmp(RET, THE_NON_VALUE);
+    a.je(fail);
+
+    mov(Dst, RET);
+  }
 }
 
 // x64.bs_test_tail2(Fail, Ctx, Offset);
@@ -741,9 +805,15 @@ void BeamModuleAssembler::emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx) {
 
 //x64.i_bs_skip_bits2(Ctx, Bits, Fail, Unit);
 void BeamModuleAssembler::emit_i_bs_skip_bits2(ArgVal Ctx, ArgVal Bits, ArgVal Fail, ArgVal Unit, Instruction *I) {
-  x86::Gp ret = emit_bs_get_field_size(Bits, Unit.getValue(), labels[Fail.getValue()]);
-  ASSERT(ret == RET);
-  emit_bs_skip_bits(Fail, Ctx);
+  Label fail;
+  x86::Gp ret;
+
+  fail = labels[Fail.getValue()];
+
+  if (emit_bs_get_field_size(Bits, Unit.getValue(), fail, ret) >= 0) {
+    ASSERT(ret == RET);
+    emit_bs_skip_bits(Fail, Ctx);
+  }
 }
 
 // x64.i_bs_skip_bits_imm2(Fail, Ms, Bits);
@@ -756,64 +826,64 @@ void BeamModuleAssembler::emit_i_bs_skip_bits_imm2(ArgVal Fail, ArgVal Ctx, ArgV
 void BeamModuleAssembler::emit_i_bs_get_binary2(ArgVal Ctx, ArgVal Fail, ArgVal Live,
                                                 ArgVal Size, ArgVal Flags, ArgVal Dst,
                                                 Instruction *I) {
-  Label fail = a.newLabel(), next = a.newLabel();
+  Label fail;
+  x86::Gp ret;
 
+  fail =  labels[Fail.getValue()];
 
   mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
   emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,EXTRACT_SUB_BIN_HEAP_NEED), Live + 1);
   mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
 
   // Clobbers RET + TMP3
-  x86::Gp ret = emit_bs_get_field_size(Size, Flags.getValue() >> 3, fail);
-  ASSERT(ret == RET);
+  if (emit_bs_get_field_size(Size, Flags.getValue() >> 3, fail, ret) >= 0) {
+    ASSERT(ret == RET);
 
-  emit_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, ret);
-  a.mov(ARG3, Flags.getValue());
-  a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
-  call((uint64_t)erts_bs_get_binary_2);
-  emit_swapin();
+    emit_light_swapout();
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, ret);
+    a.mov(ARG3, Flags.getValue());
+    a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+    call((uint64_t)erts_bs_get_binary_2);
+    emit_light_swapin();
 
-  a.cmp(RET, THE_NON_VALUE);
-  a.jne(next);
-  a.bind(fail);
-  a.jmp(labels[Fail.getValue()]);
-  a.bind(next);
-  mov(Dst, RET);
+    a.cmp(RET, THE_NON_VALUE);
+    a.je(fail);
+
+    mov(Dst, RET);
+  }
 }
 
 void BeamModuleAssembler::emit_i_bs_get_float2(ArgVal Ctx, ArgVal Fail, ArgVal Live,
                                                ArgVal Sz, ArgVal Flags, ArgVal Dst,
                                                Instruction *I) {
-  Label fail = a.newLabel(), next = a.newLabel();
+  x86::Gp ret;
+  Label fail;
+  Sint unit;
+
+  fail = labels[Fail.getValue()];
+  unit = Flags.getValue() >> 3;
 
   mov(ArgVal(ArgVal::x, Live.getValue()), Ctx);
   emit_gc_test(ArgVal(ArgVal::i,0), ArgVal(ArgVal::i,FLOAT_SIZE_OBJECT), Live + 1);
   mov(TMP4, ArgVal(ArgVal::x, Live.getValue()));
 
-  mov(RET, Sz);
-  a.mov(TMP3, RET);
-  a.and_(TMP3, _TAG_IMMED1_MASK);
-  a.cmp(TMP3, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-  a.sar(RET, _TAG_IMMED1_SIZE);
-  a.cmp(RET, 64);
-  a.jg(fail);
-  a.mov(TMP3, Flags.getValue() >> 3);
-  a.mul(TMP3);
+  if (emit_bs_get_field_size(Sz, unit, fail, ret, 64) >= 0) {
+      ASSERT(ret == RET);
 
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, RET);
-  a.mov(ARG3, Flags.getValue());
-  a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
-  call((uint64_t)erts_bs_get_float_2);
-  a.cmp(RET, THE_NON_VALUE);
-  a.jne(next);
-  a.bind(fail);
-  a.jmp(labels[Fail.getValue()]);
-  a.bind(next);
-  mov(Dst, RET);
+      emit_light_swapout();
+      a.mov(ARG1, c_p);
+      a.mov(ARG2, ret);
+      a.mov(ARG3, Flags.getValue());
+      a.lea(ARG4, x86::qword_ptr(TMP4, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
+      call((uint64_t)erts_bs_get_float_2);
+      emit_light_swapin();
+
+      a.cmp(RET, THE_NON_VALUE);
+      a.je(fail);
+
+      mov(Dst, RET);
+  }
 }
 
 void BeamModuleAssembler::emit_i_bs_utf8_size(ArgVal Src, ArgVal Dst, Instruction *I) {

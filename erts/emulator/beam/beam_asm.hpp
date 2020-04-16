@@ -438,8 +438,12 @@ private:
   void emit_fail_head_or_body(Label entry, ArgVal Fail);
   void emit_badarg(Label entry, ArgVal Fail);
   void emit_badarith(Label entry);
-  x86::Gp emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label Fail);
-  x86::Gp emit_bs_get_field_size(ArgVal Size, int unit, Label Fail);
+
+  int emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label Fail,
+    x86::Gp &out, unsigned max_size = 0);
+  int emit_bs_get_field_size(ArgVal Size, int unit, Label Fail,
+    x86::Gp &out, unsigned max_size = 0);
+
   template<typename T>
   void emit_yield_error_test(Label entry, T exp, bool only);
   void emit_handle_error(Label I, ErtsCodeMFA *mfa = nullptr);
