@@ -889,20 +889,31 @@ void BeamModuleAssembler::emit_i_bs_get_utf16(ArgVal Ctx, ArgVal Fail, ArgVal Fl
   mov(Dst, RET);
 }
 
+void BeamModuleAssembler::emit_validate_unicode(Label fail, x86::Gp value) {
+  Label next = a.newLabel();
+
+  a.mov(TMP3, value);
+  a.and_(TMP3, _TAG_IMMED1_MASK);
+  a.cmp(TMP3, _TAG_IMMED1_SMALL);
+  a.jne(fail);
+
+  cmp(value, make_small(0xD800UL));
+  a.jb(next);
+  cmp(value, make_small(0xDFFFUL));
+  a.jbe(fail);
+  cmp(value, make_small(0x10FFFFUL));
+  a.ja(fail);
+
+  a.bind(next);
+}
+
 void BeamModuleAssembler::emit_i_bs_validate_unicode(ArgVal Fail, ArgVal Src, Instruction *I) {
   Label fail = a.newLabel(), entry = a.newLabel(), next = a.newLabel();
   a.bind(entry);
   mov(TMP1, Src);
-  a.mov(TMP3, TMP1);
-  a.and_(TMP3, _TAG_IMMED1_MASK);
-  a.cmp(TMP3, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-  cmp(TMP1, make_small(0x10FFFFUL));
-  a.jg(fail);
-  cmp(TMP1, make_small(0xD800UL));
-  a.jl(next);
-  cmp(TMP1, make_small(0xDFFFUL));
-  a.jle(fail);
+
+  emit_validate_unicode(fail, TMP1);
+
   a.jmp(next);
   a.bind(fail);
   emit_badarg(entry, Fail);
@@ -914,22 +925,17 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(ArgVal Fail, ArgVal
   Label fail = a.newLabel(), entry = a.newLabel(), next = a.newLabel();
   a.bind(entry);
   mov(TMP1, Src);
-  a.mov(TMP3, TMP1);
-  a.and_(TMP3, _TAG_IMMED1_MASK);
-  a.cmp(TMP3, _TAG_IMMED1_SMALL);
-  a.jne(fail);
-  cmp(TMP1, make_small(0x10FFFFUL));
-  a.jg(fail);
-  cmp(TMP1, make_small(0xD800UL));
-  a.jl(next);
-  cmp(TMP1, make_small(0xDFFFUL));
-  a.jle(fail);
+
+  emit_validate_unicode(fail, TMP1);
+
   a.jmp(next);
   a.bind(fail);
+
   mov(ARG1, Ms);
   a.lea(ARG1, x86::qword_ptr(ARG1, -TAG_PRIMARY_BOXED + offsetof(ErlBinMatchState, mb)));
   a.sub(x86::qword_ptr(ARG1, offsetof(ErlBinMatchBuffer, offset)), 32);
   emit_badarg(entry, Fail);
+
   a.bind(next);
 }
 

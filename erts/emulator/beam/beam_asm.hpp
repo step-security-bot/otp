@@ -454,6 +454,8 @@ private:
 
   void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);
 
+  void emit_validate_unicode(Label fail, x86::Gp value);
+
   void emit_proc_lc_unrequire(void);
   void emit_proc_lc_require(void);
 
