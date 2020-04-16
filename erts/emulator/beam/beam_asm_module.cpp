@@ -43,7 +43,7 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt,
     labels[i] = a.newNamedLabel(lblName.data());
   }
 
-#ifdef DEBUG
+#ifdef HARD_DEBUG
   this->debug = true;
 #else
   this->debug = false;

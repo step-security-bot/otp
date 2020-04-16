@@ -1218,7 +1218,7 @@ put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
 
 sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) => \
    new_map Dst Live Size Rest
-sorted_put_map_assoc Src=xyc Dst Live Size Rest=* => \
+sorted_put_map_assoc Src=s Dst Live Size Rest=* => \
    update_map_assoc Src Dst Live Size Rest
 
 sorted_put_map_exact Fail Src Dst Live Size Rest=* => \
@@ -1229,8 +1229,8 @@ new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
 
 new_map d t I
 i_new_small_map_lit d t q
-update_map_assoc xyc d t I
-update_map_exact xy j? d t I
+update_map_assoc s d t I
+update_map_exact s j? d t I
 
 is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
