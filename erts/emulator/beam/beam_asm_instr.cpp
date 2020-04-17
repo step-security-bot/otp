@@ -109,7 +109,7 @@ void BeamModuleAssembler::emit_dispatch_return(x86::Gp dest) {
 
 void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
   mov(dest,CP);
-  mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MIN_SMALL)));
+  mov(CP,ArgVal(ArgVal::TYPE::i,NIL));
 }
 
 #ifdef DEBUG
@@ -189,7 +189,7 @@ void BeamModuleAssembler::emit_allocate_heap(ArgVal NeedStack, ArgVal NeedHeap, 
   ArgVal needed = NeedStack + 1;
   emit_gc_test(needed, NeedHeap, Live);
   alloc(needed * sizeof(Eterm));
-  mov(CP,ArgVal(ArgVal::TYPE::i,make_small(MAX_SMALL)));
+  mov(CP,ArgVal(ArgVal::TYPE::i,NIL));
 }
 
 void BeamModuleAssembler::emit_allocate(ArgVal NeedStack, ArgVal Live, Instruction *Inst) {
