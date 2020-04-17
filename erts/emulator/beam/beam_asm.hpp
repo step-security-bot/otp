@@ -171,15 +171,20 @@ public:
   BeamAssembler(JitRuntime *rt) : rt(rt), code() {
     code.init(rt->codeInfo());            // Initialize to the same arch as JIT runtime.
     code.attach(&a);
+#ifdef DEBUG
     code.addEmitterOptions(BaseEmitter::kOptionStrictValidation);
+#endif
   }
 
   BeamAssembler(JitRuntime *rt, std::string log) : BeamAssembler(rt)  {
+#ifdef DEBUG
     setLogger(log);
+#endif
   }
 
   ~BeamAssembler() {
-    fclose(logger.file());
+    if (logger.file())
+      fclose(logger.file());
   }
 
 protected:
@@ -251,16 +256,19 @@ public:
   }
 
   void comment(const char *msg) {
-    a.commentf("# %s", msg);
+    if (logger.file())
+      a.commentf("# %s", msg);
   }
 
   void comment(std::string fmt, ...) {
-    char buff[1024];
-    va_list ap;
-    va_start(ap, fmt);
-    erts_vsprintf(buff, fmt.data(), ap);
-    va_end(ap);
-    comment(buff);
+    if (logger.file()) {
+      char buff[1024];
+      va_list ap;
+      va_start(ap, fmt);
+      erts_vsprintf(buff, fmt.data(), ap);
+      va_end(ap);
+      comment(buff);
+    }
   }
 
   void emit_function_preamble(unsigned pushes = 0) {
