@@ -447,9 +447,9 @@ private:
   void emit_badarith(Label entry);
 
   int emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label Fail,
-    x86::Gp &out, unsigned max_size = 0);
+    const x86::Gp &out, unsigned max_size = 0);
   int emit_bs_get_field_size(ArgVal Size, int unit, Label Fail,
-    x86::Gp &out, unsigned max_size = 0);
+    const x86::Gp &out, unsigned max_size = 0);
 
   template<typename T>
   void emit_yield_error_test(Label entry, T exp, bool only);
