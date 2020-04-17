@@ -5,6 +5,13 @@
 #include <stdint.h>
 #include <string.h>
 
+/* Useful links
+ * - https://pwparchive.wordpress.com/2011/11/20/new-jit-interface-for-gdb/
+ * - https://sourceware.org/gdb/current/onlinedocs/gdb/Custom-Debug-Info.html
+ * - https://github.com/tetzank/asmjit-utilities
+ * - https://github.com/bminor/binutils-gdb/blob/master/gdb/testsuite/gdb.base/jitreader.c
+ */
+
 GDB_DECLARE_GPL_COMPATIBLE_READER
 
 typedef struct range {
@@ -38,6 +45,7 @@ enum gdb_status read_debug_info(struct gdb_reader_funcs *self,
 
     for (i = 0; i < num_functions; i++) {
         // get begin and end of code segment
+        // A bug in GDB < 9 forces us to open and close the symtab for each iteration
         struct gdb_symtab *symtab = cb->symtab_open(cb, obj, module);
         GDB_CORE_ADDR begin = *(GDB_CORE_ADDR*)curr;
         GDB_CORE_ADDR end = *(GDB_CORE_ADDR*)(curr + sizeof(GDB_CORE_ADDR));
