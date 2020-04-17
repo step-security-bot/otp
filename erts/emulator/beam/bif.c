@@ -2963,13 +2963,9 @@ static Eterm integer_to_list(Process *c_p, Eterm num, int base)
         digits = big_integer_estimate(num, base);
 
         if ((digits / DIGITS_PER_RED) > ERTS_BIF_REDS_LEFT(c_p)) {
-            ErtsSchedulerData *esdp = erts_get_scheduler_data();
-
-            /* This could take a very long time, tell the caller to reschedule
-             * us to a dirty CPU scheduler if we aren't already on one. */
-            if (esdp->type == ERTS_SCHED_NORMAL) {
-                return THE_NON_VALUE;
-            }
+            /* FIXME: The template JIT doesn't support erts_schedule_bif yet,
+             * so we'll skip rescheduling ourselves for now. */
+            BUMP_ALL_REDS(c_p);
         } else {
             BUMP_REDS(c_p, digits / DIGITS_PER_RED);
         }
