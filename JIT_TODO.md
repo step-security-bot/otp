@@ -12,6 +12,8 @@
 * tracing
 * line numbers
 * save_calls
+  * Make this optional at start-time with flag
+  * Store `neg_o_reds` on stack
 
 ## Future ideas
 
@@ -23,3 +25,5 @@
 * Add a naive register allocator to the loader
   * Helps with correctness of emit_* code and if we move x0+x1 to registers we can
     use it to allocate things better there
+* Use native stack as erlang stack?
+  * What to do about signals?
