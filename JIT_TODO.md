@@ -2,15 +2,14 @@
 
 ## Known bugs
 * memory leaks in code re-loading
-* erts_schedule_bif is broken because it checks *I
-  * Because of this, trapping has been disabled for integer_to_binary/1,2 and
-    integer_to_list/1,2
+* `erts_schedule_bif` is broken because it checks *I
+  * Because of this, trapping has been disabled for `integer_to_binary/1,2` and
+    `integer_to_list/1,2`
 
 ## Missing fetures
 
 * on_load
 * tracing
-* resume bif execution
 * line numbers
 * save_calls
 
@@ -21,3 +20,6 @@
 * Build match specs using asmjit
 * Hoist `struct enif_environment_t` to stack of thread and only do what is needed by `erts_pre_nif`.
 * Move more code into Global asm space to reduce code size. Example, the implementation of `emit_cmp_spec` could be made global with a custom CC.
+* Add a naive register allocator to the loader
+  * Helps with correctness of emit_* code and if we move x0+x1 to registers we can
+    use it to allocate things better there
