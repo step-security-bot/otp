@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
 	 encode_change_cipher_spec/2, encode_data/3]).
--export([encode_plain_text/4]).
+-export([encode_plain_text/4, split_iovec/1]).
 
 %% Decoding
 -export([decode_cipher_text/4]).
@@ -49,13 +49,13 @@
 %% Protocol version handling
 -export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
-	 is_higher/2, supported_protocol_versions/0,
+	 is_higher/2, supported_protocol_versions/0, sufficient_crypto_support/1,
 	 is_acceptable_version/1, is_acceptable_version/2, hello_version/1]).
 
 -export_type([tls_version/0, tls_atom_version/0]).
 
 -type tls_version()       :: ssl_record:ssl_version().
--type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'.
+-type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2' | 'tlsv1.3'.
 
 -compile(inline).
 
@@ -353,27 +353,74 @@ supported_protocol_versions() ->
     end.
 
 supported_protocol_versions([]) ->
-    Vsns = case sufficient_tlsv1_2_crypto_support() of
-	       true ->
-		   ?ALL_SUPPORTED_VERSIONS;
-	       false ->
-		   ?MIN_SUPPORTED_VERSIONS
-	   end,
+    Vsns = sufficient_support(?ALL_SUPPORTED_VERSIONS),
     application:set_env(ssl, protocol_version, Vsns),
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    case sufficient_tlsv1_2_crypto_support() of
-	true -> 
-	    Vsns;
-	false ->
-	    case Vsns -- ['tlsv1.2'] of
-		[] ->
-		    ?MIN_SUPPORTED_VERSIONS;
-		NewVsns ->
-		    NewVsns
-	    end
-    end.
+    sufficient_support(Vsns).
+
+sufficient_crypto_support(Version) ->
+    sufficient_crypto_support(crypto:supports(), Version).
+
+sufficient_crypto_support(CryptoSupport, {_,_} = Version) ->
+    sufficient_crypto_support(CryptoSupport, protocol_version(Version));
+sufficient_crypto_support(CryptoSupport, Version) when Version == 'tlsv1';
+                                                       Version == 'tlsv1.1' ->
+    Hashes =  proplists:get_value(hashs, CryptoSupport),
+    PKeys =  proplists:get_value(public_keys, CryptoSupport),
+    proplists:get_bool(sha, Hashes) 
+        andalso
+        proplists:get_bool(md5, Hashes) 
+        andalso 
+        proplists:get_bool(aes_cbc, proplists:get_value(ciphers, CryptoSupport)) 
+        andalso
+          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys) orelse proplists:get_bool(dss, PKeys)) 
+        andalso
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));
+
+sufficient_crypto_support(CryptoSupport, 'tlsv1.2') ->
+    PKeys =  proplists:get_value(public_keys, CryptoSupport),
+    (proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)))
+        andalso 
+          (proplists:get_bool(aes_cbc, proplists:get_value(ciphers, CryptoSupport)))
+        andalso
+          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys) orelse proplists:get_bool(dss, PKeys)) 
+        andalso
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));
+
+%%  A TLS-compliant application MUST implement the TLS_AES_128_GCM_SHA256
+%%  [GCM] cipher suite and SHOULD implement the TLS_AES_256_GCM_SHA384
+%%  [GCM] and TLS_CHACHA20_POLY1305_SHA256 [RFC8439] cipher suites (see
+%%  Appendix B.4).
+%%
+%%  A TLS-compliant application MUST support digital signatures with
+%%  rsa_pkcs1_sha256 (for certificates), rsa_pss_rsae_sha256 (for
+%%  CertificateVerify and certificates), and ecdsa_secp256r1_sha256.  A
+%%  TLS-compliant application MUST support key exchange with secp256r1
+%%  (NIST P-256) and SHOULD support key exchange with X25519 [RFC7748].
+sufficient_crypto_support(CryptoSupport, 'tlsv1.3') ->
+    Fun = fun({Group, Algorithm}) ->
+                  is_algorithm_supported(CryptoSupport, Group, Algorithm)
+          end,
+    L = [{ciphers, aes_gcm},                %% TLS_AES_*_GCM_*
+         {ciphers, chacha20_poly1305},      %% TLS_CHACHA20_POLY1305_SHA256
+         {hashs, sha256},                   %% TLS_AES_128_GCM_SHA256
+         {hashs, sha384},                   %% TLS_AES_256_GCM_SHA384
+         {rsa_opts, rsa_pkcs1_padding},     %% rsa_pkcs1_sha256
+         {rsa_opts, rsa_pkcs1_pss_padding}, %% rsa_pss_rsae_*
+         {rsa_opts, rsa_pss_saltlen},       %% rsa_pss_rsae_*
+         {public_keys, ecdh},
+         {public_keys, dh},
+         {public_keys, rsa},
+         {public_keys, ecdsa},
+         %% {public_keys, eddsa},  %% TODO
+         {curves, secp256r1},               %% key exchange with secp256r1
+         {curves, x25519}],                 %% key exchange with X25519
+    lists:all(Fun, L).
+
+is_algorithm_supported(CryptoSupport, Group, Algorithm) ->
+    proplists:get_bool(Algorithm, proplists:get_value(Group, CryptoSupport)).
 
 -spec is_acceptable_version(tls_version()) -> boolean().
 is_acceptable_version({N,_}) 
@@ -394,6 +441,12 @@ hello_version([Highest|_]) when Highest >= {3,3} ->
     {3,3};
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
+
+split_iovec([]) ->
+    [];
+split_iovec(Data) ->
+    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
+    [Part|split_iovec(Rest)].
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -468,7 +521,7 @@ validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
             validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length);
         true ->
             %% Not ?KNOWN_RECORD_TYPE(Type)
-            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
+            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type})
     end.
 
 validate_tls_record_version(_Versions, Q, _SslOpts, Acc, Type, undefined, _Length) ->
@@ -481,7 +534,7 @@ validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
                 true ->
                     validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
                 false ->
-                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
             end;
         {3, 4} when Version =:= {3, 3} ->
             validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
@@ -489,7 +542,7 @@ validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
             %% Exact version match
             validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
         _ ->
-            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end.
 
 validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined) ->
@@ -498,8 +551,9 @@ validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined
 validate_tls_record_length(Versions, {_,Size0,_} = Q0,
                            #{log_level := LogLevel} = SslOpts,
                            Acc, Type, Version, Length) ->
+    Max = max_len(Versions),
     if
-        Length =< ?MAX_CIPHER_TEXT_LENGTH ->
+        Length =< Max ->
             if
                 Length =< Size0 ->
                     %% Complete record
@@ -630,12 +684,6 @@ split_iovec(Data, Version, BCA, zero_n)
 split_iovec(Data, _Version, _BCA, _BeatMitigation) ->
     split_iovec(Data).
 
-split_iovec([]) ->
-    [];
-split_iovec(Data) ->
-    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
-    [Part|split_iovec(Rest)].
-%%
 split_iovec([Bin|Data] = Bin_Data, SplitSize, Acc) ->
     BinSize = byte_size(Bin),
     if
@@ -667,8 +715,12 @@ highest_protocol_version() ->
 lowest_protocol_version() ->
     lowest_protocol_version(supported_protocol_versions()).
 
-sufficient_tlsv1_2_crypto_support() ->
-    CryptoSupport = crypto:supports(),
-    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
+max_len([{3,4}|_])->
+    ?TLS13_MAX_CIPHER_TEXT_LENGTH;
+max_len(_) ->
+    ?MAX_CIPHER_TEXT_LENGTH.
 
+sufficient_support(Versions) ->
+    CryptoSupport = crypto:supports(),
+    [Ver ||  Ver <- Versions, sufficient_crypto_support(CryptoSupport, Ver)].
 

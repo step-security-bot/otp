@@ -36,7 +36,24 @@ matrix:
       script:
         - ./scripts/build-otp
         - ./scripts/run-dialyzer
-
+    # Doc build second as it also takes a long time to run
+    - env: Linux64Docbuild
+      script:
+        - ./scripts/build-otp docs
+      deploy:
+        provider: pages
+        repo: erlang/cd
+        target-branch: master
+        skip-cleanup: true
+        keep-history: false
+        verbose: true
+        github-token: $ERLANG_CD_GITHUB_TOKEN
+        on:
+          # We only deploy on pushes to branches
+          all_branches: true
+          tags: false
+          condition: $TRAVIS_PULL_REQUEST = "false"
+          repo: erlang/otp
     - env: Linux32
       services:
         - docker
@@ -70,23 +87,27 @@ matrix:
             - xsltproc
             - libxml2-utils
 
-    - env: Linux64Docbuild
+    - env: Linux-s390x-SmokeTest
+      arch: s390x
       script:
-        - ./scripts/build-otp docs
-      deploy:
-        provider: pages
-        repo: erlang/cd
-        target-branch: master
-        skip-cleanup: true
-        keep-history: false
-        verbose: true
-        github-token: $ERLANG_CD_GITHUB_TOKEN
-        on:
-          # We only deploy on pushes to branches
-          all_branches: true
-          tags: false
-          condition: $TRAVIS_PULL_REQUEST = "false"
-          repo: erlang/otp
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - ./scripts/run-smoke-tests
+      addons:
+        apt:
+          update: true
+          packages:
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+            - libwxgtk3.0-dev
+            - libglu1-mesa-dev
+            - default-jdk
+            - g++
+            - xsltproc
+            - libxml2-utils
+
     # This stage publishes a otp bundle that contains multiple
     # Erlang/OTP source repositories
     - stage: deploy
@@ -100,8 +121,8 @@ matrix:
         api_key:
           secure: vW5PN6zng5H5+TCvwfwpGZsABrdCWYcFwDm3KXq+plsecBmTayu/0jgNso5Z97FbzDGVTLHWchvywEYQWnmrEByyOrqH73v1LN6JEfN99VpSrdFr15IzhblcyU1R9ugYc3WEoYjX0Q1uGelDSWRuuQOPbzy8mZf3D4rSGonyraP7jPTdHhs5P3ZWk6OMFz+tCdF4XohXqbhXIBOeH/EKg0svX2u5IcV01/YOL8LHWz6G7+gqBryEXx1+ngjQXQmMQwd7Yg3WOKE4XV9gX8ixZsbpUPZXAQKF+VOYdEgeiIr1hI0tBQUYX7FYEzYH5MCxqng5RdaPTOAm1oQroyGkIcWSXzDwN4AhJ7xqa/0NRdEaBPdQzPBCc+pVUDkxBR1ytXjBQqdQMnI6184TDiU5XBnj3kmieLkkKPKQNoPve/Y8Q8zutw4GNc7gixGcQCjtAFUbrT73QVRrezQH0qIdt23rivvf2R7CCOWSmgzowrswmtHdgeEVbodUIBPTNp7qzlUk9gDp6vW0XrOC4qEFI+VaY5PsEOXrrxZmI3gGGJgsbfzRvzvvupQcLNERniJ67r/uumbForpL0x1c65scKuMWwcn1wqt2OLbDoIIuM31Ph2HX/09TTqECU7CTvqLT5MnbZHXGjY9c3ch+sY3tSfaEX6aazl/Dqx28c7boCEw=
         file:
-          - ${TRAVIS_TAG}-bundle.txt
-          - ${TRAVIS_TAG}-bundle.tar.gz
+          - ${TRAVIS_TAG}.0-bundle.txt
+          - ${TRAVIS_TAG}.0-bundle.tar.gz
         on:
           # We only deploy on pushes to tags that match the regexp
           tags: true

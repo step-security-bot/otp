@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -605,6 +605,19 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
 
+    if (opts->port_watermarks_set && driver != &spawn_driver
+        && driver != &fd_driver && driver != &vanilla_driver) {
+	erts_rwmtx_runlock(&erts_driver_list_lock);
+	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+    }
+
+    if (opts->msgq_watermarks_set
+        && (driver->flags & ERL_DRV_FLAG_NO_BUSY_MSGQ)
+        && opts->high_msgq_watermark != ERL_DRV_BUSY_MSGQ_DISABLED) {
+	erts_rwmtx_runlock(&erts_driver_list_lock);
+	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
+    }
+    
     driver_lock = driver->lock;
 
     if (driver->handle != NULL) {
@@ -643,6 +656,11 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 				      ERTS_ATOM_ENC_LATIN1,
 				      1));
     }
+
+    if (opts->msgq_watermarks_set)
+        erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(port),
+                                 &opts->low_msgq_watermark,
+                                 &opts->high_msgq_watermark);
 
     error_number = error_type = 0;
     if (driver->start) {

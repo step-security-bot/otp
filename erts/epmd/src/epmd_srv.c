@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -410,12 +410,11 @@ void run(EpmdVars *g)
 	 in accept() waiting for the next request. */
 #if (defined(__WIN32__) || defined(NO_FCNTL))
       opt = 1;
-      /* Gives warning in VxWorks */
       if (ioctl(listensock[i], FIONBIO, &opt) != 0)
 #else
       opt = fcntl(listensock[i], F_GETFL, 0);
       if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
-#endif /* __WIN32__ || VXWORKS */
+#endif /* __WIN32__ */
 	dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
 		   listensock[i]);
 
@@ -667,16 +666,16 @@ static int do_accept(EpmdVars *g,int listensock)
 
 static void bump_creation(Node* node)
 {
-    if (++node->cr_counter == 0)
-        node->cr_counter = 1;
+    if (++node->cr_counter < 4)
+        node->cr_counter = 4;
 }
 static unsigned int get_creation(Node* node)
 {
     if (node->highvsn >= 6) {
-        return node->cr_counter;  /* 1..(2^32-1)*/
+        return node->cr_counter;  /* 4..(2^32-1)*/
     }
     else {
-        return (node->cr_counter - 1) % 3 + 1;   /* 1..3 */
+        return node->cr_counter % 3 + 1;   /* 1..3 */
     }
 }
 
@@ -1055,18 +1054,9 @@ static int conn_open(EpmdVars *g,int fd)
   int i;
   Connection *s;
 
-#ifdef VXWORKS
-  /*
-   * Since file descriptors are global on VxWorks, we might get an fd that
-   * does not fit in the FD_SET.
-   *
-   * Note: This test would be harmless on Unix, but would fail on Windows
-   * because socket are numbered differently and FD_SETs are implemented
-   * differently.
-   */
+#if !defined(__WIN32__)
   if (fd >= FD_SETSIZE) {
-      dbg_tty_printf(g,0,"file descriptor %d: too high for FD_SETSIZE=%d",
-		     fd,FD_SETSIZE);
+      dbg_tty_printf(g,0,"fd does not fit in fd_set fd=%d, FD_SETSIZE=%d",fd, FD_SETSIZE);
       close(fd);
       return EPMD_FALSE;
   }

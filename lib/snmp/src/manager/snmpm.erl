@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,8 +89,9 @@
 	 system_start_time/0,
 	 sys_up_time/0,
 
-	 info/0, 
-	 verbosity/2 
+	 info/0, info/1,
+	 verbosity/2,
+         restart/1
 	]).
 
 -export([format_reason/1, format_reason/2]).
@@ -117,6 +118,49 @@
 	      target_name/0
 	     ]).
 
+
+-deprecated(
+   [
+    {sync_get, 3, "use snmpm:sync_get2/3 instead."},
+    {sync_get, 4, "use snmpm:sync_get2/4 instead."},
+    {sync_get, 5, "use snmpm:sync_get2/4 instead."},
+    {sync_get, 6, "use snmpm:sync_get2/4 instead."},
+
+    {async_get, 3, "use snmpm:async_get2/3 instead."},
+    {async_get, 4, "use snmpm:async_get2/4 instead."},
+    {async_get, 5, "use snmpm:async_get2/4 instead."},
+    {async_get, 6, "use snmpm:async_get2/4 instead."},
+
+    {sync_get_next, 3, "use snmpm:sync_get_next2/3 instead."},
+    {sync_get_next, 4, "use snmpm:sync_get_next2/4 instead."},
+    {sync_get_next, 5, "use snmpm:sync_get_next2/4 instead."},
+    {sync_get_next, 6, "use snmpm:sync_get_next2/4 instead."},
+
+    {async_get_next, 3, "use snmpm:async_get_next2/3 instead."},
+    {async_get_next, 4, "use snmpm:async_get_next2/4 instead."},
+    {async_get_next, 5, "use snmpm:async_get_next2/4 instead."},
+    {async_get_next, 6, "use snmpm:async_get_next2/4 instead."},
+
+    {sync_set, 3, "use snmpm:sync_set2/3 instead."},
+    {sync_set, 4, "use snmpm:sync_set2/4 instead."},
+    {sync_set, 5, "use snmpm:sync_set2/4 instead."},
+    {sync_set, 6, "use snmpm:sync_set2/4 instead."},
+
+    {async_set, 3, "use snmpm:async_set2/3 instead."},
+    {async_set, 4, "use snmpm:async_set2/4 instead."},
+    {async_set, 5, "use snmpm:async_set2/4 instead."},
+    {async_set, 6, "use snmpm:async_set2/4 instead."},
+
+    {sync_get_bulk, 5, "use snmpm:sync_get_bulk2/5 instead."},
+    {sync_get_bulk, 6, "use snmpm:sync_get_bulk2/6 instead."},
+    {sync_get_bulk, 7, "use snmpm:sync_get_bulk2/6 instead."},
+    {sync_get_bulk, 8, "use snmpm:sync_get_bulk2/6 instead."},
+
+    {async_get_bulk, 5, "use snmpm:async_get_bulk2/5 instead."},
+    {async_get_bulk, 6, "use snmpm:async_get_bulk2/6 instead."},
+    {async_get_bulk, 7, "use snmpm:async_get_bulk2/6 instead."},
+    {async_get_bulk, 8, "use snmpm:async_get_bulk2/6 instead."}
+   ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -297,6 +341,9 @@ oid_to_type(Oid) ->
 info() ->
     snmpm_server:info().
 
+info(Key) ->
+    proplists:get_value(Key, info(), {error, not_found}).
+
 
 %% -- Verbosity -- 
 
@@ -314,6 +361,16 @@ verbosity(all, V) ->
     snmpm_server:verbosity(V),
     snmpm_server:verbosity(net_if, V),
     snmpm_server:verbosity(note_store, V).
+
+
+%% -- Restart -- 
+
+%% Restart various component processes in the manager
+%% Note that the effects of this is diffiult to
+%% predict, so it should be use with *caution*!
+
+restart(net_if = What) ->
+    snmpm_server:restart(What).
 
 
 %% -- Users --
@@ -500,7 +557,7 @@ sync_get2(UserId, TargetName, Oids) ->
 
 sync_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:sync_get2(UserId, TargetName, Oids, SendOpts).
+    snmpm_server:sync_get(UserId, TargetName, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 sync_get(UserId, TargetName, Oids) ->
@@ -537,7 +594,7 @@ async_get2(UserId, TargetName, Oids) ->
 
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:async_get2(UserId, TargetName, Oids, SendOpts).
+    snmpm_server:async_get(UserId, TargetName, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 async_get(UserId, TargetName, Oids) ->
@@ -569,7 +626,7 @@ sync_get_next2(UserId, TargetName, Oids) ->
 
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:sync_get_next2(UserId, TargetName, Oids, SendOpts).
+    snmpm_server:sync_get_next(UserId, TargetName, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 sync_get_next(UserId, TargetName, Oids) ->
@@ -602,7 +659,7 @@ async_get_next2(UserId, TargetName, Oids) ->
 
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
-    snmpm_server:async_get_next2(UserId, TargetName, Oids, SendOpts).
+    snmpm_server:async_get_next(UserId, TargetName, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 async_get_next(UserId, TargetName, Oids) ->
@@ -635,7 +692,7 @@ sync_set2(UserId, TargetName, VarsAndVals) ->
 
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
-    snmpm_server:sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
+    snmpm_server:sync_set(UserId, TargetName, VarsAndVals, SendOpts).
 
 %% <BACKWARD-COMPAT>
 sync_set(UserId, TargetName, VarsAndVals) ->
@@ -668,7 +725,7 @@ async_set2(UserId, TargetName, VarsAndVals) ->
 
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
-    snmpm_server:async_set2(UserId, TargetName, VarsAndVals, SendOpts).
+    snmpm_server:async_set(UserId, TargetName, VarsAndVals, SendOpts).
 
 %% <BACKWARD-COMPAT>
 async_set(UserId, TargetName, VarsAndVals) ->
@@ -704,16 +761,8 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_list(SendOpts) ->
-    %% p("sync_get_bulk -> entry with"
-    %%   "~n   UserId:     ~p"
-    %%   "~n   TargetName: ~p"
-    %%   "~n   NonRep:     ~p"
-    %%   "~n   MaxRep:     ~p"
-    %%   "~n   Oids:       ~p"
-    %%   "~n   SendOpts:   ~p", 
-    %%   [UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
-    snmpm_server:sync_get_bulk2(UserId, TargetName, 
-				NonRep, MaxRep, Oids, SendOpts).
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+                               NonRep, MaxRep, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->
@@ -731,13 +780,6 @@ sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids)
        is_integer(MaxRep) andalso 
        is_list(Context) andalso 
        is_list(Oids) ->
-    %% p("sync_get_bulk -> entry with"
-    %%   "~n   UserId: ~p"
-    %%   "~n   TargetName: ~p"
-    %%   "~n   NonRep: ~p"
-    %%   "~n   MaxRep: ~p"
-    %%   "~n   Context: ~p"
-    %%   "~n   Oids: ~p", [UserId, TargetName, NonRep, MaxRep, Context, Oids]),
     SendOpts = [{context, Context}], 
     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
 
@@ -763,8 +805,8 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_list(SendOpts) ->
-    snmpm_server:async_get_bulk2(UserId, TargetName, 
-				 NonRep, MaxRep, Oids, SendOpts).
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+                                NonRep, MaxRep, Oids, SendOpts).
 
 %% <BACKWARD-COMPAT>
 async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->

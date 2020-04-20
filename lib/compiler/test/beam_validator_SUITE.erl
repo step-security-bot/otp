@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
-         receive_marker/1]).
+         receive_marker/1,safe_instructions/1,
+         missing_return_type/1,will_bif_succeed/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -69,7 +70,8 @@ groups() ->
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
-       receive_marker]}].
+       receive_marker,safe_instructions,
+       missing_return_type,will_bif_succeed]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -336,7 +338,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{move,{x,3},{x,0}},87,{uninitialized_reg,{x,3}}}}] = Errors,
+      {{try_case_end,{x,0}},180,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -358,7 +360,7 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},{return,4,no_entry_label}}] = Errors,
+     {{undef_label,x,1},no_entry_label}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
@@ -382,8 +384,8 @@ illegal_instruction(Config) when is_list(Config) ->
     Errors = beam_val(M),
     [{{illegal_instruction,t,1},
       {{my_illegal_instruction,{x,0}},4,unknown_instruction}},
-     {{'_',x,1},{bad_func_info,1,illegal_instruction}},
-     {{'_',y,0},{[],0,illegal_instruction}}] = Errors,
+     {{illegal_instruction,x,1},invalid_function_header},
+     {{illegal_instruction,y,0},invalid_function_header}] = Errors,
     ok.
 
 %% The beam_validator used to assume that a GC guard BIF could
@@ -420,13 +422,12 @@ process_request_bar(Pid, [Response]) when is_pid(Pid) ->
 map_field_lists(Config) ->
     Errors = do_val(map_field_lists, Config),
     [{{map_field_lists,x,1},
-      {{test,has_map_fields,{f,1},{x,0},
-	{list,[{atom,a},{atom,a}]}},
-       5,
+      {{test,has_map_fields,{f,1},{x,0},{list,[{atom,a},{atom,a}]}},
+       6,
        keys_not_unique}},
      {{map_field_lists,y,1},
       {{test,has_map_fields,{f,3},{x,0},{list,[]}},
-       5,
+       6,
        empty_field_list}}
     ] = Errors.
 
@@ -535,13 +536,13 @@ destroy_reg({Tag,N}) ->
 bad_tuples(Config) ->
     Errors = do_val(bad_tuples, Config),
     [{{bad_tuples,heap_overflow,1},
-      {{put,{x,0}},8,{heap_overflow,{left,0},{wanted,1}}}},
+      {{put,{x,0}},9,{heap_overflow,{left,0},{wanted,1}}}},
      {{bad_tuples,long,2},
-      {{put,{atom,too_long}},8,not_building_a_tuple}},
+      {{put,{atom,too_long}},9,not_building_a_tuple}},
      {{bad_tuples,self_referential,1},
-      {{put,{x,1}},7,{unfinished_tuple,{x,1}}}},
+      {{put,{x,1}},8,{unfinished_tuple,{x,1}}}},
      {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},7,{unfinished_tuple,{x,1}}}}] = Errors,
+      {{move,{x,1},{x,0}},8,{unfinished_tuple,{x,1}}}}] = Errors,
 
     ok.
 
@@ -549,7 +550,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       7,
+       8,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -558,37 +559,37 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       17,
+       18,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       23,
+       24,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       12,
+       13,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       19,
+       20,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
-       33,
+       34,
        {fragile_message_reference,{y,_}}}}] = Errors,
 
     %% Compile the original source code as a smoke test.
@@ -767,7 +768,7 @@ branch_to_try_handler(Config) ->
     Errors = do_val(branch_to_try_handler, Config),
     [{{branch_to_try_handler,main,1},
       {{bif,tuple_size,{f,3},[{y,0}],{x,0}},
-       12,
+       13,
        {illegal_branch,try_handler,3}}}] = Errors,
     ok.
 
@@ -782,6 +783,30 @@ receive_marker(Config) when is_list(Config) ->
        {return_with_receive_marker,committed}}}] = Errors,
 
     ok.
+
+%% ERL-1128: the validator erroneously thought that many non-throwing
+%% instructions like is_eq_exact could throw.
+safe_instructions(Config) when is_list(Config) ->
+    Errors = do_val(safe_instructions, Config),
+
+    [] = Errors,
+
+    ok.
+
+missing_return_type(Config) when is_list(Config) ->
+    %% ERL-1161: the validator didn't know that is_map_key always returns a
+    %% bool.
+    Map = #{ hello => there },
+    true = mrt_1(true),
+    false = mrt_1(false),
+    true = mrt_1(is_map_key(id(hello), Map)),
+    false = mrt_1(is_map_key(id(there), Map)),
+
+    ok.
+
+mrt_1(Bool) ->
+    true = is_boolean(Bool),
+    Bool.
 
 %%%-------------------------------------------------------------------------
 
@@ -816,7 +841,7 @@ do_val(Mod, Config) ->
 
 beam_val(M) ->
     Name = atom_to_list(element(1, M)),
-    {error,[{Name,Errors0}]} = beam_validator:module(M, []),
+    {error,[{Name,Errors0}]} = beam_validator:validate(M, strong),
     Errors = [E || {beam_validator,E} <- Errors0],
     _ = [io:put_chars(beam_validator:format_error(E)) ||
 	    E <- Errors],
@@ -841,6 +866,23 @@ night(Turned) ->
     ok.
 
 participating(_, _, _, _) -> ok.
+
+%% map_get was known as returning 'none', but 'will_succeed' still returned
+%% 'maybe' causing validation to continue, eventually exploding when the 'none'
+%% value was used.
+will_bif_succeed(_Config) ->
+    ok = f1(body).
+
+%% +no_ssa_opt
+f1(body) when map_get(girl, #{friend => node()}); [], community ->
+    case $q and $K of
+        _V0 ->
+            0.1825965401179273;
+        0 ->
+            state#{[] => 0.10577334580729858, $J => 0}
+    end;
+f1(body) ->
+    ok.
 
 id(I) ->
     I.

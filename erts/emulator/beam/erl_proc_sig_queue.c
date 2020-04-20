@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -582,8 +582,7 @@ erts_make_dirty_proc_handled(Eterm pid,
     ErtsMessage *mp;
     Process *sig_handler;
 
-    ASSERT(state & (ERTS_PSFLG_DIRTY_RUNNING |
-                    ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    ASSERT(state & ERTS_PSFLG_DIRTY_RUNNING);
 
     if (prio < 0)
         prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
@@ -787,10 +786,13 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
-                if (state & (ERTS_PSFLG_DIRTY_RUNNING
-                             | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+                /*
+                 * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
+                 * more info see erts_execute_dirty_system_task()
+                 * in erl_process.c.
+                 */
+                if (state & ERTS_PSFLG_DIRTY_RUNNING)
                     erts_make_dirty_proc_handled(other, state, my_prio);
-                }
             }
         }
     }
@@ -2432,7 +2434,6 @@ convert_to_down_message(Process *c_p,
     ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
     Uint hsz;
     Eterm *hp, ref, from, type, reason;
-    ErlHeapFragment *tag_hfrag = NULL;
     ErlOffHeap *ohp;
 
     ASSERT(mdp);
@@ -2455,8 +2456,12 @@ convert_to_down_message(Process *c_p,
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
 
-        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            /* Operation had already timed out... */
+        if (mdp->origin.flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                                 | ERTS_ML_FLG_SPAWN_NO_EMSG)) {
+            /*
+             * Operation has been been abandoned or
+             * error message has been disabled...
+             */
             erts_monitor_release(*omon);
             *omon = NULL;
             return 1;
@@ -2470,27 +2475,38 @@ convert_to_down_message(Process *c_p,
         ASSERT(is_ref(mdp->ref));
         hsz += NC_HEAP_SIZE(mdp->ref);
 
-        mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
-
-        if (locks != ERTS_PROC_LOCK_MAIN)
-            erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
-        
-        ref = STORE_NC(&hp, ohp, mdp->ref);
-        
-        if (is_immed(mdep->u.name))
+        /*
+         * The tag to patch into the resulting message
+         * is stored in mdep->u.name via a little trick
+         * (see pending_flag in erts_monitor_create()).
+         */
+        if (is_immed(mdep->u.name)) {
+            mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
+            if (locks != ERTS_PROC_LOCK_MAIN)
+                erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
             tag = mdep->u.name;
+        }
         else {
+            ErlHeapFragment *tag_hfrag;
+            mp = erts_alloc_message(hsz, &hp);
+            ohp = &mp->hfrag.off_heap;
             tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
             tag = tag_hfrag->mem[0];
+            /* Save heap fragment of tag in message... */
+            ASSERT(mp->data.attached == ERTS_MSG_COMBINED_HFRAG);
+            tag_hfrag->next = mp->hfrag.next;
+            mp->hfrag.next = tag_hfrag;
         }
-        mdep->u.name = NIL; /* Restore to normal monitor */
+        
+        /* Restore to normal monitor */
+        mdep->u.name = NIL;
+        mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
+        ref = STORE_NC(&hp, ohp, mdp->ref);
+        
         ERL_MESSAGE_FROM(mp) = am_undefined;
         ERL_MESSAGE_TERM(mp) = TUPLE4(hp, tag, ref, am_error, reason);
 
-        mdp->origin.flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                               | ERTS_ML_FLG_SPAWN_MONITOR
-                               | ERTS_ML_FLG_SPAWN_LINK);
     }
     else {
         /*
@@ -2588,12 +2604,6 @@ convert_to_down_message(Process *c_p,
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
     /* Replace original signal with the exit message... */
     convert_to_msg(c_p, sig, mp, next_nm_sig);
-
-    if (tag_hfrag) {
-        /* Save heap fragment of tag in message... */
-        tag_hfrag->next = sig->hfrag.next;
-        sig->hfrag.next = tag_hfrag;
-    }
 
     cnt += 4;
 
@@ -3418,27 +3428,17 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         /* Dist code should not have created a link on failure... */
 
         ASSERT(is_not_atom(result) || !datap->link);
-        /* delete monitor structure unless timeout (with link)... */
+        /* delete monitor structure... */
         adjust_monitor = 0;
-
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            omon->flags &= ~ERTS_ML_FLG_SPAWN_TIMEOUT;
-            if (result == am_timeout
-                && ERL_MESSAGE_FROM(sig) == am_clock_service
-                && (omon->flags & ERTS_ML_FLG_SPAWN_LINK)) {
-                adjust_monitor = -1; /* Leave it for the link... */
-                omon->flags |= ERTS_ML_FLG_SPAWN_TIMED_OUT;
-            }
-            else {
-                erts_cancel_spawn_timer(c_p, datap->ref);
-            }
-        }
+        if (omon->flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                           | ERTS_ML_FLG_SPAWN_NO_EMSG))
+            convert_to_message = 0;
     }
-    else if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT) {
+    else if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
         /*
-         * Spawn operation has already timed out and
+         * Spawn operation has been abandoned and
          * link option was passed. Send exit signal
-         * with exit reason 'timeout'...
+         * with exit reason 'abandoned'...
          */
         DistEntry *dep;
         ErtsMonLnkDist *dist;
@@ -3448,7 +3448,6 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
         dist = mdep->dist;
 
-        ASSERT(!(omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT));
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
         
         lnk = datap->link;
@@ -3476,7 +3475,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
                     code = erts_dsig_send_exit_tt(&ctx,
                                                   c_p->common.id,
                                                   result,
-                                                  am_timeout,
+                                                  am_abandoned,
                                                   SEQ_TRACE_TOKEN(c_p));
                     ASSERT(code == ERTS_DSIG_SEND_OK);
                 }
@@ -3493,9 +3492,9 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
     else {
         /* Success... */
         ASSERT(is_external_pid(result));
-        
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT)
-            erts_cancel_spawn_timer(c_p, datap->ref);
+
+        if (omon->flags & ERTS_ML_FLG_SPAWN_NO_SMSG)
+            convert_to_message = 0;
 
         if (datap->link) {
             cnt++;
@@ -3515,10 +3514,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             Eterm *hp;
             mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
             hp = &(mdep)->heap[0];
-            omon->flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                             | ERTS_ML_FLG_SPAWN_MONITOR
-                             | ERTS_ML_FLG_SPAWN_LINK
-                             | ERTS_ML_FLG_SPAWN_TIMEOUT);
+            omon->flags &= ~ERTS_ML_FLGS_SPAWN;
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
             omon->other.item = copy_struct(result,
@@ -3536,6 +3532,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
          */
         ErtsMonitorData *mdp = erts_monitor_to_data(omon);
 
+        omon->flags &= ~ERTS_ML_FLGS_SPAWN;
+
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), omon);
 
         if (erts_monitor_dist_delete(&mdp->target))
@@ -3549,6 +3547,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         convert_prepared_sig_to_msg(c_p, sig, msg, next_nm_sig);
         if (tag_hfrag) {
             /* Save heap fragment of tag in message... */
+            ASSERT(sig->data.attached == ERTS_MSG_COMBINED_HFRAG);
             tag_hfrag->next = sig->hfrag.next;
             sig->hfrag.next = tag_hfrag;
         }
@@ -3625,9 +3624,9 @@ handle_dist_spawn_reply_exiting(Process *c_p,
             if (datap->link) {
                 /* This link exit *should* have actual reason... */
                 ErtsProcExitContext pectxt = {c_p, reason};
-                /* unless operation already had timed out... */
-                if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT)
-                    pectxt.reason = am_timeout;
+                /* unless operation has been abandoned... */
+                if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+                    pectxt.reason = am_abandoned;
                 erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
                 cnt++;
             }
@@ -3640,6 +3639,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
     }
     sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
     ERL_MESSAGE_TERM(sig) = msg;
+    sig->next = NULL;
     erts_cleanup_messages(sig);
     cnt++;
     return cnt;
@@ -3655,7 +3655,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 {
     Eterm tag;
     erts_aint32_t state;
-    int yield, cnt, limit, abs_lim, msg_tracing;
+    int yield, cnt, limit, abs_lim, msg_tracing, deferred_fetch;
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
@@ -3663,11 +3663,16 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
     state = erts_atomic32_read_nob(&c_p->state);
+    deferred_fetch = 0;
     if (!local_only) {
         if (ERTS_PSFLG_SIG_IN_Q & state) {
-            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-            erts_proc_sig_fetch(c_p);
-            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+            if (c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST)
+                deferred_fetch = !0;
+            else {
+                erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+                erts_proc_sig_fetch(c_p);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+            }
         }
     }
 
@@ -3677,6 +3682,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
     if (!c_p->sig_qs.cont) {
         *statep = state;
+        ASSERT(!deferred_fetch);
         return !0;
     }
 
@@ -3779,13 +3785,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         mdp = erts_monitor_to_data(omon);
                         if (erts_monitor_dist_delete(&mdp->target))
                             tmon = &mdp->target;
-                        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-                            /* Already timed out... */
-                            tmon = &mdp->target;
-                            erts_monitor_release(omon);
-                            omon = NULL;
-                            break;
-                        }
                     }
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,
@@ -4112,12 +4111,13 @@ stop: {
             if (c_p->sig_qs.saved_last == &c_p->sig_qs.cont) {
                 c_p->sig_qs.saved_last = c_p->sig_qs.last;
                 c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
+                if (deferred_save) {
+                    c_p->sig_qs.save = c_p->sig_qs.saved_last;
+                    c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
+                }
                 deferred_saved_last = deferred_save = 0;
             }
         }
-
-        if (deferred_save)
-            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
 
         ASSERT(c_p->sig_qs.saved_last != &c_p->sig_qs.cont);
 
@@ -4214,8 +4214,10 @@ stop: {
             && (c_p->sig_qs.saved_last == &c_p->sig_qs.cont)) {
             c_p->sig_qs.saved_last = c_p->sig_qs.last;
             c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save)
+            if (deferred_save) {
+                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
+            }
         }
         else if (!res) {
             if (deferred_save) {
@@ -4225,8 +4227,10 @@ stop: {
         }
         else {
             c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
-            if (deferred_save)
+            if (deferred_save) {
+                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
+            }
         }
 
         ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
@@ -4242,6 +4246,8 @@ stop: {
             *redsp = max_reds;
         }
 
+        if (deferred_fetch)
+            return 0;
         return res;
     }
 }
@@ -4576,6 +4582,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_SYNC_SUSPEND:
     case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
     case ERTS_SIG_Q_OP_IS_ALIVE:
+    case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY:
         size = ((ErtsMessage *) sig)->hfrag.alloc_size;
         size *= sizeof(Eterm);
         size += sizeof(ErtsMessage) - sizeof(Eterm);
@@ -4685,6 +4692,7 @@ erts_proc_sig_receive_helper(Process *c_p,
 
         if (!c_p->sig_qs.cont) {
 
+            ASSERT(!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
             consumed_reds += 4;
             left_reds -= 4;
             erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
@@ -5044,7 +5052,7 @@ move_msg_to_heap(Process *c_p, ErtsMessage *mp)
         && mp->data.attached
         && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
         ErlHeapFragment *bp;
-
+        
         bp = erts_message_to_heap_frag(mp);
 
         if (bp->next)
@@ -5090,8 +5098,12 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
         BIF_RET(am_noproc);
 
     state = erts_atomic32_read_nob(&rp->state);
-    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
-                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    /*
+     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
+     * comment in erts_execute_dirty_system_task()
+     * in erl_process.c).
+     */
     if (!dirty)
         BIF_RET(am_normal);
 
@@ -5099,8 +5111,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
 
     state = erts_atomic32_read_mb(&rp->state);
     noproc = (state & ERTS_PSFLG_FREE);
-    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
-                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
 
     if (busy) {
         if (noproc)

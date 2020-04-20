@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"reg_tab",				NULL			},
     {	"proc_main",				"pid"			},
     {   "old_code",                             "address"               },
+    {   "nif_call_tab",                         NULL                    },
 #ifdef HIPE
     {	"hipe_mfait_lock",			NULL			},
 #endif
@@ -147,6 +148,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
+    {   "dyn_lock_check",                       NULL                    },
+    {   "nif_load",                             NULL                    },
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
     {	"get_time",				NULL			},

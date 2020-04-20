@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,8 @@ static int db_last_catree(Process *p, DbTable *tbl,
 static int db_prev_catree(Process *p, DbTable *tbl,
                           Eterm key,
                           Eterm *ret);
-static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail);
+static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail,
+                         SWord *consumed_reds_p);
 static int db_get_catree(Process *p, DbTable *tbl,
                          Eterm key,  Eterm *ret);
 static int db_member_catree(DbTable *tbl, Eterm key, Eterm *ret);
@@ -162,7 +163,8 @@ static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_catree(Process*, DbTable*, Eterm key, Eterm *ret);
 static int db_put_dbterm_catree(DbTable* tbl,
                                 void* obj,
-                                int key_clash_fail);
+                                int key_clash_fail,
+                                SWord *consumed_reds_p);
 
 static void split_catree(DbTableCATree *tb,
                          DbTableCATreeNode* ERTS_RESTRICT base,
@@ -1643,7 +1645,8 @@ static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
 static int db_put_dbterm_catree(DbTable* tbl,
                                 void* obj,
-                                int key_clash_fail)
+                                int key_clash_fail,
+                                SWord *consumed_reds_p)
 {
     TreeDbTerm *value_to_insert = obj;
     DbTableCATree *tb = &tbl->catree;
@@ -1659,7 +1662,8 @@ static int db_put_dbterm_catree(DbTable* tbl,
     return result;
 }
 
-static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail)
+static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail,
+                         SWord *consumed_reds_p)
 {
     DbTableCATree *tb = &tbl->catree;
     Eterm key = GETKEY(&tb->common, tuple_val(obj));
@@ -2316,7 +2320,10 @@ static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm ob
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *handle)
 {
     DbTableCATree *tb = &(handle->tb->catree);
-    db_finalize_dbterm_tree_common(cret, handle, NULL);
+    db_finalize_dbterm_tree_common(cret,
+                                   handle,
+                                   &handle->u.catree.base_node->u.base.root,
+                                   NULL);
     wunlock_adapt_base_node(tb, handle->u.catree.base_node,
                             handle->u.catree.parent,
                             handle->u.catree.current_level);

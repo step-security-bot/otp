@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,25 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,
+           [{crypto,block_decrypt,3},
+            {crypto,block_decrypt,4},
+            {crypto,block_encrypt,3},
+            {crypto,block_encrypt,4},
+            {crypto,cmac,3},
+            {crypto,cmac,4},
+            {crypto,hmac,3},
+            {crypto,hmac,4},
+            {crypto,hmac_final,1},
+            {crypto,hmac_init,2},
+            {crypto,hmac_update,2},
+            {crypto,next_iv,2},
+            {crypto,poly1305,2},
+            {crypto,stream_decrypt,2},
+            {crypto,stream_encrypt,2},
+            {crypto,stream_init,2},
+            {crypto,stream_init,3}
+           ]}]).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -554,7 +573,7 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
     RefEnc = crypto:crypto_init(Type, Key, IV, true),
     RefDec = crypto:crypto_init(Type, Key, IV, false),
     EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
-    {_PadSize,EncFinal} = crypto:crypto_final(RefEnc),
+    EncFinal = crypto:crypto_final(RefEnc),
     Enc = iolist_to_binary(EncTexts++[EncFinal]),
     case ExpectedEncText of
         undefined ->

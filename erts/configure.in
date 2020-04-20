@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2019. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2020. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -572,6 +572,12 @@ if test "x$GCC" = xyes; then
     WFLAGS="$WFLAGS -Wdeclaration-after-statement"
   fi
   CFLAGS=$saved_CFLAGS
+
+  # Use -fno-common for gcc, that is link error if multiple definitions of
+  # global variables are encountered. This is ISO C compliant.
+  # Until version 10, gcc has had -fcommon as default, which allows and merges
+  # such dubious duplicates.
+  LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 else
   WFLAGS=""
   WERRORFLAGS=""
@@ -929,30 +935,12 @@ dnl
 HCC='$(CC)'         AC_SUBST(HCC)
 HCFLAGS=""          AC_SUBST(HCFLAGS)
 HCFLAGS="$HCFLAGS -I${ERL_TOP}/erts/$host"
-vxworks_reclaim=""  AC_SUBST(vxworks_reclaim)
 
 dnl We want to use $(CC) as linker for the emulator regardless of
 dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
-USER_LD=$LD
-USER_LDFLAGS="$LDFLAGS"
 LD='$(CC)'
-case $host_os in
-     darwin*)
-	saved_LDFLAGS="$LDFLAGS"
-	LDFLAGS="$LDFLAGS -Wl,-no_weak_imports"
-	AC_TRY_LINK([],[],
-		[
-			LD_MAY_BE_WEAK=no
-		],
-		[
-			LD_MAY_BE_WEAK=yes
-			LDFLAGS="$saved_LDFLAGS"
-		]);;
-    *)
-	LD_MAY_BE_WEAK=no;;
-esac
-
+LD_MAY_BE_WEAK=no
 AC_SUBST(LD)
 
 dnl Check for cygwin and object/exe files extension
@@ -960,7 +948,7 @@ dnl AC_CYGWIN is deprecated
 AC_EXEEXT
 AC_OBJEXT
 
-dnl This is the os flavour, should be unix, ose, vxworks or win32
+dnl This is the os flavour, should be unix or win32
 case $host in
    win32)
       ERLANG_OSTYPE=win32 ;;
@@ -1401,6 +1389,62 @@ fi
 AC_SUBST(USE_ESOCK)
 
 
+AC_ARG_WITH(esock-counter-size, 
+AS_HELP_STRING([--with-esock-counter-size=SZ], 
+               [Size of the esock counters, in number of bits: 16 | 24 | 32 | 48 | 64; default is 64]), 
+[], 
+[with_esock_counter_size=64])
+
+case "$with_esock_counter_size" in
+     16)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [16], [ESOCK counter size])
+	;;
+     24)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [24], [ESOCK counter size])
+	;;
+     32)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [32], [ESOCK counter size])
+	;;
+     48)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [48], [ESOCK counter size])
+	;;
+     64)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [64], [ESOCK counter size])
+	;;
+     *)
+	AC_MSG_WARN([Invalid esock counter size ($with_esock_counter_size), using default (64)])
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [64], [ESOCK counter size])
+	dnl with_esock_counter_size=64
+	;;
+esac
+dnl ESOCK_COUNTER_SIZE=$with_esock_counter_size
+
+dnl We don't actually (currently) use this in erlang
+dnl AC_SUBST(ESOCK_COUNTER_SIZE)
+
+dnl Checks for the net nif
+AC_CHECK_FUNC([if_nametoindex],
+              [AC_DEFINE(HAVE_IF_NAMETOINDEX, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+AC_CHECK_FUNC([if_indextoname],
+              [AC_DEFINE(HAVE_IF_INDEXTONAME, [1],
+	                 [Define as 1 if function exists])],
+	      [])
+AC_CHECK_FUNC([if_nameindex],
+              [AC_DEFINE(HAVE_IF_NAMEINDEX, [1],
+	                 [Define as 1 if function exists])],
+	      [])
+AC_CHECK_FUNC([if_freenameindex],
+              [AC_DEFINE(HAVE_IF_FREENAMEINDEX, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+AC_CHECK_FUNC([gethostname],
+              [AC_DEFINE(HAVE_GETHOSTNAME, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+
+
 dnl
 dnl This test kindly borrowed from Tcl
 dnl
@@ -1575,20 +1619,14 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	[#ifdef __WIN32__
 	 #else
-	 #ifdef VXWORKS
-	 #else
 	 #include <net/if.h>
-	 #endif
 	 #endif
 	])
 
 AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	[#ifdef __WIN32__
 	 #else
-	 #ifdef VXWORKS
-	 #else
 	 #include <net/if.h>
-	 #endif
 	 #endif
 	])
 
@@ -1705,6 +1743,12 @@ if test x"$ac_cv_header_netinet_sctp_h" = x"yes"; then
     AS_IF([test "x$enable_sctp" = "xlib"],
         AC_CHECK_LIB(sctp, sctp_bindx))
     AC_CHECK_FUNCS([sctp_bindx sctp_peeloff sctp_getladdrs sctp_freeladdrs sctp_getpaddrs sctp_freepaddrs])
+        AC_CHECK_MEMBERS([struct sctp_accoc_value.assoc_id], [], [],
+        [#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+        ])
     AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
                     SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED,
 		    SCTP_DELAYED_ACK_TIME,
@@ -1795,6 +1839,7 @@ AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(off_t)
 AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(suseconds_t)
 
 BITS64=
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -578,8 +578,8 @@ do_break(void)
     ASSERT(erts_thr_progress_is_blocking());
 
     erts_printf("\n"
-		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
-		"       (v)ersion (k)ill (D)b-tables (d)istribution\n");
+		"BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
+		"       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n");
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)

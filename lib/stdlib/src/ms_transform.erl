@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -355,11 +355,6 @@ clause({clause,Line,H0,G0,B0},Bound) ->
 
 copy({call,Line,{remote,_Line2,{atom,_Line3,ets},{atom,_Line4,fun2ms}},
       As0},Bound) ->
-    {transform_call(ets,Line,As0,Bound),Bound};
-copy({call,Line,{remote,_Line2,{record_field,_Line3,
-                                {atom,_Line4,''},{atom,_Line5,ets}},
-                 {atom,_Line6,fun2ms}}, As0},Bound) ->
-    %% Packages...
     {transform_call(ets,Line,As0,Bound),Bound};
 copy({call,Line,{remote,_Line2,{atom,_Line3,dbg},{atom,_Line4,fun2ms}},
       As0},Bound) ->

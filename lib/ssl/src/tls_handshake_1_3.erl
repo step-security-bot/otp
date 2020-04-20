@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 -include("ssl_connection.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
+-include("tls_record_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Encode
@@ -39,7 +40,8 @@
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/4,
-         encrypted_extensions/1]).
+         encrypted_extensions/1,
+         key_update/1]).
 
 -export([do_start/2,
          do_negotiated/2,
@@ -189,7 +191,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, Role) ->
                     certificate_request_context = <<>>,
                     certificate_list = CertList}};
 	{error, Error} when Role =:= server ->
-            {error, {no_suitable_certificates, Error}};
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Error})};
 	{error, _Error} when Role =:= client ->
             %% The client MUST send a Certificate message if and only if the server
             %% has requested client authentication via a CertificateRequest message
@@ -212,7 +214,7 @@ certificate_verify(PrivateKey, SignatureScheme,
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    {HashAlgo, _, _} =
+    {HashAlgo, SignAlgo, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
     Context = lists:reverse(Messages),
@@ -223,15 +225,14 @@ certificate_verify(PrivateKey, SignatureScheme,
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case sign(THash, ContextString, HashAlgo, PrivateKey) of
+    case sign(THash, ContextString, HashAlgo, PrivateKey, SignAlgo) of
         {ok, Signature} ->
             {ok, #certificate_verify_1_3{
                     algorithm = SignatureScheme,
                     signature = Signature
                    }};
-        {error, badarg} ->
-            {error, badarg}
-
+        {error, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
@@ -249,6 +250,10 @@ finished(#state{connection_states = ConnectionStates,
     #finished{
        verify_data = VerifyData
       }.
+
+
+key_update(Type) ->
+    #key_update{request_update = Type}.
 
 
 %%====================================================================
@@ -291,7 +296,8 @@ encode_handshake(#new_session_ticket{
 encode_handshake(#end_of_early_data{}) ->
     {?END_OF_EARLY_DATA, <<>>};
 encode_handshake(#key_update{request_update = Update}) ->
-    {?KEY_UPDATE, <<?BYTE(Update)>>};
+    EncUpdate = encode_key_update(Update),
+    {?KEY_UPDATE, <<EncUpdate/binary>>};
 encode_handshake(HandshakeMsg) ->
     ssl_handshake:encode_handshake(HandshakeMsg, {3,4}).
 
@@ -361,7 +367,7 @@ decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
 decode_handshake(?END_OF_EARLY_DATA, _) ->
     #end_of_early_data{};
 decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
-    #key_update{request_update = Update};
+    #key_update{request_update = decode_key_update(Update)};
 decode_handshake(Tag, HandshakeMsg) ->
     ssl_handshake:decode_handshake({3,4}, Tag, HandshakeMsg).
 
@@ -408,6 +414,26 @@ encode_signature(Signature) ->
     Size = byte_size(Signature),
     <<?UINT16(Size), Signature/binary>>.
 
+encode_key_update(update_not_requested) ->
+    <<?BYTE(0)>>;
+encode_key_update(update_requested) ->
+    <<?BYTE(1)>>.
+
+%% enum {
+%%     update_not_requested(0), update_requested(1), (255)
+%% } KeyUpdateRequest;
+%%
+%% request_update:  Indicates whether the recipient of the KeyUpdate
+%%    should respond with its own KeyUpdate.  If an implementation
+%%    receives any other value, it MUST terminate the connection with an
+%%    "illegal_parameter" alert.
+decode_key_update(0) ->
+    update_not_requested;
+decode_key_update(1) ->
+    update_requested;
+decode_key_update(N) ->
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {request_update,N})).
+
 decode_cert_entries(Entries) ->
     decode_cert_entries(Entries, []).
 
@@ -421,6 +447,7 @@ decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
+
 decode_extensions(Exts, MessageType) ->
     ssl_handshake:decode_extensions(Exts, {3,4}, MessageType).
 
@@ -460,57 +487,25 @@ certificate_entry(DER) ->
 %%    79
 %%    00
 %%    0101010101010101010101010101010101010101010101010101010101010101
-sign(THash, Context, HashAlgo, #'ECPrivateKey'{} = PrivateKey) ->
+sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
     Content = build_content(Context, THash),
-    try public_key:sign(Content, HashAlgo, PrivateKey) of
+    try ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo) of
         Signature ->
             {ok, Signature}
     catch
         error:badarg ->
-            {error, badarg}
-    end;
-sign(THash, Context, HashAlgo, PrivateKey) ->
-    Content = build_content(Context, THash),
-
-    %% The length of the Salt MUST be equal to the length of the output
-    %% of the digest algorithm: rsa_pss_saltlen = -1
-    try public_key:sign(Content, HashAlgo, PrivateKey,
-                    [{rsa_padding, rsa_pkcs1_pss_padding},
-                     {rsa_pss_saltlen, -1},
-                     {rsa_mgf1_md, HashAlgo}]) of
-        Signature ->
-            {ok, Signature}
-    catch
-        error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
-
-verify(THash, Context, HashAlgo, Signature, {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
+verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
     Content = build_content(Context, THash),
-    try public_key:verify(Content, HashAlgo, Signature, {PublicKey, PublicKeyParams}) of
+    try ssl_handshake:verify_signature({3, 4}, Content, {HashAlgo, SignAlgo}, Signature, PublicKeyInfo) of
         Result ->
             {ok, Result}
     catch
         error:badarg ->
-            {error, badarg}
-    end;
-verify(THash, Context, HashAlgo, Signature, {?rsaEncryption, PublicKey, _PubKeyParams}) ->
-    Content = build_content(Context, THash),
-
-    %% The length of the Salt MUST be equal to the length of the output
-    %% of the digest algorithm: rsa_pss_saltlen = -1
-    try public_key:verify(Content, HashAlgo, Signature, PublicKey,
-                    [{rsa_padding, rsa_pkcs1_pss_padding},
-                     {rsa_pss_saltlen, -1},
-                     {rsa_mgf1_md, HashAlgo}]) of
-        Result ->
-            {ok, Result}
-    catch
-        error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
-
 
 build_content(Context, THash) ->
     Prefix = binary:copy(<<32>>, 64),
@@ -553,6 +548,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
     {Ref,Maybe} = maybe(),
 
     try
+        
         %% Handle ALPN extension if ALPN is configured
         ALPNProtocol = Maybe(handle_alpn(ALPNPreferredProtocols, ClientALPN)),
 
@@ -561,27 +557,27 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
-
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
-
         {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
         %% Check if client supports signature algorithm of server certificate
         Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
         %% Select signature algorithm (used in CertificateVerify message).
-        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)),
-
+        SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, 
+                                                 handle_pss(PublicKeyAlgo,
+                                                            SignAlgo, SignHash, ServerSignAlgs))),
+        
         %% Select client public key. If no public key found in ClientShares or
         %% ClientShares is empty, trigger HelloRetryRequest as we were able
         %% to find an acceptable set of parameters but the ClientHello does not
         %% contain sufficient information.
         {Group, ClientPubKey} = get_client_public_key(Groups, ClientShares),
-
+        
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
-
+        
         State1 = update_start_state(State0,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
@@ -590,7 +586,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                       sign_alg => SelectedSignAlg,
                                       peer_public_key => ClientPubKey,
                                       alpn => ALPNProtocol}),
-
+        
         %% 4.1.4.  Hello Retry Request
         %%
         %% The server will send this message in response to a ClientHello
@@ -606,18 +602,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                 Maybe(session_resumption(NextStateTuple, PSK))
         end
     catch
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
-        {Ref, no_application_protocol} ->
-            ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end;
 %% TLS Client
 do_start(#server_hello{cipher_suite = SelectedCipherSuite,
@@ -628,7 +614,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                                          port = Port,
                                          transport_cb = Transport,
                                          socket = Socket},
-                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
                 connection_env = #connection_env{negotiated_version = NegotiatedVersion},
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
@@ -681,13 +667,18 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% Update pre_shared_key extension with binders (TLS 1.3)
         Hello = tls_handshake_1_3:maybe_add_binders(Hello0, HHistory0, TicketData, NegotiatedVersion),
 
-        {BinMsg, ConnectionStates, HHistory} =
+        {BinMsg0, ConnectionStates, HHistory} =
             tls_connection:encode_handshake(Hello,  NegotiatedVersion, ConnectionStates0, HHistory0),
+
+        %% D.4.  Middlebox Compatibility Mode
+        {#state{handshake_env = HsEnv} = State3, BinMsg} =
+            maybe_prepend_change_cipher_spec(State2, BinMsg0),
+
         tls_socket:send(Transport, Socket, BinMsg),
         ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
         ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
-        State = State2#state{
+        State = State3#state{
                   connection_states = ConnectionStates,
                   session = Session0#session{session_id = Hello#client_hello.session_id},
                   handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory},
@@ -696,8 +687,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         {State, wait_sh}
 
     catch
-        {Ref, {illegal_parameter, Reason}} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -719,48 +710,48 @@ do_negotiated({start_handshake, PSK0},
     try
         %% Create server_hello
         ServerHello = server_hello(server_hello, SessionId, KeyShare, PSK0, ConnectionStates0),
-
-        {State1, _} = tls_connection:send_handshake(ServerHello, State0),
+        State1 = tls_connection:queue_handshake(ServerHello, State0),
+        %% D.4.  Middlebox Compatibility Mode
+        State2 = maybe_queue_change_cipher_spec(State1, last),
+        {State3, _} = tls_connection:send_handshake_flight(State2),
 
         PSK = get_pre_shared_key(PSK0, HKDF),
 
-        State2 =
+        State4 =
             calculate_handshake_secrets(ClientPublicKey, ServerPrivateKey, SelectedGroup,
-                                        PSK, State1),
+                                        PSK, State3),
 
-        State3 = ssl_record:step_encryption_state(State2),
+        State5 = ssl_record:step_encryption_state(State4),
 
         %% Create EncryptedExtensions
-        EncryptedExtensions = encrypted_extensions(State2),
+        EncryptedExtensions = encrypted_extensions(State5),
 
         %% Encode EncryptedExtensions
-        State4 = tls_connection:queue_handshake(EncryptedExtensions, State3),
+        State6 = tls_connection:queue_handshake(EncryptedExtensions, State5),
 
         %% Create and send CertificateRequest ({verify, verify_peer})
-        {State5, NextState} = maybe_send_certificate_request(State4, SslOpts, PSK0),
+        {State7, NextState} = maybe_send_certificate_request(State6, SslOpts, PSK0),
 
         %% Create and send Certificate (if PSK is undefined)
-        State6 = Maybe(maybe_send_certificate(State5, PSK0)),
+        State8 = Maybe(maybe_send_certificate(State7, PSK0)),
 
         %% Create and send CertificateVerify (if PSK is undefined)
-        State7 = Maybe(maybe_send_certificate_verify(State6, PSK0)),
+        State9 = Maybe(maybe_send_certificate_verify(State8, PSK0)),
 
         %% Create Finished
-        Finished = finished(State7),
+        Finished = finished(State9),
 
         %% Encode Finished
-        State8 = tls_connection:queue_handshake(Finished, State7),
+        State10= tls_connection:queue_handshake(Finished, State9),
 
         %% Send first flight
-        {State9, _} = tls_connection:send_handshake_flight(State8),
+        {State, _} = tls_connection:send_handshake_flight(State10),
 
-        {State9, NextState}
+        {State, NextState}
 
     catch
-        {Ref, badarg} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
-        {Ref, {no_suitable_certificates, Reason}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -769,17 +760,9 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     try
         Maybe(process_certificate(Certificate, State0))
     catch
-        {Ref, {certificate_required, State}} ->
-            {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State};
-        {Ref, {{certificate_unknown, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason), State};
-        {Ref, {{internal_error, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
-        {Ref, {{handshake_failure, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason), State};
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0};
         {Ref, {#alert{} = Alert, State}} ->
-            {Alert, State};
-        {#alert{} = Alert, State} ->
             {Alert, State}
     end.
 
@@ -790,12 +773,8 @@ do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
         State1 = Maybe(verify_signature_algorithm(State0, CertificateVerify)),
         Maybe(verify_certificate_verify(State1, CertificateVerify))
     catch
-        {Ref, {{bad_certificate, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
-        {Ref, {badarg, State}} ->
-            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
-        {Ref, {{handshake_failure, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State}
     end.
 
 %% TLS Server
@@ -804,54 +783,55 @@ do_wait_finished(#finished{verify_data = VerifyData},
     {Ref,Maybe} = maybe(),
 
     try
-        Maybe(validate_client_finished(State0, VerifyData)),
+        Maybe(validate_finished(State0, VerifyData)),
 
         State1 = calculate_traffic_secrets(State0),
         State2 = maybe_calculate_resumption_master_secret(State1),
+        State3 = forget_master_secret(State2),
 
         %% Configure traffic keys
-        State3 = ssl_record:step_encryption_state(State2),
+        State4 = ssl_record:step_encryption_state(State3),
 
         %% Send session ticket
-        maybe_send_session_ticket(State3, 3)
+        maybe_send_session_ticket(State4)
 
     catch
-        {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end;
 %% TLS Client
-do_wait_finished(#finished{verify_data = _VerifyData},
+do_wait_finished(#finished{verify_data = VerifyData},
                  #state{static_env = #static_env{role = client}} = State0) ->
 
     {Ref,Maybe} = maybe(),
 
     try
-        %% Maybe(validate_client_finished(State0, VerifyData)),
+        Maybe(validate_finished(State0, VerifyData)),
+
+        %% D.4.  Middlebox Compatibility Mode
+        State1 = maybe_queue_change_cipher_spec(State0, first),
 
         %% Maybe send Certificate + CertificateVerify
-        State1 = Maybe(maybe_queue_cert_cert_cv(State0)),
+        State2 = Maybe(maybe_queue_cert_cert_cv(State1)),
 
-        Finished = finished(State1),
+        Finished = finished(State2),
 
         %% Encode Finished
-        State2 = tls_connection:queue_handshake(Finished, State1),
+        State3 = tls_connection:queue_handshake(Finished, State2),
 
         %% Send first flight
-        {State3, _} = tls_connection:send_handshake_flight(State2),
+        {State4, _} = tls_connection:send_handshake_flight(State3),
 
-        State4 = calculate_traffic_secrets(State3),
-        State5 = maybe_calculate_resumption_master_secret(State4),
+        State5 = calculate_traffic_secrets(State4),
+        State6 = maybe_calculate_resumption_master_secret(State5),
+        State7 = forget_master_secret(State6),
 
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State5)
+        ssl_record:step_encryption_state(State7)
 
     catch
-        {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error);
-        {Ref, badarg} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
-        {Ref, {no_suitable_certificates, Reason}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -909,16 +889,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -939,16 +911,6 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
 
         {State1, wait_cert_cr}
     catch
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
         {Ref, {State, StateName}} ->
             {State, StateName}
     end.
@@ -959,14 +921,8 @@ do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
     try
         Maybe(process_certificate(Certificate, State0))
     catch
-        {Ref, {certificate_required, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
-        {Ref, {{certificate_unknown, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
-        {Ref, {{internal_error, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
-        {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0};
         {Ref, {#alert{} = Alert, State}} ->
             {Alert, State}
     end;
@@ -975,28 +931,9 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
     try
         Maybe(process_certificate_request(CertificateRequest, State0))
     catch
-        {Ref, {certificate_required, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
-        {Ref, {{certificate_unknown, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
-        {Ref, {illegal_parameter, Reason}} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason);
-        {Ref, {{internal_error, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
-        {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0}
     end.
-
-
-
-%% TODO: Remove this function!
-%% not_implemented(State, Reason) ->
-%%     {error, {not_implemented, State, Reason}}.
-
-%% not_implemented(update_secrets, State0, Reason) ->
-%%     State1 = calculate_traffic_secrets(State0),
-%%     State = ssl_record:step_encryption_state(State1),
-%%     {error, {not_implemented, State, Reason}}.
 
 
 %% For reasons of backward compatibility with middleboxes (see
@@ -1028,6 +965,56 @@ handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
     HSEnv = HSEnv0#handshake_env{resumption = true},
     State#state{handshake_env = HSEnv}.
 
+%% @doc Enqueues a change_cipher_spec record as the first/last message of
+%%      the current flight buffer
+%% @end
+maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0, first) ->
+    {State, FlightBuffer} = maybe_prepend_change_cipher_spec(State0, FlightBuffer0),
+    State#state{flight_buffer = FlightBuffer};
+maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0, last) ->
+    {State, FlightBuffer} = maybe_append_change_cipher_spec(State0, FlightBuffer0),
+    State#state{flight_buffer = FlightBuffer}.
+
+%% @doc Prepends a change_cipher_spec record to the input binary
+%%
+%%      It can only prepend the change_cipher_spec record only once in
+%%      order to accurately emulate a legacy TLS 1.2 connection.
+%%
+%%      D.4.  Middlebox Compatibility Mode
+%%      If not offering early data, the client sends a dummy
+%%      change_cipher_spec record (see the third paragraph of Section 5)
+%%      immediately before its second flight.  This may either be before
+%%      its second ClientHello or before its encrypted handshake flight.
+%%      If offering early data, the record is placed immediately after the
+%%      first ClientHello.
+%% @end
+maybe_prepend_change_cipher_spec(#state{
+                                    ssl_options =
+                                        #{middlebox_comp_mode := true},
+                                    handshake_env =
+                                        #handshake_env{
+                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->
+    CCSBin = create_change_cipher_spec(State),
+    {State#state{handshake_env =
+                     HSEnv#handshake_env{change_cipher_spec_sent = true}},
+     [CCSBin|Bin]};
+maybe_prepend_change_cipher_spec(State, Bin) ->
+    {State, Bin}.
+
+%% @doc Appends a change_cipher_spec record to the input binary
+%% @end
+maybe_append_change_cipher_spec(#state{
+                                    ssl_options =
+                                        #{middlebox_comp_mode := true},
+                                    handshake_env =
+                                        #handshake_env{
+                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->
+    CCSBin = create_change_cipher_spec(State),
+    {State#state{handshake_env =
+                     HSEnv#handshake_env{change_cipher_spec_sent = true}},
+     Bin ++ [CCSBin]};
+maybe_append_change_cipher_spec(State, Bin) ->
+    {State, Bin}.
 
 maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
     {ok, State};
@@ -1056,8 +1043,8 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
         State = Maybe(maybe_queue_cert_verify(Certificate, State1)),
         {ok, State}
     catch
-        {Ref, badarg} ->
-            {error, badarg}
+        {Ref, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
@@ -1076,25 +1063,25 @@ maybe_queue_cert_verify(_Certificate,
         CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme, State, client)),
         {ok, tls_connection:queue_handshake(CertificateVerify, State)}
     catch
-        {Ref, badarg} ->
-            {error, badarg}
+        {Ref, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
 %% Recipients of Finished messages MUST verify that the contents are
 %% correct and if incorrect MUST terminate the connection with a
 %% "decrypt_error" alert.
-validate_client_finished(#state{connection_states = ConnectionStates,
-                handshake_env =
-                    #handshake_env{
-                       tls_handshake_history = {Messages0, _}}}, VerifyData) ->
+validate_finished(#state{connection_states = ConnectionStates,
+                         handshake_env =
+                             #handshake_env{
+                                tls_handshake_history = {Messages0, _}}}, VerifyData) ->
     #{security_parameters := SecParamsR,
-     cipher_state := #cipher_state{finished_key = FinishedKey}} =
+      cipher_state := #cipher_state{finished_key = FinishedKey}} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    %% Drop the client's finished message, it is not part of the handshake context
-    %% when the client calculates its finished message.
+    %% Drop the peer's finished message, it is not part of the handshake context
+    %% when the client/server calculates its finished message.
     [_|Messages] = Messages0,
 
     ControlData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
@@ -1104,18 +1091,23 @@ validate_client_finished(#state{connection_states = ConnectionStates,
 compare_verify_data(Data, Data) ->
     ok;
 compare_verify_data(_, _) ->
-    {error, decrypt_error}.
+    {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
 
 
 send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
                          no_suitable_key, KeyShare, SessionId) ->
     ServerHello = server_hello(hello_retry_request, SessionId, KeyShare, undefined, ConnectionStates0),
-    {State1, _} = tls_connection:send_handshake(ServerHello, State0),
+
+
+    State1 = tls_connection:queue_handshake(ServerHello, State0),
+    %% D.4.  Middlebox Compatibility Mode
+    State2 = maybe_queue_change_cipher_spec(State1, last),
+    {State3, _} = tls_connection:send_handshake_flight(State2),
 
     %% Update handshake history
-    State2 = replace_ch1_with_message_hash(State1),
+    State4 = replace_ch1_with_message_hash(State3),
 
-    {ok, {State2, start}};
+    {ok, {State4, start}};
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
@@ -1170,6 +1162,16 @@ maybe_send_certificate_verify(#state{session = #session{sign_alg = SignatureSche
     end.
 
 
+maybe_send_session_ticket(State) ->
+    Number = case application:get_env(ssl, server_session_tickets_amount) of
+                 {ok, Size} when is_integer(Size) andalso
+                                 Size > 0 ->
+                     Size;
+                 _  ->
+                     3
+             end,
+    maybe_send_session_ticket(State, Number).
+%%
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := disabled}} = State, _) ->
     %% Do nothing!
     State;
@@ -1185,6 +1187,25 @@ maybe_send_session_ticket(#state{connection_states = ConnectionStates,
     Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
     {State, _} = tls_connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1).
+
+create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
+    %% Dummy connection_states with NULL cipher
+    ConnectionStates =
+        #{current_write =>
+              #{compression_state => undefined,
+                cipher_state => undefined,
+                sequence_number => 1,
+                security_parameters =>
+                    #security_parameters{
+                       bulk_cipher_algorithm = 0,
+                       compression_algorithm = ?NULL,
+                       mac_algorithm = ?NULL
+                      },
+                mac_secret => undefined}},
+    {BinChangeCipher, _} =
+        tls_record:encode_change_cipher_spec(?LEGACY_VERSION, ConnectionStates),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinChangeCipher),
+    [BinChangeCipher].
 
 process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificate = undefined}} = State) ->
@@ -1229,7 +1250,7 @@ process_certificate(#certificate_1_3{
     %% secrets.
     State1 = calculate_traffic_secrets(State0),
     State = ssl_record:step_encryption_state(State1),
-    {error, {certificate_required, State}};
+    {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = Certs0},
                     #state{ssl_options =
                                #{signature_algs := SignAlgs,
@@ -1261,8 +1282,8 @@ process_certificate(#certificate_1_3{certificate_list = Certs0},
         false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure,
-                      "Client certificate uses unsupported signature algorithm"}, State}}
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "Client certificate uses unsupported signature algorithm"), State}}
     end.
 
 
@@ -1326,9 +1347,9 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
     catch
         error:{badmatch,{error, {asn1, Asn1Reason}}} ->
             %% ASN-1 decode of certificate somehow failed
-            {error, {certificate_unknown, {failed_to_decode_certificate, Asn1Reason}}};
+            {error, ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})};
         error:OtherReason ->
-            {error, {internal_error, {unexpected_error, OtherReason}}}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
     end.
 
 
@@ -1415,6 +1436,7 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
     WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
     update_pending_connection_states(State0, HandshakeSecret, undefined,
+                                     undefined, undefined,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
@@ -1435,13 +1457,13 @@ get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
 get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
-get_pre_shared_key(enabled = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, SelectedIdentity) of
         undefined -> %% full handshake, default PSK
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
-            {error, illegal_parameter};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {_, PSK} ->
             {ok, PSK}
     end;
@@ -1453,7 +1475,7 @@ get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity)
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
-            {error, illegal_parameter};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {Key, PSK} ->
             tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
             tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
@@ -1501,6 +1523,7 @@ calculate_traffic_secrets(#state{
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
 
     update_pending_connection_states(State0, MasterSecret, undefined,
+                                     ClientAppTrafficSecret0, ServerAppTrafficSecret0,
                                      ReadKey, ReadIV, undefined,
                                      WriteKey, WriteIV, undefined).
 
@@ -1553,17 +1576,36 @@ maybe_calculate_resumption_master_secret(#state{
     update_resumption_master_secret(State, RMS).
 
 
+forget_master_secret(#state{connection_states =
+                                #{pending_read := PendingRead,
+                                  pending_write := PendingWrite,
+                                  current_read := CurrentRead,
+                                  current_write := CurrentWrite} = CS} = State) ->
+    State#state{connection_states = CS#{pending_read => overwrite_master_secret(PendingRead),
+                                        pending_write => overwrite_master_secret(PendingWrite),
+                                        current_read => overwrite_master_secret(CurrentRead),
+                                        current_write => overwrite_master_secret(CurrentWrite)}}.
+
+
+overwrite_master_secret(ConnectionState = #{security_parameters := SecurityParameters0}) ->
+    SecurityParameters = SecurityParameters0#security_parameters{master_secret = {master_secret, <<0>>}},
+    ConnectionState#{security_parameters => SecurityParameters}.
+
+
 update_pending_connection_states(#state{
                                     static_env = #static_env{role = server},
                                     connection_states =
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
                                  HandshakeSecret, ResumptionMasterSecret,
+                                 ClientAppTrafficSecret, ServerAppTrafficSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
     PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
+                                          ClientAppTrafficSecret,
                                           ReadKey, ReadIV, ReadFinishedKey),
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
+                                           ServerAppTrafficSecret,
                                            WriteKey, WriteIV, WriteFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}};
@@ -1573,24 +1615,30 @@ update_pending_connection_states(#state{
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
                                  HandshakeSecret, ResumptionMasterSecret,
+                                 ClientAppTrafficSecret, ServerAppTrafficSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
     PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
+                                          ServerAppTrafficSecret,
                                           WriteKey, WriteIV, WriteFinishedKey),
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
+                                           ClientAppTrafficSecret,
                                            ReadKey, ReadIV, ReadFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}}.
 
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
-                        HandshakeSecret, ResumptionMasterSecret, Key, IV, FinishedKey) ->
+                        HandshakeSecret, ResumptionMasterSecret,
+                        ApplicationTrafficSecret, Key, IV, FinishedKey) ->
     %% Store secret
     SecurityParameters = SecurityParameters0#security_parameters{
                            master_secret = HandshakeSecret,
-                           resumption_master_secret = ResumptionMasterSecret},
+                           resumption_master_secret = ResumptionMasterSecret,
+                           application_traffic_secret = ApplicationTrafficSecret},
+    BulkCipherAlgo = SecurityParameters#security_parameters.bulk_cipher_algorithm,
     ConnectionState#{security_parameters => SecurityParameters,
-                     cipher_state => cipher_init(Key, IV, FinishedKey)}.
+                     cipher_state => cipher_init(BulkCipherAlgo, Key, IV, FinishedKey)}.
 
 
 update_start_state(State, Map) ->
@@ -1646,7 +1694,12 @@ update_resumption_master_secret(#state{connection_states = ConnectionStates0} = 
     State#state{connection_states = ConnectionStates}.
 
 
-cipher_init(Key, IV, FinishedKey) ->
+cipher_init(?AES_CCM_8, Key, IV, FinishedKey) ->
+    #cipher_state{key = Key,
+                  iv = IV,
+                  finished_key = FinishedKey,
+                  tag_len = 8};
+cipher_init(_BulkCipherAlgo, Key, IV, FinishedKey) ->
     #cipher_state{key = Key,
                   iv = IV,
                   finished_key = FinishedKey,
@@ -1741,8 +1794,8 @@ verify_signature_algorithm(#state{
         false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure,
-                      "CertificateVerify uses unsupported signature algorithm"}, State}}
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "CertificateVerify uses unsupported signature algorithm"), State}}
     end.
 
 
@@ -1766,7 +1819,7 @@ verify_certificate_verify(#state{
         ssl_record:pending_connection_state(ConnectionStates, write),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    {HashAlgo, _, _} =
+    {HashAlgo, SignAlg, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
     Messages = get_handshake_context_cv(HHistory),
@@ -1780,17 +1833,18 @@ verify_certificate_verify(#state{
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    case verify(THash, ContextString, HashAlgo, Signature, PublicKeyInfo) of
+    case verify(THash, ContextString, HashAlgo, SignAlg, Signature, PublicKeyInfo) of
         {ok, true} ->
             {ok, {State0, wait_finished}};
         {ok, false} ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure, "Failed to verify CertificateVerify"}, State}};
-        {error, badarg} ->
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "Failed to verify CertificateVerify"), State}};
+        {error, #alert{} = Alert} ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {badarg, State}}
+            {error, {Alert, State}}
     end.
 
 
@@ -1812,7 +1866,7 @@ peer_context_string(client) ->
 %% server MUST abort the handshake with a "handshake_failure" or an
 %% "insufficient_security" alert.
 select_common_groups(_, []) ->
-    {error, {insufficient_security, no_suitable_groups}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups)};
 select_common_groups(ServerGroups, ClientGroups) ->
     Fun = fun(E) -> lists:member(E, ClientGroups) end,
     case lists:filter(Fun, ServerGroups) of
@@ -1843,7 +1897,7 @@ select_common_groups(ServerGroups, ClientGroups) ->
 validate_client_key_share(_ ,[]) ->
     ok;
 validate_client_key_share([], _) ->
-    {error, illegal_parameter};
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
 validate_client_key_share([G|ClientGroups], [{_, G, _}|ClientShares]) ->
     validate_client_key_share(ClientGroups, ClientShares);
 validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
@@ -1851,6 +1905,8 @@ validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
 
 
 %% Verify that selected group is offered by the client.
+validate_server_key_share([], _) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
 validate_server_key_share([G|_ClientGroups], {_, G, _}) ->
     ok;
 validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
@@ -1858,17 +1914,17 @@ validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
 
 
 validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
-    {error, {illegal_parameter,
-             "Selected group sent by the server shall not correspond to a group"
-             " which was provided in the key_share extension"}};
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                       "Selected group sent by the server shall not correspond to a group"
+                       " which was provided in the key_share extension")};
 validate_selected_group(SelectedGroup, ClientGroups) ->
     case lists:member(SelectedGroup, ClientGroups) of
         true ->
             ok;
         false ->
-            {error, {illegal_parameter,
-                     "Selected group sent by the server shall correspond to a group"
-                     " which was provided in the supported_groups extension"}}
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "Selected group sent by the server shall correspond to a group"
+                               " which was provided in the supported_groups extension")}
     end.
 
 
@@ -1920,7 +1976,7 @@ get_server_public_key({key_share_entry, Group, PublicKey}) ->
 handle_alpn(undefined, _) ->
     {ok, undefined};
 handle_alpn([], _) ->
-    {error, no_application_protocol};
+    {error,  ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)};
 handle_alpn([_|_], undefined) ->
     {ok, undefined};
 handle_alpn([ServerProtocol|T], ClientProtocols) ->
@@ -1933,7 +1989,7 @@ handle_alpn([ServerProtocol|T], ClientProtocols) ->
 
 
 select_cipher_suite(_, [], _) ->
-    {error, no_suitable_cipher};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher)};
 %% If honor_cipher_order is set to true, use the server's preference for
 %% cipher suite selection.
 select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
@@ -1956,7 +2012,7 @@ validate_cipher_suite(Cipher, ClientCiphers) ->
         true ->
             ok;
         false ->
-            {error, illegal_parameter}
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
     end.
 
 
@@ -1982,9 +2038,9 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 %% DSA keys are not supported by TLS 1.3
 select_sign_algo(dsa, _ClientSignAlgs, _ServerSignAlgs) ->
-    {error, {insufficient_security, no_suitable_public_key}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, [], _) ->
-    {error, {insufficient_security, no_suitable_signature_algorithm}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     {_, S, _} = ssl_cipher:scheme_to_components(C),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
@@ -1995,7 +2051,7 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     %% RSASSA-PSS PSS algorithms: If the public key is carried in an X.509 certificate,
     %% it MUST use the RSASSA-PSS OID.
     case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
-          orelse (PublicKeyAlgo =:= rsa_pss andalso S =:= rsa_pss_pss)
+          orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa))
         andalso
         lists:member(C, ServerSignAlgs) of
@@ -2007,7 +2063,7 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
 
 
 do_check_cert_sign_algo(_, _, []) ->
-    {error, {insufficient_security, no_suitable_signature_algorithm}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
     {Hash, Sign, _Curve} = ssl_cipher:scheme_to_components(Scheme),
     case compare_sign_algos(SignAlgo, SignHash, Sign, Hash) of
@@ -2019,10 +2075,8 @@ do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
 
 
 %% id-RSASSA-PSS (rsa_pss) indicates that the key may only be used for PSS signatures.
-%% TODO: Uncomment when rsa_pss signatures are supported in certificates
-%% compare_sign_algos(rsa_pss, Hash, Algo, Hash)
-%%   when Algo =:= rsa_pss_pss ->
-%%     true;
+compare_sign_algos(rsa_pss_pss, Hash, rsa_pss_pss, Hash) ->
+     true;
 %% rsaEncryption (rsa) allows the key to be used for any of the standard encryption or
 %% signature schemes.
 compare_sign_algos(rsa, Hash, Algo, Hash)
@@ -2034,23 +2088,27 @@ compare_sign_algos(Algo, Hash, Algo, Hash) ->
 compare_sign_algos(_, _, _, _) ->
     false.
 
-
 get_certificate_params(Cert) ->
-    {SignAlgo0, _Param, PublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
-    {SignHash0, SignAlgo} = public_key:pkix_sign_types(SignAlgo0),
-    %% Convert hash to new format
-    SignHash = case SignHash0 of
-                   sha ->
-                       sha1;
-                   H -> H
-               end,
-    PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
-    {PublicKeyAlgo, SignAlgo, SignHash}.
+    {SignAlgo0, Param, SubjectPublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
+    {SignHash, SignAlgo} = oids_to_atoms(SignAlgo0, Param),
+    SubjectPublicKeyAlgo = public_key_algo(SubjectPublicKeyAlgo0),
+    {SubjectPublicKeyAlgo, SignAlgo, SignHash}.
 
-
+oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
+                                                        #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                            parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+    Hash = public_key:pkix_hash_type(HashOid),
+    {Hash, rsa_pss_pss};
+oids_to_atoms(SignAlgo, _) ->
+    case public_key:pkix_sign_types(SignAlgo) of
+        {sha, Sign} ->
+            {sha1, Sign};
+        {_,_} = Algs ->
+            Algs
+    end.
 %% Note: copied from ssl_handshake
 public_key_algo(?'id-RSASSA-PSS') ->
-    rsa_pss;
+    rsa_pss_pss;
 public_key_algo(?rsaEncryption) ->
     rsa;
 public_key_algo(?'id-ecPublicKey') ->
@@ -2198,30 +2256,30 @@ create_binders(Context, [{_, _, _, PSK, _, HKDF}|T], Acc) ->
 %%     PskBinderEntry binders<33..2^16-1>;
 %% } OfferedPsks;
 truncate_client_hello(HelloBin0) ->
-    HelloBin1 = remove_binders(HelloBin0),
-    {Truncated, _} = split_binary(HelloBin1, size(HelloBin1) - 2),
+    <<?BYTE(Type), ?UINT24(_Length), Body/binary>> = HelloBin0,
+    CH0 = #client_hello{
+             extensions = #{pre_shared_key := PSK0} = Extensions0} =
+        tls_handshake:decode_handshake({3,4}, Type, Body),
+    #pre_shared_key_client_hello{offered_psks = OfferedPsks0} = PSK0,
+    OfferedPsks = OfferedPsks0#offered_psks{binders = []},
+    PSK = PSK0#pre_shared_key_client_hello{offered_psks = OfferedPsks},
+    Extensions = Extensions0#{pre_shared_key => PSK},
+    CH = CH0#client_hello{extensions = Extensions},
+
+    %% Decoding a ClientHello from an another TLS implementation can contain
+    %% unsupported extensions and thus executing decoding and encoding on
+    %% the input can result in a different handshake binary.
+    %% The original length of the binders can still be determined by
+    %% re-encoding the original ClientHello and using its size as reference
+    %% when we substract the size of the truncated binary.
+    TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, {3,4})),
+    RefSize = iolist_size(tls_handshake:encode_handshake(CH0, {3,4})),
+    BindersSize = RefSize - TruncatedSize,
+
+    %% Return the truncated ClientHello by cutting of the binders from the original
+    %% ClientHello binary.
+    {Truncated, _} = split_binary(HelloBin0, size(HelloBin0) - BindersSize - 2),
     Truncated.
-
-
-remove_binders(Binary0) ->
-    OrigSize = byte_size(Binary0),
-    HashSize256 = ssl_cipher:hash_size(sha256),
-    HashSize384 = ssl_cipher:hash_size(sha384),
-    HashSize512 = ssl_cipher:hash_size(sha512),
-
-    NewSize256 = OrigSize - HashSize256 - 1,
-    NewSize384 = OrigSize - HashSize384 - 1,
-    NewSize512 = OrigSize - HashSize512 - 1,
-    case Binary0 of
-        <<Binary:NewSize256/binary,?BYTE(HashSize256),_:HashSize256/binary>> ->
-            remove_binders(Binary);
-        <<Binary:NewSize384/binary,?BYTE(HashSize384),_:HashSize384/binary>> ->
-            remove_binders(Binary);
-        <<Binary:NewSize512/binary,?BYTE(HashSize512),_:HashSize512/binary>> ->
-            remove_binders(Binary);
-        Else ->
-            Else
-    end.
 
 
 %% The PskBinderEntry is computed in the same way as the Finished
@@ -2285,7 +2343,7 @@ get_ticket_data(_, undefined, _) ->
     undefined;
 get_ticket_data(_, _, undefined) ->
     undefined;
-get_ticket_data(_, enabled, UseTicket) ->
+get_ticket_data(_, manual, UseTicket) ->
     process_user_tickets(UseTicket);
 get_ticket_data(Pid, auto, UseTicket) ->
     tls_client_ticket_store:get_tickets(Pid, UseTicket).
@@ -2324,3 +2382,14 @@ process_user_tickets([H|T], Acc, N) ->
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
+
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha256, Algs) ->
+    Algs -- [rsa_pss_pss_sha384, rsa_pss_pss_sha512];
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha384, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha512];
+handle_pss(rsa_pss_pss, rsa_pss_pss, sha512, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384];
+handle_pss(_,_,_, Algs) ->
+    Algs -- [rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512].
+
+

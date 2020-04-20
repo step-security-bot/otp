@@ -73,6 +73,7 @@ MODULES = \
 	erl_epmd \
 	erl_reply \
 	erl_signal_handler \
+	erpc \
 	erts_debug \
 	error_handler \
 	error_logger \
@@ -80,6 +81,7 @@ MODULES = \
 	file_io_server \
 	file_server \
 	gen_tcp \
+	gen_tcp_socket \
 	gen_udp \
 	gen_sctp \
 	global \
@@ -128,10 +130,12 @@ MODULES = \
 	net_adm \
 	net_kernel \
 	os \
+	pg \
 	pg2 \
 	ram_file \
 	rpc \
 	seq_trace \
+	socket \
 	standard_error \
 	user \
 	user_drv \
@@ -147,7 +151,8 @@ MODULES = \
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/dist.hrl ../include/dist_util.hrl \
-	../include/net_address.hrl ../include/logger.hrl
+	../include/net_address.hrl ../include/logger.hrl ../include/eep48.hrl
+
 
 INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
         erl_epmd.hrl file_int.hrl hipe_ext_format.hrl \

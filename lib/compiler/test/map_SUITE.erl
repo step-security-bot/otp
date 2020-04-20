@@ -73,7 +73,11 @@
         t_reused_key_variable/1,
 
         %% new in OTP 22
-        t_mixed_clause/1,cover_beam_trim/1
+        t_mixed_clause/1,cover_beam_trim/1,
+        t_duplicate_keys/1,
+
+        %% new in OTP 23
+        t_key_expressions/1
     ]).
 
 suite() -> [].
@@ -130,7 +134,11 @@ all() ->
         t_reused_key_variable,
 
         %% new in OTP 22
-        t_mixed_clause,cover_beam_trim
+        t_mixed_clause,cover_beam_trim,
+        t_duplicate_keys,
+
+        %% new in OTP 23
+        t_key_expressions
     ].
 
 groups() -> [].
@@ -971,6 +979,24 @@ t_update_assoc(Config) when is_list(Config) ->
     BadMap = id(badmap),
     {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
     {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
+    F1 = fun() ->
+                 0 #{part => V = false},
+                 V
+         end,
+    {'EXIT',{{badmap,0},_}} = (catch F1()),
+    F2 = fun() ->
+                 case 42 of
+                     V ->
+                         [];
+                     power ->
+                         []#{key =>
+                                 receive
+                                     V -> false
+                                 end}
+                 end,
+                 V
+         end,
+    42 = F2(),
 
     %% Evaluation order.
     {'EXIT',{blurf,_}} =
@@ -2191,6 +2217,112 @@ do_cover_beam_trim(Id, OldMax, Max, Id, M) ->
     #{Id:=Val} = id(M),
     Val.
 
+t_key_expressions(_Config) ->
+    Int = id(42),
+    #{{tag,Int} := 42} = id(#{{tag,Int} => 42}),
+    #{{tag,Int+1} := 42} = id(#{{tag,Int+1} => 42}),
+    #{{a,b} := x, {tag,Int} := 42, Int := 0} =
+        id(#{{a,b} => x, {tag,Int} => 42, Int => 0}),
+
+    F1 = fun(#{Int + 1 := Val}) -> Val end,
+    val = F1(#{43 => val}),
+    {'EXIT',_} = (catch F1(a)),
+
+    F2 = fun(M, X, Y) ->
+                 case M of
+                     #{element(X, Y) := <<Sz:16,Bin:Sz/binary>>} ->
+                         Bin;
+                     #{} ->
+                         not_found;
+                     {A,B} ->
+                         A + B
+                 end
+         end,
+    <<"xyz">> = F2(#{b => <<3:16,"xyz">>}, 2, {a,b,c}),
+    not_found = F2(#{b => <<3:16,"xyz">>}, 999, {a,b,c}),
+    13 = F2({6,7}, 1, 2),
+
+    #{<<"Спутник"/utf8>> := 1} = id(#{<<"Спутник"/utf8>> => 1}),
+
+    F3 = fun(Arg) ->
+                 erase(once),
+                 RunOnce = fun(I) ->
+                                   undefined = put(once, twice),
+                                   id(I)
+                           end,
+                 case RunOnce(Arg) of
+                     #{{tag,<<Int:42>>} := Value} -> Value;
+                     {X,Y} -> X + Y
+                 end
+         end,
+    10 = F3({7,3}),
+    whatever = F3(#{{tag,<<Int:42>>} => whatever}),
+
+    F4 = fun(K1, K2, M) ->
+                 case M of
+                     #{K1 div K2 := V} -> V;
+                     #{} -> no_match
+                 end
+         end,
+    value = F4(42, 21, #{2 => value}),
+    no_match = F4(42, 21, #{}),
+    no_match = F4(42, 0, #{2 => value}),
+    no_match = F4(42, a, #{2 => value}),
+
+    F5 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{[<<(3 bsr 30 + 2):0,$k:[]/signed-integer>>] := _} ->
+                         ok;
+                     0.5 ->
+                         error
+                 end
+         end,
+    error = F5(0.5),
+
+    F6 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{<<a/utf8>> := {a,b,c}} -> ok;
+                     Other -> {error,Other}
+                 end
+         end,
+    {error,any} = F6(any),
+
+    F7 = fun(Term) ->
+                 self() ! Term,
+                 (?MODULE:all()):a(catch
+                                       receive
+                                           <<1.14:{<<"a":(tuple_size(1))>>}>> ->
+                                               4;
+                                           Other ->
+                                               Other
+                                       end)
+         end,
+    {'EXIT',{badarg,_}} = (catch F7(whatever)),
+
+    ok.
+
+t_duplicate_keys(Config) when is_list(Config) ->
+    Map = #{ gurka => gaffel },
+    Map = dup_keys_1(id(Map)),
+
+    ok = dup_keys_1(#{ '__struct__' => ok }),
+
+    ok.
+
+dup_keys_1(Map) ->
+    case Map of
+        #{'__struct__' := _} ->
+            case Map of
+                #{'__struct__' := _} ->
+                    ok;
+                O1 ->
+                    O1
+            end;
+        O2 ->
+            O2
+    end.
 
 %% aux
 

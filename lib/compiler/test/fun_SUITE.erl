@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
-         duplicated_fun/1]).
+         duplicated_fun/1,unused_fun/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -38,7 +38,7 @@ all() ->
 groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
-       eep37_dup,badarity,badfun,duplicated_fun]}].
+       eep37_dup,badarity,badfun,duplicated_fun,unused_fun]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -275,6 +275,14 @@ duplicated_fun(_Config) ->
     end.
 
 duplicated_fun_helper(_) ->
+    ok.
+
+%% ERL-1166: beam_kernel_to_ssa would crash if a fun was unused.
+unused_fun(_Config) ->
+    _ = fun() -> ok end,
+    try id(ok) of
+        _ -> fun() -> ok end
+    catch _ -> ok end,
     ok.
 
 id(I) ->

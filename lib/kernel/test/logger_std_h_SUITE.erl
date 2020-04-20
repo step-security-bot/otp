@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ all() ->
     [add_remove_instance_tty,
      add_remove_instance_standard_io,
      add_remove_instance_standard_error,
+     add_remove_instance_custom_device,
      add_remove_instance_file1,
      add_remove_instance_file2,
      add_remove_instance_file3,
@@ -173,6 +174,11 @@ add_remove_instance_tty(_Config) ->
 add_remove_instance_standard_io(_Config) ->
     add_remove_instance_nofile(standard_io).
 add_remove_instance_standard_io(cleanup,_Config) ->
+    logger_std_h_remove().
+
+add_remove_instance_custom_device(_Config) ->
+    add_remove_instance_nofile({device,user}).
+add_remove_instance_custom_device(cleanup,_Config) ->
     logger_std_h_remove().
 
 add_remove_instance_standard_error(_Config) ->
@@ -285,9 +291,16 @@ errors(Config) ->
         _ ->
             NoDir = lists:concat(["/",?MODULE,"_dir"]),
             {error,
-             {handler_not_added,{open_failed,NoDir,eacces}}} =
+             {handler_not_added,{open_failed,NoDir,Error}}} =
                 logger:add_handler(myh2,logger_std_h,
-                                   #{config=>#{type=>{file,NoDir}}})
+                                   #{config=>#{type=>{file,NoDir}}}),
+            case Error of
+                erofs ->
+                    %% Happens on OS X
+                    ok;
+                eacces ->
+                    ok
+            end
     end,
 
     {error,
@@ -304,6 +317,8 @@ errors(cleanup,_Config) ->
 formatter_fail(Config) ->
     Dir = ?config(priv_dir,Config),
     Log = filename:join(Dir,?FUNCTION_NAME),
+
+    logger:set_primary_config(level,all),
 
     %% no formatter
     ok = logger:add_handler(?MODULE,
@@ -346,6 +361,7 @@ formatter_fail(Config) ->
     ok.
 
 formatter_fail(cleanup,_Config) ->
+    logger:set_primary_config(level,info),
     logger:remove_handler(?MODULE).
 
 config_fail(_Config) ->
@@ -1759,7 +1775,7 @@ rotation_opts_restart_handler(Config) ->
            HConfig3#{config=>StdHConfig3#{max_no_bytes=>75,
                                           max_no_files=>1,
                                           compress_on_rotate=>true}}),
-    timer:sleep(100),
+    timer:sleep(500),
     {ok,#file_info{size=0}} = file:read_file_info(Log),
     {ok,#file_info{size=29}} = file:read_file_info(Log++".0.gz"),
     [_] = filelib:wildcard(Log++".*"),
@@ -2200,10 +2216,14 @@ check_tracer(T,TimeoutFun) ->
             TimeoutFun()
     end.
 
-escape([$+|Rest]) ->
-    [$\\,$+|escape(Rest)];
-escape([H|T]) ->
-    [H|escape(T)];
+escape([C|Rest]) ->
+    %% The characters that have to be escaped in a regex
+    case lists:member(C,"[-[\]{}()*+?.,\\^$|#\s]") of
+        true ->
+            [$\\,C|escape(Rest)];
+        false ->
+            [C|escape(Rest)]
+    end;
 escape([]) ->
     [].
 

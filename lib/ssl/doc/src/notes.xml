@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2018</year>
+      <year>1999</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -26,6 +26,171 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
+
+<section><title>SSL 9.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct error handling when the partial_chain fun claims
+	    a certificate to be the trusted cert that is not part of
+	    the chain. This bug would hide the appropriate alert
+	    generating an "INTERNAL_ERROR" alert instead.</p>
+          <p>
+	    Own Id: OTP-16567 Aux Id: ERIERL-481 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of TLS record limit in TLS-1.3. The max
+	    value differs from previous versions. Also the payload
+	    data max record check was broken, that is record overflow
+	    problems could occur if user sent large amounts of data.</p>
+          <p>
+	    Own Id: OTP-16258</p>
+        </item>
+        <item>
+          <p>
+	    Correct close handling for DTLS</p>
+          <p>
+	    Own Id: OTP-16348 Aux Id: ERL-1110 </p>
+        </item>
+        <item>
+          <p>
+	    Fix ssl:getstat/1-2 to also work for DTLS sockets</p>
+          <p>
+	    Own Id: OTP-16352 Aux Id: ERL-1099 </p>
+        </item>
+        <item>
+          <p>
+	    Correct internal handling och socket active mode to avoid
+	    reviving TCP data aimed for a downgraded TLS socket.</p>
+          <p>
+	    Own Id: OTP-16425</p>
+        </item>
+        <item>
+          <p>
+	    When using the host name as fallback for SNI (server name
+	    indication) strip a possible trailing dot that is allowed
+	    in a host name but not in the SNI. Also if the server
+	    receives a SNI with a trailing dot send an
+	    UNRECOGNIZED_NAME alert.</p>
+          <p>
+	    Own Id: OTP-16437 Aux Id: ERL-1135 </p>
+        </item>
+        <item>
+          <p>
+	    Immediately remove session entries if handshake is
+	    abruptly closed at transport level.</p>
+          <p>
+	    Own Id: OTP-16479</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implementation of the key and initialization vector
+	    update feature, and general hardening of TLS 1.3.</p>
+          <p>
+	    There are cryptographic limits on the amount of plaintext
+	    which can be safely encrypted under a given set of keys.</p>
+          <p>
+	    This change enforces those limits by triggering automatic
+	    key updates on TLS 1.3 connections.</p>
+          <p>
+	    Own Id: OTP-15856</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS 1.3 Session Tickets (stateful and
+	    stateless). This allows session resumption using keying
+	    material from a previous successful handshake.</p>
+          <p>
+	    Own Id: OTP-16253</p>
+        </item>
+        <item>
+          <p>
+	    Add support for key exchange with Edward curves and
+	    PSS-RSA padding in signature verification.</p>
+          <p>
+	    Own Id: OTP-16528</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling, all ALERTS shall be handled
+	    gracefully and not cause a crash.</p>
+          <p>
+	    Own Id: OTP-16413 Aux Id: ERL-1136 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance alert logging, in some places the role indication
+	    of the alert origin was missing. So the log would say
+	    undefined instead of client or server.</p>
+          <p>
+	    Own Id: OTP-16424</p>
+        </item>
+        <item>
+          <p>
+	    Two different optimizations did not work together and
+	    resulted in the possible breakage of connections using
+	    stream ciphers (that is RC4). Reworked the implementation
+	    to avoid this.</p>
+          <p>
+	    Own Id: OTP-16426 Aux Id: ERL-1136 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 9.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the handling of GREASE values sent by web browsers
+	    when establishing TLS 1.3 connections. This change
+	    improves handling of GREASE values in various protocol
+	    elements sent in a TLS 1.3 ClientHello.</p>
+          <p>
+	    Own Id: OTP-16388 Aux Id: ERL-1130 </p>
+        </item>
+        <item>
+          <p>
+	    Correct DTLS listen emulation, could cause problems with
+	    opening a new DTLS listen socket for a port previously
+	    used by a now closed DTLS listen socket.</p>
+          <p>
+	    Own Id: OTP-16396 Aux Id: ERL-1118 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 9.5.1</title>
 

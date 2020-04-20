@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,9 @@
 	 cache_test/1
 
 	]).
+
+
+-define(ALIB, snmp_agent_test_lib).
 
 
 %%======================================================================
@@ -166,46 +169,36 @@ init_per_testcase(Case, Config0) when is_list(Config0) ->
 
 init_per_testcase2(size_check_ets2_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
-    %% Create a ad file
+    %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
-    %% Create a ad file
+    %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
     Config;
 init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
-    DbDir = ?config(db_dir, Config),
-    try
-        begin
-            mnesia_start([{dir, DbDir}]),
-            Config
-        end
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end;
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 2))),
+    Config;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
-    Min = timer:minutes(5), 
-    Timeout =
-	case lists:keysearch(tc_timeout, 1, Config) of
-	    {value, {tc_timeout, TcTimeout}} when TcTimeout < Min ->
-		Min; 
-	    {value, {tc_timeout, TcTimeout}} ->
-		TcTimeout; 
-	    _ ->
-		Min
-	end,
-    Dog = test_server:timetrap(Timeout), 
-    [{watchdog, Dog} | Config];
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(5 + (Factor div 2))),
+    Config;
 init_per_testcase2(_Case, Config) when is_list(Config) ->
+    Factor = ?config(snmp_factor, Config),
+    ct:timetrap(?MINS(1 + (Factor div 3))),
     Config.
 
 
 end_per_testcase(Case, Config) when is_list(Config) ->
-    ?PRINT2("system events during test: "
+    ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
     end_per_testcase1(Case, Config).
 
@@ -226,6 +219,10 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
 
 start_and_stop(suite) -> [];
 start_and_stop(Config) when is_list(Config) ->
+    tc_try(start_and_start,
+           fun() -> do_start_and_stop(Config) end).
+
+do_start_and_stop(_Config) ->
     Prio      = normal,
     Verbosity = trace,
 
@@ -244,6 +241,10 @@ start_and_stop(Config) when is_list(Config) ->
 
 load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
+    tc_try(load_unload,
+           fun() -> do_load_unload(Config) end).
+
+do_load_unload(Config) ->
     ?DBG("load_unload -> start", []),
 
     Prio       = normal,
@@ -301,7 +302,8 @@ size_check_ets1(suite) ->
     [];
 size_check_ets1(Config) when is_list(Config) ->
     MibStorage = [{module, snmpa_mib_storage_ets}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets2(suite) ->
     [];
@@ -309,7 +311,8 @@ size_check_ets2(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir, Dir}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets2,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets2_bad_file1(suite) ->
     [];
@@ -319,7 +322,8 @@ size_check_ets2_bad_file1(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir,    Dir}, 
 			     {action, clear}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets2_bad_file1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets3(suite) ->
     [];
@@ -328,7 +332,8 @@ size_check_ets3(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir,      Dir}, 
 			     {checksum, true}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets3,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets3_bad_file1(suite) ->
     [];
@@ -339,7 +344,8 @@ size_check_ets3_bad_file1(Config) when is_list(Config) ->
 		  {options, [{dir,      Dir}, 
 			     {action,   clear}, 
 			     {checksum, true}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets3_bad_file1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_dets(suite) ->
     [];
@@ -347,18 +353,31 @@ size_check_dets(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),
     MibStorage = [{module,  snmpa_mib_storage_dets}, 
 		  {options, [{dir, Dir}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_dets,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_mnesia(suite) ->
     [];
 size_check_mnesia(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_mnesia}, 
-		  {options, [{nodes, [node()]}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+                  {options, [{nodes, []}]}],
+    DbDir      = ?config(db_dir, Config),
+    Init       = fun() -> mnesia_start([{dir, DbDir}]), ok end,
+    do_size_check(size_check_mnesia,
+                  Init,
+                  [{mib_storage, MibStorage}|Config]).
+
+do_size_check(Name, Config) ->
+    Init = fun() -> ok end,
+    do_size_check(Name, Init, Config).
+
+do_size_check(Name, Init, Config) ->
+    tc_try(Name, Init, fun() -> do_size_check(Config) end).
+
 
 do_size_check(Config) ->
-    ?DBG("do_size_check -> start with"
-	 "~n   Config: ~p", [Config]),
+    ?IPRINT("do_size_check -> start with"
+            "~n   Config: ~p", [Config]),
     Prio      = normal,
     Verbosity = trace,
 
@@ -404,7 +423,7 @@ do_size_check(Config) ->
     ?DBG("do_size_check -> stop symbolic store", []),
     ?line sym_stop(),
 
-    ?DBG("do_size_check -> done", []),
+    ?IPRINT("do_size_check -> done", []),
     ok.
 
 
@@ -412,6 +431,10 @@ do_size_check(Config) ->
 
 me_lookup(suite) -> [];
 me_lookup(Config) when is_list(Config) ->
+    tc_try(me_lookup,
+           fun() -> do_me_lookup(Config) end).
+
+do_me_lookup(Config) ->
     Prio       = normal,
     Verbosity  = trace,
     MibDir     = ?config(data_dir, Config),
@@ -465,6 +488,10 @@ me_lookup(Config) when is_list(Config) ->
 
 which_mib(suite) -> [];
 which_mib(Config) when is_list(Config) ->
+    tc_try(which_mib,
+           fun() -> do_which_mib(Config) end).
+
+do_which_mib(Config) ->
     Prio       = normal,
     Verbosity  = trace,
     MibDir     = ?config(data_dir, Config),
@@ -521,7 +548,11 @@ which_mib(Config) when is_list(Config) ->
 
 cache_test(suite) -> [];
 cache_test(Config) when is_list(Config) ->
-    ?DBG("cache_test -> start", []),
+    tc_try(cache_test,
+           fun() -> do_cache_test(Config) end).
+
+do_cache_test(Config) ->
+    ?DBG("do_cache_test -> start", []),
     Prio       = normal,
     Verbosity  = trace,
     MibStorage = [{module, snmpa_mib_storage_ets}],
@@ -607,15 +638,17 @@ walk(MibsPid) ->
     
 
 do_walk(MibsPid, Oid, MibView) ->
-    io:format("do_walk -> entry with"
-	      "~n   Oid: ~p"
-	      "~n", [Oid]),
+    ?IPRINT("do_walk -> entry with"
+            "~n   Oid: ~p"
+            "~n", [Oid]),
     case snmpa_mib:next(MibsPid, Oid, MibView) of
 	{table, _, _, #me{oid = Oid}} ->
+            ?IPRINT("do_walk -> done for table (~p)", [Oid]),
 	    ok;
 	{table, _, _, #me{oid = Next}} ->
 	    do_walk(MibsPid, Next, MibView);
 	{variable, #me{oid = Oid}, _} ->
+            ?IPRINT("do_walk -> done for variable (~p)", [Oid]),
 	    ok;
 	{variable, #me{oid = Next}, _} ->
 	    do_walk(MibsPid, Next, MibView)
@@ -635,7 +668,7 @@ mnesia_start(Opts, Nodes) ->
     %% We can accept mnesia beeing loaded but *not* started.
     %% If its started it *may* contain data that will invalidate
     %% this test case.
-    ?PRINT2("mnesia_start -> try load mnesia when:"
+    ?IPRINT("mnesia_start -> try load mnesia when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     ?line ok = case application:load(mnesia) of
@@ -647,12 +680,12 @@ mnesia_start(Opts, Nodes) ->
                        ERROR
                end,
     F = fun({Key, Val}) ->
-		?PRINT2("mnesia_start -> try set mnesia env: "
+		?IPRINT("mnesia_start -> try set mnesia env: "
                         "~n   ~p -> ~p", [Key, Val]),
 		?line application_controller:set_env(mnesia, Key, Val)
 	end,
     lists:foreach(F, Opts),
-    ?PRINT2("mnesia_start -> create mnesia schema on ~p", [Nodes]),
+    ?IPRINT("mnesia_start -> create mnesia schema on ~p", [Nodes]),
     ?line case mnesia:create_schema(Nodes) of
               ok ->
                   ok;
@@ -662,7 +695,7 @@ mnesia_start(Opts, Nodes) ->
                   throw({skip,
                          ?F("Failed create mnesia schema: ~p", [SchemaReason])})
           end,
-    ?PRINT2("mnesia_start -> start mnesia", []),
+    ?IPRINT("mnesia_start -> start mnesia", []),
     ?line case application:start(mnesia) of
               ok ->
                   ok;
@@ -672,19 +705,19 @@ mnesia_start(Opts, Nodes) ->
                   throw({skip,
                          ?F("Failed starting mnesia: ~p", [StartReason])})
           end,
-    ?PRINT2("mnesia_start -> mnesia started", []),
+    ?IPRINT("mnesia_start -> mnesia started", []),
     ok.
 
 mnesia_stop() ->
-    ?PRINT2("mnesia_stop -> try stop mnesia when:"
+    ?IPRINT("mnesia_stop -> try stop mnesia when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:stop(mnesia),
-    ?PRINT2("mnesia_stop -> try unload mnesia when"
+    ?IPRINT("mnesia_stop -> try unload mnesia when"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:unload(mnesia),
-    ?PRINT2("mnesia_stop -> done when:"
+    ?IPRINT("mnesia_stop -> done when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     ok.
@@ -844,6 +877,65 @@ mib_storage() ->
     [{module, snmpa_mib_storage_ets}].
 
 
+%% --
+
+tc_try(Name, TC) ->
+    tc_try(Name, fun() -> ok end, TC).
+
+tc_try(Name, Init, TC)
+  when is_atom(Name) andalso is_function(Init, 0) andalso is_function(TC, 0) ->
+    Pre = fun() ->
+                  {ok, Node} = ?ALIB:start_node(unique(Name)),
+                  ok = run_on(Node, Init),
+                  Node
+          end,
+    Case = fun(Node) ->
+                   monitor_node(Node, true),
+                   Pid = spawn_link(Node, TC),
+                   receive
+                       {nodedown, Node} = N ->
+                           exit(N);
+                       {'EXIT', Pid, normal} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, ok} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, Reason} ->
+                           monitor_node(Node, false),                           
+                           exit(Reason)
+                   end
+           end,
+    Post = fun(Node) ->
+                   monitor_node(Node, true),
+                   ?NPRINT("try stop node ~p", [Node]),
+                   ?STOP_NODE(Node),
+                   receive
+                       {nodedown, Node} ->
+                           ?NPRINT("node ~p stopped", [Node]),
+                           ok
+                   end
+           end,
+    ?TC_TRY(Name, Pre, Case, Post).
+    
+run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
+    monitor_node(Node, true),
+    Pid = spawn_link(Node, F),
+    receive
+        {nodedown, Node} = N ->
+            exit(N);
+        {'EXIT', Pid, normal} ->
+            monitor_node(Node, false),                           
+            ok;
+        {'EXIT', Pid, Reason} ->
+            monitor_node(Node, false),                           
+            Reason
+    end.
+    
+unique(PreName) ->
+    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
+
+
 %% -- 
 
 display_memory_usage(MibsPid) ->
@@ -856,19 +948,19 @@ display_memory_usage(MibsPid) ->
     MibDbSize   = key1search([db_memory,mib],  MibsInfo),
     NodeDbSize  = key1search([db_memory,node], MibsInfo),
     TreeDbSize  = key1search([db_memory,tree], MibsInfo),
-    ?INF("Symbolic store memory usage: "
-	"~n   Process memory size: ~p"
-	"~n   Db size:             ~p"
-	"~n"
-	"~nMib server memory usage: "
-	"~n   Tree size:           ~p"
-	"~n   Process memory size: ~p"
-	"~n   Mib db size:         ~p"
-	"~n   Node db size:        ~p"
-	"~n   Tree db size:        ~p"
-	"~n", 
-	[SymProcSize, DbSize,
-	TreeSize, MibsProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
+    ?IPRINT("Symbolic store memory usage: "
+            "~n   Process memory size: ~p"
+            "~n   Db size:             ~p"
+            "~n"
+            "~nMib server memory usage: "
+            "~n   Tree size:           ~p"
+            "~n   Process memory size: ~p"
+            "~n   Mib db size:         ~p"
+            "~n   Node db size:        ~p"
+            "~n   Tree db size:        ~p"
+            "~n", 
+            [SymProcSize, DbSize,
+             TreeSize, MibsProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
     
 key1search([], Res) ->
     Res;

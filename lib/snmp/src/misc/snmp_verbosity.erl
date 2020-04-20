@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -138,6 +138,7 @@ image_of_sname(mns)       -> "M-NOTE-STORE";
 image_of_sname(mnif)      -> "M-NET-IF";
 image_of_sname(mnifl)     -> "M-NET-IF-LOGGER";
 image_of_sname(mnifw)     -> io_lib:format("M-NET-IF-worker(~p)", [self()]);
+image_of_sname(mnis)      -> "M-NIS";
 image_of_sname(mconf)     -> "M-CONF";
 
 image_of_sname(lc)        -> io_lib:format("LOG-CONVERTER(~p)", [self()]);

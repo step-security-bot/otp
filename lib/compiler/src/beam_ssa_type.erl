@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
+-import(lists, [any/2,duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
@@ -189,8 +189,8 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => Ts,
-            0 => Ts },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
+            0 => {incoming, Ts} },
 
     Meta = init_metadata(Id, Linear, Args),
 
@@ -210,20 +210,30 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     end.
 
 sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
-       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) when is_map_key(L, Ls0) ->
+       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) ->
+    case Ls0 of
+        #{ L := Incoming } ->
+            {incoming, Ts0} = Incoming,         %Assertion.
 
-    #{ L := Ts0 } = Ls0,
+            {Ts, Ds, Sub, State} =
+                sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
 
-    {Ts, Ds, Sub, State} = sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
+            Last = simplify_terminator(Last0, Ts, Ds, Sub),
+            SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
 
-    Last = simplify_terminator(Last0, Ts, Ds, Sub),
-    SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
-    {_, Ls} = update_successors(Last, Ts, Ds, Ls0, Meta#metadata.used_once),
+            UsedOnce = Meta#metadata.used_once,
+            {_, Ls1} = update_successors(Last, Ts, Ds, Ls0, UsedOnce),
 
-    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
-sig_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, State) ->
-    %% This block is never reached. Ignore it.
-    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+            %% In the future there may be a point to storing outgoing types on
+            %% a per-edge basis as it would give us more precision in phi
+            %% nodes, but there's nothing to gain from that at the moment so
+            %% we'll store the current Ts to save memory.
+            Ls = Ls1#{ L := {outgoing, Ts} },
+            sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+        #{} ->
+            %% This block is never reached. Ignore it.
+            sig_bs(Bs, Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0)
+    end;
 sig_bs([], _Ds, _Ls, _Fdb, _Sub, SuccTypes, _Meta, State) ->
     {State, SuccTypes}.
 
@@ -268,9 +278,9 @@ sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
 sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
-        {#b_set{}, Ts, Ds, Sub} ->
-            sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
-        {_Value, Sub} ->
+        {#b_set{}, Ts, Ds} ->
+            sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
+        Sub when is_map(Sub) ->
             sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
     end;
 sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
@@ -412,8 +422,8 @@ opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => Ts,
-            0 => Ts },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
+            0 => {incoming, Ts} },
 
     Meta = init_metadata(Id, Linear0, Args),
 
@@ -434,21 +444,28 @@ get_func_id(Anno) ->
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
 opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
-       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) when is_map_key(L, Ls0) ->
+       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) ->
+    case Ls0 of
+        #{ L := Incoming } ->
+            {incoming, Ts0} = Incoming,         %Assertion.
 
-    #{ L := Ts0 } = Ls0,
-    {Is, Ts, Ds, Fdb, Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
+            {Is, Ts, Ds, Fdb, Sub} =
+            opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
 
-    Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+            Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+            SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
 
-    SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
-    {Last, Ls} = update_successors(Last1, Ts, Ds, Ls0, Meta#metadata.used_once),
+            UsedOnce = Meta#metadata.used_once,
+            {Last, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
 
-    Blk = Blk0#b_blk{is=Is,last=Last},
-    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
-opt_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc) ->
-    %% This block is never reached. Discard it.
-    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc);
+            Ls = Ls1#{ L := {outgoing, Ts} },           %Assertion.
+
+            Blk = Blk0#b_blk{is=Is,last=Last},
+            opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
+        #{} ->
+            %% This block is never reached. Discard it.
+            opt_bs(Bs, Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc)
+    end;
 opt_bs([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
     {reverse(Acc), Fdb, SuccTypes}.
 
@@ -474,8 +491,10 @@ opt_is([#b_set{op=call,
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
-            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
-            _ -> I1
+            #t_fun{type=Type} when Type =/= any ->
+                beam_ssa:add_anno(result_type, Type, I1);
+            _ ->
+                I1
         end,
 
     Ts = update_types(I, Ts0, Ds0),
@@ -493,9 +512,9 @@ opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
 opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
-        {#b_set{}=I, Ts, Ds, Sub} ->
-            opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
-        {_Value, Sub} ->
+        {#b_set{}=I, Ts, Ds} ->
+            opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
+        Sub when is_map(Sub) ->
             opt_is(Is, Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc)
     end;
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
@@ -598,13 +617,20 @@ opt_finish_1([], [], Acc) ->
 simplify_terminator(#b_br{bool=Bool}=Br0, Ts, Ds, Sub) ->
     Br = beam_ssa:normalize(Br0#b_br{bool=simplify_arg(Bool, Ts, Sub)}),
     simplify_not(Br, Ts, Ds, Sub);
-simplify_terminator(#b_switch{arg=Arg0}=Sw0, Ts, Ds, Sub) ->
+simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
+                    Ts, Ds, Sub) ->
     Arg = simplify_arg(Arg0, Ts, Sub),
-    Sw = Sw0#b_switch{arg=Arg},
-
-    case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
-        true -> simplify_switch_bool(Sw, Ts, Ds, Sub);
-        false -> beam_ssa:normalize(Sw)
+    %% Ensure that no label in the switch list is the same as the
+    %% failure label.
+    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    case beam_ssa:normalize(Sw0#b_switch{arg=Arg,list=List}) of
+        #b_switch{}=Sw ->
+            case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
+                true -> simplify_switch_bool(Sw, Ts, Ds, Sub);
+                false -> Sw
+            end;
+        #b_br{}=Br ->
+            simplify_terminator(Br, Ts, Ds, Sub)
     end;
 simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
     %% Reducing the result of a call to a literal (fairly common for 'ok')
@@ -614,58 +640,89 @@ simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
         #{} -> Ret#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
     end.
 
-simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub0) ->
+%%
+%% Simplifies an instruction, returning either a new instruction (with updated
+%% type and definition maps), or an updated substitution map if the instruction
+%% was redundant.
+%%
+
+simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
-    Args = [{simplify_arg(Arg, Ts0, Sub0), From} ||
-               {Arg,From} <- Args0, maps:is_key(From, Ls)],
-    case all_same(Args) of
+    {Type, Args} = simplify_phi_args(Args0, Ls, Sub, none, []),
+    case phi_all_same(Args) of
         true ->
             %% Eliminate the phi node if there is just one source
             %% value or if the values are identical.
-            [{Val,_}|_] = Args,
-            Sub = Sub0#{ Dst => Val },
-            {Val, Sub};
+            [{Val, _} | _] = Args,
+            Sub#{ Dst => Val };
         false ->
             I = I0#b_set{args=Args},
-            Ts = update_types(I, Ts0, Ds0),
-            Ds = Ds0#{Dst=>I},
-            {I, Ts, Ds, Sub0}
+
+            Ts = Ts0#{ Dst => Type },
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds}
     end;
-simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub0) ->
-    case will_succeed(I0, Ts0, Ds0, Sub0) of
-        yes ->
+simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I0,
+         Ts0, Ds0, _Ls, Sub) ->
+    Type = case will_succeed(I0, Ts0, Ds0, Sub) of
+               yes -> beam_types:make_atom(true);
+               no -> beam_types:make_atom(false);
+               maybe -> beam_types:make_boolean()
+           end,
+    case Type of
+        #t_atom{elements=[true]} ->
+            %% The checked operation always succeeds, so it's safe to remove
+            %% this instruction regardless of whether we're in a guard or not.
             Lit = #b_literal{val=true},
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
-        no ->
+            Sub#{ Dst => Lit };
+        #t_atom{elements=[false]} when Kind =:= guard ->
+            %% Failing operations are only safe to remove in guards.
             Lit = #b_literal{val=false},
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
-        maybe ->
+            Sub#{ Dst => Lit };
+        _ ->
+            true = is_map_key(Arg, Ds0),        %Assertion.
+
             %% Note that we never simplify args; this instruction is specific
             %% to the operation being checked, and simplifying could break that
             %% connection.
             I = beam_ssa:normalize(I0),
-            Ts = Ts0#{ Dst => beam_types:make_boolean() },
+            Ts = Ts0#{ Dst => Type },
             Ds = Ds0#{ Dst => I },
-            {I, Ts, Ds, Sub0}
+            {I, Ts, Ds}
     end;
-simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub0) ->
-    Args = simplify_args(Args0, Ts0, Sub0),
+simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I2 = case {Args0,Args} of
+             {[_,_,_,#b_var{},_],[Type,Val,Flags,#b_literal{val=all},Unit]} ->
+                 %% The size `all` is used for the size of the final binary
+                 %% segment in a pattern. Using `all` explicitly is not allowed,
+                 %% so we convert it to an obvious invalid size.
+                 I1#b_set{args=[Type,Val,Flags,#b_literal{val=bad_size},Unit]};
+             {_,_} ->
+                 I1
+         end,
+    %% We KNOW that simplify/2 will return a #b_set{} record when called with
+    %% a bs_match instruction.
+    #b_set{} = I3 = simplify(I2, Ts0),
+    I = beam_ssa:normalize(I3),
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    {I, Ts, Ds};
+simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0) of
         #b_set{}=I2 ->
             I = beam_ssa:normalize(I2),
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
-            {I, Ts, Ds, Sub0};
+            {I, Ts, Ds};
         #b_literal{}=Lit ->
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
+            Sub#{ Dst => Lit };
         #b_var{}=Var ->
-            Sub = Sub0#{ Dst => Var },
-            {Var, Sub}
+            Sub#{ Dst => Var }
     end.
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
@@ -719,6 +776,11 @@ simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
     case normalized_type(Term, Ts) of
         #t_tuple{} ->
             simplify(I#b_set{op={bif,tuple_size}}, Ts);
+        #t_bitstring{size_unit=U} when U rem 8 =:= 0 ->
+            %% If the bitstring is a binary (the size in bits is
+            %% evenly divisibly by 8), byte_size/1 gives
+            %% the same result as size/1.
+            simplify(I#b_set{op={bif,byte_size}}, Ts);
         _ ->
             eval_bif(I, Ts)
     end;
@@ -740,6 +802,13 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
             I;
         _ ->
             #b_literal{val=false}
+    end;
+simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts) ->
+    case normalized_type(Map, Ts) of
+        #t_map{} ->
+            I#b_set{op=has_map_field,args=[Map,Key]};
+        _ ->
+            I
     end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
                                                     Op0 =:= '/=' ->
@@ -862,8 +931,6 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
     end;
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
     #b_literal{val=true};
-simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
-    I#b_set{op=wait,args=[]};
 simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
     case Rem of
         #b_remote{mod=#b_literal{val=Mod},
@@ -877,6 +944,16 @@ simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
         #b_remote{} ->
             I
     end;
+simplify(#b_set{op=call,args=[#b_literal{val=Fun}|Args]}=I, _Ts)
+  when is_function(Fun, length(Args)) ->
+    FI = erlang:fun_info(Fun),
+    {module,M} = keyfind(module, 1, FI),
+    {name,F} = keyfind(name, 1, FI),
+    {arity,A} = keyfind(arity, 1, FI),
+    Rem = #b_remote{mod=#b_literal{val=M},
+                    name=#b_literal{val=F},
+                    arity=A},
+    I#b_set{args=[Rem|Args]};
 simplify(I, _Ts) -> I.
 
 will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
@@ -926,10 +1003,56 @@ will_succeed_1(#b_set{op=get_hd}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=get_tl}, _Src, _Ts, _Sub) ->
     yes;
+will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts, _Sub) ->
+    yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
     yes;
+
+%% Remove the success branch from binary operations with invalid
+%% sizes. That will remove subsequent bs_put and bs_match instructions,
+%% which are probably not loadable.
+will_succeed_1(#b_set{op=bs_add,args=[_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{val=new},#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{},_,#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_match,
+                      args=[#b_literal{val=Type},_,_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        Type =:= binary, Size =:= all ->
+            %% `all` is a legal size for binary segments at the end of
+            %% a binary pattern.
+            maybe;
+        true ->
+            %% Invalid size. Matching will fail.
+            no
+    end;
 
 %% These operations may fail even though we know their return value on success.
 will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
@@ -1003,6 +1126,34 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds, Sub) ->
 simplify_not(#b_br{bool=#b_literal{}}=Br, _Sub, _Ts, _Ds) ->
     Br.
 
+simplify_phi_args([{Arg0, From} | Rest], Ls, Sub, Type0, Args) ->
+    case Ls of
+        #{ From := Outgoing } ->
+            {outgoing, Ts} = Outgoing,          %Assertion.
+
+            Arg = simplify_arg(Arg0, Ts, Sub),
+            Type = beam_types:join(raw_type(Arg, Ts), Type0),
+            Phi = {Arg, From},
+
+            simplify_phi_args(Rest, Ls, Sub, Type, [Phi | Args]);
+        #{} ->
+            simplify_phi_args(Rest, Ls, Sub, Type0, Args)
+    end;
+simplify_phi_args([], _Ls, _Sub, Type, Args) ->
+    %% We return the arguments in their incoming order so that they won't
+    %% change back and forth and ruin fixpoint iteration in beam_ssa_opt.
+    {Type, reverse(Args)}.
+
+phi_all_same([{Arg, _From} | Phis]) ->
+    phi_all_same_1(Phis, Arg).
+
+phi_all_same_1([{Arg, _From} | Phis], Arg) ->
+    phi_all_same_1(Phis, Arg);
+phi_all_same_1([], _Arg) ->
+    true;
+phi_all_same_1(_Phis, _Arg) ->
+    false.
+
 %% Simplify a remote call to a pure BIF.
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
     Tl;
@@ -1052,10 +1203,11 @@ is_non_numeric([H|T]) ->
 is_non_numeric(Tuple) when is_tuple(Tuple) ->
     is_non_numeric_tuple(Tuple, tuple_size(Tuple));
 is_non_numeric(Map) when is_map(Map) ->
-    %% Note that 17.x and 18.x compare keys in different ways.
-    %% Be very conservative -- require that both keys and values
-    %% are non-numeric.
-    is_non_numeric(maps:to_list(Map));
+    %% Starting from OTP 18, map keys are compared using `=:=`.
+    %% Therefore, we only need to check that the values in the map are
+    %% non-numeric. (Support for compiling BEAM files for OTP releases
+    %% older than OTP 18 has been dropped.)
+    is_non_numeric(maps:values(Map));
 is_non_numeric(Num) when is_number(Num) ->
     false;
 is_non_numeric(_) -> true.
@@ -1067,6 +1219,12 @@ is_non_numeric_tuple(_Tuple, 0) -> true.
 
 is_non_numeric_type(#t_atom{}) -> true;
 is_non_numeric_type(#t_bitstring{}) -> true;
+is_non_numeric_type(#t_cons{type=Type,terminator=Terminator}) ->
+    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
+is_non_numeric_type(#t_list{type=Type,terminator=Terminator}) ->
+    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
+is_non_numeric_type(#t_map{super_value=Value}) ->
+    is_non_numeric_type(Value);
 is_non_numeric_type(nil) -> true;
 is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
   when map_size(Types) =:= Size ->
@@ -1094,9 +1252,6 @@ is_safe_bool_op([LHS, RHS], Ts) ->
     RType = raw_type(RHS, Ts),
     beam_types:is_boolean_type(LType) andalso
         beam_types:is_boolean_type(RType).
-
-all_same([{H,_}|T]) ->
-    all(fun({E,_}) -> E =:= H end, T).
 
 eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
     Arity = length(Args),
@@ -1154,8 +1309,39 @@ eval_type_test_bif(I, is_number, [Type]) ->
     eval_type_test_bif_1(I, Type, number);
 eval_type_test_bif(I, is_tuple, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_tuple{});
-eval_type_test_bif(I, _, _) ->
-    I.
+eval_type_test_bif(I, Op, Types) ->
+    case Types of
+        [#t_integer{},#t_integer{elements={0,0}}]
+          when Op =:= '+'; Op =:= '-'; Op =:= 'bor'; Op =:= 'bxor' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= '*'; Op =:= 'band' ->
+            #b_literal{val=0};
+        [#t_integer{},#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        [#t_integer{elements={LMin,LMax}},#t_integer{elements={RMin,RMax}}] ->
+            case is_inequality_op(Op) of
+                true ->
+                    case {erlang:Op(LMin, RMin),erlang:Op(LMax, RMin),
+                          erlang:Op(LMin, RMax),erlang:Op(LMax, RMax)} of
+                        {Bool,Bool,Bool,Bool} ->
+                            #b_literal{val=Bool};
+                        _ ->
+                            I
+                    end;
+                false ->
+                    I
+            end;
+        _ ->
+            I
+    end.
+
+is_inequality_op('<') -> true;
+is_inequality_op('=<') -> true;
+is_inequality_op('>') -> true;
+is_inequality_op('>=') -> true;
+is_inequality_op(_) -> false.
 
 eval_type_test_bif_1(I, ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
@@ -1341,9 +1527,20 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
     case FailTs of
         none ->
             %% The fail block is unreachable; swap it with one of the choices.
-            [{_, Fail} | List] = List1,
-            Last = Last0#b_switch{fail=Fail,list=List},
-            {Last, Ls1};
+            case List1 of
+                [{#b_literal{val=0},_}|_] ->
+                    %% Swap with the last choice in order to keep the zero the
+                    %% first choice. If the loader can substitute a jump table
+                    %% instruction, then a shorter version of the jump table
+                    %% instruction can be used if the first value is zero.
+                    {List, [{_,Fail}]} = split(length(List1)-1, List1),
+                    Last = Last0#b_switch{fail=Fail,list=List},
+                    {Last, Ls1};
+                [{_,Fail}|List] ->
+                    %% Swap with the first choice in the list.
+                    Last = Last0#b_switch{fail=Fail,list=List},
+                    {Last, Ls1}
+            end;
         #{} ->
             Ls = update_successor(Fail0, FailTs, Ls1),
             Last = Last0#b_switch{list=List1},
@@ -1387,20 +1584,21 @@ update_successor(?EXCEPTION_BLOCK, _Ts, Ls) ->
     Ls;
 update_successor(S, Ts0, Ls) ->
     case Ls of
-        #{ S := Ts1 } ->
-            Ts = join_types(Ts0, Ts1),
-            Ls#{ S := Ts };
+        #{ S := {outgoing, _} } ->
+            %% We're in a receive loop or similar; the target block will not be
+            %% revisited.
+            Ls;
+        #{ S := {incoming, InTs} } ->
+            Ts = join_types(Ts0, InTs),
+            Ls#{ S := {incoming, Ts} };
         #{} ->
-            Ls#{ S => Ts0 }
+            Ls#{ S => {incoming, Ts0} }
     end.
 
 update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
     T = type(Op, Args, Anno, Ts, Ds),
     Ts#{Dst=>T}.
 
-type(phi, Args, _Anno, Ts, _Ds) ->
-    Types = [raw_type(A, Ts) || {A,_} <- Args],
-    beam_types:join(Types);
 type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(erlang, Bif, ArgTypes),
@@ -1459,8 +1657,16 @@ type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
         #{ result_type := Type } -> Type;
         #{} -> any
     end;
-type(call, [#b_literal{} | _Args], _Anno, _Ts, _Ds) ->
-    none;
+type(call, [#b_literal{val=Fun} | Args], _Anno, _Ts, _Ds) ->
+    case is_function(Fun, length(Args)) of
+        true ->
+            %% This is an external fun literal (fun M:F/A).
+            any;
+        false ->
+            %% This is either not a fun literal or the number of
+            %% arguments is wrong.
+            none
+    end;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
     SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
@@ -1505,6 +1711,8 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
                             {Es, Index + 1}
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
+type(resume, [_, _], _Anno, _Ts, _Ds) ->
+    none;
 type(_, _, _, _, _) -> any.
 
 put_map_type(Map, Ss, Ts) ->
@@ -1670,7 +1878,7 @@ infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
 ts_remove_var(_V, none) -> none;
 ts_remove_var(V, Ts) -> maps:remove(V, Ts).
 
-infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
+infer_type({succeeded,_}, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
     infer_success_type(Op, Args, Ts, Ds);
 
@@ -1801,30 +2009,29 @@ infer_eq_lit(#b_set{op=get_tuple_element,
 infer_eq_lit(_, _) ->
     [].
 
-join_types(Ts0, Ts1) ->
+join_types(Ts, Ts) ->
+    Ts;
+join_types(LHS, RHS) ->
     if
-        map_size(Ts0) < map_size(Ts1) ->
-            join_types_1(maps:keys(Ts0), Ts1, Ts0);
+        map_size(LHS) < map_size(RHS) ->
+            join_types_1(maps:keys(LHS), RHS, LHS);
         true ->
-            join_types_1(maps:keys(Ts1), Ts0, Ts1)
+            join_types_1(maps:keys(RHS), LHS, RHS)
     end.
 
-join_types_1([V|Vs], Ts0, Ts1) ->
-    case {Ts0,Ts1} of
-        {#{V:=Same},#{V:=Same}} ->
-            join_types_1(Vs, Ts0, Ts1);
-        {#{V:=T0},#{V:=T1}} ->
-            case beam_types:join(T0, T1) of
-                T1 ->
-                    join_types_1(Vs, Ts0, Ts1);
-                T ->
-                    join_types_1(Vs, Ts0, Ts1#{V:=T})
-            end;
-        {#{},#{V:=_}} ->
-            join_types_1(Vs, Ts0, Ts1)
+%% Joins two type maps, keeping the variables that are common to both maps.
+join_types_1([V | Vs], Bigger, Smaller) ->
+    case {Bigger, Smaller} of
+        {#{ V := Same }, #{ V := Same }} ->
+            join_types_1(Vs, Bigger, Smaller);
+        {#{ V := LHS }, #{ V := RHS }} ->
+            T = beam_types:join(LHS, RHS),
+            join_types_1(Vs, Bigger, Smaller#{ V := T });
+        {#{}, #{ V := _ }} ->
+            join_types_1(Vs, Bigger, maps:remove(V, Smaller))
     end;
-join_types_1([], Ts0, Ts1) ->
-    maps:merge(Ts0, Ts1).
+join_types_1([], _Bigger, Smaller) ->
+    Smaller.
 
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,

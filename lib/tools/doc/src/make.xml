@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2017</year>
+      <year>2020</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -148,7 +148,7 @@ Modules.
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
+    <p><seeerl marker="compiler:compile"><c>compile(3)</c></seeerl></p>
   </section>
 </erlref>
 

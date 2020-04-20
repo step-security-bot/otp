@@ -31,13 +31,20 @@
 %%% Re-written by Joe with new functional interface !
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
 
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
+         start_monitor/0, start_monitor/1, start_monitor/2,
          stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
-	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/5]).
+	 swap_sup_handler/3, which_handlers/1, call/3, call/4,
+         send_request/3, wait_response/2, check_response/2,
+         wake_hib/5]).
 
 -export([init_it/6,
 	 system_continue/3,
@@ -128,11 +135,13 @@
                     | {'logfile', string()}.
 -type option() :: {'timeout', timeout()}
                 | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'spawn_opt', [proc_lib:start_spawn_option()]}
                 | {'hibernate_after', timeout()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
+-type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
+-type request_id() :: term().
 
 %%---------------------------------------------------------------------------
 
@@ -183,6 +192,20 @@ start_link(Options) when is_list(Options) ->
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
+-spec start_monitor() -> start_mon_ret().
+start_monitor() ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
+
+-spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+start_monitor(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
+start_monitor(Options) when is_list(Options) ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
+
+-spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+start_monitor(Name, Options) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
+
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
@@ -212,6 +235,26 @@ call(M, Handler, Query) -> call1(M, Handler, Query).
 
 -spec call(emgr_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
+
+-spec send_request(emgr_ref(), handler(), term()) -> request_id().
+send_request(M, Handler, Query) ->
+    gen:send_request(M, self(), {call, Handler, Query}).
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
+wait_response(RequestId, Timeout) ->
+    case gen:wait_response(RequestId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
+
+-spec check_response(Msg::term(), RequestId::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), emgr_ref()}}.
+check_response(Msg, RequestId) ->
+    case gen:check_response(Msg, RequestId)  of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    end.
 
 -spec delete_handler(emgr_ref(), handler(), term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).

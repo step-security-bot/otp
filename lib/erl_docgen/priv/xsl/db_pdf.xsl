@@ -980,7 +980,7 @@
 
     </fo:block>
 
-    <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude|erleval">
+    <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude">
       <xsl:with-param name="partnum" select="$partnum"/>
       <xsl:with-param name="chapnum"><xsl:number/></xsl:with-param>
     </xsl:apply-templates>
@@ -1065,7 +1065,7 @@
   </xsl:template>
 
   <!-- Section/title -->
- <xsl:template match="section/title">
+ <xsl:template match="section/title|fsdescription/title">
  </xsl:template>
 
   <!-- Lists -->
@@ -1446,11 +1446,14 @@
   <!-- Funcs -->
   <xsl:template match="funcs">
     <xsl:param name="partnum"/>
+    <xsl:apply-templates select="fsdescription">
+      <xsl:with-param name="partnum" select="$partnum"/>
+    </xsl:apply-templates>
     <fo:block  xsl:use-attribute-sets="h3">
       <xsl:text>Exports</xsl:text>
     </fo:block>
 
-    <xsl:apply-templates>
+    <xsl:apply-templates select="func">
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
 

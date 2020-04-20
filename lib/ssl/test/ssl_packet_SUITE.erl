@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 5).
+-define(BASE_TIMEOUT_SECONDS, 20).
 -define(SOME_SCALE, 2).
 -define(MANY_SCALE, 3).
 
@@ -50,19 +50,19 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
 
 groups() ->
-    [{'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'sslv3', [], socket_packet_tests() ++ protocol_packet_tests()},
      %% We will not support any packet types if the transport is
      %% not reliable. We might support it for DTLS over SCTP in the future 
      {'dtlsv1.2', [], [reject_packet_opt]},
@@ -2009,7 +2009,8 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]}]),
+					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]
+                                         ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
@@ -2018,7 +2019,7 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
 					{options, [{active, Active},
                                                    {nodelay, true},
 						   {packet, Packet} |
-						   ClientOpts]}]),
+						   ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
 
     ssl_test_lib:check_result(Client, ok),
 

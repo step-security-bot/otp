@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2018. All Rights Reserved.
+# Copyright Ericsson AB 1999-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,7 +83,6 @@ MODULES= \
 	ssl_session_cache \
 	ssl_srp_primes \
 	ssl_sup \
-	ssl_v3 \
 	tls_bloom_filter \
 	tls_connection \
 	tls_connection_sup \
@@ -142,6 +141,13 @@ DEPDIR=$(ERL_TOP)/lib/ssl/src/deps
 DEP_FILE=$(DEPDIR)/ssl.d
 $(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
 
+ifeq ($(TARGET), win32)
+  # Native path without C: ignore driveletter case
+  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
+else
+  ERL_TOP_NATIVE = $(ERL_TOP)
+endif
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -149,8 +155,7 @@ EXTRA_ERLC_FLAGS = +warn_unused_vars
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
-	$(EXTRA_ERLC_FLAGS)
-
+	$(EXTRA_ERLC_FLAGS) -DVSN=\"$(VSN)\"
 
 # ----------------------------------------------------
 # Targets
@@ -159,8 +164,9 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 $(DEP_FILE): $(ERL_FILES)
+	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
 	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| sed "s@$(ERL_TOP)@../../..@g" \
+	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)@../../..@g" \
 	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
 	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
 	| sed 's@^inet_@$$(EBIN)/inet_@' \

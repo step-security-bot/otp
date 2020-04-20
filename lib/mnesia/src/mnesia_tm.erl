@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2082,9 +2082,9 @@ ask_commit(_Protocol, _Tid, [], _DiscNs, _RamNs, WaitFor, Local) ->
     {WaitFor, Local}.
 
 convert_old(sync_asym_trans, Node) ->
-    case mnesia_monitor:needs_protocol_conversion(Node) of
-        true -> asym_trans;
-        false -> sync_asym_trans
+    case ?catch_val({protocol, Node}) of
+        {{8,3}, _} -> asym_trans;
+        _ -> sync_asym_trans
     end;
 convert_old(Protocol, _) ->
     Protocol.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -308,19 +308,25 @@ single_ack(suite) ->
 single_ack(doc) ->
     [];
 single_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        single_ack),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_single_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rsingle_ack, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_single_ack([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -375,26 +381,33 @@ multi_ack_timeout(suite) ->
 multi_ack_timeout(doc) ->
     [];
 multi_ack_timeout(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [win32, {unix, [darwin, linux, sunos]}], % Is there any left?
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
+    Pre = fun() ->
+                  %% <CONDITIONAL-SKIP>
+                  Skippable = [win32, {unix, [darwin, linux, sunos]}],
+                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+                  %% </CONDITIONAL-SKIP>
 
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_ack_timeout),
-    i("starting"),
+                  MgcNode  = make_node_name(mgc),
+                  MgNode   = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_ack_timeout/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_ack_timeout, Pre, Case, Post).
 
+do_multi_ack_timeout([MgcNode, MgNode]) ->
 
     MaxCount = 20,
-    MgcNode  = make_node_name(mgc),
-    MgNode   = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -459,19 +472,26 @@ multi_ack_maxcount(suite) ->
 multi_ack_maxcount(doc) ->
     [];
 multi_ack_maxcount(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_ack_maxcount),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode  = make_node_name(mgc),
+                  MgNode   = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_ack_maxcount/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_ack_maxcount, Pre, Case, Post).
 
+do_multi_ack_maxcount([MgcNode, MgNode]) ->
     MaxCount = 10,
-    MgcNode  = make_node_name(mgc),
-    MgNode   = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -523,7 +543,6 @@ multi_ack_maxcount(Config) when is_list(Config) ->
     i("wait some time before closing down"),
     sleep(5000),
 
-
     %% Tell MG to stop
     i("[MG] stop"),
     ?MG_STOP(Mg),
@@ -544,20 +563,25 @@ single_trans_req(suite) ->
 single_trans_req(doc) ->
     [];
 single_trans_req(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        single_trans_req),
-    process_flag(trap_exit, true),    
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_single_trans_req/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(single_trans_req, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_single_trans_req([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -984,19 +1008,25 @@ multi_trans_req_timeout(suite) ->
 multi_trans_req_timeout(doc) ->
     [];
 multi_trans_req_timeout(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_timeout),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_timeout/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_timeout([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -1438,20 +1468,25 @@ multi_trans_req_maxcount1(suite) ->
 multi_trans_req_maxcount1(doc) ->
     "Test that a message is sent when req_maxcount is reached";
 multi_trans_req_maxcount1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_maxcount1),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_maxcount1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_maxcount1, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
-
+do_multi_trans_req_maxcount1([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -1895,19 +1930,25 @@ multi_trans_req_maxcount2(doc) ->
     "Test that the message is sent when req_maxcount is reached "
 	"with a request bigger then maxsize limit";
 multi_trans_req_maxcount2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_maxcount2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_maxcount2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_maxcount2, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_maxcount2([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -2404,19 +2445,30 @@ multi_trans_req_maxsize1(suite) ->
 multi_trans_req_maxsize1(doc) ->
     "Test that the message is sent when req_maxsize is reached";
 multi_trans_req_maxsize1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_maxsize1),
-    i("starting"),
+    Pre = fun() ->
+                  put(verbosity, ?TEST_VERBOSITY),
+                  put(sname,     "TEST"),
+                  put(tc,        multi_trans_req_maxsize1),
+                  i("starting"),
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_maxsize1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_maxsize1, Pre, Case, Post).
 
+do_multi_trans_req_maxsize1([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -2859,19 +2911,25 @@ multi_trans_req_maxsize2(doc) ->
     "Test that the message is sent when req_maxsize is reached, "
 	"when the 'last' message is bigger then req_maxsize itself";
 multi_trans_req_maxsize2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_maxsize2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_maxsize2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_maxsize2, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_maxsize2([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -3356,19 +3414,25 @@ single_trans_req_and_ack(suite) ->
 single_trans_req_and_ack(doc) ->
     [];
 single_trans_req_and_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        single_trans_req_and_ack),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_single_trans_req_and_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(single_trans_req_and_ack, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_single_trans_req_and_ack([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -3839,19 +3903,25 @@ multi_trans_req_and_ack_timeout(suite) ->
 multi_trans_req_and_ack_timeout(doc) ->
     [];
 multi_trans_req_and_ack_timeout(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_timeout),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_timeout/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_timeout, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_timeout([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -4327,24 +4397,34 @@ mtrtaat_err_desc(T) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Transaction Sender
+%%
+%%
+
 multi_trans_req_and_ack_ackmaxcount(suite) ->
     [];
 multi_trans_req_and_ack_ackmaxcount(doc) ->
     [];
 multi_trans_req_and_ack_ackmaxcount(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_ackmaxcount),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_ackmaxcount/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_ackmaxcount, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_ackmaxcount([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -4438,6 +4518,9 @@ mtrtaaamc_mgc_event_sequence(text, tcp) ->
     DiscoVerify            = ?mtrtaaamc_mgc_verify_handle_disconnect_fun(), 
     EvSeq = [
 	     {debug, true},
+             {trigger, fun() ->
+                               put(verbosity, ?TEST_VERBOSITY)
+                       end}, 
 	     {megaco_trace, disable},
 	     megaco_start,
 	     {megaco_start_user, Mid, RI, []},
@@ -4469,12 +4552,12 @@ mtrtaaamc_mgc_event_sequence(text, tcp) ->
 
 
 mtrtaaamc_mgc_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("mtrtaaamc_mgc_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("MGC Connect verification ok"
+      "~n      ~p~n", [CH]),
     {ok, CH, ok};
 mtrtaaamc_mgc_verify_handle_connect(Else) ->
-    io:format("mtrtaaamc_mgc_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MGC Connect verification failed: unknown"
+      "~n      ~p~n", [Else]),
     {error, Else, ok}.
 
 mtrtaaamc_mgc_verify_service_change_req_fun(Mid) ->
@@ -4484,8 +4567,9 @@ mtrtaaamc_mgc_verify_service_change_req_fun(Mid) ->
 
 mtrtaaamc_mgc_verify_service_change_req(
   {handle_trans_request, _, ?VERSION, [AR]}, Mid) ->
-    io:format("mtrtaaamc_mgc_verify_service_change_req -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("MGC Service Change Request verification: begin"
+      "~n      AR: ~p"
+      "~n", [AR]),
     case AR of
 	#'ActionRequest'{commandRequests = [CR]} ->
 	    case CR of
@@ -4501,11 +4585,17 @@ mtrtaaamc_mgc_verify_service_change_req(
 					#'ServiceChangeParm'{
 						 serviceChangeMethod = restart,
 						 serviceChangeReason = [[$9,$0,$1|_]]} ->
+                                            i("MGC Service Change Request "
+                                              "verification ok"),
 					    Reply = 
 						{discard_ack, 
 						 [mtrtaaamc_mgc_service_change_reply_ar(Mid, 1)]},
 					    {ok, AR, Reply};
 					_ ->
+                                            e("MGC Service Change Request "
+                                              "verification failed: invalid SCP"
+                                              "~n      ~p"
+                                              "~n", [Parms]),
 					    Err = {invalid_SCP, Parms},
 					    ED = mtrtaaamc_err_desc(Parms),
 					    ErrReply = {discard_ack, 
@@ -4513,32 +4603,50 @@ mtrtaaamc_mgc_verify_service_change_req(
 					    {error, Err, ErrReply}
 				    end;
 				_ ->
+                                    e("MGC Service Change Request "
+                                      "verification failed: "
+                                      "invalid termination id"
+                                      "~n      ~p"
+                                      "~n", [Tid]),
 				    Err = {invalid_termination_id, Tid},
 				    ED = mtrtaaamc_err_desc(Tid),
 				    ErrReply = {discard_ack, ED},
 				    {error, Err, ErrReply}
 			    end;
 			_ ->
+                            e("MGC Service Change Request verification failed: "
+                              "invalid command"
+                              "~n      ~p"
+                              "~n", [Cmd]),
 			    Err = {invalid_command, Cmd},
 			    ED = mtrtaaamc_err_desc(Cmd),
 			    ErrReply = {discard_ack, ED},
 			    {error, Err, ErrReply}
 		    end;
 		_ ->
+                    e("MGC Service Change Request verification failed: "
+                      "invalid command request"
+                      "~n      ~p"
+                      "~n", [CR]),
 		    Err = {invalid_command_request, CR},
 		    ED = mtrtaaamc_err_desc(CR),
 		    ErrReply = {discard_ack, ED},
 		    {error, Err, ErrReply}
 	    end;
 	_ ->
+            e("MGC Service Change Request verification failed: "
+              "invalid action request"
+              "~n      ~p"
+              "~n", [AR]),
 	    Err = {invalid_action_request, AR},
 	    ED = mtrtaaamc_err_desc(AR),
 	    ErrReply = {discard_ack, ED},
 	    {error, Err, ErrReply}
     end;
 mtrtaaamc_mgc_verify_service_change_req(Else, _Mid) ->
-    io:format("mtrtaaamc_mgc_verify_service_change_req -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MGC Service Change Request verification failed: unknown"
+      "~n      ~p"
+      "~n", [Else]),
     ED = mtrtaaamc_err_desc(Else),
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
@@ -4550,9 +4658,11 @@ mtrtaaamc_mgc_verify_notify_request_fun() ->
 
 mtrtaaamc_mgc_verify_notify_request(
   {handle_trans_request, _, ?VERSION, [AR]}) ->
-    io:format("mtrtaaamc_mgc_verify_notify_request:fun -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("MGC Notify Request verification: begin"
+      "~n      AR: ~p"
+      "~n", [AR]),
     case AR of
+        %% *** SLOPPY ACK ***
 	#'ActionRequest'{contextId = 1 = Cid, 
 			 commandRequests = [CR]} ->
 	    #'CommandRequest'{command = Cmd} = CR,
@@ -4564,9 +4674,15 @@ mtrtaaamc_mgc_verify_notify_request(
 					observedEventLst = [OE]} = OED,
 	    #'ObservedEvent'{eventName = "al/of"} = OE,
 	    HandleAck = {handle_sloppy_ack, {kalle, Rid}},
+            i("MGC Notify Request verification ok: sloppy ack"
+              "~n      Cid: ~p"
+              "~n      Tid: ~p"
+              "~n      Rid: ~p", [Cid, Tid, Rid]),
 	    Reply = {HandleAck, 
 		     [mtrtaaamc_mgc_notify_reply_ar(Cid, Tid)]},
 	    {ok, AR, Reply};
+
+        %% *** PROPER ACK ***
 	#'ActionRequest'{contextId = 2 = Cid, 
 			 commandRequests = [CR]} ->
 	    #'CommandRequest'{command = Cmd} = CR,
@@ -4574,43 +4690,54 @@ mtrtaaamc_mgc_verify_notify_request(
 	    #'NotifyRequest'{terminationID = [Tid],
 			     observedEventsDescriptor = OED,
 			     errorDescriptor = asn1_NOVALUE} = NR,
-	    #'ObservedEventsDescriptor'{observedEventLst = [OE]} = OED,
+	    #'ObservedEventsDescriptor'{requestId = _Rid, 
+					observedEventLst = [OE]} = OED,
 	    #'ObservedEvent'{eventName = "al/of"} = OE,
+            i("MGC Notify Request verification ok: discard ack"
+              "~n      Cid: ~p"
+              "~n      Tid: ~p"
+              "~n      Rid: ~p", [Cid, Tid, _Rid]),
 	    Reply = {discard_ack, [mtrtaaamc_mgc_notify_reply_ar(Cid, Tid)]},
 	    {ok, AR, Reply};
+
 	_ ->
+            e("MGC Notify Request verification failed: unexpected AR"
+              "~n      ~p"
+              "~n", [AR]),
 	    ED = mtrtaaamc_err_desc(AR),
 	    ErrReply = {discard_ack, ED},
 	    {error, AR, ErrReply}
     end;
 mtrtaaamc_mgc_verify_notify_request(Else) ->
-    io:format("mtrtaaamc_mgc_verify_notify_request:fun -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MGC Notify Request verification failed: unexpected callback"
+      "~n      ~p"
+      "~n", [Else]),
     ED = mtrtaaamc_err_desc(Else),
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
 mtrtaaamc_mgc_verify_ack({handle_trans_ack, CH, ?VERSION, ok, 
 			  {kalle, Rid}}) -> 
-    io:format("mtrtaaamc_mgc_verify_ack -> ok"
-	      "~n   CH:  ~p"
-	      "~n   Rid: ~p"
-	      "~n", [CH, Rid]),
+    i("MGC Ack verification: ok (kalle)"
+      "~n      CH:  ~p"
+      "~n      Rid: ~p"
+      "~n", [CH, Rid]),
     {ok, CH, ok};
 mtrtaaamc_mgc_verify_ack(Else) ->
-    io:format("mtrtaaamc_mgc_verify_ack -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MGC Ack verification failed: unknown"
+      "~n      ~p~n", [Else]),
     {error, Else, ok}.
 
 mtrtaaamc_mgc_verify_handle_disconnect({handle_disconnect, CH, ?VERSION, R}) -> 
-    io:format("mtrtaaamc_mgc_verify_handle_disconnect -> ok"
-	      "~n   CH: ~p"
-	      "~n   R:  ~p"
-	      "~n", [CH, R]),
+    i("MGC Disconnect verification: ok"
+      "~n      CH: ~p"
+      "~n      R:  ~p"
+      "~n", [CH, R]),
     {ok, CH, ok};
 mtrtaaamc_mgc_verify_handle_disconnect(Else) ->
-    io:format("mtrtaaamc_mgc_verify_handle_disconnect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MGC Disconnect verification failed: unknown"
+      "~n      ~p"
+      "~n", [Else]),
     {error, Else, ok}.
 
 
@@ -4622,26 +4749,11 @@ mtrtaaamc_mgc_service_change_reply_ar(Mid, Cid) ->
     CR    = cre_cmdReply(SCR),
     cre_actionReply(Cid, [CR]).
 
-%% mtrtaaamc_mgc_service_change_reply_msg(Mid, TransId, Cid) ->
-%%     AR    = mtrtaaamc_mgc_service_change_reply_ar(Mid, Cid),
-%%     TRes  = cre_transResult([AR]),
-%%     TR    = cre_transReply(TransId, TRes),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
 mtrtaaamc_mgc_notify_reply_ar(Cid, TermId) ->
     NR    = cre_notifyReply([TermId]),
     CR    = cre_cmdReply(NR),
     cre_actionReply(Cid, [CR]).
 
-%% mtrtaaamc_mgc_notify_reply(Mid, TransId, Cid, TermId) ->
-%%     AR    = mtrtaaamc_mgc_notify_reply_ar(Cid, TermId),
-%%     TRes  = cre_transResult([AR]),
-%%     TR    = cre_transReply(TransId, TRes),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
@@ -4681,6 +4793,9 @@ mtrtaaamc_mg_event_sequence(text, tcp) ->
     NotifyReplyVerify        = ?mtrtaaamc_mg_verify_notify_reply_fun(), 
     EvSeq = [
 	     {debug, true},
+             {trigger, fun() ->
+                               put(verbosity, ?TEST_VERBOSITY)
+                       end}, 
 	     megaco_start,
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
@@ -4704,20 +4819,35 @@ mtrtaaamc_mg_event_sequence(text, tcp) ->
 	     {megaco_update_conn_info, trans_ack,          true},
 	     {megaco_update_conn_info, trans_req,          true},
 	     {megaco_conn_info, all},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(1,1), []},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(1,2), []},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(1,3), []},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(2,1), []},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(2,2), []},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(2,3), []},
+	     {megaco_conn_info, requests},
 	     {megaco_cast, NR(1,4), [{trans_req,false}]},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_conn_info, requests},
 	     {sleep, 3000},
 	     megaco_stop_user,
 	     megaco_stop,
@@ -4726,18 +4856,21 @@ mtrtaaamc_mg_event_sequence(text, tcp) ->
     EvSeq.
 
 mtrtaaamc_mg_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("mtrtaaamc_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("MG Connect verification: ok"
+      "~n      CH: ~p"
+      "~n", [CH]),
     {ok, CH, ok};
 mtrtaaamc_mg_verify_handle_connect(Else) ->
-    io:format("mtrtaaamc_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MG Connect verification failed: unknown"
+      "~n      ~p"
+      "~n", [Else]),
     {error, Else, ok}.
 
 mtrtaaamc_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION, 
 					  {ok, [AR]}, _}) ->
-    io:format("mtrtaaamc_mg_verify_service_change_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("MG Service Change Reply verification: begin"
+      "~n      AR: ~p"
+      "~n", [AR]),
     case AR of
 	#'ActionReply'{commandReply = [SCR]} ->
 	    case SCR of
@@ -4751,37 +4884,73 @@ mtrtaaamc_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION,
 				{serviceChangeResParms,
 				 #'ServiceChangeResParm'{
 				   serviceChangeMgcId = _RemoteMid}} ->
+                                    i("MG Service Change Reply verification ok"),
 				    {ok, AR, ok};
 				{Tag, Val} ->
+                                    e("MG Service Change Reply "
+                                      "verification failed: "
+                                      "invalid service change result"
+                                      "~n      Tag: ~p"
+                                      "~n      Val: ~p"
+                                      "~n", [Tag, Val]),
 				    Err = {invalid_service_change_result, 
 					   Tag, Val},
 				    {error, Err, ok}
 			    end;
 			_ ->
+                            e("MG Service Change Reply verification failed: "
+                              "invalid termination id"
+                              "~n      ~p"
+                              "~n", [Tid]),
 			    Err = {invalid_termination_id, Tid},
 			    {error, Err, ok}
 		    end;
 		{Tag, Val} ->
+                    e("MG Service Change Reply verification failed: "
+                      "invalid command reply"
+                      "~n      Tag: ~p"
+                      "~n      Val: ~p"
+                      "~n", [Tag, Val]),
 		    Err = {invalid_command_reply, Tag, Val},
 		    {error, Err, ok}
 	    end;
 	_ ->
+            e("MG Service Change Reply verification failed: invalid action reply"
+              "~n      ~p"
+              "~n", [AR]),
 	    Err = {invalid_action_reply, AR},
 	    {error, Err, ok}
     end;
 mtrtaaamc_mg_verify_service_change_reply(Else) ->
-    io:format("mtrtaaamc_mg_verify_service_change_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MG Service Change Reply verification failed -> unknown"
+      "~n      ~p"
+      "~n", [Else]),
     {error, Else, ok}.
 
 mtrtaaamc_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				  {ok, [AR]}, _}) ->
-    io:format("mtrtaaamc_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("MG Notify Reply verification ok:"
+      "~n      ~p~n", [AR]),
     {ok, AR, ok};
+mtrtaaamc_mg_verify_notify_reply({handle_unexpected_trans, CH, PV, T} = Else) ->
+    e("MG Notify Reply verification failed: unexpected transaction"
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      T:  ~p"
+      "~n", [CH, PV, T]),
+    {error, Else, ok};
+mtrtaaamc_mg_verify_notify_reply({handle_unexpected_trans, CH, PV, E, T} = Else) ->
+    e("MG Notify Reply failed: unexpected transaction"
+      "~n      CH: ~p"
+      "~n      PV: ~p"
+      "~n      E:  ~p"
+      "~n      T:  ~p"
+      "~n", [CH, PV, E, T]),
+    {error, Else, ok};
 mtrtaaamc_mg_verify_notify_reply(Else) ->
-    io:format("mtrtaaamc_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MG Notify Reply failed -> unknown"
+      "~n      ~p"
+      "~n", [Else]),
     {error, Else, ok}.
 
 mtrtaaamc_mg_service_change_request_ar(_Mid, Cid) ->
@@ -4793,13 +4962,6 @@ mtrtaaamc_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% mtrtaaamc_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = mtrtaaamc_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
 mtrtaaamc_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -4808,13 +4970,6 @@ mtrtaaamc_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% mtrtaaamc_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR      = mtrtaaamc_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR      = cre_transReq(TransId, [AR]),
-%%     Trans   = cre_transaction(TR),
-%%     Mess    = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
@@ -4832,19 +4987,25 @@ multi_trans_req_and_ack_reqmaxcount(suite) ->
 multi_trans_req_and_ack_reqmaxcount(doc) ->
     [];
 multi_trans_req_and_ack_reqmaxcount(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_reqmaxcount),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_reqmaxcount/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_reqmaxcount, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_reqmaxcount([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -5235,8 +5396,6 @@ mtrtaarac_mg_verify_handle_connect(Else) ->
 
 mtrtaarac_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION, 
 					  {ok, [AR]}, _}) ->
-    io:format("mtrtaarac_mg_verify_service_change_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
     case AR of
 	#'ActionReply'{commandReply = [SCR]} ->
 	    case SCR of
@@ -5250,37 +5409,55 @@ mtrtaarac_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION,
 				{serviceChangeResParms,
 				 #'ServiceChangeResParm'{
 				   serviceChangeMgcId = _RemoteMid}} ->
+                                    i("received expected handle_trans_reply "
+                                      "(service change) with ok"
+                                      "~n      AR: ~p", [AR]),
 				    {ok, AR, ok};
 				{Tag, Val} ->
+                                    e("received expected handle_trans_reply "
+                                      "(service change) with error"
+                                      "~n      Tag: ~p"
+                                      "~n      Val: ~p", [Tag, Val]),
 				    Err = {invalid_service_change_result, 
 					   Tag, Val},
 				    {error, Err, ok}
 			    end;
 			_ ->
+                            e("received expected handle_trans_reply "
+                              "(service change) with error"
+                              "~n      Tid: ~p", [Tid]),
 			    Err = {invalid_termination_id, Tid},
 			    {error, Err, ok}
 		    end;
 		{Tag, Val} ->
+                    e("received expected handle_trans_reply "
+                      "(action reply) with error"
+                      "~n      Tag: ~p"
+                      "~n      Val: ~p", [Tag, Val]),
 		    Err = {invalid_command_reply, Tag, Val},
 		    {error, Err, ok}
 	    end;
 	_ ->
+            e("received expected handle_trans_reply with error"
+              "~n      AR: ~p", [AR]),
 	    Err = {invalid_action_reply, AR},
 	    {error, Err, ok}
     end;
 mtrtaarac_mg_verify_service_change_reply(Else) ->
-    io:format("mtrtaarac_mg_verify_service_change_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("mtrtaarac_mg_verify_service_change_reply -> invalid service change reply"
+      "~n      Expected: handle_trans_reply (service change) with ok"
+      "~n      Received; ~p", [Else]),
     {error, Else, ok}.
 
 mtrtaarac_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				  {ok, [AR]}, _}) ->
-    io:format("mtrtaarac_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("received expected handle_notify_reply with ok"
+      "~n   AR: ~p~n", [AR]),
     {ok, AR, ok};
 mtrtaarac_mg_verify_notify_reply(Else) ->
-    io:format("mtrtaarac_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("MG Notify Reply verification failed: invalid notify reply"
+      "~n      Expected: handle_trans_reply with ok"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 mtrtaarac_mg_service_change_request_ar(_Mid, Cid) ->
@@ -5292,13 +5469,6 @@ mtrtaarac_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% mtrtaarac_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = mtrtaarac_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
 mtrtaarac_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -5307,13 +5477,6 @@ mtrtaarac_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% mtrtaarac_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR      = mtrtaarac_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR      = cre_transReq(TransId, [AR]),
-%%     Trans   = cre_transaction(TR),
-%%     Mess    = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
@@ -5333,19 +5496,25 @@ multi_trans_req_and_ack_maxsize1(suite) ->
 multi_trans_req_and_ack_maxsize1(doc) ->
     [];
 multi_trans_req_and_ack_maxsize1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_maxsize1),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_maxsize1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_maxsize1, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_maxsize1([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -5831,19 +6000,25 @@ multi_trans_req_and_ack_maxsize2(suite) ->
 multi_trans_req_and_ack_maxsize2(doc) ->
     [];
 multi_trans_req_and_ack_maxsize2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_maxsize2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_maxsize2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_maxsize2, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_maxsize2([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -6372,19 +6547,25 @@ multi_trans_req_and_ack_and_pending(suite) ->
 multi_trans_req_and_ack_and_pending(doc) ->
     [];
 multi_trans_req_and_ack_and_pending(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        mtraaap),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_and_pending/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(mtraaap, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_and_pending([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -6844,38 +7025,6 @@ mtraaap_mg_verify_service_change_reply(Else) ->
 	      "~n   Else: ~p~n", [Else]),
     {error, Else, ok}.
 
-%% mtraaap_mg_verify_notify_request_fun() ->
-%%     fun(Ev) ->
-%% 	    mtraaap_mg_verify_notify_request(Ev)
-%%     end.
-
-%% mtraaap_mg_verify_notify_request(
-%%   {handle_trans_request, _, ?VERSION, [AR]}) ->
-%%     io:format("mtraaap_mg_verify_notify_request -> ok"
-%% 	      "~n   AR: ~p~n", [AR]),
-%%     case AR of
-%% 	#'ActionRequest'{contextId = 1 = Cid, 
-%% 			 commandRequests = [CR]} ->
-%% 	    #'CommandRequest'{command = Cmd} = CR,
-%% 	    {notifyReq, NR} = Cmd,
-%% 	    #'NotifyRequest'{terminationID = [Tid],
-%% 			     observedEventsDescriptor = OED,
-%% 			     errorDescriptor = asn1_NOVALUE} = NR,
-%% 	    #'ObservedEventsDescriptor'{observedEventLst = [OE]} = OED,
-%% 	    #'ObservedEvent'{eventName = "al/of"} = OE,
-%% 	    Reply = {discard_ack, [mtraaap_mg_notify_reply_ar(Cid, Tid)]},
-%% 	    {ok, 3000, AR, Reply};
-%% 	_ ->
-%% 	    ED = mtraaap_err_desc(AR),
-%% 	    ErrReply = {discard_ack, ED},
-%% 	    {error, AR, ErrReply}
-%%     end;
-%% mtraaap_mg_verify_notify_request(Else) ->
-%%     io:format("mtraaap_mg_verify_notify_request:fun -> unknown"
-%% 	      "~n   Else: ~p~n", [Else]),
-%%     ED = mtraaap_err_desc(Else),
-%%     ErrReply = {discard_ack, ED},
-%%     {error, Else, ErrReply}.
 
 mtraaap_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				{ok, [AR]}, _}) ->
@@ -6960,19 +7109,25 @@ multi_trans_req_and_ack_and_reply(suite) ->
 multi_trans_req_and_ack_and_reply(doc) ->
     [];
 multi_trans_req_and_ack_and_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_and_ack_and_reply),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_and_ack_and_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_trans_req_and_ack_and_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_multi_trans_req_and_ack_and_reply([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -7537,22 +7692,26 @@ otp_7192_1(suite) ->
 otp_7192_1(doc) ->
     [""];
 otp_7192_1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_7192_1),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_otp_7192_1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_7192_1, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-
+do_otp_7192_1([MgcNode, MgNode]) ->
     MgMid = {deviceName,"mg"},
-
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -8109,22 +8268,27 @@ otp_7192_2(suite) ->
 otp_7192_2(doc) ->
     [];
 otp_7192_2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_7192_2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_otp_7192_2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_7192_2, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
+do_otp_7192_2([MgcNode, MgNode]) ->
 
     MgMid = {deviceName,"mg"},
-
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -8208,7 +8372,7 @@ otp71922_mgc_event_sequence(text, tcp, MgMid) ->
 	  {encoding_config,  []},
 	  {transport_module, megaco_tcp}
 	 ],
-    Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
+    Tid = #megaco_term_id{id = ["00000000","00000100","01101101"]},
     NR = fun(Cid, Rid) ->
 		 [otp71922_mgc_notify_request_ar(Rid, Tid, Cid)]
 	 end,
@@ -8251,12 +8415,14 @@ otp71922_mgc_event_sequence(text, tcp, MgMid) ->
 
 
 otp71922_mgc_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("otp71922_mgc_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("received expected handle_connect with"
+      "~n      CH: ~p"
+      "~n      => force a 2 second sleep before return", [CH]),
     {ok, timer:seconds(2), CH, ok};
 otp71922_mgc_verify_handle_connect(Else) ->
-    io:format("otp71922_mgc_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mgc_verify_handle_connect -> invalid handle-connect: "
+      "~n      Extected: handle_connect"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mgc_verify_service_change_req_fun(Mid) ->
@@ -8266,8 +8432,8 @@ otp71922_mgc_verify_service_change_req_fun(Mid) ->
 
 otp71922_mgc_verify_service_change_req(
   {handle_trans_request, _, ?VERSION, [AR]}, Mid) ->
-    io:format("otp71922_mgc_verify_service_change_req -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("otp71922_mgc_verify_service_change_req -> ok"
+      "~n   AR: ~p", [AR]),
     case AR of
 	#'ActionRequest'{commandRequests = [CR]} ->
 	    case CR of
@@ -8478,8 +8644,11 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
 	  {transport_module, megaco_tcp}
 	 ],
     ServiceChangeReq = [otp71922_mg_service_change_request_ar(Mid, 1)],
-    Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
-    NR = fun(Cid, Rid) ->
+    %% This is so that we can match notify request and reply
+    Tid1 = #megaco_term_id{id = ["00000000","00000001","01101101"]},
+    Tid2 = #megaco_term_id{id = ["00000000","00000010","01101101"]},
+    Tid3 = #megaco_term_id{id = ["00000000","00000011","01101101"]},
+    NR = fun(Cid, Rid, Tid) ->
 		 [otp71922_mg_notify_request_ar(Rid, Tid, Cid)]
 	 end,
     ConnectVerify            = ?otp71922_mg_verify_handle_connect_fun(), 
@@ -8512,20 +8681,20 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
 	     {megaco_update_conn_info, trans_ack,          true},
 	     {megaco_update_conn_info, trans_req,          true},
 	     {megaco_conn_info, all},
-	     {megaco_cast, NR(1,1), []},
-	     {megaco_cast, NR(1,2), []},
-	     {megaco_cast, NR(1,3), []},
+	     {megaco_cast, NR(1,1,Tid1), []},
+	     {megaco_cast, NR(1,2,Tid2), []},
+	     {megaco_cast, NR(1,3,Tid3), []},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_update_conn_info, trans_timer,        120000},
-	     {megaco_cast, NR(2,1), []},
-	     {megaco_cast, NR(2,2), []},
-	     {megaco_cast, NR(2,3), []},
+	     {megaco_cast, NR(2,1,Tid1), []},
+	     {megaco_cast, NR(2,2,Tid2), []},
+	     {megaco_cast, NR(2,3,Tid3), []},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
 	     {sleep, 3000},
 	     megaco_stop_user,
 	     megaco_stop,
@@ -8534,18 +8703,17 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
     EvSeq.
 
 otp71922_mg_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("otp71922_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("received expected handle_connect:"
+      "~n      CH: ~p", [CH]),
     {ok, CH, ok};
 otp71922_mg_verify_handle_connect(Else) ->
-    io:format("otp71922_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mg_verify_handle_connect -> received unexpected:"
+      "~n      Expected: handle_connect"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION, 
 					{ok, [AR]}, _}) ->
-    io:format("otp71922_mg_verify_service_change_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
     case AR of
 	#'ActionReply'{commandReply = [SCR]} ->
 	    case SCR of
@@ -8559,70 +8727,55 @@ otp71922_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION,
 				{serviceChangeResParms,
 				 #'ServiceChangeResParm'{
 				   serviceChangeMgcId = _RemoteMid}} ->
+                                    i("received expected handle_trans_reply "
+                                      "(service change) with ok"
+                                      "~n      AR: ~p", [AR]),
 				    {ok, AR, ok};
 				{Tag, Val} ->
+                                    e("received expected handle_trans_reply "
+                                      "(service change) with error"
+                                      "~n      Tag: ~p"
+                                      "~n      Val: ~p", [Tag, Val]),
 				    Err = {invalid_service_change_result, 
 					   Tag, Val},
 				    {error, Err, ok}
 			    end;
 			_ ->
+                            e("received expected handle_trans_reply "
+                              "(service change) with error"
+                              "~n      Tid: ~p", [Tid]),
 			    Err = {invalid_termination_id, Tid},
 			    {error, Err, ok}
 		    end;
 		{Tag, Val} ->
+                    e("received expected handle_trans_reply "
+                      "(action reply) with error"
+                      "~n      Tag: ~p"
+                      "~n      Val: ~p", [Tag, Val]),
 		    Err = {invalid_command_reply, Tag, Val},
 		    {error, Err, ok}
 	    end;
 	_ ->
+            e("received expected handle_trans_reply with error"
+              "~n      AR: ~p", [AR]),
 	    Err = {invalid_action_reply, AR},
 	    {error, Err, ok}
     end;
 otp71922_mg_verify_service_change_reply(Else) ->
-    io:format("otp71922_mg_verify_service_change_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("invalid service change reply:"
+      "~n      Expected: handle_trans_reply"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
-
-%% otp71922_mg_verify_notify_request_fun() ->
-%%     fun(Ev) ->
-%% 	    otp71922_mg_verify_notify_request(Ev)
-%%     end.
-
-%% otp71922_mg_verify_notify_request(
-%%   {handle_trans_request, _, ?VERSION, [AR]}) ->
-%%     io:format("otp71922_mg_verify_notify_request -> ok"
-%% 	      "~n   AR: ~p~n", [AR]),
-%%     case AR of
-%% 	#'ActionRequest'{contextId = 1 = Cid, 
-%% 			 commandRequests = [CR]} ->
-%% 	    #'CommandRequest'{command = Cmd} = CR,
-%% 	    {notifyReq, NR} = Cmd,
-%% 	    #'NotifyRequest'{terminationID = [Tid],
-%% 			     observedEventsDescriptor = OED,
-%% 			     errorDescriptor = asn1_NOVALUE} = NR,
-%% 	    #'ObservedEventsDescriptor'{observedEventLst = [OE]} = OED,
-%% 	    #'ObservedEvent'{eventName = "al/of"} = OE,
-%% 	    Reply = {discard_ack, [otp71922_mg_notify_reply_ar(Cid, Tid)]},
-%% 	    {ok, AR, Reply};
-%% 	_ ->
-%% 	    ED = otp71922_err_desc(AR),
-%% 	    ErrReply = {discard_ack, ED},
-%% 	    {error, AR, ErrReply}
-%%     end;
-%% otp71922_mg_verify_notify_request(Else) ->
-%%     io:format("otp71922_mg_verify_notify_request -> unknown"
-%% 	      "~n   Else: ~p~n", [Else]),
-%%     ED = otp71922_err_desc(Else),
-%%     ErrReply = {discard_ack, ED},
-%%     {error, Else, ErrReply}.
 
 otp71922_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				{ok, [AR]}, _}) ->
-    io:format("otp71922_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("received expected handle_notify_reply -> ok"
+      "~n      AR: ~p", [AR]),
     {ok, AR, ok};
 otp71922_mg_verify_notify_reply(Else) ->
-    io:format("otp71922_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mg_verify_notify_reply -> invalid notify reply"
+      "~n      Expected: handle_trans_reply with ok"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mg_service_change_request_ar(_Mid, Cid) ->
@@ -8634,18 +8787,6 @@ otp71922_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% otp71922_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = otp71922_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
-%% otp71922_mg_notify_reply_ar(Cid, TermId) ->
-%%     NR = cre_notifyReply([TermId]),
-%%     CR = cre_cmdReply(NR),
-%%     cre_actionReply(Cid, [CR]).
-
 otp71922_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -8654,13 +8795,6 @@ otp71922_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% otp71922_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR    = otp71922_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
@@ -8678,22 +8812,27 @@ otp_7192_3(suite) ->
 otp_7192_3(doc) ->
     ["Same as otp_7192_2 but transport is UDP instead of TCP"];
 otp_7192_3(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_7192_3),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_otp_7192_3/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_7192_3, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
+do_otp_7192_3([MgcNode, MgNode]) ->
 
     MgMid = {deviceName,"mg"},
-
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -9456,6 +9595,16 @@ await_completion(Ids, Timeout) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 sleep(X) -> receive after X -> ok end.
 
 %% error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
@@ -9472,14 +9621,14 @@ p(F, A) ->
 %%     e(F, []).
 
 e(F, A) ->
-    print(error, "ERR", F, A).
+    print(error, "ERROR", F, A).
 
 
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, "INF", F, A).
+    print(info, "INFO", F, A).
 
 
 d(F) ->
@@ -9500,11 +9649,13 @@ printable(info,  info)  -> true;
 printable(error, _)     -> true;
 printable(_,_)          -> false.
 
-
 print2(true, P, F, A) ->
-    S  = ?F("*** [~s] ~s ~p ~w ***"
+    S  = ?F("*** [~s] ~s ~p~s ***"
             "~n   " ++ F ++ "~n"
-            "~n", [?FTS(), P, self(), get(tc) | A]),
+            "~n", [?FTS(), P, self(), case get(tc) of
+                                          undefined -> "";
+                                          TC -> " " ++ atom_to_list(TC)
+                                      end | A]),
     io:format("~s", [S]);
 print2(_, _, _, _) ->
     ok.

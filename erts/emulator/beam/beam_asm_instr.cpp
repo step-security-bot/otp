@@ -330,6 +330,8 @@ void BeamModuleAssembler::emit_error_action_code(Instruction *Inst) {
   farjmp(ga->get_error_action_code());
 }
 
+static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
+
 x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   Label dispatch = a.newLabel(), entry = a.newLabel();
   a.bind(entry);
@@ -342,7 +344,7 @@ x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_handle_error(entry, &bif_trap_export[BIF_apply_3]->info.mfa);
+  emit_handle_error(entry, &apply3_mfa);
   a.bind(dispatch);
   return RET;
 }
@@ -389,7 +391,7 @@ x86::Gp BeamModuleAssembler::emit_apply(ArgVal Arity, uint64_t deallocate) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_handle_error(entry, &bif_trap_export[BIF_apply_3]->info.mfa);
+  emit_handle_error(entry, &apply3_mfa);
   a.bind(dispatch);
   return RET;
 }
@@ -1137,15 +1139,11 @@ void BeamModuleAssembler::emit_case_end(ArgVal Src, Instruction *Inst) {
   emit_handle_error(entry);
 }
 
-void BeamModuleAssembler::emit_system_limit(ArgVal Fail, Instruction *Inst) {
+void BeamModuleAssembler::emit_system_limit_body(Instruction *Inst) {
   Label entry = a.newLabel();
   a.bind(entry);
-  if (Fail.getValue() == 0) {
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), SYSTEM_LIMIT);
-    emit_handle_error(entry);
-  } else {
-    a.jmp(labels[Fail.getValue()]);
-  }
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), SYSTEM_LIMIT);
+  emit_handle_error(entry);
 }
 
 void BeamModuleAssembler::emit_if_end(Instruction *Inst) {

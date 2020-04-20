@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 
 -define(SLEEP, 1000).
 -define(EXPIRE, 10).
+-define(TIMEOUT, {seconds, 120}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -39,14 +40,13 @@ all() ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'},
-             {group, 'sslv3'},
              {group, 'dtlsv1.2'},
              {group, 'dtlsv1'}];
         false ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'sslv3'}]
+             {group, 'tlsv1'}
+             ]
     end.
 
 groups() ->
@@ -55,15 +55,13 @@ groups() ->
              [{'tlsv1.2', [], tests()},
               {'tlsv1.1', [], tests()},
               {'tlsv1', [], tests()},
-              {'sslv3', [], tests()},
               {'dtlsv1.2', [], tests()},
               {'dtlsv1', [], tests()}
              ];
         false ->
              [{'tlsv1.2', [], tests()},
               {'tlsv1.1', [], tests()},
-              {'tlsv1', [], tests()},
-              {'sslv3', [], tests()}
+              {'tlsv1', [], tests()}
            ]
      end.
  
@@ -135,17 +133,17 @@ init_per_testcase(reuse_session_erlang_server, Config) ->
         true ->
             case ssl_test_lib:openssl_sane_dtls_session_reuse() of
                 true ->
-                    ct:timetrap({seconds, 10}),
+                    ct:timetrap(?TIMEOUT),
                     Config;
                 false ->
                     {skip, "Broken OpenSSL DTLS session reuse"}
             end;
         false ->
-            ct:timetrap({seconds, 10}),
+            ct:timetrap(?TIMEOUT),
             Config
     end;
-init_per_testcase(TestCase, Config) ->
-    ct:timetrap({seconds, 10}),
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(reuse_session_erlang_client, Config) ->

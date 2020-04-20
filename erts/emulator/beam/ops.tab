@@ -74,35 +74,29 @@ trace_jump W
 
 return
 
-# To ensure that a "move Src x(0)" instruction can be combined with
-# the following call instruction, we need to make sure that there is
-# no line/1 instruction between the move and the call.
-
-move S X0=x==0 | line Loc | call Ar Func => \
-     line Loc | move S X0 | call Ar Func
-
-move S X0=x==0 | line Loc | call_ext Ar Func => \
-     line Loc | move S X0 | call_ext Ar Func
-
 #
 # A tail call will not refer to the current function on error unless it's a
 # BIF, so we can omit the line instruction for non-BIFs.
 #
 
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_bif D => \
-     line Loc | move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_bif => \
-     line Loc | move S X0 | call_ext_only Ar Func
-
-move S X0=x==0 | line Loc | call_ext_last Ar Func D => \
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
      move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func => \
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif => \
      move S X0 | call_ext_only Ar Func
 
 move S X0=x==0 | line Loc | call_last Ar Func D => \
      move S X0 | call_last Ar Func D
 move S X0=x==0 | line Loc | call_only Ar Func => \
      move S X0 | call_only Ar Func
+
+# To ensure that a "move Src x(0)" instruction can be combined with
+# the following call instruction, we need to make sure that there is
+# no line/1 instruction between the move and the call. (We don't
+# need to match the call instruction, because reordering the move
+# and line instructions would be harmless even if no call instruction
+# follows.)
+
+move S X0=x==0 | line Loc => line Loc | move S X0
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
@@ -239,8 +233,17 @@ raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
 i_raise
 
 # Internal now, but could be useful to make known to the compiler.
-badarg j
-system_limit j
+badarg/1
+badarg p => badarg_body
+badarg Fail=f => jump Fail
+
+badarg_body
+
+system_limit/1
+system_limit p => system_limit_body
+system_limit Fail=f => jump Fail
+
+system_limit_body
 
 %hot
 
@@ -329,9 +332,14 @@ is_eq_exact f? y y
 
 is_ne_exact f? S S
 
+# When either operand for is_lt or is_ge is a literal,
+# that literal is almost always an integer and almost never
+# an atom. Therefore we use a specialized instruction when
+# one of the operands is a literal.
+
 is_lt f? x x
-is_lt f? x c
 is_lt f? c x
+is_lt f? x c
 %cold
 is_lt f? s s
 %hot
@@ -424,6 +432,7 @@ normal_exit
 continue_exit
 call_bif W
 call_nif W W W
+call_nif_early
 call_error_handler
 error_action_code
 return_trace
@@ -586,9 +595,9 @@ call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
 # The apply/3 BIF is an instruction.
 #
 
-call_ext u==3 u$bif:erlang:apply/3 => i_apply
-call_ext_last u==3 u$bif:erlang:apply/3 D => i_apply_last D
-call_ext_only u==3 u$bif:erlang:apply/3 => i_apply_only
+call_ext u==3 u$func:erlang:apply/3 => i_apply
+call_ext_last u==3 u$func:erlang:apply/3 D => i_apply_last D
+call_ext_only u==3 u$func:erlang:apply/3 => i_apply_only
 
 #
 # The yield/0 BIF is an instruction
@@ -1421,3 +1430,12 @@ i_recv_set
 
 build_stacktrace
 raw_raise
+
+#
+# Specialized move instructions. Since they don't require a second
+# instruction, we have intentionally placed them after any other
+# transformation rules that starts with a move instruction in order to
+# produce better code for the transformation engine.
+#
+
+move n D=y => init D

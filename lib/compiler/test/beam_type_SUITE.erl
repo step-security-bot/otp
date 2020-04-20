@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,6 +85,10 @@ integers(_Config) ->
     two = do_integers_5(0, 2),
     three = do_integers_5(0, 3),
 
+    {'EXIT',{badarith,_}} = (catch do_integers_6()),
+
+    house = do_integers_7(),
+
     ok.
 
 do_integers_1(B0) ->
@@ -129,6 +133,25 @@ do_integers_5(X0, Y0) ->
         1 -> one;
         2 -> two;
         3 -> three
+    end.
+
+do_integers_6() ->
+    try b after 1 end band 0.
+
+do_integers_7() ->
+    try
+        0
+        band
+        try
+            0:any(),
+            ok
+        catch
+            bad_class:_:_ ->
+                {tag, "nt"}
+        end
+    catch
+        _:_:_ ->
+            house
     end.
 
 numbers(_Config) ->
@@ -221,6 +244,8 @@ coverage(Config) ->
 
     %% Cover beam_type:verified_type(none).
     {'EXIT',{badarith,_}} = (catch (id(2) / id(1)) band 16#ff),
+
+    false = fun lot:life/147 == #{},
 
     ok.
 

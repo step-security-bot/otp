@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,7 +191,8 @@ wait_finished(internal,
             ssl_connection:handle_own_alert(Alert, {3,4}, finished, State0);
         State1 ->
             {Record, State} = ssl_connection:prepare_connection(State1, Module),
-            tls_connection:next_event(connection, Record, State)
+            tls_connection:next_event(connection, Record, State,
+                                      [{{timeout, handshake}, cancel}])
     end;
 wait_finished(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
@@ -217,8 +218,6 @@ wait_ee(internal, #change_cipher_spec{}, State, _Module) ->
     tls_connection:next_event(?FUNCTION_NAME, no_record, State);
 wait_ee(internal, #encrypted_extensions{} = EE, State0, _Module) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of
-        #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, wait_ee, State0);
         {State1, NextState} ->
             tls_connection:next_event(NextState, no_record, State1)
     end;

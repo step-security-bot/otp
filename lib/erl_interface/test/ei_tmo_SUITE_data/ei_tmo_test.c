@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
 
 #ifdef __WIN32__
 #include <winsock2.h>
@@ -68,7 +65,7 @@ static void debugf_open(int number)
 {
     char filename[1024];
     sprintf(filename,"ei_tmo_test%d.debug",number);
-#if !defined(VXWORKS) && !defined(__WIN32__)
+#if !defined(__WIN32__)
     close(2);
 #endif
     debugfile = fopen(filename,"a");

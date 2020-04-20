@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ lookup_listner(Port) ->
         [{Port, {Owner, Handler}}] ->
             case erlang:is_process_alive(Handler) of 
                 true ->
-                    case erlang:is_process_alive(Owner) of
+                    case (Owner =/= undefined) andalso erlang:is_process_alive(Owner) of
                         true ->
                             {error, already_listening};
                         false ->
@@ -75,7 +75,7 @@ register_listner(OwnerAndListner, Port) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init(_O) ->
-    ets:new(dtls_listener_sup, [named_table, public]),
+    ets:new(dtls_listener_sup, [named_table, public, set]),
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
     MaxT = 3600,

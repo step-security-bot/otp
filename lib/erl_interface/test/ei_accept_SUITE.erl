@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,7 +75,8 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
     {ok, ListenFd} = ei_publish(P, Port),
     {any, EINode} ! TermToSend,
 
-    {ok, Fd, _Node} = ei_accept(P, ListenFd),
+    {ok, Fd, Node} = ei_accept(P, ListenFd),
+    Node = node(),
     Got1 = ei_receive(P, Fd),
 
     %% Send again, now without auto-connect

@@ -296,8 +296,6 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
-suites({3, 0}) ->
-    ssl_v3:suites();
 suites({3, Minor}) ->
     tls_v1:suites(Minor);
 suites({_, Minor}) ->
@@ -308,9 +306,9 @@ all_suites({3, _} = Version) ->
         ++ chacha_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites(Version)
-        ++ rc4_suites(Version)
+        ++ rsa_suites(Version)
         ++ des_suites(Version)
-        ++ rsa_suites(Version);
+        ++ rc4_suites(Version);
 
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
@@ -445,8 +443,6 @@ psk_suites_anon(0) ->
 %% Description: Returns a list of the SRP cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites({3,0}) ->
-    [];
 srp_suites(_) ->
     [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
@@ -461,8 +457,6 @@ srp_suites(_) ->
 %% Description: Returns a list of the SRP anonymous cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites_anon({3,0}) ->
-    [];
 srp_suites_anon(_) ->
     [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA,
@@ -741,8 +735,6 @@ hash_size(sha512) ->
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
-mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
   when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
@@ -990,8 +982,20 @@ scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
-
-%% TODO: Add support for ed25519, ed448, rsa_pss*
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                    parameters =  #'RSASSA-PSS-params'{
+                                                                     maskGenAlgorithm = 
+                                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                                             parameters = HashAlgo}}}) ->
+    #'HashAlgorithm'{algorithm = HashOid} = HashAlgo,
+    case public_key:pkix_hash_type(HashOid) of
+        sha256 ->
+            rsa_pss_pss_sha256;
+        sha384 ->
+            rsa_pss_pss_sha384;
+        sha512 ->
+            rsa_pss_pss_sha512
+    end;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
@@ -1009,8 +1013,18 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'sha-1WithRSAEn
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
     rsa_pkcs1_sha1;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA1'}) ->
-    ecdsa_sha1.
-
+    ecdsa_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-Ed25519'}) ->
+    eddsa_ed25519;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-Ed448'}) ->
+    eddsa_ed448;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'rsaEncryption',
+                                                    parameters = ?NULL}) ->
+    rsa_pkcs1_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'rsaEncryption'}) ->
+    rsa_pss_rsae;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'}) ->
+    rsa_pss_pss.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

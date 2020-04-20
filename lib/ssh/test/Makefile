@@ -39,10 +39,14 @@ MODULES= \
 	ssh_chan_behaviours_SUITE \
 	ssh_compat_SUITE \
 	ssh_connection_SUITE \
+	ssh_agent_mock_server \
+	ssh_agent_SUITE \
 	ssh_dbg_SUITE \
 	ssh_engine_SUITE \
 	ssh_protocol_SUITE \
 	ssh_property_test_SUITE \
+	ssh_pubkey_SUITE \
+	ssh_renegotiate_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -150,6 +150,8 @@ check_h_config(Type,[{type,Type} | Config]) when Type =:= standard_io;
                                                  Type =:= standard_error;
                                                  Type =:= file ->
     check_h_config(Type,Config);
+check_h_config({device,Device},[{type,{device,Device}} | Config]) ->
+    check_h_config({device,Device},Config);
 check_h_config(file,[{file,File} | Config]) when is_list(File) ->
     check_h_config(file,Config);
 check_h_config(file,[{modes,Modes} | Config]) when is_list(Modes) ->
@@ -419,6 +421,9 @@ file_ctrl_init(HandlerName,
         {error,Reason} ->
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
+file_ctrl_init(HandlerName, #{type:={device,Dev}}, Starter) ->
+    Starter ! {self(),ok},
+    file_ctrl_loop(#{handler_name=>HandlerName,dev=>Dev});
 file_ctrl_init(HandlerName, #{type:=StdDev}, Starter) ->
     Starter ! {self(),ok},
     file_ctrl_loop(#{handler_name=>HandlerName,dev=>StdDev}).

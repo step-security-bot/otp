@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -205,6 +205,7 @@ int wmain(int argc, wchar_t **wcargv)
 int main(int argc, char** argv)
 {
 #endif
+    int single_scheduler;
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
@@ -299,6 +300,8 @@ int main(int argc, char** argv)
      * Parse all command line switches.
      */
 
+    single_scheduler = 1;
+
     while (argc > 1) {
 
 	/*
@@ -308,6 +311,11 @@ int main(int argc, char** argv)
         source_file = "<no source>";
 	switch (argv[1][0]) {
 	case '+':
+            if (strcmp(argv[1], "+native") == 0) {
+                /* HiPE makes good use of multiple schedulers, so we'll let it
+                 * use the default number. */
+                single_scheduler = 0;
+            }
 	    PUSH(argv[1]);
 	    break;
 	case '-':
@@ -368,6 +376,16 @@ int main(int argc, char** argv)
 	    break;
 	}
 	argc--, argv++;
+    }
+
+    /* The compile server benefits from multiple schedulers. */
+    single_scheduler = single_scheduler && !use_server;
+
+    if (single_scheduler) {
+        /* Limit ourselves to a single scheduler to save memory and avoid
+         * starving the system of threads when used in parallel builds (e.g.
+         * make -j64 on a 64-core system). */
+        UNSHIFT("+S1");
     }
 
     /*

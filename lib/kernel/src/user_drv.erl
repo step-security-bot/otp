@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,6 +121,13 @@ server1(Iport, Oport, Shell) ->
 	case init:get_argument(remsh) of
 	    {ok,[[Node]]} ->
 		ANode = list_to_atom(append_hostname(Node)),
+                %% We try to connect to the node if the current node is not
+                %% a distributed node yet. If this succeeds it means that we
+                %% are running using "-sname undefined".
+                [begin
+                     _ = net_kernel:start([undefined, shortnames]),
+                     net_kernel:connect_node(ANode)
+                 end || node() =:= nonode@nohost],
 		RShell = {ANode,shell,start,[]},
 		RGr = group:start(self(), RShell, rem_sh_opts(ANode)),
 		{RGr,RShell};

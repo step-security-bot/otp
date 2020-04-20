@@ -25,7 +25,7 @@
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
-
+-define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -37,7 +37,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -48,7 +47,6 @@ groups() ->
      {'tlsv1.2', [],  tests()},
      {'tlsv1.1', [],  tests()},
      {'tlsv1', [],  tests()},
-     {'sslv3', [],  tests()},
      {'dtlsv1.2', [], tests()},
      {'dtlsv1', [],  tests()}
     ].
@@ -76,52 +74,34 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    [{client_type, erlang},
-                     {server_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
+init_per_group(GroupName, Config0) ->
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            [{client_type, erlang},
+             {server_type, erlang}| Config]
     end.
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(internal_active_1, Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, internal_active_n, 1),
+    ssl_test_lib:set_protocol_versions(Version),
     ssl:start(),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config;
 init_per_testcase(protocol_versions, Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    case atom_to_list(Version) of
-        "d" ++ _ ->
-            ssl:stop(),
-            application:load(ssl),
-            application:set_env(ssl, dtls_protocol_version, [Version]),
-            ssl:start();
-        _ ->  
-            ssl:stop(),
-            application:load(ssl),
-            application:set_env(ssl, protocol_version, [Version]),
-            ssl:start()
-    end,
-    ct:timetrap({seconds, 5}),
+    ssl_test_lib:set_protocol_versions(Version),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
@@ -130,14 +110,15 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     application:set_env(ssl, protocol_version, []),
     application:set_env(ssl, dtls_protocol_version, []),
     ssl:start(),
-    ct:timetrap({seconds, 5}),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
-end_per_testcase(_, _Config) ->
-    ssl_test_lib:clean_start().
+end_per_testcase(_, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------

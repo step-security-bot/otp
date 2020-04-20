@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #include <stdio.h>		/* Need type FILE */
 #include <errno.h>		/* Need EHOSTUNREACH, ENOMEM, ... */
 
-#if !(defined(__WIN32__) || defined(_WIN32)) && !defined(VXWORKS) || (defined(VXWORKS) && defined(HAVE_SENS))
+#if !(defined(__WIN32__) || defined(_WIN32))
 # include <netdb.h>
 #endif
 
@@ -188,20 +188,20 @@ extern "C" {
  * the 'ei' interface as well.... :-(
  */
 
-#if defined(_REENTRANT) || defined(VXWORKS) || defined(__WIN32__)
+#if defined(_REENTRANT) || defined(__WIN32__)
 
 /* 'erl_errno' as a function return value */
 volatile int* __erl_errno_place(void) __attribute__ ((__const__));
 
 #define erl_errno (*__erl_errno_place ())
 
-#else /* !_REENTRANT && !VXWORKS && !__WIN32__ */
+#else /* !_REENTRANT && !__WIN32__ */
 
 extern volatile int __erl_errno;
 
 #define erl_errno __erl_errno
 
-#endif /* !_REENTRANT && !VXWORKS && !__WIN32__ */
+#endif /* !_REENTRANT && !__WIN32__ */
 
 
 /* -------------------------------------------------------------------- */
@@ -362,7 +362,7 @@ typedef struct ei_cnode_s {
 /* Currently this_ipaddr isn't used */
 /*    struct in_addr this_ipaddr; */
     char ei_connect_cookie[EI_MAX_COOKIE_SIZE+1];
-    short creation;
+    unsigned int creation;
     erlang_pid self;
     ei_socket_callbacks *cbs;
     void *setup_context;
@@ -404,8 +404,12 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
 
 int ei_connect(ei_cnode* ec, char *nodename);
 int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms);
+int ei_connect_host_port(ei_cnode* ec, char *hostname, int port);
+int ei_connect_host_port_tmo(ei_cnode* ec, char *hostname, int port, unsigned ms);
 int ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename);
 int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned ms);
+int ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port);
+int ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms);
 
 int ei_receive(int fd, unsigned char *bufp, int bufsize);
 int ei_receive_tmo(int fd, unsigned char *bufp, int bufsize, unsigned ms);
@@ -454,41 +458,6 @@ int ei_get_tracelevel(void);
 /* 
  * We have erl_gethost*() so we include ei versions as well.
  */
-
-#if defined(VXWORKS)
-
-extern int h_errno;
-
-/*
- * We need these definitions - if the user has SENS then he gets them
- * from netdb.h, otherwise we define them ourselves.
- *
- * If you are getting "multiple definition" errors here,
- * make sure you have included <netdb.h> BEFORE "erl_interface.h"
- * or define HAVE_SENS in your CFLAGS.
- */
-
-#if !defined(HAVE_SENS) && !defined(HOST_NOT_FOUND) /* just in case */
-
-struct	hostent {
-  char	*h_name;	/* official name of host */
-  char	**h_aliases;	/* alias list */
-  int	h_addrtype;	/* host address type */
-  int	h_length;	/* length of address */
-  char	**h_addr_list;	/* list of addresses from name server */
-#define	h_addr	h_addr_list[0]	/* address, for backward compatiblity */
-  unsigned int unused;  /* SENS defines this as ttl */
-};
-
-#define	HOST_NOT_FOUND	1 /* Authoritative Answer Host not found */
-#define	TRY_AGAIN	2 /* Non-Authoritive Host not found, or SERVERFAIL */
-#define	NO_RECOVERY	3 /* Non recoverable errors, FORMERR, REFUSED, NOTIMP */
-#define	NO_DATA		4 /* Valid name, no data record of requested type */
-#define	NO_ADDRESS	NO_DATA		/* no address, look for MX record */
-
-#endif /* !HAVE_SENS && !HOST_NOT_FOUND */
-#endif /* VXWORKS */
-
 
 struct hostent *ei_gethostbyname(const char *name);
 struct hostent *ei_gethostbyaddr(const char *addr, int len, int type);
@@ -548,8 +517,6 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p);
 int ei_x_encode_port(ei_x_buff* x, const erlang_port *p);
 int ei_encode_ref(char *buf, int *index, const erlang_ref *p);
 int ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p);
-int ei_encode_term(char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
-int ei_x_encode_term(ei_x_buff* x, void* t) EI_DEPRECATED_ATTR;
 int ei_encode_trace(char *buf, int *index, const erlang_trace *p);
 int ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p);
 int ei_encode_tuple_header(char *buf, int *index, int arity);
@@ -597,11 +564,11 @@ void free_fun(erlang_fun* f);
 int ei_decode_pid(const char *buf, int *index, erlang_pid *p);
 int ei_decode_port(const char *buf, int *index, erlang_port *p);
 int ei_decode_ref(const char *buf, int *index, erlang_ref *p);
-int ei_decode_term(const char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
 int ei_decode_trace(const char *buf, int *index, erlang_trace *p);
 int ei_decode_tuple_header(const char *buf, int *index, int *arity);
 int ei_decode_list_header(const char *buf, int *index, int *arity);
 int ei_decode_map_header(const char *buf, int *index, int *arity);
+int ei_decode_iodata(const char *buf, int* index, int *szp, char *out_buf);
 
 /* 
  * ei_decode_ei_term() returns 1 if term is decoded, 0 if term is OK,
@@ -813,6 +780,13 @@ int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags);
 int ei_reg_restore(int fd, ei_reg *reg, const char *mntab);
 int ei_reg_purge(ei_reg *reg);
 
+/* -------------------------------------------------------------------- */
+/*            The ei_global functions */
+/* -------------------------------------------------------------------- */
+char **ei_global_names(ei_cnode *ec, int fd, int *count);
+int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, char *node);
+int ei_global_register(int fd, const char *name, erlang_pid *self);
+int ei_global_unregister(ei_cnode *ec, int fd, const char *name);
 
 /* -------------------------------------------------------------------- */
 /*            Encoding/decoding bugnums to GNU MP format                */
@@ -843,14 +817,12 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
 #define EI_ULONGLONG unsigned long long
 #endif
 
-#ifndef VXWORKS
 int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
 int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);
 int ei_encode_longlong(char *buf, int *index, EI_LONGLONG p);
 int ei_encode_ulonglong(char *buf, int *index, EI_ULONGLONG p);
 int ei_x_encode_longlong(ei_x_buff* x, EI_LONGLONG n);
 int ei_x_encode_ulonglong(ei_x_buff* x, EI_ULONGLONG n);
-#endif
 
 #ifdef USE_EI_UNDOCUMENTED
 

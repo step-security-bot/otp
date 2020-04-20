@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -501,8 +501,8 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
                      */
                     erts_monitor_tree_insert(&dist->dist_pend_spawn_exit,
                                              &new_mdp->target);
-                    erts_monitor_release(&new_mdp->target);
                     done = !0;
+                    new_mdp = NULL;
                 }
             }
             else {
@@ -533,8 +533,6 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
                                       EXTERNAL_THING_HEAD_SIZE + 1,
                                       &hp, &oh);
                     mdep->uptr.ohhp = oh.first;
-                    if (new_mdp)
-                        erts_monitor_release(&new_mdp->origin);
                 }
                 done = !0;
             }
@@ -556,6 +554,7 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
 
         ((ErtsMonitorDataExtended *) new_mdp)->dist = dist;
         erts_mon_link_dist_inc_refc(dist);
+        erts_monitor_release(&new_mdp->origin);
     }
 
     if (proc)
@@ -601,7 +600,9 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
     ErtsMonitorData *mdp;
     ErtsMonLnkDist *dist;
     int res;
-    
+
+    ASSERT(erts_monitor_is_origin(mon));
+
     mdp = (ErtsMonitorData *) erts_monitor_to_data(mon);
 
     if (!erts_monitor_dist_delete(&mdp->target))
@@ -620,17 +621,14 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
             tmp_mon = NULL;
         }
         else {
+            res = !0;
             tmp_mon = erts_monitor_tree_lookup(dist->dist_pend_spawn_exit,
                                                mdp->ref);
-            if (!tmp_mon) {
+            if (!tmp_mon)
                 erts_monitor_tree_insert(&dist->dist_pend_spawn_exit,
                                          &mdp->target);
-                res = -1;
-            }
-            else {
+            else
                 erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, tmp_mon);
-                res = 1;
-            }
         }
     
         erts_mtx_unlock(&dist->mtx);
@@ -646,35 +644,39 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
              * original target end in 'dist_pend_spawn_exit'
              */
             ErtsMonitorData *tmp_mdp = erts_monitor_to_data(tmp_mon);
-            ErtsMonitorDataExtended *mdep;
-            ErlOffHeap oh;
-            Eterm *hp;
 
             if (is_atom(tmp_mdp->origin.other.item)) {
                 erts_monitor_release(tmp_mon);
                 erts_monitor_release(&mdp->target);
                 return 0; /* Spawn failed; drop it... */
             }
-        
-            mdep = (ErtsMonitorDataExtended *) mdp;
+
+            /*
+             * If mdp->origin.other.item != am_pending, the other
+             * end is behaving badly by sending multiple
+             * responses...
+             */
+            if (mdp->origin.other.item == am_pending) {
+                ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+                ErlOffHeap oh;
+                Eterm *hp;
 #ifdef DEBUG
-            {
                 int i;
 
                 ASSERT(is_external_pid(tmp_mdp->origin.other.item));
                 for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
                     ASSERT(is_non_value(mdep->heap[i]));
                 }
-            }
 #endif
-            hp = &(mdep)->heap[0];
-            ERTS_INIT_OFF_HEAP(&oh);
-            oh.first = mdep->uptr.ohhp;
-            mdep->md.origin.other.item
-                = copy_struct(tmp_mdp->origin.other.item,
-                              EXTERNAL_THING_HEAD_SIZE + 1,
-                              &hp, &oh);
-            mdep->uptr.ohhp = oh.first;
+                hp = &(mdep)->heap[0];
+                ERTS_INIT_OFF_HEAP(&oh);
+                oh.first = mdep->uptr.ohhp;
+                mdep->md.origin.other.item
+                    = copy_struct(tmp_mdp->origin.other.item,
+                                  EXTERNAL_THING_HEAD_SIZE + 1,
+                                  &hp, &oh);
+                mdep->uptr.ohhp = oh.first;
+            }
             erts_monitor_release(tmp_mon);
         }
     }
@@ -693,51 +695,37 @@ erts_dist_pend_spawn_exit_parent_wait(Process *c_p,
      */
     ErtsMonitorData *mdp;
     ErtsMonLnkDist *dist;
-    int res, suspended = 0;
+    int res;
     
+    ASSERT(erts_monitor_is_origin(mon));
+
     mdp = (ErtsMonitorData *) erts_monitor_to_data(mon);
     dist = ((ErtsMonitorDataExtended *) mdp)->dist;
 
-    while (1) {
-        erts_mtx_lock(&dist->mtx);
+    erts_mtx_lock(&dist->mtx);
 
-        if (!dist->alive) {
-            res = 0;
+    if (!dist->alive) {
+        res = 0;
+    }
+    else {
+        ASSERT(&mdp->target ==
+               erts_monitor_tree_lookup(dist->dist_pend_spawn_exit, mdp->ref));
+        if (mdp->origin.other.item != am_pending) {
+            erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, &mdp->target);
+            res = 1;
         }
         else {
-            ASSERT(erts_monitor_tree_lookup(dist->dist_pend_spawn_exit, mdp->ref));
-            if (mdp->origin.other.item != am_pending) {
-                if (suspended)
-                    mdp->target.other.ptr = NULL; /* Leave it for next time... */
-                else
-                    erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, &mdp->target);
-                res = 1;
-            }
-            else {
-                if (suspended)
-                    mdp->target.other.ptr = (void *) c_p;
-                res = -1;
-            
-            }
+            /* We need to suspend wait and wait for the result... */
+            mdp->target.other.ptr = (void *) c_p;
+            erts_suspend(c_p, locks, NULL);
+            res = -1;
         }
-    
-        erts_mtx_unlock(&dist->mtx);
-
-        if (res >= 0 || suspended)
-            break;
-
-        erts_suspend(c_p, locks, NULL);
-        suspended = !0;
-    }
-
-    if (res >= 0 && suspended) {
-        erts_resume(c_p, locks);
-        return -1; /* Force reschedule... */
     }
     
+    erts_mtx_unlock(&dist->mtx);
+
     return res;
 }
-
 
 /*
 ** A full node name consists of a "n@h"
@@ -961,7 +949,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
         ErtsAtomCache *cache;
         ErtsProcList *suspendees;
         ErtsDistOutputBuf *obuf;
-	Uint32 flags;
+	Uint64 flags;
 
 	erts_atomic_set_mb(&dep->dist_cmd_scheduled, 1);
 	erts_de_rwlock(dep);
@@ -991,7 +979,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
         dep->sequences = NULL;
 
 	nodename = dep->sysname;
-	flags = dep->flags;
+	flags = dep->dflags;
 
         erts_atomic_set_nob(&dep->input_handler, (erts_aint_t) NIL);
         cache = dep->cache;
@@ -1081,15 +1069,31 @@ void init_dist(void)
                           am_erts_internal, am_spawn_request_yield,
                           3, spawn_request_yield_3);
     {
-        Eterm* hp = erts_alloc(ERTS_ALC_T_LITERAL, (1+6)*sizeof(Eterm));
-        erts_dflags_record = TUPLE6(hp, am_erts_dflags,
-                                    make_small(DFLAG_DIST_DEFAULT),
-                                    make_small(DFLAG_DIST_MANDATORY),
-                                    make_small(DFLAG_DIST_ADDABLE),
-                                    make_small(DFLAG_DIST_REJECTABLE),
-                                    make_small(DFLAG_DIST_STRICT_ORDER));
-        erts_set_literal_tag(&erts_dflags_record, hp, (1+6));
+        Eterm *hp_start, *hp, **hpp = NULL;
+        Uint sz = 0, *szp = &sz;
+        while (1) {
+            erts_dflags_record =
+                erts_bld_tuple(hpp, szp, 6,
+                               am_erts_dflags,
+                               erts_bld_uint64(hpp, szp, DFLAG_DIST_DEFAULT),
+                               erts_bld_uint64(hpp, szp, DFLAG_DIST_MANDATORY),
+                               erts_bld_uint64(hpp, szp, DFLAG_DIST_ADDABLE),
+                               erts_bld_uint64(hpp, szp, DFLAG_DIST_REJECTABLE),
+                               erts_bld_uint64(hpp, szp, DFLAG_DIST_STRICT_ORDER));
+            if (hpp) {
+                ASSERT(is_value(erts_dflags_record));
+                ASSERT(hp == hp_start + sz);
+                erts_set_literal_tag(&erts_dflags_record, hp_start, sz);
+                break;
+            }
+            hp = hp_start = erts_alloc(ERTS_ALC_T_LITERAL, sz*sizeof(Eterm));
+            hpp = &hp;
+            szp = NULL;
+        }
     }
+    ERTS_CT_ASSERT(sizeof(ErtsDistOutputBuf) % sizeof(void*) == 0);
+    ERTS_CT_ASSERT(sizeof(SysIOVec) % sizeof(void*) == 0);
+    ERTS_CT_ASSERT(sizeof(ErlIOVec) % sizeof(void*) == 0);
 }
 
 static ERTS_INLINE ErtsDistOutputBuf *
@@ -1101,12 +1105,9 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     char *ptr;
     Uint iov_sz, obsz;
     Binary *bin;
-    ErlIOVec **feiov;
     Uint fragment_size;
 
     obsz = sizeof(ErtsDistOutputBuf)*fragments;
-    if (obsz % sizeof(void *) != 0)
-        obsz += sizeof(void *) - (obsz % sizeof(void *));
 
     iov_sz = erts_ttb_iov_size(0, vlen, fragments);
     
@@ -1122,15 +1123,14 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     else
         fragment_size = ~((Uint) 0);
 
-    feiov = erts_ttb_iov_init(ctx, 0, ptr, vlen,
-                              fragments, fragment_size);
+    erts_ttb_iov_init(ctx, 0, ptr, vlen, fragments, fragment_size);
     ptr += iov_sz;
 
     erts_refc_add(&bin->intern.refc, fragments - 1, 1);
 
     for (ix = 0; ix < fragments; ix++) {
         obuf[ix].bin = bin;
-        obuf[ix].eiov = feiov[ix];
+        obuf[ix].eiov = &ctx->fragment_eiovs[ix];
 #ifdef DEBUG
         obuf[ix].dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
 #endif
@@ -1305,14 +1305,14 @@ erts_dsig_send_m_exit(ErtsDSigSendContext *ctx, Eterm watcher, Eterm watched,
 {
     Eterm ctl, msg;
 
-    if (~ctx->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+    if (~ctx->dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
         /*
          * Receiver does not support DOP_MONITOR_P_EXIT (see dsig_send_monitor)
          */
         return ERTS_DSIG_SEND_OK;
     }
 
-    if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD) {
+    if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
         ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_PAYLOAD_MONITOR_P_EXIT),
                      watched, watcher, ref);
         msg = reason;
@@ -1334,7 +1334,7 @@ erts_dsig_send_monitor(ErtsDSigSendContext *ctx, Eterm watcher, Eterm watched,
 {
     Eterm ctl;
 
-    if (~ctx->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+    if (~ctx->dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
         /*
          * Receiver does not support DOP_MONITOR_P.
          * Just avoid sending it and by doing that reduce this monitor
@@ -1360,7 +1360,7 @@ erts_dsig_send_demonitor(ErtsDSigSendContext *ctx, Eterm watcher,
 {
     Eterm ctl;
 
-    if (~ctx->flags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
+    if (~ctx->dflags & (DFLAG_DIST_MONITOR | DFLAG_DIST_MONITOR_NAME)) {
         /*
          * Receiver does not support DOP_DEMONITOR_P (see dsig_send_monitor)
          */
@@ -1377,7 +1377,7 @@ erts_dsig_send_demonitor(ErtsDSigSendContext *ctx, Eterm watcher,
 static int can_send_seqtrace_token(ErtsDSigSendContext* ctx, Eterm token) {
     Eterm label;
 
-    if (ctx->flags & DFLAG_BIG_SEQTRACE_LABELS) {
+    if (ctx->dflags & DFLAG_BIG_SEQTRACE_LABELS) {
         /* The other end is capable of handling arbitrary seq_trace labels. */
         return 1;
     }
@@ -1438,7 +1438,7 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
 
         send_token = (token != NIL && can_send_seqtrace_token(ctx, token));
 
-        if (ctx->flags & DFLAG_SEND_SENDER) {
+        if (ctx->dflags & DFLAG_SEND_SENDER) {
             dist_op = make_small(send_token ?
                                  DOP_SEND_SENDER_TT :
                                  DOP_SEND_SENDER);
@@ -1540,20 +1540,20 @@ erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Eterm local, Eterm remote,
     DTRACE_CHARBUF(reason_str, 128);
 #endif
 
-    if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD)
+    if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD)
         msg = reason;
 
     if (have_seqtrace(token)) {
 	seq_trace_update_serial(ctx->c_p);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
-        if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD) {
+        if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
             ctl = TUPLE4(&ctx->ctl_heap[0],
                          make_small(DOP_PAYLOAD_EXIT_TT), local, remote, token);
         } else
             ctl = TUPLE5(&ctx->ctl_heap[0],
                          make_small(DOP_EXIT_TT), local, remote, token, reason);
     } else {
-        if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD)
+        if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD)
             ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_PAYLOAD_EXIT), local, remote);
         else
             ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_EXIT), local, remote, reason);
@@ -1584,9 +1584,9 @@ erts_dsig_send_exit_tt(ErtsDSigSendContext *ctx, Eterm local, Eterm remote,
 int
 erts_dsig_send_exit(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Eterm reason)
 {
-    Eterm ctl, msg = ctx->dep->flags & DFLAG_EXIT_PAYLOAD ? reason : THE_NON_VALUE;
+    Eterm ctl, msg = ctx->dep->dflags & DFLAG_EXIT_PAYLOAD ? reason : THE_NON_VALUE;
 
-    if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD) {
+    if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
         ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_PAYLOAD_EXIT), local, remote);
         msg = reason;
     } else {
@@ -1601,7 +1601,7 @@ erts_dsig_send_exit2(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Eterm 
 {
     Eterm ctl, msg;
 
-    if (ctx->dep->flags & DFLAG_EXIT_PAYLOAD) {
+    if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
         ctl = TUPLE3(&ctx->ctl_heap[0],
                      make_small(DOP_PAYLOAD_EXIT2), local, remote);
         msg = reason;
@@ -2249,7 +2249,7 @@ int erts_net_message(Port *prt,
          * the atom '' (empty cookie).
 	 */
         ASSERT((type == DOP_SEND_SENDER || type == DOP_SEND_SENDER_TT)
-               ? (is_pid(tuple[2]) && (dep->flags & DFLAG_SEND_SENDER))
+               ? (is_pid(tuple[2]) && (dep->dflags & DFLAG_SEND_SENDER))
                : tuple[2] == am_Empty);
 
 #ifdef ERTS_DIST_MSG_DBG
@@ -2517,7 +2517,7 @@ int erts_net_message(Port *prt,
                 goto invalid_message;
         }
 
-        opts_error = erts_parse_spawn_opts(&so, opts, NULL, NULL);
+        opts_error = erts_parse_spawn_opts(&so, opts, NULL, 0);
         if (opts_error) {
             ErtsDSigSendContext ctx;
             if (opts_error > 1)
@@ -2859,7 +2859,7 @@ retry:
     ctx->connection_id = dep->connection_id;
     ctx->no_suspend = no_suspend;
     ctx->no_trap = no_trap;
-    ctx->flags = dep->flags;
+    ctx->dflags = dep->dflags;
     ctx->return_term = am_true;
     ctx->phase = ERTS_DSIG_SEND_PHASE_INIT;
     ctx->from = proc ? proc->common.id : am_undefined;
@@ -2926,7 +2926,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 	    if (!erts_is_alive)
 		return ERTS_DSIG_SEND_OK;
 
-	    if (ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE) {
+	    if (ctx->dflags & DFLAG_DIST_HDR_ATOM_CACHE) {
 		ctx->acmp = erts_get_atom_cache_map(ctx->c_p);
 	    }
 	    else {
@@ -2944,7 +2944,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 	    ctx->data_size = 0;
 	    erts_reset_atom_cache_map(ctx->acmp);
 
-            ERTS_INIT_TTBSizeContext(&ctx->u.sc, ctx->flags);
+            ERTS_INIT_TTBSizeContext(&ctx->u.sc, ctx->dflags);
 
             while (1) {
                 ErtsExtSzRes sz_res;
@@ -3010,9 +3010,9 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
         }
 	case ERTS_DSIG_SEND_PHASE_ALLOC: {
 
-	    erts_finalize_atom_cache_map(ctx->acmp, ctx->flags);
+	    erts_finalize_atom_cache_map(ctx->acmp, ctx->dflags);
 
-            ERTS_INIT_TTBEncodeContext(&ctx->u.ec, ctx->flags);
+            ERTS_INIT_TTBEncodeContext(&ctx->u.ec, ctx->dflags);
 	    ctx->dhdr_ext_size = erts_encode_ext_dist_header_size(&ctx->u.ec,
                                                                   ctx->acmp,
                                                                   ctx->fragments);
@@ -3037,7 +3037,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 Sint reds = CONTEXT_REDS;
                 /* Encode control message */
                 int res = erts_encode_dist_ext(ctx->ctl, &ctx->extp,
-                                               ctx->flags, ctx->acmp,
+                                               ctx->dflags, ctx->acmp,
                                                &ctx->u.ec, &ctx->fragments,
                                                &reds);
                 ctx->reds -= CONTEXT_REDS - reds;
@@ -3062,7 +3062,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             }
             while (1) {
                 int res = erts_encode_dist_ext(ctx->msg, &ctx->extp,
-                                               ctx->flags, ctx->acmp,
+                                               ctx->dflags, ctx->acmp,
                                                &ctx->u.ec,
                                                &ctx->fragments,
                                                redsp);
@@ -3493,7 +3493,7 @@ erts_dist_command(Port *prt, int initial_reds)
 {
     Sint reds = initial_reds - ERTS_PORT_REDS_DIST_CMD_START;
     enum dist_entry_state state;
-    Uint32 flags;
+    Uint64 flags;
     Sint qsize, obufsize = 0;
     ErtsDistOutputQueue oq, foq;
     DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
@@ -3506,7 +3506,7 @@ erts_dist_command(Port *prt, int initial_reds)
     erts_atomic_set_mb(&dep->dist_cmd_scheduled, 0);
 
     erts_de_rlock(dep);
-    flags = dep->flags;
+    flags = dep->dflags;
     state = dep->state;
     send = dep->send;
     erts_de_runlock(dep);
@@ -4131,7 +4131,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
 
         obuf = dep->tmp_out_queue.first;
         obufsize += size_obuf(obuf);
-        reds = erts_encode_ext_dist_header_finalize(obuf, dep, dep->flags, reds);
+        reds = erts_encode_ext_dist_header_finalize(obuf, dep, dep->dflags, reds);
         obufsize -= size_obuf(obuf);
         if (reds < 0) { /* finalize needs to be restarted... */
             erts_de_runlock(dep);
@@ -4528,6 +4528,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     if (success) {
         inc_no_nodes();
         erts_set_this_node(BIF_ARG_1, (Uint32) creation);
+        erts_this_dist_entry->creation = creation;
         erts_is_alive = 1;
         send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
         erts_proc_lock(net_kernel, ERTS_PROC_LOCKS_ALL);
@@ -4569,7 +4570,8 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 typedef struct {
     DistEntry *dep;
     int de_locked;
-    Uint flags;
+    Uint64 dflags;
+    Uint32 creation;
     Uint version;
     Eterm setup_pid;
     Process *net_kernel;
@@ -4577,24 +4579,26 @@ typedef struct {
 
 static int
 setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
-                                  Eterm ctrlr, Uint flags,
-                                  Uint version, Eterm setup_pid,
+                                  Eterm ctrlr, Uint64 flags,
+                                  Uint32 creation, Eterm setup_pid,
                                   Process *net_kernel);
 
 static Eterm
 setup_connection_distctrl(Process *c_p, void *arg,
                           int *redsp, ErlHeapFragment **bpp);
 
-BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
+BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
 {
     BIF_RETTYPE ret;
-    Uint flags;
+    Uint64 flags;
     Uint version;
+    Uint32 creation;
     Eterm *hp, res_tag = THE_NON_VALUE, res = THE_NON_VALUE;
     DistEntry *dep = NULL;
     int de_locked = 0;
     Port *pp = NULL;
     int true_nk;
+    Eterm *tpl;
     Process *net_kernel = erts_whereis_process(BIF_P, ERTS_PROC_LOCK_MAIN,
                                                am_net_kernel,
                                                ERTS_PROC_LOCK_STATUS,
@@ -4620,17 +4624,25 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
     if (!is_internal_port(BIF_ARG_2) && !is_internal_pid(BIF_ARG_2))
         goto badarg;
 
-    /* Dist flags... */
-    if (!is_small(BIF_ARG_3))
+    if (!is_tuple_arity(BIF_ARG_3, 3))
         goto badarg;
-    flags = unsigned_val(BIF_ARG_3);
+
+    tpl = tuple_val(BIF_ARG_3);
+
+    /* Dist flags... */
+    if (!term_to_Uint64(tpl[1], &flags))
+        goto badarg;
 
     /* Version... */
-    if (!is_small(BIF_ARG_4))
+    if (!is_small(tpl[2]))
         goto badarg;
-    version = unsigned_val(BIF_ARG_4);
+    version = unsigned_val(tpl[2]);
 
     if (version == 0)
+        goto badarg;
+
+    /* Creation... */
+    if (!term_to_Uint32(tpl[3], &creation))
         goto badarg;
 
     if (~flags & DFLAG_DIST_MANDATORY) {
@@ -4673,7 +4685,8 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 
             scdc.dep = dep;
             scdc.de_locked = 1;
-            scdc.flags = flags;
+            scdc.dflags = flags;
+            scdc.creation = creation;
             scdc.version = version;
             scdc.setup_pid = BIF_P->common.id;
             scdc.net_kernel = net_kernel;
@@ -4702,7 +4715,8 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 
             scdcp->dep = dep;
             scdcp->de_locked = 0;
-            scdcp->flags = flags;
+            scdcp->dflags = flags;
+            scdcp->creation = creation;
             scdcp->version = version;
             scdcp->setup_pid = BIF_P->common.id;
             scdcp->net_kernel = net_kernel;
@@ -4777,7 +4791,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 
         conn_id = dep->connection_id;
         set_res = setup_connection_epiloge_rwunlock(BIF_P, dep, BIF_ARG_2, flags,
-                                                    version, BIF_P->common.id,
+                                                    creation, BIF_P->common.id,
                                                     net_kernel);
         /* Dec of refc on net_kernel by setup_connection_epiloge_rwunlock() */
         net_kernel = NULL;
@@ -4823,9 +4837,9 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
      dep->suspended_nodeup = BIF_P;
      erts_proc_inc_refc(BIF_P);
      erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-     ERTS_BIF_PREP_YIELD4(ret,
-                          bif_trap_export[BIF_erts_internal_create_dist_channel_4],
-                          BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+     ERTS_BIF_PREP_YIELD3(ret,
+                          bif_trap_export[BIF_erts_internal_create_dist_channel_3],
+                          BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
      goto done;
 
  badarg:
@@ -4839,8 +4853,8 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
 
 static int
 setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
-                                  Eterm ctrlr, Uint flags,
-                                  Uint version, Eterm setup_pid,
+                                  Eterm ctrlr, Uint64 flags,
+                                  Uint32 creation, Eterm setup_pid,
                                   Process *net_kernel)
 {
     Eterm notify_proc = NIL;
@@ -4869,8 +4883,7 @@ setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
     if (!success)
         return 0;
     
-    dep->version = version;
-    dep->creation = 0;
+    dep->creation = creation;
 
     ASSERT(is_internal_port(ctrlr) || is_internal_pid(ctrlr));
     ASSERT(dep->state == ERTS_DE_STATE_PENDING);
@@ -4956,7 +4969,7 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
         *redsp = 5;
 
     if (!setup_connection_epiloge_rwunlock(c_p, dep, c_p->common.id,
-                                           scdcp->flags, scdcp->version,
+                                           scdcp->dflags, scdcp->creation,
                                            scdcp->setup_pid,
                                            scdcp->net_kernel)) {
         erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -4999,16 +5012,45 @@ BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
 {
     if (erts_dflags_test_remove_hopefull_flags) {
         /* For internal emulator tests only! */
-        Eterm *hp = HAlloc(BIF_P, 1+6);
-        return TUPLE6(hp, am_erts_dflags,
-                      make_small(DFLAG_DIST_DEFAULT & ~DFLAG_DIST_HOPEFULLY),
-                      make_small(DFLAG_DIST_MANDATORY & ~DFLAG_DIST_HOPEFULLY),
-                      make_small(DFLAG_DIST_ADDABLE & ~DFLAG_DIST_HOPEFULLY),
-                      make_small(DFLAG_DIST_REJECTABLE & ~DFLAG_DIST_HOPEFULLY),
-                      make_small(DFLAG_DIST_STRICT_ORDER & ~DFLAG_DIST_HOPEFULLY));
+        Eterm *hp, **hpp = NULL;
+        Uint sz = 0, *szp = &sz;
+        Eterm res;
+        while (1) {
+            res = erts_bld_tuple(hpp, szp, 6,
+                am_erts_dflags,
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_DEFAULT & ~DFLAG_DIST_HOPEFULLY),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_MANDATORY & ~DFLAG_DIST_HOPEFULLY),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_ADDABLE & ~DFLAG_DIST_HOPEFULLY),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_REJECTABLE & ~DFLAG_DIST_HOPEFULLY),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_STRICT_ORDER & ~DFLAG_DIST_HOPEFULLY));
+            if (hpp) {
+                ASSERT(is_value(res));
+                return res;
+            }
+            hp = HAlloc(BIF_P, sz);
+            hpp = &hp;
+            szp = NULL;
+        }
     }
     return erts_dflags_record;
     
+}
+
+BIF_RETTYPE erts_internal_get_creation_0(BIF_ALIST_0)
+{
+    Eterm *hp;
+    Uint hsz = 0;
+    Uint32 cr = erts_this_dist_entry->creation;
+    Eterm ret;
+
+    if (cr == 0)
+        ret = am_undefined;
+    else {
+        erts_bld_uint(NULL, &hsz, cr);
+        hp = HAlloc(BIF_P, hsz);
+        ret = erts_bld_uint(&hp, NULL, cr);
+    }
+    return ret;
 }
 
 BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
@@ -5018,7 +5060,7 @@ BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
     Eterm* hp;
     Eterm dhandle;
 
-    if (is_not_atom(BIF_ARG_1)) {
+    if (!is_node_name_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
     dep = erts_find_or_insert_dist_entry(BIF_ARG_1);
@@ -5249,17 +5291,18 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm mfa = BIF_ARG_2;
     Eterm opts = BIF_ARG_3;
     Eterm tag = am_spawn_reply;
-    Eterm mod, func, alist, new_opts, error, timeout, ref,
+    Eterm mod, func, alist, new_opts, error, ref,
         ok_result;
     Uint nargs, nopts, rm_opts, rebuild_opts;
     DistEntry *dep = NULL;
     Eterm list;
     ErtsDSigSendContext ctx;
-    int code, link = 0, monitor = 0, timer_set = 0;
+    int code, link = 0, monitor = 0, success_message, error_message;
     
-    ok_result = timeout = THE_NON_VALUE;
+    ok_result = THE_NON_VALUE;
+    success_message = error_message = !0;
     
-    if (!is_node_name_atom(node))
+    if (!is_atom(node))
         goto badarg;
     dep = erts_find_or_insert_dist_entry(node);
     if (dep == erts_this_dist_entry)
@@ -5309,17 +5352,35 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 switch (tp[1]) {
                     
                 case am_reply_tag:
-                    if (BIF_ARG_4 != am_spawn_request)
-                        goto badarg;
                     tag = tp[2];
-                    
+
                     if (0) {
-                    case am_timeout:
-                        timeout = tp[2];
+                    case am_reply:
+                        switch (tp[2]) {
+                        case am_error_only:
+                            success_message = 0;
+                            error_message = !0;
+                            break;
+                        case am_success_only:
+                            success_message = !0;
+                            error_message = 0;
+                            break;
+                        case am_no:
+                            success_message = 0;
+                            error_message = 0;
+                            break;
+                        case am_yes:
+                            success_message = !0;
+                            error_message = !0;
+                            break;
+                        default:
+                            goto badarg;
+                        }
                     }
 
-                    /* common for options to remove... */
-
+                    if (BIF_ARG_4 != am_spawn_request)
+                        goto badarg;
+                    
                     rm_opts++;
                     new_opts = list;
                     rebuild_opts = nopts - rm_opts;
@@ -5349,9 +5410,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             Uint rm_cnt;
             Eterm *hp, *prev_cp;
             /*
-             * Remove 'reply_tag' and 'timeout' options
-             * in option list. These options are mixed
-             * with other options.
+             * Remove 'reply_tag' option in option list.
+             * This options are mixed with other options.
              *
              * We build the list backwards and reuse tail
              * without options to remove, if such exist.
@@ -5377,7 +5437,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 if (is_tuple_arity(car, 2)) {
                     Eterm *tp = tuple_val(car);
                     if (am_reply_tag == tp[1]
-                        || am_timeout == tp[1]) {
+                        || am_reply == tp[1]) {
                         rm_cnt++;
                         /* skip option */
                         if (rm_cnt == rm_opts) {
@@ -5415,14 +5475,6 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ok_result = TUPLE2(hp, ref, monitor ? am_true : am_false);
     }
 
-    if (is_value(timeout)) {
-        if (timeout == make_small(0))
-            goto timeout;
-        if (!erts_setup_spawn_timer(BIF_P, ref, timeout))
-            goto badopt;
-        timer_set = !0;
-    }
-
     code = erts_dsig_prepare(&ctx, dep,
                              BIF_P, ERTS_PROC_LOCK_MAIN,
                              ERTS_DSP_RLOCK, 0, 0, 1);
@@ -5432,7 +5484,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         goto noconnection;
         
     case ERTS_DSIG_PREP_CONNECTED:
-        if (!(dep->flags & DFLAG_SPAWN)) {
+        if (!(dep->dflags & DFLAG_SPAWN)) {
             erts_de_runlock(dep);
             goto notsup;
         }
@@ -5461,8 +5513,11 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_MONITOR;
         if (link)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_LINK;
-        if (timer_set)
-            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_TIMEOUT;
+        if (!success_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_SMSG;
+        if (!error_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_EMSG;
+            
         erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
                                  &mdp->origin);
         inserted = erts_monitor_dist_insert(&mdp->target, dep->mld);
@@ -5545,17 +5600,12 @@ noconnection:
     goto send_error;
 notsup:
     error = am_notsup;
-    goto send_error;
-timeout:
-    error = am_timeout;
-    goto send_error;
-badopt:
-    error = am_badopt;
     /* fall through... */
 send_error:
     ASSERT(is_value(ok_result));
-    erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
-                                tag, ref, error, am_undefined);
+    if (error_message)
+        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                    tag, ref, error, am_undefined);
     ERTS_BIF_PREP_RET(ret_val, ok_result);
     goto do_return;
 }
@@ -5896,7 +5946,7 @@ BIF_RETTYPE monitor_node_2(BIF_ALIST_2)
 BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)
 {
     DistEntry *de;
-    Uint32 f;
+    Uint64 f;
     if (is_not_pid(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P,BADARG);
     }
@@ -5906,7 +5956,7 @@ BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)
 	BIF_RET(am_true);
     }
     erts_de_rlock(de);
-    f = de->flags;
+    f = de->dflags;
     erts_de_runlock(de);
     BIF_RET(((f & DFLAG_UNICODE_IO) ? am_true : am_false));
 }
@@ -6304,6 +6354,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     erts_mtx_lock(&nodes_monitors_mtx);
 
@@ -6334,7 +6385,6 @@ erts_processes_monitoring_nodes(Process *c_p)
     erts_mtx_unlock(&nodes_monitors_mtx);
 
     erts_thr_progress_unblock();
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     return ctxt.res;
 }

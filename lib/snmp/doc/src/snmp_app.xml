@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2019</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -263,7 +263,7 @@ in the snmp_config file!
       <item>
         <p>Module which handles the network interface part for the
           SNMP agent. Must implement the 
-          <seealso marker="snmpa_network_interface">snmpa_network_interface</seealso> behaviour.</p>
+          <seeerl marker="snmpa_network_interface">snmpa_network_interface</seeerl> behaviour.</p>
         <p>Default is <c>snmpa_net_if</c>.</p>
       </item>
 
@@ -306,7 +306,7 @@ in the snmp_config file!
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP agent. Must implement the 
-	  <seealso marker="snmpa_network_interface_filter">snmpa_network_interface_filter</seealso> behaviour.</p>
+	  <seeerl marker="snmpa_network_interface_filter">snmpa_network_interface_filter</seeerl> behaviour.</p>
 	<p>Default is <c>snmpa_net_if_filter</c>.</p>
       </item>
 
@@ -339,7 +339,7 @@ in the snmp_config file!
         <c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()]]></c></tag>
       <item>
         <p>Defines the mib storage module of the SNMP agent as defined by the 
-	<seealso marker="snmpa_mib_storage">snmpa_mib_storage</seealso> 
+	<seeerl marker="snmpa_mib_storage">snmpa_mib_storage</seeerl> 
 	behaviour. </p>
 	<p>Several entities (<c>mib-server</c> via the its data module and 
 	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
@@ -477,7 +477,7 @@ in the snmp_config file!
       <item>
         <p>Defines the backend data module of the SNMP agent mib-server as 
 	defined by the 
-	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	<seeerl marker="snmpa_mib_data">snmpa_mib_data</seeerl> 
 	behaviour. </p>
 	<p>At present only the default module is provided with the agent,  
 	<c>snmpa_mib_data_tttn</c>. </p>
@@ -511,7 +511,7 @@ in the snmp_config file!
       <item>
         <p>Defines if the mib server shall perform cache gc automatically or 
 	leave it to the user (see 
-	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+	<seeerl marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seeerl>). </p>
         <p>Default is <c>true</c>.</p>
       </item>
 
@@ -540,7 +540,7 @@ in the snmp_config file!
         <c><![CDATA[error_report_mod() = atom() <optional>]]></c></tag>
       <item>
         <p>Defines an error report module, implementing the 
-          <seealso marker="snmpa_error_report">snmpa_error_report</seealso> 
+          <seeerl marker="snmpa_error_report">snmpa_error_report</seeerl> 
           behaviour. Two modules are provided with the toolkit: 
           <c>snmpa_error_logger</c> and <c>snmpa_error_io</c>.</p>
         <p>Default is <c>snmpa_error_logger</c>.</p>
@@ -594,7 +594,7 @@ in the snmp_config file!
       <tag><marker id="manager_server"></marker>
         <c><![CDATA[server() = [server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()}</c></p>
+        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()} | {netif_sup, server_nis()}</c></p>
         <p>Specifies the options for the manager server process.</p>
         <p>Default is <c>silence</c>.</p>
       </item>
@@ -613,9 +613,9 @@ in the snmp_config file!
           The information will have an <em>best before</em> time,
           defined by the <c>Expire</c> time given when calling the
           request function (see 
-          <seealso marker="snmpm#async_get">async_get</seealso>,
-          <seealso marker="snmpm#async_get_next">async_get_next</seealso> and 
-          <seealso marker="snmpm#async_set">async_set</seealso>).</p>
+          <seeerl marker="snmpm#async_get2">async_get</seeerl>,
+          <seeerl marker="snmpm#async_get_next2">async_get_next</seeerl> and 
+          <seeerl marker="snmpm#async_set2">async_set</seeerl>).</p>
         <p>Time in milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
       </item>
@@ -639,6 +639,36 @@ in the snmp_config file!
 	  </item>
 	</taglist>
         <p>Default is <c>temporary</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_nis"></marker>
+        <c><![CDATA[server_nis() = none (default) | {PingTO, PongTO} <optional>]]></c></tag>
+      <item>
+	<p>This option specifies if the server should actively supervise the
+	net-if process.
+	Note that this will only work if the used net-if process actually supports
+	the protocol. See
+	<seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour for more info. </p>
+	<taglist>
+	  <tag><marker id="manager_server_nis_none"></marker>
+	  <c><![CDATA[none (default)]]></c></tag>
+	  <item>
+	    <p>No active supervision of the net-if process. </p>
+	  </item>
+	  
+	  <tag><marker id="manager_server_nis_active"></marker>
+	  <c><![CDATA[{PingTO :: pos_integer(), PongTO :: pos_integer()}]]></c></tag>
+	  <item>
+	    <p>The <c>PingTO</c> time specifies the between a successful ping
+	    (or start) and the time when a ping message is to be sent to the net-if
+	    process (basically the time between ping). </p>
+	    <p>The <c>PongTO</c> time specifies how long time the net-if process
+	    has to respond to a ping message, with a <em>pong</em> message.
+	    Its starts counting when the ping message has been sent.</p>
+	    <p>Both times are in milli seconds.</p>
+	  </item>
+	</taglist>
+	<p>Default is <c>none</c>.</p>
       </item>
 
       <tag><marker id="manager_config"></marker>
@@ -690,7 +720,7 @@ in the snmp_config file!
           <item>
             <p><c>{user, integer()}</c> - The manager will send response
               (acknowledgment) to inform-request messages when the 
-              <seealso marker="snmpm_user#handle_inform">handle_inform</seealso> 
+              <seeerl marker="snmpm_user#handle_inform">handle_inform</seeerl> 
               function completes. The integer is the time, in milli-seconds, 
               that the manager will consider the stored inform-request info 
               valid.</p>
@@ -701,9 +731,9 @@ in the snmp_config file!
           </item>
         </list>
         <p>See 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso>, 
-          <seealso marker="snmpm_user">handle_inform</seealso> and 
-          <seealso marker="snmp_manager_netif">definition of the manager net if</seealso> for more info.</p>
+          <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl>, 
+          <seeerl marker="snmpm_user">handle_inform</seeerl> and 
+          <seeguide marker="snmp_manager_netif">definition of the manager net if</seeguide> for more info.</p>
         <p>Default is <c>auto</c>.</p>
       </item>
 
@@ -746,7 +776,7 @@ in the snmp_config file!
       <item>
         <p>The module which handles the network interface part for the
           SNMP manager. It must implement the 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour.</p>
+          <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour.</p>
         <p>Default is <c>snmpm_net_if</c>.</p>
       </item>
 
@@ -766,7 +796,7 @@ in the snmp_config file!
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP manager. Must implement the 
-	  <seealso marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seealso> behaviour.</p>
+	  <seeerl marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seeerl> behaviour.</p>
 	<p>Default is <c>snmpm_net_if_filter</c>.</p>
       </item>
 
@@ -774,7 +804,7 @@ in the snmp_config file!
         <c><![CDATA[def_user_module() = atom() <optional>]]></c></tag>
       <item>
         <p>The module implementing the default user. See the 
-          <seealso marker="snmpm_user">snmpm_user</seealso> behaviour.</p>
+          <seeerl marker="snmpm_user">snmpm_user</seeerl> behaviour.</p>
         <p>Default is <c>snmpm_user_default</c>.</p>
       </item>
 
@@ -793,7 +823,7 @@ in the snmp_config file!
       <tag><marker id="restart_type"></marker>
         <c>restart_type() = permanent | transient | temporary</c></tag>
       <item>
-        <p>See <seealso marker="stdlib:supervisor#child_spec">supervisor</seealso> 
+        <p>See <seeerl marker="stdlib:supervisor#child_spec">supervisor</seeerl> 
           documentation for more info.</p>
         <p>Default is <c>permanent</c> for the agent and <c>transient</c>
           for the manager.</p>

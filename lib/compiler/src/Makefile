@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,6 +96,7 @@ MODULES =  \
 	sys_core_fold \
 	sys_core_fold_lists \
 	sys_core_inline \
+	sys_core_prepare \
 	sys_pre_attributes \
 	v3_core \
 	v3_kernel \

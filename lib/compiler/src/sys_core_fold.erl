@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -160,63 +160,6 @@ body(E, Ctxt, Sub) ->
 guard(Expr, Sub) ->
     ?ASSERT(verify_scope(Expr, Sub)),
     expr(Expr, value, Sub#sub{in_guard=true}).
-
-%% opt_guard_try(Expr) -> Expr.
-%%
-opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
-    Body = opt_guard_try(Body0),
-    WillFail = case Body of
-		   #c_call{module=#c_literal{val=erlang},
-			   name=#c_literal{val=error},
-			   args=[_]} ->
-		       true;
-		   #c_literal{val=false} ->
-		       true;
-		   _ ->
-		       false
-	       end,
-    case Arg of
-	#c_call{module=#c_literal{val=Mod},
-		name=#c_literal{val=Name},
-		args=Args} when WillFail ->
-	    %% We have sequence consisting of a call (evaluated
-	    %% for a possible exception and/or side effect only),
-	    %% followed by 'false' or a call to error/1.
-	    %%   Since the sequence is inside a try block that will
-	    %% default to 'false' if any exception occurs, not
-	    %% evalutating the call will not change the behaviour
-	    %% provided that the call has no side effects.
-	    case erl_bifs:is_pure(Mod, Name, length(Args)) of
-		false ->
-		    %% Not a pure BIF (meaning that this is not
-		    %% a guard and that we must keep the call).
-		    Seq#c_seq{body=Body};
-		true ->
-		    %% The BIF has no side effects, so it can
-		    %% be safely removed.
-		    Body
-	    end;
-	_ ->
-	    Seq#c_seq{body=Body}
-    end;
-opt_guard_try(#c_case{clauses=Cs}=Term) ->
-    Term#c_case{clauses=opt_guard_try_list(Cs)};
-opt_guard_try(#c_clause{body=B0}=Term) ->
-    Term#c_clause{body=opt_guard_try(B0)};
-opt_guard_try(#c_let{vars=[],arg=#c_values{es=[]},body=B}) ->
-    B;
-opt_guard_try(#c_let{arg=Arg,body=B0}=Term) ->
-    case opt_guard_try(B0) of
-	#c_literal{}=B ->
-	    opt_guard_try(#c_seq{arg=Arg,body=B});
-	B ->
-	    Term#c_let{body=B}
-    end;
-opt_guard_try(Term) -> Term.
-
-opt_guard_try_list([C|Cs]) ->
-    [opt_guard_try(C)|opt_guard_try_list(Cs)];
-opt_guard_try_list([]) -> [].
 
 %% expr(Expr, Sub) -> Expr.
 %% expr(Expr, Context, Sub) -> Expr.
@@ -392,11 +335,6 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
-expr(#c_receive{anno=Anno,clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
-    Cs1 = clauses(#c_var{name='_'}, Cs0, Ctxt, Sub, false, Anno),
-    T1 = expr(T0, value, Sub),
-    A1 = body(A0, Ctxt, Sub),
-    Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
@@ -449,14 +387,11 @@ expr(#c_try{arg=E0,vars=[#c_var{name=X}],body=#c_var{name=X},
     E1 = body(E0, value, Sub),
     case will_fail(E1) of
 	false ->
-	    %% Remove any calls that are evaluated for effect only.
-	    E2 = opt_guard_try(E1),
-
 	    %% We can remove try/catch if the expression is an
 	    %% expression that cannot fail.
-	    case is_safe_bool_expr(E2) orelse is_safe_simple(E2) of
-		true -> E2;
-		false -> Try#c_try{arg=E2}
+	    case is_safe_bool_expr(E1) orelse is_safe_simple(E1) of
+		true -> E1;
+		false -> Try#c_try{arg=E1}
 	    end;
 	true ->
 	    %% Expression will always fail.
@@ -474,20 +409,8 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 	false ->
 	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
-	    H2 = opt_try_handler(H1, lists:last(Evs1)),
-	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H2}
+	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
     end.
-
-%% Attempts to convert old erlang:get_stacktrace/0 calls into the new
-%% three-argument catch, with possibility of further optimisations.
-opt_try_handler(#c_call{anno=A,module=#c_literal{val=erlang},name=#c_literal{val=get_stacktrace},args=[]}, Var) ->
-    #c_primop{anno=A,name=#c_literal{val=build_stacktrace},args=[Var]};
-opt_try_handler(#c_case{clauses=Cs0} = Case, Var) ->
-    Cs = [C#c_clause{body=opt_try_handler(B, Var)} || #c_clause{body=B} = C <- Cs0],
-    Case#c_case{clauses=Cs};
-opt_try_handler(#c_let{arg=Arg} = Let, Var) ->
-    Let#c_let{arg=opt_try_handler(Arg, Var)};
-opt_try_handler(X, _) -> X.
 
 %% If a fun or its application is used as an argument, then it's unsafe to
 %% handle it in effect context as the side-effects may rely on its return
@@ -541,10 +464,6 @@ ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
     ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
 ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
     ifes_list(FVar, Args, false);
-ifes_1(FVar, #c_receive{timeout=Timeout,action=Action,clauses=Clauses}, Safe) ->
-    ifes_1(FVar, Timeout, false) andalso
-        ifes_1(FVar, Action, Safe) andalso
-        ifes_list(FVar, Clauses, Safe);
 ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
     %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
     %% Safe=false.
@@ -692,15 +611,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 			 unit=#c_literal{val=Unit},type=#c_literal{val=Type},
 			 flags=#c_literal{val=Flags}}|Ss], Acc0) ->
-    Endian = case member(big, Flags) of
-		 true ->
-		     big;
-		 false ->
-		     case member(little, Flags) of
-			 true -> little;
-			 false -> throw(impossible) %Native endian.
-		     end
-	     end,
+    Endian = bs_endian(Flags),
 
     %% Make sure that the size is reasonable.
     case Type of
@@ -734,16 +645,25 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	    end;
 	float when is_float(Val) ->
 	    %% Bad float size.
-	    case Sz*Unit of
+	    try Sz*Unit of
 		32 -> ok;
 		64 -> ok;
-		_ -> throw(impossible)
+		_ ->
+                    throw({badarg,bad_float_size})
+            catch
+                error:_ ->
+                    throw({badarg,bad_float_size})
 	    end;
 	utf8 -> ok;
 	utf16 -> ok;
 	utf32 -> ok;
 	_ ->
 	    throw(impossible)
+    end,
+
+    case Endian =:= native andalso Type =/= binary of
+        true -> throw(impossible);
+        false -> ok
     end,
 
     %% Evaluate the field.
@@ -808,6 +728,11 @@ eval_binary_2(Acc, Val, all, Unit, binary, _) ->
     end;
 eval_binary_2(Acc, Val, Size, Unit, binary, _) ->
     <<Acc/bitstring,Val:(Size*Unit)/bitstring>>.
+
+bs_endian([big=E|_]) -> E;
+bs_endian([little=E|_]) -> E;
+bs_endian([native=E|_]) -> E;
+bs_endian([_|Fs]) -> bs_endian(Fs).
 
 %% Count the number of bits approximately needed to store Int.
 %% (We don't need an exact result for this purpose.)
@@ -1091,10 +1016,6 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 		   %% No need for substitution tricks when the guard
 		   %% does not contain any variables.
 		   Sub1;
-	       {#c_var{name='_'},_,_} ->
-		   %% In a 'receive', Cexpr is the variable '_', which represents the
-		   %% message being matched. We must NOT do any extra substiutions.
-		   Sub1;
 	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
 		   %%
@@ -1221,20 +1142,27 @@ map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,{Isub,
     {V,Osub} = pattern(V0,Isub,Osub0),
     {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
 
-bin_pattern_list(Ps0, Isub, Osub0) ->
-    {Ps,{_,Osub}} = mapfoldl(fun bin_pattern/2, {Isub,Osub0}, Ps0),
-    {Ps,Osub}.
+bin_pattern_list(Ps, Isub, Osub0) ->
+    mapfoldl(fun(P, Osub) ->
+                     bin_pattern(P, Isub, Osub)
+             end, Osub0, Ps).
 
-bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, {Isub0,Osub0}) ->
-    Size1 = expr(Size0, Isub0),
-    {E1,Osub} = pattern(E0, Isub0, Osub0),
-    Isub = case E0 of
-	       #c_var{} -> sub_set_var(E0, E1, Isub0);
-	       _ -> Isub0
-	   end,
-    Pat = Pat0#c_bitstr{val=E1,size=Size1},
+bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, Isub, Osub0) ->
+    Size2 = case {Size0,expr(Size0, Isub)} of
+                {#c_var{},#c_literal{val=all}} ->
+                    %% The size `all` is used for the size of the final binary
+                    %% segment in a pattern. Using `all` explicitly is not allowed,
+                    %% so we convert it to an obvious invalid size. We also need
+                    %% to add an annotation to get the correct wording of the warning
+                    %% that will soon be issued.
+                    #c_literal{anno=[size_was_all],val=bad_size};
+                {_,Size1} ->
+                    Size1
+            end, 
+    {E1,Osub} = pattern(E0, Isub, Osub0),
+    Pat = Pat0#c_bitstr{val=E1,size=Size2},
     bin_pat_warn(Pat),
-    {Pat,{Isub,Osub}}.
+    {Pat,Osub}.
 
 pattern_list(Ps, Sub) -> pattern_list(Ps, Sub, Sub).
 
@@ -1257,7 +1185,7 @@ var_list(Vs, Sub0) ->
 
 bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 		       val=Val0,
-		       size=#c_literal{val=Sz},
+		       size=#c_literal{anno=SizeAnno,val=Sz},
 		       unit=#c_literal{val=Unit},
 		       flags=Fl}=Pat) ->
     case {Type,Sz} of
@@ -1267,7 +1195,12 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{utf16,undefined} -> ok;
 	{utf32,undefined} -> ok;
 	{_,_} ->
-	    add_warning(Pat, {nomatch_bit_syntax_size,Sz}),
+            case member(size_was_all, SizeAnno) of
+                true ->
+                    add_warning(Pat, {nomatch_bit_syntax_size,all});
+                false ->
+                    add_warning(Pat, {nomatch_bit_syntax_size,Sz})
+            end,
 	    throw(nomatch)
     end,
     case {Type,Val0} of
@@ -1520,16 +1453,15 @@ will_match_1({true,_}) -> yes.
 %%
 %%  In bodies, do various optimizations to case statements that have
 %%  boolean case expressions. We don't do the optimizations in guards,
-%%  because they would thwart the optimization in v3_kernel.
+%%  because they would thwart the optimization in beam_ssa_bool.
 %%
-%%  We start with some simple optimizations and normalization
+%%  We start with some simple optimizations and normalizations
 %%  to facilitate later optimizations.
 %%
-%%  If the case expression can only return a boolean
-%%  (or fail), we can remove any clause that cannot
-%%  possibly match 'true' or 'false'. Also, any clause
-%%  following both 'true' and 'false' clause can
-%%  be removed. If successful, we will end up like this:
+%%  If the case expression can only return a boolean we can remove any
+%%  clause that cannot possibly match 'true' or 'false'. Also, any
+%%  clause following both 'true' and 'false' clause can be removed. If
+%%  successful, we will end up like this:
 %%
 %%  case BoolExpr of           	    case BoolExpr of
 %%     true ->			       false ->
@@ -1668,52 +1600,13 @@ opt_bool_not_invert(#c_clause{pats=[#c_literal{val=Bool}]}=C) ->
 opt_bool_case_redundant(#c_case{arg=Arg,clauses=Cs}=Case) ->
     case all(fun opt_bool_case_redundant_1/1, Cs) of
 	true -> Arg;
-	false -> opt_bool_case_guard(Case)
+	false -> Case
     end.
 
 opt_bool_case_redundant_1(#c_clause{pats=[#c_literal{val=B}],
 				    body=#c_literal{val=B}}) ->
     true;
 opt_bool_case_redundant_1(_) -> false.
-
-%% opt_bool_case_guard(Case) -> Case'.
-%%  Move a boolean case expression into the guard if we are sure that
-%%  it cannot fail.
-%%
-%%    case SafeBoolExpr of	 	case <> of
-%%      true -> TrueClause;    	   ==>    <> when SafeBoolExpr -> TrueClause;
-%%      false -> FalseClause		  <> when true -> FalseClause
-%%    end.		 		end.
-%%
-%%  Generally, evaluting a boolean expression in a guard should
-%%  be faster than evaulating it in the body.
-%%
-opt_bool_case_guard(#c_case{arg=#c_literal{}}=Case) ->
-    %% It is not necessary to move a literal case expression into the
-    %% guard, because it will be handled quite well in other
-    %% optimizations, and moving the literal into the guard will
-    %% cause some extra warnings, for instance for this code
-    %%
-    %%    case true of
-    %%       true -> ...;
-    %%       false -> ...
-    %%    end.
-    %%
-    Case;
-opt_bool_case_guard(#c_case{arg=Arg,clauses=Cs0}=Case) ->
-    case is_safe_bool_expr(Arg) of
-	false ->
-	    Case;
-	true ->
-	    Cs = opt_bool_case_guard(Arg, Cs0),
-	    Case#c_case{arg=#c_values{anno=cerl:get_ann(Arg),es=[]},
-			clauses=Cs}
-    end.
-
-opt_bool_case_guard(Arg, [#c_clause{pats=[#c_literal{val=true}]}=Tc,Fc]) ->
-    [Tc#c_clause{pats=[],guard=Arg},Fc#c_clause{pats=[]}];
-opt_bool_case_guard(Arg, [#c_clause{pats=[#c_literal{val=false}]}=Fc,Tc]) ->
-    [Tc#c_clause{pats=[],guard=Arg},Fc#c_clause{pats=[]}].
 
 %% eval_case(Case) -> #c_case{} | #c_let{}.
 %%  If possible, evaluate a case at compile time.  We know that the
@@ -2191,17 +2084,16 @@ is_simple_case_arg(#c_apply{}) -> true;
 is_simple_case_arg(_) -> false.
 
 %% is_bool_expr(Core) -> true|false
-%%  Check whether the Core expression is guaranteed to return
-%%  a boolean IF IT RETURNS AT ALL.
+%%  Check whether the Core expression is guaranteed to
+%%  return a boolean.
 %%
 
 is_bool_expr(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},args=Args}=Call) ->
+		     name=#c_literal{val=Name},args=Args}) ->
     NumArgs = length(Args),
     erl_internal:comp_op(Name, NumArgs) orelse
 	erl_internal:new_type_test(Name, NumArgs) orelse
-        erl_internal:bool_op(Name, NumArgs) orelse
-	will_fail(Call);
+        erl_internal:bool_op(Name, NumArgs);
 is_bool_expr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
 		   handler=#c_literal{val=false}}) ->
     is_bool_expr(E);
@@ -2221,29 +2113,11 @@ is_bool_expr_list([]) -> true.
 
 %% is_safe_bool_expr(Core) -> true|false
 %%  Check whether the Core expression ALWAYS returns a boolean
-%%  (i.e. it cannot fail). Also make sure that the expression
-%%  is suitable for a guard (no calls to non-guard BIFs, local
-%%  functions, or is_record/2).
+%%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
     is_safe_bool_expr_1(Core, cerl_sets:new()).
 
-is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
-                            name=#c_literal{val=is_record},
-                            args=[A,#c_literal{val=Tag},#c_literal{val=Size}]},
-                    _BoolVars) when is_atom(Tag), is_integer(Size) ->
-    is_safe_simple(A);
-is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
-                            name=#c_literal{val=is_record}},
-                    _BoolVars) ->
-    %% The is_record/2 BIF is NOT allowed in guards.
-    %% The is_record/3 BIF where its second argument is not an atom or its third
-    %% is not an integer is NOT allowed in guards.
-    %%
-    %% NOTE: Calls like is_record(Expr, LiteralTag), where LiteralTag
-    %% is a literal atom referring to a defined record, have already
-    %% been rewritten to is_record(Expr, LiteralTag, TupleSize).
-    false;
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
                             args=[A,#c_literal{val=Arity}]},
@@ -2448,13 +2322,16 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
                 true ->
                     Let
             end;
-        #c_case{arg=Arg,clauses=Cs0} ->
-            case core_lib:is_var_used(Cooked, Arg) orelse
-                is_used_in_any_guard(Cooked, Cs0) of
+        #c_case{clauses=Cs0} ->
+            NilBody = #c_literal{val=[]},
+            Cs1 = [C#c_clause{body=NilBody} || C <- Cs0],
+            Case = Body#c_case{clauses=Cs1},
+            case core_lib:is_var_used(Cooked, Case) of
                 false ->
-                    %% The built stacktrace is not used in the argument,
-                    %% so we can sink the building of the stacktrace into
-                    %% each arm of the case.
+                    %% The built stacktrace is not used in the case
+                    %% argument or in the head of any clause. Thus
+                    %% it is safe sink the building of the stacktrace
+                    %% into each arm of the case.
                     Cs = [begin
                               B = opt_build_stacktrace(Let#c_let{body=B0}),
                               C#c_clause{body=B}
@@ -2468,11 +2345,6 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
     end;
 opt_build_stacktrace(Expr) ->
     Expr.
-
-is_used_in_any_guard(V, Cs) ->
-    any(fun(#c_clause{guard=G}) ->
-                core_lib:is_var_used(V, G)
-        end, Cs).
 
 %% opt_case_in_let(Let) -> Let'
 %%  Try to avoid building tuples that are immediately matched.
@@ -2584,19 +2456,6 @@ delay_build_expr_1(#c_case{clauses=Cs0}=Case, TypeSig) ->
 delay_build_expr_1(#c_let{body=B0}=Let, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Let#c_let{body=B};
-delay_build_expr_1(#c_receive{clauses=Cs0,
-			      timeout=Timeout,
-			      action=A0}=Rec, TypeSig) ->
-    Cs = delay_build_cs(Cs0, TypeSig),
-    A = case {Timeout,A0} of
-	    {#c_literal{val=infinity},#c_literal{}} ->
-                {_Type,Arity} = TypeSig,
-                Es = lists:duplicate(Arity, A0),
-                core_lib:make_values(Es);
-	    _ ->
-                delay_build_expr(A0, TypeSig)
-	end,
-    Rec#c_receive{clauses=Cs,action=A};
 delay_build_expr_1(#c_seq{body=B0}=Seq, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Seq#c_seq{body=B};
@@ -2663,6 +2522,8 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
                     post_opt_let(Let1, Sub)
 	    end;
         {_,_,_} ->
+            %% The argument for a sequence must be a single value (not
+            %% #c_values{}). Therefore, we must keep the let.
             Let1 = Let0#c_let{vars=Vs0,arg=Arg0,body=Body},
             post_opt_let(Let1, Sub)
     end.
@@ -2926,6 +2787,9 @@ format_error({embedded_unit,Unit,Size}) ->
 format_error(bad_unicode) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
+format_error(bad_float_size) ->
+    "binary construction will fail with a 'badarg' exception "
+	"(invalid size for a float segment)";
 format_error({nomatch_shadow,Line,{Name, Arity}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),

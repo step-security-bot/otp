@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@
 -define(SLEEP(T), receive after T -> ok end).
 
 -define(FAIL(R), exit(R)).
+-define(SKIP(R), throw({skip, R})).
 
 -define(MINS(M), timer:minutes(M)).
 -define(SECS(S), timer:seconds(S)).
@@ -131,18 +132,13 @@ api_basic_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    %% We test on the socket module for simplicity
-    case lists:member(socket, erlang:loaded()) of
-        true ->
-            case os:type() of
-                {win32, _} ->
-                    not_yet_implemented();
-                _ ->
-                    %% ?LOGGER:start(),
-                    Config
-            end;
-        false ->
-            {skip, "esock disabled"}
+    try net:info() of
+        #{} ->
+            %% ?LOGGER:start(),
+            Config
+    catch
+        error : notsup ->
+            {skip, "esock not supported"}
     end.
 
 end_per_suite(_) ->
@@ -219,6 +215,9 @@ api_b_getifaddrs() ->
             i("IfAddrs: "
               "~n   ~p", [IfAddrs]),
             ok;
+        {error, enotsup = Reason} ->
+            i("getifaddrs not supported - skipping"),
+            skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
     end.
@@ -252,6 +251,9 @@ api_b_name_and_addr_info() ->
                 Name;
             {ok, BadNameInfo} ->
                 ?FAIL({getnameinfo, SA, BadNameInfo});
+            {error, enotsup = ReasonNI} ->
+                i("getnameinfo not supported - skipping"),
+                ?SKIP({getnameinfo, ReasonNI});
             {error, Reason1} ->
                 ?FAIL({getnameinfo, SA, Reason1})
         end,
@@ -262,6 +264,9 @@ api_b_name_and_addr_info() ->
             verify_addr_info(AddrInfos, Domain);
         {ok, BadAddrInfo} ->
             ?FAIL({getaddrinfo, Hostname, BadAddrInfo});
+        {error, enotsup = ReasonAI} ->
+            i("getaddrinfo not supported - skipping"),
+            ?SKIP({getaddrinfo, ReasonAI});
         {error, Reason2} ->
             ?FAIL({getaddrinfo, Hostname, Reason2})
     end.
@@ -314,6 +319,9 @@ api_b_name_and_index() ->
         case net:if_names() of
             {ok, N} when is_list(N) andalso (N =/= []) ->
                 N;
+            {error, enotsup = Reason} ->
+                i("if_names not supported - skipping"),
+                ?SKIP({if_names, Reason});
             {error, Reason} ->
                 ?FAIL({if_names, Reason})
         end,
@@ -326,37 +334,29 @@ verify_if_names([{Index, Name}|T]) ->
         {ok, Index} ->
             ok;
         {ok, BadIndex} ->
-            ?FAIL({name2index, Name, Index, BadIndex});
-        {error, ReasonN2I} ->
-            ?FAIL({name2index, Name, ReasonN2I})
+            ?FAIL({if_name2index, Name, Index, BadIndex});
+        {error, enotsup = Reason_N2I1} ->
+            i("if_name2index not supported - skipping"),
+            ?SKIP({if_name2index, Reason_N2I1});
+        {error, Reason_N2I2} ->
+            ?FAIL({if_name2index, Name, Reason_N2I2})
     end,
     case net:if_index2name(Index) of
         {ok, Name} ->
             ok;
         {ok, BadName} ->
-            ?FAIL({index2name, Index, Name, BadName});
-        {error, ReasonI2N} ->
-            ?FAIL({index2name, Index, ReasonI2N})
+            ?FAIL({if_index2name, Index, Name, BadName});
+        {error, enotsup = Reason_I2N1} ->
+            i("if_index2name not supported - skipping"),
+            ?SKIP({if_index2name, Reason_I2N1});
+        {error, Reason_I2N2} ->
+            ?FAIL({if_index2name, Index, Reason_I2N2})
     end,
     verify_if_names(T).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% local_host() ->
-%%     try net_adm:localhost() of
-%%         Host when is_list(Host) ->
-%% 	    %% Convert to shortname if long
-%% 	    case string:tokens(Host, [$.]) of
-%% 		[H|_] ->
-%% 		    list_to_atom(H)
-%% 	    end
-%%     catch
-%%         C:E:S ->
-%%             erlang:raise(C, E, S)
-%%     end.
-
 
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
@@ -508,8 +508,8 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 
-%% i(F) ->
-%%     i(F, []).
+i(F) ->
+    i(F, []).
 
 i(F, A) ->
     FStr = f("[~s] " ++ F, [formated_timestamp()|A]),

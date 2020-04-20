@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,9 +34,10 @@
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1,
-	 sys_pre_attributes/1, dialyzer/1,
+	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1, deterministic_include/1, deterministic_paths/1
+         bc_options/1, deterministic_include/1, deterministic_paths/1,
+         compile_attribute/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -52,11 +53,12 @@ all() ->
      %% encrypted_abstr, %% FIXME: Template JIT
      tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core_pp, core_roundtrip, asm,
+     cover, env, core_pp, core_roundtrip, asm, no_core_prepare,
      sys_pre_attributes, dialyzer, warnings,
      %% pre_load_check, %% FIXME: Template JIT
      env_compiler_options, custom_debug_info, bc_options,
-     custom_compile_info, deterministic_include, deterministic_paths].
+     custom_compile_info, deterministic_include, deterministic_paths,
+     compile_attribute].
 
 groups() -> 
     [].
@@ -334,6 +336,23 @@ makedep_modify_target(Mf, Target) ->
     list_to_binary(Mf1).
 
 %% Tests that conditional compilation, defining values, including files work.
+
+no_core_prepare(_Config) ->
+    Mod = {c_module,[],
+              {c_literal,[],sample_receive},
+              [{c_var,[],{discard,0}}],
+              [],
+              [{{c_var,[],{discard,0}},
+                {c_fun,[],[],
+                    {c_case,[],
+                        {c_values,[],[]},
+                        [{c_clause,[],[],
+                             {c_literal,[],true},
+                             {c_receive,[],[],{c_literal,[],0},{c_literal,[],ok}}}]}}}]},
+
+    {ok,sample_receive,_,_} = compile:forms(Mod, [from_core,binary,return]),
+    {error,_,_} = compile:forms(Mod, [from_core,binary,return,no_core_prepare]),
+    ok.
 
 cond_and_ifdef(Config) when is_list(Config) ->
     {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
@@ -1393,9 +1412,6 @@ bc_options(Config) ->
 
     L = [{101, small_float, [no_shared_fun_wrappers,
                              no_get_hd_tl,no_line_info]},
-         {103, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                     no_line_info,no_stack_trimming]},
          {125, small_float, [no_shared_fun_wrappers,no_get_hd_tl,
                              no_line_info,
                              no_ssa_opt_float]},
@@ -1404,22 +1420,13 @@ bc_options(Config) ->
                        no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
                        no_ssa_opt_float,no_line_info,no_bsm3]},
 
-         {136, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
-                     no_ssa_opt_record,no_line_info]},
-
          {153, small, [r20]},
          {153, small, [r21]},
 
-         {153, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
-         {153, big, [r16]},
-         {153, big, [r17]},
          {153, big, [r18]},
          {153, big, [r19]},
-         {153, small_float, [r16]},
          {153, small_float, [no_shared_fun_wrappers]},
 
-         {158, small_maps, [r17]},
          {158, small_maps, [r18]},
          {158, small_maps, [r19]},
          {158, small_maps, [r20]},
@@ -1428,9 +1435,18 @@ bc_options(Config) ->
          {164, small_maps, [r22]},
          {164, big, [r22]},
          {164, small_maps, [no_shared_fun_wrappers]},
-         {164, big, [no_shared_fun_wrappers]},
 
          {168, small, [r22]},
+
+         {169, big, [no_shared_fun_wrappers,
+                     no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                     no_line_info,no_stack_trimming]},
+         {169, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
+                     no_ssa_opt_record,no_line_info]},
+         {169, big, [no_shared_fun_wrappers,
+                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
+         {169, big, [no_shared_fun_wrappers]},
+
          {170, small, [no_shared_fun_wrappers]},
 
          {169, small_maps, []},
@@ -1496,6 +1512,30 @@ deterministic_paths_1(DataDir, Name, Opts) ->
     after
         file:set_cwd(Cwd)
     end.
+
+%% ERL-1058: -compile(debug_info) had no effect
+compile_attribute(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    %% The test module has a -compile([debug_info]). attribute, which means
+    %% debug information should always be included.
+    debug_info_attribute(DataDir, "debug_info", [debug_info]),
+    debug_info_attribute(DataDir, "debug_info", []),
+
+    ok.
+
+debug_info_attribute(DataDir, Name, Opts) ->
+    File = filename:join(DataDir, Name),
+    {ok,_,Bin} = compile:file(File, [binary | Opts]),
+    {ok, {_, Attrs}} = beam_lib:chunks(Bin, [debug_info]),
+
+    [{debug_info,{debug_info_v1,erl_abstract_code,
+                  {[{attribute,1,file,{_,1}},
+                    {attribute,1,module,debug_info},
+                    {attribute,2,compile,[debug_info]},
+                    {eof,2}], _}}}] = Attrs,
+
+    ok.
 
 %%%
 %%% Utilities.

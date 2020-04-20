@@ -173,7 +173,7 @@ connect_twice(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 defaults(Config) when is_list(Config)->
     Versions = ssl:versions(),
-    true = lists:member(sslv3, proplists:get_value(available, Versions)),
+    false = lists:member(sslv3, proplists:get_value(available, Versions)),
     false = lists:member(sslv3,  proplists:get_value(supported, Versions)),
     true = lists:member('tlsv1', proplists:get_value(available, Versions)),
     false = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
@@ -321,7 +321,7 @@ cipher_suites_mix(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{ciphers, CipherSuites} | ClientOpts]}]),
+					{options, [{versions, ['tlsv1.2']},{ciphers, CipherSuites} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
@@ -406,7 +406,6 @@ eccs() ->
 
 eccs(Config) when is_list(Config) ->
     [_|_] = All = ssl:eccs(),
-    [] = ssl:eccs(sslv3),
     [_|_] = Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
@@ -439,11 +438,11 @@ tls_versions_option(Config) when is_list(Config) ->
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     Server ! listen,				       
-    
+    Versions = remove_supported_versions(Available, Supported),
     ErrClient = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
 						 {host, Hostname},
 						 {from, self()},
-						 {options, [{versions , Available -- Supported} | ClientOpts]}]),
+						 {options, [{versions , Versions} | ClientOpts]}]),
     receive
 	{Server, _} ->
 	    ok
@@ -514,4 +513,15 @@ version_option_test(Config, Version) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+remove_supported_versions(Available, Supported) ->
+    Versions0 = Available -- Supported,
+    case lists:member('tlsv1.3', Versions0) andalso
+        not lists:member('tlsv1.2', Versions0) of
+        true ->
+            %% If 'tlsv1.2' is removed, remove also 'tlsv1.3'
+            Versions0 -- ['tlsv1.3'];
+        _ ->
+            Versions0
+    end.
 

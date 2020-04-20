@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2729,9 +2729,9 @@ load_code(LoaderState* stp)
                 num_trailing_f = 0;
             }
 #endif
+            CodeNeed(1);
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
-		CodeNeed(1);
                 curr->val = make_small(tmp_op->a[arg].val);;
 		code[ci++] = curr->val;
 		break;
@@ -2739,30 +2739,24 @@ load_code(LoaderState* stp)
 	    case TAG_a:
 	    case TAG_v:
                 curr->type = TAG_i;
-		CodeNeed(1);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
 	    case TAG_f:
-		CodeNeed(1);
                 register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
 		ci++;
 		break;
 	    case TAG_x:
-		CodeNeed(1);
 		code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_y:
-		CodeNeed(1);
 		code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_n:
-		CodeNeed(1);
                 curr->val = NIL;
                 curr->type = TAG_i;
 		code[ci++] = NIL;
 		break;
 	    case TAG_q:
-		CodeNeed(1);
 		new_literal_patch(stp, ci);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
@@ -3018,6 +3012,7 @@ load_code(LoaderState* stp)
 #define succ3(St, X, Y) ((X).type == (Y).type && (X).val + 3 == (Y).val)
 #define succ4(St, X, Y) ((X).type == (Y).type && (X).val + 4 == (Y).val)
 
+#define offset(St, X, Y, Offset) ((X).type == (Y).type && (X).val + Offset == (Y).val)
 
 #ifdef NO_FPE_SIGNALS 
 #define no_fpe_signals(St) 1
@@ -3321,8 +3316,8 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    }
 	    goto generic;
 	}
-    } else {
-	GENOP_NAME_ARITY(op, i_bs_get_integer, 6);
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
+        GENOP_NAME_ARITY(op, i_bs_get_integer, 6);
 	op->a[0] = Ms;
 	op->a[1] = Fail;
 	op->a[2] = Live;
@@ -3332,6 +3327,9 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	op->a[5] = Dst;
 	op->next = NULL;
 	return op;
+    } else {
+        /* Invalid literal size. */
+        goto error;
     }
     op->next = NULL;
     return op;
@@ -3602,12 +3600,20 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
 		goto error;
 	    }
 	}
-    } else {
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
 	GENOP_NAME_ARITY(op, i_bs_skip_bits2, 4);
 	op->a[0] = Ms;
 	op->a[1] = Size;
 	op->a[2] = Fail;
 	op->a[3] = Unit;
+    } else {
+        /*
+         * Invalid literal size. Can only happen if compiler
+         * optimizations are selectively disabled.  For example,
+         * at the time of writing, [no_copt, no_type_opt] will allow
+         * skip instructions with invalid sizes to slip through.
+         */
+        goto error;
     }
     op->next = NULL;
     return op;
@@ -5261,6 +5267,16 @@ transform_engine(LoaderState* st)
 	    if (((1 << instr->a[ap].type) & mask) == 0)
 		goto restart;
 	    break;
+#if defined(TOP_is_type_next_arg)
+	case TOP_is_type_next_arg:
+	    mask = *pc++;
+	    ASSERT(ap < instr->arity);
+	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+	    if (((1 << instr->a[ap].type) & mask) == 0)
+		goto restart;
+            ap++;
+	    break;
+#endif
 	case TOP_pred:
 	    i = *pc++;
 	    switch (i) {
@@ -5290,6 +5306,18 @@ transform_engine(LoaderState* st)
 	    if (*pc++ != instr->a[ap].val)
 		goto restart;
 	    break;
+#if defined(TOP_is_type_eq_next_arg)
+	case TOP_is_type_eq_next_arg:
+	    mask = *pc++;
+            ASSERT(ap < instr->arity);
+            ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+            if (((1 << instr->a[ap].type) & mask) == 0)
+                goto restart;
+            if (*pc++ != instr->a[ap].val)
+                goto restart;
+            ap++;
+            break;
+#endif
 	case TOP_is_same_var:
 	    ASSERT(ap < instr->arity);
 	    i = *pc++;
@@ -5407,7 +5435,42 @@ transform_engine(LoaderState* st)
 	    var[i].val = instr->a[ap].val;
 	    ap++;
 	    break;
-
+#if defined(TOP_is_type_set_var_next_arg)
+	case TOP_is_type_set_var_next_arg:
+            mask = pc[0];
+            i = pc[1];
+	    ASSERT(i < TE_MAX_VARS);
+            ASSERT(ap < instr->arity);
+	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+	    if (((1 << instr->a[ap].type) & mask) == 0)
+		goto restart;
+	    ASSERT(i < TE_MAX_VARS);
+	    var[i] = instr->a[ap];
+	    ap++;
+            pc += 2;
+	    break;
+#endif
+#if defined(TOP_is_type_eq_set_var_next_arg)
+	case TOP_is_type_eq_set_var_next_arg:
+            {
+                Eterm val;
+                mask = pc[0];
+                val = pc[1];
+                i = pc[2];
+                ASSERT(i < TE_MAX_VARS);
+                ASSERT(ap < instr->arity);
+                ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+                if (((1 << instr->a[ap].type) & mask) == 0)
+                    goto restart;
+                if (val != instr->a[ap].val)
+                    goto restart;
+                ASSERT(i < TE_MAX_VARS);
+                var[i] = instr->a[ap];
+                ap++;
+                pc += 3;
+            }
+	    break;
+#endif
 #if defined(TOP_rest_args)
 	case TOP_rest_args:
 	    {
@@ -5423,19 +5486,27 @@ transform_engine(LoaderState* st)
 	case TOP_commit:
 	    instr = instr->next; /* The next_instr was optimized away. */
 	    keep = instr;
-	    st->genop = instr;
-#ifdef DEBUG
-	    instr = 0;
-#endif
 	    break;
+#if defined(TOP_commit_new_instr)
+	case TOP_commit_new_instr:
+            /*
+             * Reuse the last instruction on the left side instead of
+             * allocating a new instruction. Note that this is not
+             * safe if TOP_rest_args has been executed; therefore,
+             * this combined instruction is never used when that is
+             * the case.
+             */
+            ASSERT(instr->a == instr->def_args);
+            keep = instr;
+            instr->op = op = *pc++;
+            instr->arity = gen_opc[op].arity;
+            ap = 0;
+            break;
+#endif
 #if defined(TOP_keep)
 	case TOP_keep:
 	    /* Keep the current instruction unchanged. */
 	    keep = instr;
-	    st->genop = instr;
-#ifdef DEBUG
-	    instr = 0;
-#endif
 	    break;
 #endif
 #if defined(TOP_call_end)
@@ -5464,11 +5535,12 @@ transform_engine(LoaderState* st)
 		 
 		keep = instr->next; /* The next_instr was optimized away. */
 		*lastp = keep;
-		st->genop = new_instr;
+                instr = new_instr;
 	    }
 	    /* FALLTHROUGH */
 #endif
 	case TOP_end:
+            st->genop = instr;
 	    while (first != keep) {
 		GenOp* next = first->next;
 		FREE_GENOP(st, first);
@@ -5479,28 +5551,28 @@ transform_engine(LoaderState* st)
 	    /*
 	     * Note that the instructions are generated in reverse order.
 	     */
-	    NEW_GENOP(st, instr);
-	    instr->next = st->genop;
-	    st->genop = instr;
-	    instr->op = op = *pc++;
-	    instr->arity = gen_opc[op].arity;
-	    ap = 0;
-	    break;
+            {
+                GenOp* new_instr;
+                NEW_GENOP(st, new_instr);
+                new_instr->next = instr;
+                instr = new_instr;
+                instr->op = op = *pc++;
+                instr->arity = gen_opc[op].arity;
+                ap = 0;
+            }
+            break;
 #ifdef TOP_rename
 	case TOP_rename:
 	    instr->op = op = *pc++;
 	    instr->arity = gen_opc[op].arity;
 	    return TE_OK;
 #endif
-	case TOP_store_type:
-	    i = *pc++;
-	    instr->a[ap].type = i;
-	    instr->a[ap].val = 0;
-	    break;
-	case TOP_store_val:
-	    i = *pc++;
-	    instr->a[ap].val = i;
-	    break;
+	case TOP_store_val_next_arg:
+            instr->a[ap].type = pc[0];
+            instr->a[ap].val = pc[1];
+            ap++;
+            pc += 2;
+            break;
 	case TOP_store_var_next_arg:
 	    i = *pc++;
 	    ASSERT(i < TE_MAX_VARS);
@@ -5528,6 +5600,23 @@ transform_engine(LoaderState* st)
 	    break;
 	case TOP_fail:
 	    return TE_FAIL;
+#if defined(TOP_skip_unless)
+	case TOP_skip_unless:
+            /*
+             * Note that the caller of transform_engine() guarantees that
+             * there is always a second instruction available.
+             */
+            ASSERT(instr);
+            if (instr->next->op != pc[0]) {
+                /* The second instruction is wrong. Skip ahead. */
+                pc += pc[1] + 2;
+                ASSERT(*pc < NUM_TOPS); /* Valid instruction? */
+            } else {
+                /* Correct second instruction. */
+                pc += 2;
+            }
+	    break;
+#endif
 	default:
 	    ASSERT(0);
 	}

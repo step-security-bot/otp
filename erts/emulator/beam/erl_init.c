@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -586,7 +586,7 @@ void erts_usage(void)
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
     erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
-    erts_fprintf(stderr, "               valid range is [0-%d]\n",
+    erts_fprintf(stderr, "               valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
     erts_fprintf(stderr, "-B[c|d|i]      c to have Ctrl-c interrupt the Erlang shell,\n");
     erts_fprintf(stderr, "               d (or no extra option) to disable the break\n");
@@ -697,7 +697,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-SDPcpu p1:p2  specify dirty CPU schedulers (p1) and dirty CPU schedulers\n");
     erts_fprintf(stderr, "               online (p2) as percentages of logical processors configured\n");
     erts_fprintf(stderr, "               and logical processors available, respectively\n");
-    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [0-%d]\n",
+    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS);
     erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
@@ -1068,7 +1068,7 @@ early_init(int *argc, char **argv) /*
 			} else if (sys_strncmp(type, "io", 2) == 0) {
 			    arg = get_arg(argv[i]+5, argv[i+1], &i);
 			    dirty_io_scheds = atoi(arg);
-			    if (dirty_io_scheds < 0 ||
+			    if (dirty_io_scheds < 1 ||
 				dirty_io_scheds > ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS) {
 				erts_fprintf(stderr,
 					     "bad number of dirty I/O schedulers %s\n",
@@ -1142,6 +1142,9 @@ early_init(int *argc, char **argv) /*
 	    }
 	    i++;
 	}
+
+        if (erts_async_max_threads < 1)
+            erts_async_max_threads = 1;
 
 	/* apply any scheduler percentages */
 	if (schdlrs_percentage != 100 || schdlrs_onln_percentage != 100) {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/3,
+-export([start_link/4,
          new/3,
          use/4
         ]).
@@ -52,12 +52,12 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(atom(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(atom(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Mode, Lifetime, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Mode, Lifetime, AntiReplay], []).
+start_link(Mode, Lifetime, TicketStoreSize, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Mode, Lifetime, TicketStoreSize, AntiReplay], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -81,8 +81,8 @@ init(Args) ->
 handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
             #state{nonce = Nonce, 
                    lifetime = LifeTime,
-                   stateful = #{}} = State0) -> 
-    Id = stateful_psk_id(),
+                   stateful = #{id_generator := IdGen}} = State0) -> 
+    Id = stateful_psk_ticket_id(IdGen),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
     SessionTicket = new_session_ticket(Id, Nonce, LifeTime),
     State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, State0),
@@ -142,14 +142,14 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime, undefined]) ->
+inital_state([stateless, Lifetime, _, undefined]) ->
     #state{nonce = 0,
            stateless = #{seed => {crypto:strong_rand_bytes(16), 
                                   crypto:strong_rand_bytes(32)},
                          window => undefined},
            lifetime = Lifetime
           };
-inital_state([stateless, Lifetime, {Window, K, M}]) ->
+inital_state([stateless, Lifetime, _, {Window, K, M}]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
@@ -158,15 +158,16 @@ inital_state([stateless, Lifetime, {Window, K, M}]) ->
                          window => Window},
            lifetime = Lifetime
           };
-inital_state([stateful, Lifetime|_]) ->
+inital_state([stateful, Lifetime, TicketStoreSize|_]) ->
     %% statfeful servers replay
     %% protection is that it saves
     %% all valid tickets
     #state{lifetime = Lifetime,
            nonce = 0,
            stateful = #{db => stateful_store(),                    
-                        max => 1000,
-                        ref_index => #{}
+                        max => TicketStoreSize,
+                        ref_index => #{},
+                        id_generator => crypto:strong_rand_bytes(16)
                        }
           }.
 
@@ -221,7 +222,7 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk,
                                           max := Max,
                                           ref_index := Index0} = Stateful} 
                       = State0) ->    
-    Id = erlang:monotonic_time(),
+    Id = {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     StatefulTicket = {NewSessionTicket, Hash, Psk},
     case gb_trees:size(Tree0) of
         Max ->
@@ -288,15 +289,20 @@ stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, Tree) ->
             false
     end.
 
-stateful_living_ticket(TimeStamp, 
+stateful_living_ticket({TimeStamp,_}, 
                        #new_session_ticket{ticket_lifetime = LifeTime}) ->
     Now = erlang:monotonic_time(),
     Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),
     Lived < LifeTime.
 
 
-stateful_psk_id() ->
-    term_to_binary(make_ref()).
+stateful_psk_ticket_id(Key) ->
+    Unique = erlang:unique_integer(),
+    %% Obfuscate to avoid DoS attack possiblities
+    %% that could invalidate tickets and render them
+    %% unusable. This id should be unpredictable
+    %% and unique but have no other cryptographic requirements.
+    crypto:crypto_one_time(aes_128_ecb, Key, <<Unique:128>>, true).
 
 %%%===================================================================
 %%% Stateless ticket 

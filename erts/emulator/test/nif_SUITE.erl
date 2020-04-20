@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,11 +33,13 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         load_traced_nif/1,
          select/1, select_steal/1,
          monitor_process_a/1,
          monitor_process_b/1,
          monitor_process_c/1,
          monitor_process_d/1,
+         monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
          hipe/1,
@@ -67,6 +69,7 @@
          nif_whereis_threaded/1, nif_whereis_proxy/1,
          nif_ioq/1,
          pid/1,
+         id/1,
          nif_term_type/1
 	]).
 
@@ -75,6 +78,9 @@
 -define(nif_stub,nif_stub_error(?LINE)).
 
 -define(is_resource, is_reference).
+
+-define(RT_CREATE,1).
+-define(RT_TAKEOVER,2).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -88,6 +94,7 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      hipe,
+     load_traced_nif,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      threading, send, send2, send3,
@@ -125,6 +132,7 @@ groups() ->
                     monitor_process_b,
                     monitor_process_c,
                     monitor_process_d,
+                    monitor_process_purge,
                     demonitor_process]}].
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
@@ -494,6 +502,47 @@ t_on_load(Config) when is_list(Config) ->
     verify_tmpmem(TmpMem),
     ok.
 
+%% Test load of module where a NIF stub is already traced.
+load_traced_nif(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+
+    Tracee = spawn_link(fun Loop() -> receive {lib_version,ExpRet} ->
+                                              ExpRet = nif_mod:lib_version()
+                                      end,
+                                      Loop()
+                        end),
+    1 = erlang:trace_pattern({nif_mod,lib_version,0}, true, [local]),
+    1 = erlang:trace(Tracee, true, [call]),
+
+    Tracee ! {lib_version, undefined},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    %% Wait for NIF loading to finish and write final call_nif instruction
+    timer:sleep(500),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+
+    unlink(Tracee),
+    exit(Tracee, kill),
+
+    verify_tmpmem(TmpMem),
+    ok.
+
+
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
@@ -822,6 +871,57 @@ monitor_process_d(Config) ->
     {R_ptr, _, 1} = last_resource_dtor_call(),
 
     ok.
+
+%% OTP-16399: Test fire resource monitor after the NIF module been purged.
+monitor_process_purge(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,NifModBin} = compile:file(File, [binary,return_errors]),
+
+    monitor_process_purge_do(Config, NifModBin, resource_dtor_A),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{{resource_dtor_A_v1,_},1,4,104},
+     {unload,1,5,105}] = nif_mod_call_history(),
+
+    %% This used to crash VM as only resources with destructor
+    %% prevented NIF lib from being unloaded.
+    monitor_process_purge_do(Config, NifModBin, null),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{unload,1,4,104}] = nif_mod_call_history(),
+    ok.
+
+monitor_process_purge_do(Config, NifModBin, Dtor) ->
+    io:format("Test with destructor = ~p\n", [Dtor]),
+
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+
+    ok = nif_mod:load_nif_lib(Config, 1, [{resource_type, 0, ?RT_CREATE,
+                                           "monitor_process_purge", Dtor,
+                                           ?RT_CREATE, resource_down_D}
+                                         ]),
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},
+     {get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {Pid,MRef} = spawn_opt(fun() ->
+                                receive
+                                    return -> ok
+                                end
+                        end,
+                        [link, monitor]),
+    RBin = <<"blahblah">>,
+    R = nif_mod:make_new_resource(0, RBin),
+    0 = nif_mod:monitor_process(0, R, Pid),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    Pid ! return,
+    [{'DOWN', MRef, process, Pid, normal}] = flush(),
+    [{{resource_down_D_v1,RBin},1,3,103}] = nif_mod_call_history(),
+    keep_alive(R),
+    ok.
+
 
 %% Test basic demonitoring
 demonitor_process(Config) ->
@@ -1413,10 +1513,6 @@ resource_binary_do() ->
     ResInfo = get_resource(binary_resource_type,ResBin1),
     ResInfo = get_resource(binary_resource_type,ResBin2),
     ResInfo.
-
-    
--define(RT_CREATE,1).
--define(RT_TAKEOVER,2).
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
@@ -2467,26 +2563,7 @@ dummy_call(_) ->
     ok.
 
 tmpmem() ->
-    case erlang:system_info({allocator,temp_alloc}) of
-	false -> undefined;
-	MemInfo ->
-	    MSBCS = lists:foldl(
-		      fun ({instance, 0, _}, Acc) ->
-			      Acc; % Ignore instance 0
-			  ({instance, _, L}, Acc) ->
-			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			      [MBCS,SBCS | Acc]
-		      end,
-		      [],
-		      MemInfo),
-	    lists:foldl(
-	      fun(L, {Bl0,BlSz0}) ->
-		      {value,{_,Bl,_,_}} = lists:keysearch(blocks, 1, L),
-		      {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
-		      {Bl0+Bl,BlSz0+BlSz}
-	      end, {0,0}, MSBCS)
-    end.
+    erts_debug:alloc_blocks_size(temp_alloc).
 
 verify_tmpmem(MemInfo) ->
     %%wait_for_test_procs(),
@@ -3458,6 +3535,7 @@ last_resource_dtor_call() ->
     last_resource_dtor_call_nif().
 
 id(I) -> I.
+keep_alive(Term) -> ?MODULE:id(Term).
 
 %% The NIFs:
 lib_version() -> undefined.

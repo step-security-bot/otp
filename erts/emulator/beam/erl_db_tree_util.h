@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,7 +167,9 @@ void db_foreach_offheap_tree_common(TreeDbTerm *root,
 int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  Eterm key, Eterm obj, DbUpdateHandle* handle,
                                  DbTableTree *stack_container);
-void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
+void db_finalize_dbterm_tree_common(int cret,
+                                    DbUpdateHandle *handle,
+                                    TreeDbTerm **root,
                                     DbTableTree *stack_container);
 void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj);
 void* db_dbterm_list_prepend_tree_common(void* list, void* db_term);

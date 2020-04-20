@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 	 spawn_opt/2,spawn_opt/3,spawn_opt/4,spawn_opt/5,
          spawn_request/1, spawn_request/2,
          spawn_request/3, spawn_request/4, spawn_request/5,
-         disconnect_node/1]).
+         spawn_request_abandon/1, disconnect_node/1]).
 -export([spawn/1, spawn_link/1, spawn/2, spawn_link/2]).
 -export([yield/0]).
 -export([fun_info/1]).
@@ -54,7 +54,13 @@
          dist_ctrl_set_opt/3,
          dist_get_stat/1]).
 
--deprecated([get_stacktrace/0,now/0]).
+-deprecated([{get_stacktrace,0,
+              "use the new try/catch syntax for retrieving the "
+              "stack backtrace"}]).
+-deprecated([{now,0,
+              "see the \"Time and Time Correction in Erlang\" "
+              "chapter of the ERTS User's Guide for more information"}]).
+-removed([{hash,2,"use erlang:phash2/2 instead"}]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
@@ -66,6 +72,10 @@
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
 -export_type([deprecated_time_unit/0]).
+-export_type([spawn_opt_option/0]).
+-export_type([priority_level/0]).
+-export_type([max_heap_size/0]).
+-export_type([message_queue_data/0]).
 
 -type ext_binary() :: binary().
 -type ext_iovec() :: iovec().
@@ -1757,11 +1767,9 @@ setnode(_P1, _P2) ->
 -spec erlang:setnode(Node, DistCtrlr, Opts) -> dist_handle() when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
-      Opts :: {integer(), integer(), atom(), atom()}.
-setnode(Node, DistCtrlr, {Flags, Ver, IC, OC} = Opts) when erlang:is_atom(IC),
-                                                           erlang:is_atom(OC) ->
-    case case erts_internal:create_dist_channel(Node, DistCtrlr,
-                                                Flags, Ver) of
+      Opts :: {integer(), integer(), pos_integer()}.
+setnode(Node, DistCtrlr, {_Flags, _Ver, _Creation} = Opts) ->
+    case case erts_internal:create_dist_channel(Node, DistCtrlr, Opts) of
              {ok, DH} -> DH;
              {message, Ref} -> receive {Ref, Res} -> Res end;
              Err -> Err
@@ -2252,7 +2260,9 @@ nodes(_Arg) ->
            | binary
            | eof
 	   | {parallelism, Boolean :: boolean()}
-	   | hide.
+	   | hide
+           | {busy_limits_port, {non_neg_integer(), non_neg_integer()} | disabled}
+           | {busy_limits_msgq, {non_neg_integer(), non_neg_integer()} | disabled}.
 open_port(PortName, PortSettings) ->
     case case erts_internal:open_port(PortName, PortSettings) of
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
@@ -2925,8 +2935,7 @@ spawn_monitor(M, F, A) ->
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
       | {max_heap_size, Size :: max_heap_size()}
-      | {message_queue_data, MQD :: message_queue_data()}
-      | {timeout, Timeout :: non_neg_integer()}.
+      | {message_queue_data, MQD :: message_queue_data()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
@@ -2941,8 +2950,7 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
-      Timeout :: non_neg_integer(),
+      Options :: [monitor | link | OtherOption],
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     erlang:spawn_opt(F, O);
@@ -3060,8 +3068,7 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
-      Timeout :: non_neg_integer(),
+      Options :: [monitor | link | OtherOption],
       OtherOption :: term().
 
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
@@ -3105,10 +3112,8 @@ spawn_opt(N,M,F,A,O) ->
     erlang:error(badarg, [N,M,F,A,O]).
 
 old_remote_spawn_opt(N, M, F, A, O) ->
-    case {lists:member(monitor, O), lists:keymember(timeout,1,O)} of
-	{true,_} ->
-            badarg;
-	{_,true} ->
+    case lists:member(monitor, O) of
+	true ->
             badarg;
 	_ ->
             {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
@@ -3172,8 +3177,11 @@ spawn_request(F) ->
 
 -spec spawn_request(Fun, Options) -> ReqId when
       Fun :: function(),
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference();
                    (Node, Fun) -> ReqId when
@@ -3206,9 +3214,13 @@ spawn_request(A1, A2) ->
       Node :: node(),
       Fun :: function(),
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
-      Timeout :: non_neg_integer(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference();
                    (Module, Function, Args) ->
@@ -3249,8 +3261,11 @@ spawn_request(M, F, A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference().
 
@@ -3280,9 +3295,13 @@ spawn_request(M, F, A, O) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
-      Timeout :: non_neg_integer(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference().
 
@@ -3300,6 +3319,11 @@ spawn_request(N, M, F, A, O) ->
         badarg ->
             erlang:error(badarg, [N, M, F, A, O])
     end.
+
+-spec spawn_request_abandon(ReqId :: reference()) -> boolean().
+
+spawn_request_abandon(_ReqId) ->
+    erlang:nif_error(undefined).
 
 -spec erlang:yield() -> 'true'.
 yield() ->
@@ -3914,15 +3938,6 @@ get_memval(code, #memory{code = V}) -> V;
 get_memval(ets, #memory{ets = V}) -> V;
 get_memval(_, #memory{}) -> erlang:error(badarg).
 
-get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
-    get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([{blocks_size, Sz} | Rest], Acc) ->
-    get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([_ | Rest], Acc) ->
-    get_blocks_size(Rest, Acc);
-get_blocks_size([], Acc) ->
-    Acc.
-
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
 							ProcType == monitor;
 							ProcType == link;
@@ -3965,14 +3980,15 @@ au_mem_acc(#memory{ total = Tot,
                     processes = Proc,
                     processes_used = ProcU } = Mem,
            eheap_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 processes = Proc+Sz,
                 processes_used = ProcU+Sz};
 au_mem_acc(#memory{ total = Tot,
                     system = Sys,
-                    ets = Ets } = Mem, ets_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+                    ets = Ets } = Mem,
+           ets_alloc, Data) ->
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz,
                 ets = Ets+Sz };
@@ -3980,31 +3996,45 @@ au_mem_acc(#memory{total = Tot,
 		    system = Sys,
 		    binary = Bin } = Mem,
 	    binary_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz,
                 binary = Bin+Sz};
 au_mem_acc(#memory{ total = Tot,
                     system = Sys } = Mem,
            _Type, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz }.
 
-au_mem_foreign(Mem, [{Type, SizeList} | Rest]) ->
-    au_mem_foreign(au_mem_acc(Mem, Type, SizeList), Rest);
-au_mem_foreign(Mem, []) ->
+acc_blocks_size([{size, Sz, _, _} | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc+Sz);
+acc_blocks_size([{size, Sz} | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc+Sz);
+acc_blocks_size([_ | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc);
+acc_blocks_size([], Acc) ->
+    Acc.
+
+au_mem_blocks([{blocks, L} | Rest], Mem0) ->
+    Mem = au_mem_blocks_1(L, Mem0),
+    au_mem_blocks(Rest, Mem);
+au_mem_blocks([_ | Rest], Mem) ->
+    au_mem_blocks(Rest, Mem);
+au_mem_blocks([], Mem) ->
     Mem.
 
-au_mem_current(Mem0, Type, [{mbcs_pool, MBCS} | Rest]) ->
-    [Foreign] = [Foreign || {foreign_blocks, Foreign} <- MBCS],
-    SizeList = MBCS -- [Foreign],
-    Mem = au_mem_foreign(Mem0, Foreign),
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
-au_mem_current(Mem, Type, [{mbcs, SizeList} | Rest]) ->
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
-au_mem_current(Mem, Type, [{sbcs, SizeList} | Rest]) ->
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_blocks_1([{Type, SizeList} | Rest], Mem) ->
+    au_mem_blocks_1(Rest, au_mem_acc(Mem, Type, SizeList));
+au_mem_blocks_1([], Mem) ->
+    Mem.
+
+au_mem_current(Mem, Type, [{mbcs_pool, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
+au_mem_current(Mem, Type, [{mbcs, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
+au_mem_current(Mem, Type, [{sbcs, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
 au_mem_current(Mem, Type, [_ | Rest]) ->
     au_mem_current(Mem, Type, Rest);
 au_mem_current(Mem, _Type, []) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
          linearize/1,
          mapfold_blocks_rpo/4,
          mapfold_instrs_rpo/4,
+         merge_blocks/1,
          normalize/1,
          no_side_effect/1,
          predecessors/1,
@@ -39,8 +40,7 @@
          split_blocks/3,
          successors/1,successors/2,
          trim_unreachable/1,
-         update_phi_labels/4,used/1,
-         uses/1,uses/2]).
+         used/1,uses/1,uses/2]).
 
 -export_type([b_module/0,b_function/0,b_blk/0,b_set/0,
               b_ret/0,b_br/0,b_switch/0,terminator/0,
@@ -82,7 +82,12 @@
 -type literal_value() :: atom() | integer() | float() | list() |
                          nil() | tuple() | map() | binary() | fun().
 
--type op()   :: {'bif',atom()} | {'float',float_op()} | prim_op() | cg_prim_op().
+-type op()   :: {'bif',atom()} |
+                {'float',float_op()} |
+                {'succeeded', 'guard' | 'body'} |
+                prim_op() |
+                cg_prim_op().
+
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
@@ -102,7 +107,7 @@
                    'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
                    'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
                    'call' | 'catch_end' |
-                   'extract' | 'exception_trampoline' |
+                   'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
                    'has_map_field' |
                    'is_nonempty_list' | 'is_tagged_tuple' |
@@ -111,7 +116,6 @@
                    'make_fun' | 'new_try_tag' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
-                   'succeeded' |
                    'timeout' |
                    'wait' | 'wait_timeout'.
 
@@ -123,9 +127,9 @@
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
                       'put_tuple_element' | 'put_tuple_elements' |
-                      'set_tuple_element'.
+                      'set_tuple_element' | 'succeeded'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -192,13 +196,18 @@ no_side_effect(#b_set{op=Op}) ->
     case Op of
         {bif,_} -> true;
         {float,get} -> true;
+        bs_add -> true;
         bs_init -> true;
+        bs_init_writable -> true;
         bs_extract -> true;
         bs_match -> true;
         bs_start_match -> true;
         bs_test_tail -> true;
         bs_get_tail -> true;
         bs_put -> true;
+        bs_utf16_size -> true;
+        bs_utf8_size -> true;
+        build_stacktrace -> true;
         extract -> true;
         get_hd -> true;
         get_tl -> true;
@@ -211,7 +220,7 @@ no_side_effect(#b_set{op=Op}) ->
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
-        succeeded -> true;
+        {succeeded,guard} -> true;
         _ -> false
     end.
 
@@ -223,6 +232,7 @@ no_side_effect(#b_set{op=Op}) ->
 is_loop_header(#b_set{op=Op}) ->
     case Op of
         peek_message -> true;
+        wait -> true;
         wait_timeout -> true;
         _ -> false
     end.
@@ -306,12 +316,7 @@ normalize(#b_br{}=Br) ->
 normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     case Arg of
         #b_literal{} ->
-            case keyfind(Arg, 1, List) of
-                false ->
-                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
-                {Arg,L} ->
-                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
-            end;
+            normalize_switch(Arg, List, Fail);
         #b_var{} when List =:= [] ->
             #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
         #b_var{} ->
@@ -319,6 +324,13 @@ normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     end;
 normalize(#b_ret{}=Ret) ->
     Ret.
+
+normalize_switch(Val, [{Val,L}|_], _Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
+normalize_switch(Val, [_|T], Fail) ->
+    normalize_switch(Val, T, Fail);
+normalize_switch(_Val, [], Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
 
 -spec successors(label(), block_map()) -> [label()].
 
@@ -538,16 +550,16 @@ rename_vars(Rename, From, Blocks) when is_map(Rename)->
     Preds = cerl_sets:from_list(Top),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_set{args=Args0}=Set) ->
                 Args = [rename_var(A, Rename) || A <- Args0],
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_switch{arg=Bool}=Sw) ->
-                Sw#b_switch{arg=rename_var(Bool, Rename)};
+                normalize(Sw#b_switch{arg=rename_var(Bool, Rename)});
            (#b_br{bool=Bool}=Br) ->
-                Br#b_br{bool=rename_var(Bool, Rename)};
+                normalize(Br#b_br{bool=rename_var(Bool, Rename)});
            (#b_ret{arg=Arg}=Ret) ->
-                Ret#b_ret{arg=rename_var(Arg, Rename)}
+                normalize(Ret#b_ret{arg=rename_var(Arg, Rename)})
         end,
     map_instrs_1(Top, F, Blocks).
 
@@ -568,43 +580,20 @@ split_blocks(P, Blocks, Count) ->
     Ls = beam_ssa:rpo(Blocks),
     split_blocks_1(Ls, P, Blocks, Count).
 
--spec trim_unreachable(Blocks0) -> Blocks when
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
+-spec trim_unreachable(SSA0) -> SSA when
+      SSA0 :: block_map() | [{label(),b_blk()}],
+      SSA :: block_map() | [{label(),b_blk()}].
 
 %% trim_unreachable(Blocks0) -> Blocks.
 %%  Remove all unreachable blocks. Adjust all phi nodes so
 %%  they don't refer to blocks that has been removed or no
 %%  no longer branch to the phi node in question.
 
-trim_unreachable(Blocks) ->
+trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
-    maps:from_list(linearize(Blocks)).
-
-%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
-%%  In the given blocks, replace label Old in with New in all
-%%  phi nodes. This is useful after merging or splitting
-%%  blocks.
-
--spec update_phi_labels(From, Old, New, Blocks0) -> Blocks when
-      From :: [label()],
-      Old :: label(),
-      New :: label(),
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
-
-update_phi_labels([L|Ls], Old, New, Blocks0) ->
-    case Blocks0 of
-        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
-            Is = update_phi_labels_is(Is0, Old, New),
-            Blk = Blk0#b_blk{is=Is},
-            Blocks = Blocks0#{L:=Blk},
-            update_phi_labels(Ls, Old, New, Blocks);
-        #{L:=#b_blk{}} ->
-            %% No phi nodes in this block.
-            update_phi_labels(Ls, Old, New, Blocks0)
-    end;
-update_phi_labels([], _, _, Blocks) -> Blocks.
+    maps:from_list(linearize(Blocks));
+trim_unreachable([_|_]=Blocks) ->
+    trim_unreachable_1(Blocks, cerl_sets:from_list([0])).
 
 -spec used(b_blk() | b_set() | terminator()) -> [var_name()].
 
@@ -649,6 +638,12 @@ fold_uses_block(Lbl, #b_blk{is=Is,last=Last}, UseMap0) ->
                       end, UseMap, used(I))
         end,
     F(Last, foldl(F, UseMap0, Is)).
+
+-spec merge_blocks(block_map()) -> block_map().
+
+merge_blocks(Blocks) ->
+    Preds = predecessors(Blocks),
+    merge_blocks_1(rpo(Blocks), Preds, Blocks).
 
 %%%
 %%% Internal functions.
@@ -807,6 +802,32 @@ is_successor(L, Pred, S) ->
             false
     end.
 
+trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
+    Blk = trim_phis(Blk0, Seen0),
+    case cerl_sets:is_element(L, Seen0) of
+        false ->
+            trim_unreachable_1(Bs, Seen0);
+        true ->
+            case successors(Blk) of
+                [] ->
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen0)];
+                [_|_]=Successors ->
+                    Seen = cerl_sets:union(Seen0, cerl_sets:from_list(Successors)),
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen)]
+            end
+    end;
+trim_unreachable_1([], _) -> [].
+
+trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
+    Is = trim_phis_1(Is0, Seen),
+    Blk#b_blk{is=Is};
+trim_phis(Blk, _Seen) -> Blk.
+
+trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
+    Args = [P || {_,L}=P <- Args0, cerl_sets:is_element(L, Seen)],
+    [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
+trim_phis_1(Is, _Seen) -> Is.
+
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
     case cerl_sets:is_element(L, Seen0) of
         true ->
@@ -907,3 +928,110 @@ used_1([H|T], Used0) ->
     Used = ordsets:union(used(H), Used0),
     used_1(T, Used);
 used_1([], Used) -> Used.
+
+
+%%% Merge blocks.
+
+merge_blocks_1([L|Ls], Preds0, Blocks0) ->
+    case Preds0 of
+        #{L:=[P]} ->
+            #{P:=Blk0,L:=Blk1} = Blocks0,
+            case is_merge_allowed(L, Blk0, Blk1) of
+                true ->
+                    #b_blk{is=Is0} = Blk0,
+                    #b_blk{is=Is1} = Blk1,
+                    verify_merge_is(Is1),
+                    Is = Is0 ++ Is1,
+                    Blk2 = Blk1#b_blk{is=Is},
+                    Blk = merge_fix_succeeded(Blk2),
+                    Blocks1 = maps:remove(L, Blocks0),
+                    Blocks2 = Blocks1#{P:=Blk},
+                    Successors = successors(Blk),
+                    Blocks = update_phi_labels(Successors, L, P, Blocks2),
+                    Preds = merge_update_preds(Successors, L, P, Preds0),
+                    merge_blocks_1(Ls, Preds, Blocks);
+                false ->
+                    merge_blocks_1(Ls, Preds0, Blocks0)
+            end;
+        #{} ->
+            merge_blocks_1(Ls, Preds0, Blocks0)
+    end;
+merge_blocks_1([], _Preds, Blocks) -> Blocks.
+
+merge_update_preds([L|Ls], From, To, Preds0) ->
+    Ps = [rename_label(P, From, To) || P <- map_get(L, Preds0)],
+    Preds = Preds0#{L:=Ps},
+    merge_update_preds(Ls, From, To, Preds);
+merge_update_preds([], _, _, Preds) -> Preds.
+
+merge_fix_succeeded(#b_blk{is=[_|_]=Is0,last=#b_br{succ=To,fail=To}}=Blk) ->
+    case reverse(Is0) of
+        [#b_set{op={succeeded,guard},args=[Dst]},#b_set{dst=Dst}|Is] ->
+            %% A succeeded:guard instruction must not be followed by a one-way
+            %% branch. Eliminate it. (We do this mainly for the benefit of the
+            %% beam_ssa_bool pass. When called from beam_ssa_opt there should
+            %% be no such instructions left.)
+            Blk#b_blk{is=reverse(Is)};
+        _ ->
+            Blk
+    end;
+merge_fix_succeeded(Blk) -> Blk.
+
+verify_merge_is([#b_set{op=Op}|_]) ->
+    %% The merged block has only one predecessor, so it should not have any phi
+    %% nodes.
+    true = Op =/= phi;                          %Assertion.
+verify_merge_is(_) ->
+    ok.
+
+is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
+    false;
+is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
+    not is_loop_header(I) andalso
+        is_merge_allowed_1(L, Blk1, Blk2);
+is_merge_allowed(L, Blk1, Blk2) ->
+    is_merge_allowed_1(L, Blk1, Blk2).
+
+is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
+    %% The predecessor block must have exactly one successor (L) for
+    %% the merge to be safe.
+    case successors(Blk) of
+        [L] ->
+            case Is of
+                [#b_set{op=phi,args=[_]}|_] ->
+                    %% The type optimizer pass must have been
+                    %% turned off, since it would have removed this
+                    %% redundant phi node. Refuse to merge the blocks
+                    %% to ensure that this phi node remains at the
+                    %% beginning of a block.
+                    false;
+                _ ->
+                    true
+            end;
+        [_|_] ->
+            false
+    end;
+is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
+    false.
+
+%% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
+%%  In the given blocks, replace label Old in with New in all
+%%  phi nodes. This is useful after merging or splitting
+%%  blocks.
+
+update_phi_labels([L|Ls], Old, New, Blocks0) ->
+    case Blocks0 of
+        #{L:=#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk0} ->
+            Is = update_phi_labels_is(Is0, Old, New),
+            Blk = Blk0#b_blk{is=Is},
+            Blocks = Blocks0#{L:=Blk},
+            update_phi_labels(Ls, Old, New, Blocks);
+        #{L:=#b_blk{}} ->
+            %% No phi nodes in this block.
+            update_phi_labels(Ls, Old, New, Blocks0)
+    end;
+update_phi_labels([], _, _, Blocks) -> Blocks.

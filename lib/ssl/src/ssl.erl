@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,11 @@
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_srp.hrl").
+
+%% Needed to make documentation rendering happy
+-ifndef(VSN).
+-define(VSN,"unknown").
+-endif.
 
 %% Application handling
 -export([start/0, 
@@ -87,6 +92,7 @@
          groups/1,
          format_error/1, 
          renegotiate/1, 
+         update_keys/2,
          prf/5, 
          negotiated_protocol/1, 
 	 connection_information/1, 
@@ -99,9 +105,12 @@
          suite_to_openssl_str/1,
          str_to_suite/1]).
 
--deprecated({ssl_accept, 1, eventually}).
--deprecated({ssl_accept, 2, eventually}).
--deprecated({ssl_accept, 3, eventually}).
+-deprecated({ssl_accept, '_', "use ssl_handshake/1,2,3 instead"}).
+
+-removed([{negotiated_next_protocol,1,
+          "use ssl:negotiated_protocol/1 instead"}]).
+-removed([{connection_info,1,
+          "use ssl:connection_information/[1,2] instead"}]).
 
 -export_type([socket/0,
               sslsocket/0,
@@ -152,7 +161,7 @@
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
--type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
+-type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' .
 -type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
 -type cipher()                   :: aes_128_cbc |
@@ -312,7 +321,10 @@
                                 {hibernate_after, hibernate_after()} |
                                 {padding_check, padding_check()} |
                                 {beast_mitigation, beast_mitigation()} |
-                                {ssl_imp, ssl_imp()}.
+                                {ssl_imp, ssl_imp()} |
+                                {session_tickets, session_tickets()} |
+                                {key_update_at, key_update_at()} |
+                                {middlebox_comp_mode, middlebox_comp_mode()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -337,7 +349,9 @@
 
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
 -type crl_check()                :: boolean() | peer | best_effort.
--type crl_cache_opts()           :: [any()].
+-type crl_cache_opts()           :: {Module :: atom(),
+                                     {DbHandle :: internal | term(),
+                                      Args :: list()}}.
 -type handshake_size()           :: integer().
 -type hibernate_after()          :: timeout().
 -type root_fun()                 ::  fun().
@@ -352,6 +366,19 @@
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
 -type logging_level()            :: logger:level().
+-type client_session_tickets()   :: disabled | manual | auto.
+-type server_session_tickets()   :: disabled | stateful | stateless.
+-type session_tickets()          :: client_session_tickets() | server_session_tickets().
+-type key_update_at()            :: pos_integer().
+-type bloom_filter_window_size()    :: integer().
+-type bloom_filter_hash_functions() :: integer().
+-type bloom_filter_bits()           :: integer().
+-type anti_replay()              :: '10k' | '100k' |
+                                    {bloom_filter_window_size(),    %% number of seconds in time window
+                                     bloom_filter_hash_functions(), %% k - number of hash functions
+                                     bloom_filter_bits()}.          %% m - number of bits in bit vector
+-type use_ticket()               :: [binary()].
+-type middlebox_comp_mode()      :: boolean().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -366,8 +393,10 @@
                                 {srp_identity, client_srp_identity()} |
                                 {server_name_indication, sni()} |
                                 {customize_hostname_check, customize_hostname_check()} |
-                                {signature_algs, client_signature_algs()} |                                    
-                                {fallback, fallback()}.
+                                {signature_algs, client_signature_algs()} |
+                                {fallback, fallback()} |
+                                {session_tickets, client_session_tickets()} |
+                                {use_ticket, use_ticket()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id().
@@ -408,7 +437,9 @@
                                 {honor_cipher_order, honor_cipher_order()} |
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
-                                {signature_algs, server_signature_algs()}.
+                                {signature_algs, server_signature_algs()} |
+                                {session_tickets, server_session_tickets()} |
+                                {anti_replay, anti_replay()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
@@ -770,8 +801,8 @@ handshake_cancel(Socket) ->
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
-   dtls_packet_demux:close(Pid);
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen) ->
+    dtls_socket:close(DTLSListen);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
     Transport:close(ListenSocket).
 
@@ -996,8 +1027,7 @@ cipher_suites(all) ->
 cipher_suites(Base, Version) when Version == 'tlsv1.3';
                                   Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
-                                  Version == tlsv1;
-                                  Version == sslv3 ->
+                                  Version == tlsv1 ->
     cipher_suites(Base, tls_record:protocol_version(Version));
 cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
@@ -1015,8 +1045,7 @@ cipher_suites(Base, Version) ->
 %%--------------------------------------------------------------------
 cipher_suites(Base, Version, StringType) when Version == 'tlsv1.2';
                                               Version == 'tlsv1.1';
-                                                  Version == tlsv1;
-                                              Version == sslv3 ->
+                                              Version == tlsv1 ->
     cipher_suites(Base, tls_record:protocol_version(Version), StringType);
 cipher_suites(Base, Version, StringType)  when Version == 'dtlsv1.2';
                                                Version == 'dtlsv1'->
@@ -1102,8 +1131,6 @@ eccs() ->
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
-eccs(sslv3) ->
-    [];
 eccs('dtlsv1') ->
     eccs('tlsv1.1');
 eccs('dtlsv1.2') ->
@@ -1296,23 +1323,37 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
 %%---------------------------------------------------------------
 -spec versions() -> [VersionInfo] when
       VersionInfo :: {ssl_app, string()} |
-                     {supported | available, [tls_version()]} |
-                     {supported_dtls | available_dtls, [dtls_version()]}.
+                     {supported | available | implemented, [tls_version()]} |
+                     {supported_dtls | available_dtls | implemented_dtls, [dtls_version()]}.
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
 versions() ->
-    TLSVsns = tls_record:supported_protocol_versions(),
-    DTLSVsns = dtls_record:supported_protocol_versions(),
-    SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- TLSVsns],
-    SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- DTLSVsns],
-    AvailableTLSVsns = ?ALL_AVAILABLE_VERSIONS,
-    AvailableDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
-    [{ssl_app, "9.2"}, {supported, SupportedTLSVsns}, 
+    ConfTLSVsns = tls_record:supported_protocol_versions(),
+    ConfDTLSVsns = dtls_record:supported_protocol_versions(),
+    ImplementedTLSVsns =  ?ALL_AVAILABLE_VERSIONS,
+    ImplementedDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
+
+     TLSCryptoSupported = fun(Vsn) -> 
+                                  tls_record:sufficient_crypto_support(Vsn)
+                          end,
+     DTLSCryptoSupported = fun(Vsn) -> 
+                                   tls_record:sufficient_crypto_support(dtls_v1:corresponding_tls_version(Vsn))  
+                           end,
+    SupportedTLSVsns = [tls_record:protocol_version(Vsn) || Vsn <- ConfTLSVsns,  TLSCryptoSupported(Vsn)],
+    SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- ConfDTLSVsns, DTLSCryptoSupported(Vsn)],
+
+    AvailableTLSVsns = [Vsn || Vsn <- ImplementedTLSVsns, TLSCryptoSupported(tls_record:protocol_version(Vsn))],
+    AvailableDTLSVsns = [Vsn || Vsn <- ImplementedDTLSVsns, DTLSCryptoSupported(dtls_record:protocol_version(Vsn))],
+                                    
+    [{ssl_app, ?VSN}, 
+     {supported, SupportedTLSVsns}, 
      {supported_dtls, SupportedDTLSVsns}, 
      {available, AvailableTLSVsns}, 
-     {available_dtls, AvailableDTLSVsns}].
-
+     {available_dtls, AvailableDTLSVsns},
+     {implemented, ImplementedTLSVsns},
+     {implemented_dtls, ImplementedDTLSVsns}
+    ].
 
 %%---------------------------------------------------------------
 -spec renegotiate(SslSocket) -> ok | {error, reason()} when
@@ -1334,6 +1375,28 @@ renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
+
+
+%%---------------------------------------------------------------
+-spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Type :: write | read_write.
+%%
+%% Description: Initiate a key update.
+%%--------------------------------------------------------------------
+update_keys(#sslsocket{pid = [Pid, Sender |_]}, Type0) when is_pid(Pid) andalso
+                                                            is_pid(Sender) andalso
+                                                            (Type0 =:= write orelse
+                                                             Type0 =:= read_write) ->
+    Type = case Type0 of
+               write ->
+                   update_not_requested;
+               read_write ->
+                   update_requested
+           end,
+    tls_connection:send_key_update(Sender, Type);
+update_keys(_, Type) ->
+    {error, {illegal_parameter, Type}}.
 
 %%--------------------------------------------------------------------
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
@@ -1491,21 +1554,13 @@ handle_options(Opts0, Role, Host) ->
 
     %% Ensure all options are evaluated at startup
     SslOpts1 = add_missing_options(SslOpts0, ?RULES),
-    SslOpts = #{protocol := Protocol,
-                versions := Versions}
+    SslOpts = #{protocol := Protocol}
         = process_options(SslOpts1,
                           #{},
                           #{role => Role,
                             host => Host,
                             rules => ?RULES}),
-
-    case Versions of
-        [{3, 0}] ->
-            reject_alpn_next_prot_options(SslOpts0);
-        _ ->
-            ok
-    end,
-
+    
     %% Handle special options
     {Sock, Emulated} = emulated_options(Protocol, SockOpts),
     ConnetionCb = connection_cb(Protocol),
@@ -1553,7 +1608,19 @@ process_options({[{K0,V} = E|T], S, Counter}, OptionsMap0, Env) ->
             process_options({T, [E|S], Counter}, OptionsMap0, Env)
     end.
 
-
+handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(anti_replay = Option, Value0,
+              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
+    assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
+    case SessionTickets of
+        stateless ->
+            Value = validate_option(Option, Value0),
+            OptionsMap#{Option => Value};
+        _ ->
+            OptionsMap#{Option => default_value(Option, Rules)}
+    end;
 handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
                                               verify := Verify,
                                               verify_fun := VerifyFun} = OptionsMap, _Env)
@@ -1615,6 +1682,13 @@ handle_option(honor_ecc_order = Option, Value0, OptionsMap, #{role := Role}) ->
 handle_option(keyfile = Option, unbound, #{certfile := CertFile} = OptionsMap, _Env) ->
     Value = validate_option(Option, CertFile),
     OptionsMap#{Option => Value};
+handle_option(key_update_at = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(next_protocol_selector = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = default_value(Option, Rules),
     OptionsMap#{Option => Value};
@@ -1641,23 +1715,19 @@ handle_option(reuse_sessions = Option, unbound, OptionsMap, #{rules := Rules}) -
 handle_option(reuse_sessions = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
-handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(anti_replay = Option, Value0,
-              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
-    case SessionTickets of
-        stateless ->
-            Value = validate_option(Option, Value0),
-            OptionsMap#{Option => Value};
-        _ ->
-            OptionsMap#{Option => default_value(Option, Rules)}
-end;
 handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Host,
-                                                                        role := Role}) ->
+                                                                      role := Role}) ->
     Value = default_option_role(client, server_name_indication_default(Host), Role),
     OptionsMap#{Option => Value};
 handle_option(server_name_indication = Option, Value0, OptionsMap, _Env) ->
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(session_tickets = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(session_tickets = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_role_value(Role, Option, Value0, [disabled, stateful, stateless], [disabled, manual, auto]),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{role := Role}) ->
@@ -1848,6 +1918,45 @@ assert_role(Type, _, Key, _) ->
     throw({error, {option, Type, Key}}).
 
 
+assert_role_value(client, Option, Value, _, ClientValues) ->
+        case lists:member(Value, ClientValues) of
+            true ->
+                ok;
+            false ->
+                %% throw({error, {option, client, Option, Value, ClientValues}})
+                throw({error, {options, role, {Option, {Value, {client, ClientValues}}}}})
+        end;
+assert_role_value(server, Option, Value, ServerValues, _) ->
+        case lists:member(Value, ServerValues) of
+            true ->
+                ok;
+            false ->
+                %% throw({error, {option, server, Option, Value, ServerValues}})
+                throw({error, {options, role, {Option, {Value, {server, ServerValues}}}}})
+        end.
+
+
+assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
+    %% special handling for version
+    Values =
+        case OptionDep of
+            versions ->
+                lists:map(fun tls_record:protocol_version/1, Values0);
+            _ ->
+                Values0
+        end,
+    Set1 = sets:from_list(Values),
+    Set2 = sets:from_list(AllowedValues),
+    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+        true ->
+            ok;
+        false ->
+            %% Message = build_error_message(Option, OptionDep, AllowedValues),
+            %% throw({error, {options, Message}})
+            throw({error, {options, dependency, {Option, {OptionDep, AllowedValues}}}})
+    end.
+
+
 validate_option(versions, Versions)  ->
     validate_versions(Versions, Versions);
 validate_option(verify, Value)
@@ -1910,6 +2019,9 @@ validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
 validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
     binary_filename(Value);
+validate_option(key_update_at, Value) when is_integer(Value) andalso
+                                           Value > 0 ->
+    Value;
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
@@ -2011,6 +2123,8 @@ validate_option(log_level, Value) when
        Value =:= info orelse
        Value =:= debug) ->
     Value;
+validate_option(middlebox_comp_mode, Value) when is_boolean(Value) ->
+    Value;
 validate_option(next_protocols_advertised, Value) when is_list(Value) ->
     validate_binary_list(next_protocols_advertised, Value),
     Value;
@@ -2094,7 +2208,7 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
 validate_option(use_ticket, Value) when is_list(Value) ->
     Value;
 validate_option(session_tickets, Value) when Value =:= disabled orelse
-                                             Value =:= enabled orelse
+                                             Value =:= manual orelse
                                              Value =:= auto orelse
                                              Value =:= stateless orelse
                                              Value =:= stateful ->
@@ -2192,26 +2306,50 @@ validate_versions([], Versions) ->
 validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                    Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
-                                                   Version == tlsv1;
-                                                   Version == sslv3 ->
-    tls_validate_versions(Rest, Versions);                                      
+                                                   Version == tlsv1 ->
+    case tls_record:sufficient_crypto_support(Version) of
+        true ->
+            tls_validate_versions(Rest, Versions);
+        false ->
+            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
+    end; 
 validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
                                                    Version == 'dtlsv1.2'->
-    dtls_validate_versions(Rest, Versions);
-validate_versions([Ver| _], Versions) ->
-    throw({error, {options, {Ver, {versions, Versions}}}}).
+    DTLSVer = dtls_record:protocol_version(Version),
+    case tls_record:sufficient_crypto_support(dtls_v1:corresponding_tls_version(DTLSVer)) of
+        true ->
+            dtls_validate_versions(Rest, Versions);
+        false ->
+            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
+    end;        
+validate_versions([Version| _], Versions) ->
+    throw({error, {options, {Version, {versions, Versions}}}}).
 
 tls_validate_versions([], Versions) ->
-    Versions;
+    tls_validate_version_gap(Versions);
 tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                        Version == 'tlsv1.2';
                                                        Version == 'tlsv1.1';
-                                                       Version == tlsv1;
-                                                       Version == sslv3 ->
+                                                       Version == tlsv1 ->
     tls_validate_versions(Rest, Versions);                  
-tls_validate_versions([Ver| _], Versions) ->
-    throw({error, {options, {Ver, {versions, Versions}}}}).
+tls_validate_versions([Version| _], Versions) ->
+    throw({error, {options, {Version, {versions, Versions}}}}).
 
+%% Do not allow configuration of TLS 1.3 with a gap where TLS 1.2 is not supported
+%% as that configuration can trigger the built in version downgrade protection
+%% mechanism and the handshake can fail with an Illegal Parameter alert.
+tls_validate_version_gap(Versions) ->
+    case lists:member('tlsv1.3', Versions) of
+        true when length(Versions) >= 2 ->
+            case lists:member('tlsv1.2', Versions) of
+                true ->
+                    Versions;
+                false ->
+                    throw({error, {options, missing_version, {'tlsv1.2', {versions, Versions}}}})
+            end;
+        _ ->
+            Versions
+    end.
 dtls_validate_versions([], Versions) ->
     Versions;
 dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
@@ -2461,28 +2599,10 @@ include_security_info([Item | Items]) ->
     end.
 
 server_name_indication_default(Host) when is_list(Host) ->
-    Host;
+    %% SNI should not contain a trailing dot that a hostname may
+    string:strip(Host, right, $.);
 server_name_indication_default(_) ->
     undefined.
-
-
-reject_alpn_next_prot_options({Opts,_,_}) ->
-    AlpnNextOpts = [alpn_advertised_protocols,
-                    alpn_preferred_protocols,
-                    next_protocols_advertised,
-                    next_protocol_selector,
-                    client_preferred_next_protocols],
-    reject_alpn_next_prot_options(AlpnNextOpts, Opts).
-
-reject_alpn_next_prot_options([], _) ->
-    ok;
-reject_alpn_next_prot_options([Opt| AlpnNextOpts], Opts) ->
-    case lists:keyfind(Opt, 1, Opts) of
-        {Opt, Value} ->
-            throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-        false ->
-            reject_alpn_next_prot_options(AlpnNextOpts, Opts)
-    end.
 
 add_filter(undefined, Filters) ->
     Filters;

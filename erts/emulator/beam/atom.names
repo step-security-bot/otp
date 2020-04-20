@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ atom ErtsSecretAtom='3RT$'
 atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
+atom abandoned
 atom abort
 atom abs_path
 atom absoluteURI
@@ -145,6 +146,8 @@ atom bsr_unicode
 atom build_type
 atom busy
 atom busy_dist_port
+atom busy_limits_port
+atom busy_limits_msgq
 atom busy_port
 atom call
 atom call_count
@@ -248,6 +251,7 @@ atom erlang
 atom erl_signal_server
 atom error_handler
 atom error_logger
+atom error_only
 atom erts_code_purger
 atom erts_debug
 atom erts_dflags
@@ -558,6 +562,7 @@ atom register
 atom registered_name
 atom reload
 atom rem
+atom reply
 atom reply_tag
 atom report_errors
 atom reset
@@ -636,6 +641,7 @@ atom stop
 atom stream
 atom strict_monotonic
 atom strict_monotonic_timestamp
+atom success_only
 atom sunrm
 atom suspend
 atom suspended

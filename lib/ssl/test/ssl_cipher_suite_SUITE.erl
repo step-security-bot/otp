@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,25 +27,27 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-define(TIMEOUT, {seconds, 5}).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> 
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
 
 groups() ->
     [
+     {'tlsv1.3', [], tls_1_3_kex()},
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
-     {'sslv3', [], ssl3_kex()},
      {'dtlsv1.2', [], kex()},
      {'dtlsv1', [], kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 
@@ -60,6 +62,7 @@ groups() ->
                       ecdhe_rsa_aes_256_gcm,
                       ecdhe_rsa_chacha20_poly1305
                     ]},
+     {ecdhe_1_3_rsa_cert, [], tls_1_3_cipher_suites()},
      {ecdhe_ecdsa, [],[ecdhe_ecdsa_rc4_128, 
                        ecdhe_ecdsa_3des_ede_cbc, 
                        ecdhe_ecdsa_aes_128_cbc,
@@ -127,13 +130,20 @@ groups() ->
                ]}
     ].
 
+
+tls_1_3_kex() ->
+    [{group, ecdhe_1_3_rsa_cert}].
+    
+tls_1_3_cipher_suites() ->
+    [aes_256_gcm_sha384,
+     aes_128_gcm_sha256,
+     chacha20_poly1305_sha256,
+     aes_128_ccm_sha256,
+     aes_128_ccm_8_sha256
+    ].
+
 kex() ->
      rsa() ++ ecdsa() ++ dss() ++ anonymous().
-
-
-ssl3_kex() ->
-    ssl3_rsa() ++ ssl3_dss() ++ ssl3_anonymous().
-
 
 rsa() ->
     [{group, dhe_rsa},
@@ -143,21 +153,12 @@ rsa() ->
      {group, rsa_psk}
     ].
 
-ssl3_rsa() ->
-    [{group, dhe_rsa},
-     {group, rsa}
-    ].
-
 ecdsa() ->
     [{group, ecdhe_ecdsa}].
     
 dss() ->
     [{group, dhe_dss},
      {group, srp_dss}].
-
-ssl3_dss() ->
-    [{group, dhe_dss}
-    ].
 
 anonymous() ->
     [{group, dh_anon},
@@ -167,10 +168,6 @@ anonymous() ->
      {group, ecdhe_psk},
      {group, srp_anon}
     ].
-
-ssl3_anonymous() ->
-    [{group, dh_anon}].
-
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -186,7 +183,13 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-
+init_per_group(GroupName, Config) when GroupName == ecdhe_1_3_rsa_cert ->    
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
+        true ->
+            init_certs(GroupName, Config);
+        false ->
+            {skip, "Missing EC crypto support"}
+    end;
 init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
                                        GroupName == ecdhe_psk ->
@@ -238,20 +241,15 @@ init_per_group(dhe_psk = GroupName, Config) ->
             {skip, "Missing SRP crypto support"}
     end;
 init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:init_tls_version(GroupName, end_per_group(GroupName, Config0));
-        false ->
-            init_certs(GroupName, Config0)
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            init_certs(GroupName, Config)
     end.
   
 end_per_group(GroupName, Config) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          ssl_test_lib:clean_tls_version(Config);
-      false ->
-          Config
-  end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
                                          TestCase == srp_anon_3des_ede_cbc;
@@ -271,7 +269,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(des_ede3, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?TIMEOUT),
             Config;
         _ ->
             {skip, "Missing 3DES crypto support"}
@@ -287,7 +285,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(rc4, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?TIMEOUT),
             Config;
         _ ->
             {skip, "Missing RC4 crypto support"}
@@ -300,7 +298,7 @@ init_per_testcase(TestCase, Config) when  TestCase == psk_aes_128_ccm_8;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(aes_128_ccm, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?TIMEOUT),
             Config;
         _ ->
             {skip, "Missing AES_128_CCM crypto support"}
@@ -313,17 +311,75 @@ init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(aes_256_ccm, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?TIMEOUT),
             Config;
         _ ->
             {skip, "Missing AES_256_CCM crypto support"}
+    end;
+init_per_testcase(aes_256_gcm_sha384, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+      SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_256_gcm, SupCiphers)) andalso
+        (lists:member(sha384, SupHashs))
+    of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_256_GCM_SHA384 crypto support"}
+    end;
+init_per_testcase(aes_128_gcm_sha256, Config) ->
+      SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+      SupHashs = proplists:get_value(hashs, crypto:supports()),
+      case (lists:member(aes_128_gcm, SupCiphers)) andalso
+          (lists:member(sha256, SupHashs))
+      of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+          _ ->
+            {skip, "Missing AES_128_GCM_SHA256 crypto support"}
+    end;
+init_per_testcase(chacha20_poly1305_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(chacha20_poly1305, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs))
+    of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing chacha20_poly1305_sha256 crypto support"}
+    end;
+init_per_testcase(aes_128_ccm_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_128_ccm, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM_SHA256 crypto support"}
+    end;
+init_per_testcase(aes_128_ccm_8_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_128_ccm, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM_8_SHA256 crypto support"}
     end;
 init_per_testcase(TestCase, Config) ->
     Cipher = ssl_test_lib:test_cipher(TestCase, Config),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(Cipher, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?TIMEOUT),
             Config;
         _ ->
             {skip, {Cipher, SupCiphers}}
@@ -335,7 +391,6 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Initializtion   ------------------------------------------
 %%--------------------------------------------------------------------
-
 init_certs(srp_rsa, Config) ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
     CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
@@ -364,6 +419,14 @@ init_certs(rsa, Config) ->
     {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
                                                                    [[],[],[{extensions, ClientExt}]]}], 
                                                                  Config, "_peer_keyEncipherment"),
+    [{tls_config, #{server_config => ServerOpts,
+                    client_config => ClientOpts}} |
+     proplists:delete(tls_config, Config)];
+init_certs(ecdhe_1_3_rsa_cert, Config) ->
+    ClientExt = x509_test:extensions([{key_usage, [digitalSignature]}]),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
+                                                                   [[],[],[{extensions, ClientExt}]]}], 
+                                                                 Config, "_peer_rsa_digitalsign"),
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
@@ -426,6 +489,26 @@ init_certs(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+
+aes_256_gcm_sha384(Config) when is_list(Config)->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_256_GCM_SHA384"), Version, Config).
+
+aes_128_gcm_sha256(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_GCM_SHA256"), Version, Config). 
+
+chacha20_poly1305_sha256(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_CHACHA20_POLY1305_SHA256"), Version, Config). 
+
+aes_128_ccm_sha256(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_CCM_SHA256"), Version, Config).
+
+aes_128_ccm_8_sha256(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_CCM_8_SHA256"), Version, Config).
 
 %%--------------------------------------------------------------------
 %% SRP --------------------------------------------------------
@@ -774,4 +857,5 @@ test_ciphers(Kex, Cipher, Version) ->
                                fun(Cipher0) when Cipher0 == Cipher -> true; 
                                   (_) -> false 
                                end}]).
+
 

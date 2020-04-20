@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@
           compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
           resumption_master_secret,
+          application_traffic_secret,
           client_random,			% opaque 32
           server_random,			% opaque 32
           exportable				% boolean
@@ -74,7 +75,7 @@
 
 -define(INITIAL_BYTES, 5).
 
--define(MAX_SEQENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
+-define(MAX_SEQUENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
 %% Sequence numbers cannot wrap so when max is about to be reached we should renegotiate.
 %% We will renegotiate a little before so that there will be sequence numbers left
 %% for the rehandshake and a little data. Currently we decided to renegotiate a little more
@@ -152,6 +153,7 @@
 -define(MAX_PLAIN_TEXT_LENGTH, 16384).
 -define(MAX_COMPRESSED_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+1024)).
 -define(MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+2048)).
+-define(TLS13_MAX_CIPHER_TEXT_LENGTH, (?MAX_PLAIN_TEXT_LENGTH+256)).
 
 %% -record(protocol_version, {
 %% 	  major,  % unit 8

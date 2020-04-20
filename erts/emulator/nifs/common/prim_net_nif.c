@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,14 @@
 
 #ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
+#elif defined(__PASE__)
+/* PASE has this, but under a different name because AIX doesn't have it. */
+#include <as400_protos.h>
+/*
+ * We don't redefine the function names because they're used in other
+ * contexts, but the struct is safe to rename.
+ */
+#define ifaddrs ifaddrs_pase
 #endif
 
 #ifdef HAVE_NETPACKET_PACKET_H
@@ -278,22 +286,42 @@ ENET_NIF_FUNCS
 /* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM enet_command(ErlNifEnv*   env,
                                  ERL_NIF_TERM cmd);
+#if defined(HAVE_GETHOSTNAME)
 static ERL_NIF_TERM enet_gethostname(ErlNifEnv* env);
+#endif
+
+#if defined(HAVE_GETNAMEINFO)
 static ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
                                      const ESockAddress* saP,
                                      SOCKLEN_T           saLen,
                                      int                 flags);
+#endif
+
+#if defined(HAVE_GETADDRINFO)
 static ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
                                      char*      host,
                                      char*      serv);
+#endif
+
+#if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
                                     char*      netns);
+#endif
+
+#if defined(HAVE_IF_NAMETOINDEX)
 static ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                                        char*      ifn);
+#endif
+
+#if defined(HAVE_IF_INDEXTONAME)
 static ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                                        unsigned int id);
+#endif
+
+#if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
 static ERL_NIF_TERM enet_if_names(ErlNifEnv* env);
 static unsigned int enet_if_names_length(struct if_nameindex* p);
+#endif
 
 /*
 static void net_dtor(ErlNifEnv* env, void* obj);
@@ -348,8 +376,8 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
                                  const ERL_NIF_TERM eString,
                                  char**             stringP);
 static ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                                ERL_NIF_TERM eBool,
-                                BOOLEAN_T*   bool);
+                                ERL_NIF_TERM ebool,
+                                BOOLEAN_T*   ibool);
 static ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
                                          struct addrinfo* addrInfo);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
@@ -609,7 +637,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETHOSTNAME)
     ERL_NIF_TERM result;
     
     NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
@@ -622,11 +650,13 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
     NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETHOSTNAME)
 static
 ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 {
@@ -685,7 +715,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETNAMEINFO)
     ERL_NIF_TERM result;
     ERL_NIF_TERM eSockAddr, eFlags;
     int          flags = 0; // Just in case...
@@ -723,6 +753,8 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
@@ -731,7 +763,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 /* Given the provided sock(et) address (and flags), retreive the host and
  * service info.
  */
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETNAMEINFO)
 static
 ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
                               const ESockAddress* saP,
@@ -847,7 +879,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETADDRINFO)
     ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
     char*            servName;
@@ -901,11 +933,13 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETADDRINFO)
 static
 ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
                               char*      host,
@@ -1030,8 +1064,10 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#elif defined(HAVE_GETIFADDRS)
+#elif defined(HAVE_GETIFADDRS) || defined(__PASE__)
+#ifdef HAVE_SETNS
     ERL_NIF_TERM extra;
+#endif
     char*        netns;
     ERL_NIF_TERM result;
 
@@ -1041,7 +1077,10 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
         !IS_MAP(env,  argv[0])) {
         return enif_make_badarg(env);
     }
+#ifdef HAVE_SETNS
     extra = argv[0];
+#endif
+
 
 #ifdef HAVE_SETNS
     /* We *currently* only support one extra option: netns */
@@ -1061,12 +1100,12 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 
     return result;
 #else // HAVE_GETIFADDRS
-    return esock_make_error(env, esock_atom_notsup);
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
-#ifdef HAVE_GETIFADDRS
+#if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 #ifdef HAVE_SETNS
 /* enet_getifaddrs_netns - extract the netns field from the 'extra' map
  *
@@ -1146,9 +1185,17 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
         return esock_make_error_errno(env, save_errno);
 #endif
 
+#ifdef __PASE__
+    if (0 == Qp2getifaddrs(&ifap)) {
+#else
     if (0 == getifaddrs(&ifap)) {
+#endif
         result = enet_getifaddrs_process(env, ifap);
+#ifdef __PASE__
+        Qp2freeifaddrs(ifap);
+#else
         freeifaddrs(ifap);
+#endif
     } else {
         save_errno = get_errno();
 
@@ -1541,7 +1588,7 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_NAMETOINDEX)
     ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
 
@@ -1565,12 +1612,14 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_name2index -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_IF_NAMETOINDEX)
 static
 ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                             char*      ifn)
@@ -1613,7 +1662,7 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_INDEXTONAME)
     ERL_NIF_TERM result;
     unsigned int idx;
 
@@ -1633,12 +1682,14 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_index2name -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_IF_INDEXTONAME)
 static
 ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                             unsigned int idx)
@@ -1676,9 +1727,9 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
+#if defined(__WIN32__) || (defined(__ANDROID__) && (__ANDROID_API__ < 24))
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
     ERL_NIF_TERM result;
 
     NDBG( ("NET", "nif_if_names -> entry (%d)\r\n", argc) );
@@ -1692,12 +1743,19 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_names -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
 
-#if !defined(__WIN32__)
+/* if_nameindex and if_freenameindex were added in Android 7.0 Nougat. With
+the Android NDK Unified Headers, check that the build is targeting at least
+the corresponding API level 24. */
+/* Can we replace the ANDROID tests with the HAVE_... ? */
+#if !defined(__WIN32__) && !(defined(__ANDROID__) && (__ANDROID_API__ < 24))
+#if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
 static
 ERL_NIF_TERM enet_if_names(ErlNifEnv* env)
 {
@@ -1770,7 +1828,8 @@ unsigned int enet_if_names_length(struct if_nameindex* p)
 
     return len;
 }
-#endif // if !defined(__WIN32__)
+#endif // if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
+#endif // if !defined(__WIN32__) && ...
 
 
 
@@ -1931,14 +1990,14 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
 
 static
 ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                         ERL_NIF_TERM eBool,
-                         BOOLEAN_T*   bool)
+                         ERL_NIF_TERM ebool,
+                         BOOLEAN_T*   ibool)
 {
-    if (COMPARE(eBool, esock_atom_true) == 0) {
-        *bool = TRUE;
+    if (COMPARE(ebool, esock_atom_true) == 0) {
+        *ibool = TRUE;
         return esock_atom_ok;
-    } else if (COMPARE(eBool, esock_atom_false) == 0) {
-        *bool = FALSE;
+    } else if (COMPARE(ebool, esock_atom_false) == 0) {
+        *ibool = FALSE;
         return esock_atom_ok;
     } else {
         return esock_make_error(env, esock_atom_einval);

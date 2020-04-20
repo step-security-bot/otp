@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 %% Purpose: Run the Erlang compiler.
 
 -module(compile).
--compile([{nowarn_deprecated_function,{crypto,block_encrypt,4}}]).
 
 %% High-level interface.
 -export([file/1,file/2,noenv_file/2,format_error/1,iofile/1]).
@@ -41,7 +40,7 @@
 -include("core_parse.hrl").
 
 -import(lists, [member/2,reverse/1,reverse/2,keyfind/3,last/1,
-		map/2,flatmap/2,foreach/2,foldr/3,any/2]).
+		map/2,flatmap/2,flatten/1,foreach/2,foldr/3,any/2]).
 
 -define(SUB_PASS_TIMES, compile__sub_pass_times).
 
@@ -259,10 +258,6 @@ expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
-expand_opt(r16, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r17, Os) ->
-    expand_opt_before_21(Os);
 expand_opt(r18, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r19, Os) ->
@@ -460,11 +455,15 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
 run_sub_passes_1([], _, St) -> St.
 
 run_tc({Name,Fun}, Code, St) ->
-    put(?SUB_PASS_TIMES, []),
+    OldTimes = put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(Code, St)),
     T2 = erlang:monotonic_time(),
-    Times = erase(?SUB_PASS_TIMES),
+    Times = get(?SUB_PASS_TIMES),
+    case OldTimes of
+        undefined -> erase(?SUB_PASS_TIMES);
+        _ -> put(?SUB_PASS_TIMES, OldTimes)
+    end,
     Elapsed = erlang:convert_time_unit(T2 - T1, native, microsecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
@@ -607,7 +606,7 @@ passes_1([]) ->
     {".erl",[?pass(parse_module)|standard_passes()]}.
 
 pass(from_core) ->
-    {".core",[?pass(parse_core)|core_passes(mandatory_core_lint)]};
+    {".core",[?pass(parse_core)|core_passes(non_verified_core)]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(from_beam) ->
@@ -790,11 +789,15 @@ standard_passes() ->
 
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
+
+     %% Add all -compile() directives to #compile.options
+     ?pass(compile_directives),
+
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
 
      {iff,'dabstr',{listing,"abstr"}},
-     {iff,debug_info,?pass(save_abstract_code)},
+     {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
 
      ?pass(expand_records),
      {iff,'dexp',{listing,"expand"}},
@@ -805,33 +808,35 @@ standard_passes() ->
      ?pass(core),
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
-     | core_passes(optional_core_lint)].
+     | core_passes(verified_core)].
 
-core_passes(LintOpt) ->
+core_passes(CoreStatus) ->
     %% Optimization and transforms of Core Erlang code.
-    CoreLint = case LintOpt of
-                   mandatory_core_lint ->
-                       ?pass(core_lint_module);
-                   optional_core_lint ->
-                       {iff,clint0,?pass(core_lint_module)}
-               end,
-    [CoreLint,
-     {delay,
-      [{unless,no_copt,
-       [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
-	{iff,doldinline,{listing,"oldinline"}},
-	{unless,no_fold,{pass,sys_core_fold}},
-	{iff,dcorefold,{listing,"corefold"}},
-	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/2},
-	{iff,dinline,{listing,"inline"}},
-        {core_fold_after_inlining,fun test_any_inliner/1,
-         fun core_fold_module_after_inlining/2},
-        {iff,dcopt,{listing,"copt"}},
-        {unless,no_alias,{pass,sys_core_alias}},
-        {iff,dalias,{listing,"core_alias"}},
-	?pass(core_transforms)]},
-       {iff,'to_core',{done,"core"}}]}
-     | kernel_passes()].
+    case CoreStatus of
+        non_verified_core ->
+            [?pass(core_lint_module),
+             {unless,no_core_prepare,{pass,sys_core_prepare}},
+             {iff,dprep,{listing,"prepare"}}];
+        verified_core ->
+            [{iff,clint0,?pass(core_lint_module)}]
+    end ++
+        [
+         {delay,
+          [{unless,no_copt,
+            [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
+             {iff,doldinline,{listing,"oldinline"}},
+             {unless,no_fold,{pass,sys_core_fold}},
+             {iff,dcorefold,{listing,"corefold"}},
+             {core_inline_module,fun test_core_inliner/1,fun core_inline_module/2},
+             {iff,dinline,{listing,"inline"}},
+             {core_fold_after_inlining,fun test_any_inliner/1,
+              fun core_fold_module_after_inlining/2},
+             {iff,dcopt,{listing,"copt"}},
+             {unless,no_alias,{pass,sys_core_alias}},
+             {iff,dalias,{listing,"core_alias"}},
+             ?pass(core_transforms)]},
+           {iff,'to_core',{done,"core"}}]}
+         | kernel_passes()].
 
 kernel_passes() ->
     %% Optimizations that must be done after all other optimizations.
@@ -851,26 +856,34 @@ kernel_passes() ->
      {delay,
       [{unless,no_bool_opt,{pass,beam_ssa_bool}},
        {iff,dbool,{listing,"bool"}},
+       {unless,no_bool_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_share_opt,{pass,beam_ssa_share}},
        {iff,dssashare,{listing,"ssashare"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_share_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_bsm_opt,{pass,beam_ssa_bsm}},
        {iff,dssabsm,{listing,"ssabsm"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_bsm_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_fun_opt,{pass,beam_ssa_funs}},
        {iff,dssafuns,{listing,"ssafuns"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_fun_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_ssa_opt,{pass,beam_ssa_opt}},
        {iff,dssaopt,{listing,"ssaopt"}},
-       {iff,ssalint,{pass,beam_ssa_lint}},
+       {unless,no_ssa_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
+
        {unless,no_recv_opt,{pass,beam_ssa_recv}},
-       {iff,drecv,{listing,"recv"}}]},
+       {iff,drecv,{listing,"recv"}},
+       {unless,no_recv_opt,{iff,ssalint,{pass,beam_ssa_lint}}}]},
      {pass,beam_ssa_pre_codegen},
      {iff,dprecg,{listing,"precodegen"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
      {pass,beam_ssa_codegen},
      {iff,dcg,{listing,"codegen"}},
-     {iff,doldcg,{listing,"codegen"}}
+     {iff,doldcg,{listing,"codegen"}},
+     ?pass(beam_validator_strong)
      | asm_passes()].
 
 asm_passes() ->
@@ -902,7 +915,7 @@ asm_passes() ->
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
-     {pass,beam_validator},
+     ?pass(beam_validator_weak),
      ?pass(beam_asm)
      | binary_passes()].
 
@@ -925,8 +938,6 @@ remove_file(Code, St) ->
 		     exports,
 		     labels,
 		     functions=[],
-		     cfun,
-		     code,
 		     attributes=[]}).
 
 preprocess_asm_forms(Forms) ->
@@ -936,36 +947,30 @@ preprocess_asm_forms(Forms) ->
      {R1#asm_module.module,
       R1#asm_module.exports,
       R1#asm_module.attributes,
-      R1#asm_module.functions,
+      reverse(R1#asm_module.functions),
       R1#asm_module.labels}}.
 
-collect_asm([], R) ->
-    case R#asm_module.cfun of
-	undefined ->
-	    R;
-	{A,B,C} ->
-	    R#asm_module{functions=R#asm_module.functions++
-			 [{function,A,B,C,R#asm_module.code}]}
-    end;
 collect_asm([{module,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{module=M});
 collect_asm([{exports,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{exports=M});
 collect_asm([{labels,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{labels=M});
-collect_asm([{function,A,B,C} | Rest], R) ->
-    R1 = case R#asm_module.cfun of
-	     undefined ->
-		 R;
-	     {A0,B0,C0} ->
-		 R#asm_module{functions=R#asm_module.functions++
-			      [{function,A0,B0,C0,R#asm_module.code}]}
-	 end,
-    collect_asm(Rest, R1#asm_module{cfun={A,B,C}, code=[]});
+collect_asm([{function,A,B,C} | Rest0], R0) ->
+    {Code,Rest} = collect_asm_function(Rest0, []),
+    Func = {function,A,B,C,Code},
+    R = R0#asm_module{functions=[Func | R0#asm_module.functions]},
+    collect_asm(Rest, R);
 collect_asm([{attributes, Attr} | Rest], R) ->
     collect_asm(Rest, R#asm_module{attributes=Attr});
-collect_asm([X | Rest], R) ->
-    collect_asm(Rest, R#asm_module{code=R#asm_module.code++[X]}).
+collect_asm([], R) -> R.
+
+collect_asm_function([{function,_,_,_}|_]=Is, Acc) ->
+    {reverse(Acc),Is};
+collect_asm_function([I|Is], Acc) ->
+    collect_asm_function(Is, [I|Acc]);
+collect_asm_function([], Acc) ->
+    {reverse(Acc),[]}.
 
 beam_consult_asm(_Code, St) ->
     case file:consult(St#compile.ifile) of
@@ -1445,9 +1450,11 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
     {ok,Code,St}.
 
-core(Forms, #compile{options=Opts0}=St) ->
-    Opts1 = lists:flatten([C || {attribute,_,compile,C} <- Forms] ++ Opts0),
-    Opts = expand_opts(Opts1),
+compile_directives(Forms, #compile{options=Opts0}=St) ->
+    Opts = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
+    {ok, Forms, St#compile{options=Opts ++ Opts0}}.
+
+core(Forms, #compile{options=Opts}=St) ->
     {ok,Core,Ws} = v3_core:module(Forms, Opts),
     Mod = cerl:concrete(cerl:module_name(Core)),
     {ok,Core,St#compile{module=Mod,options=Opts,
@@ -1502,17 +1509,8 @@ core_inline_module(Code0, #compile{options=Opts}=St) ->
 save_abstract_code(Code, St) ->
     {ok,Code,St#compile{abstract_code=erl_parse:anno_to_term(Code)}}.
 
-debug_info(#compile{module=Module,mod_options=Opts0,ofile=OFile,abstract_code=Abst}) ->
-    AbstOpts = cleanup_compile_options(Opts0),
-    Opts1 = proplists:delete(debug_info, Opts0),
-    {Backend,Metadata,Opts2} =
-	case proplists:get_value(debug_info, Opts0, false) of
-	    {OptBackend,OptMetadata} when is_atom(OptBackend) -> {OptBackend,OptMetadata,Opts1};
-	    false -> {erl_abstract_code,{none,AbstOpts},Opts1};
-	    true -> {erl_abstract_code,{Abst,AbstOpts},[debug_info | Opts1]}
-	end,
-    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata}, [compressed]),
-
+debug_info(#compile{module=Module,ofile=OFile}=St) ->
+    {DebugInfo,Opts2} = debug_info_chunk(St),
     case member(encrypt_debug_info, Opts2) of
 	true ->
 	    case lists:keytake(debug_info_key, 1, Opts2) of
@@ -1530,6 +1528,25 @@ debug_info(#compile{module=Module,mod_options=Opts0,ofile=OFile,abstract_code=Ab
 	false ->
 	    {ok,DebugInfo,Opts2}
     end.
+
+debug_info_chunk(#compile{mod_options=ModOpts0,
+                          options=CompOpts,
+                          abstract_code=Abst}) ->
+    AbstOpts = cleanup_compile_options(ModOpts0),
+    {Backend,Metadata,ModOpts} =
+        case proplists:get_value(debug_info, CompOpts, false) of
+            {OptBackend,OptMetadata} when is_atom(OptBackend) ->
+                ModOpts1 = proplists:delete(debug_info, ModOpts0),
+                {OptBackend,OptMetadata,ModOpts1};
+            true ->
+                ModOpts1 = proplists:delete(debug_info, ModOpts0),
+                {erl_abstract_code,{Abst,AbstOpts},[debug_info | ModOpts1]};
+            false ->
+                {erl_abstract_code,{none,AbstOpts},ModOpts0}
+        end,
+    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata},
+                                      [compressed]),
+    {DebugInfo, ModOpts}.
 
 encrypt_debug_info(DebugInfo, Key, Opts) ->
     try
@@ -1588,12 +1605,26 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 	       0 -> Bin0;
 	       N -> list_to_binary([Bin0,crypto:strong_rand_bytes(BlockSize-N)])
 	   end,
-    Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
+    Bin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin1, true),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
+
+beam_validator_strong(Code, St) ->
+    beam_validator_1(Code, St, strong).
+
+beam_validator_weak(Code, St) ->
+    beam_validator_1(Code, St, weak).
+
+beam_validator_1(Code, #compile{errors=Errors0}=St, Level) ->
+    case beam_validator:validate(Code, Level) of
+        ok ->
+            {ok, Code, St};
+        {error, Es} ->
+            {error, St#compile{errors=Errors0 ++ Es}}
+    end.
 
 beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpts}=St) ->
     case debug_info(St) of

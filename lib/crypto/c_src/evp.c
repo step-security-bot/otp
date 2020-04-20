@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*    (Curve, PeerBin, MyBin) */
 {
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     ERL_NIF_TERM ret;
     int type;
     EVP_PKEY_CTX *ctx = NULL;
@@ -101,7 +101,7 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 /* (Curve) */
 {
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     int type;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;

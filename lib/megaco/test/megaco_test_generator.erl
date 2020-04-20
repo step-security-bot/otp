@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -423,7 +423,7 @@ handler_main(Parent, Mod, State, []) ->
 	
 handler_main(Parent, Mod, State, [Instruction|Instructions]) ->
     d("handler_main -> entry with"
-      "~n   Instruction: ~p", [Instruction]),
+      "~n      Instruction: ~p", [Instruction]),
     receive
 	{stop, Parent} ->
 	    d("handler_main -> premature stop requested"),
@@ -435,6 +435,8 @@ handler_main(Parent, Mod, State, [Instruction|Instructions]) ->
 	    Result = (catch Mod:terminate({parent_died, Reason}, State)),
 	    exit({parent_died, Reason, Result})
     after 0 ->
+            d("handler_main -> exec: "
+              "~n      Instruction: ~p", [Instruction]),
 	    case (catch handler_callback_exec(Mod, State, Instruction)) of
 		{ok, NewState} ->
 		    handler_main(Parent, Mod, NewState, Instructions);
@@ -535,28 +537,38 @@ debug(F, A) ->
     debug(get(debug), F, A).
 
 debug(true, F, A) ->
-    print(" DBG", F, A);
-debug(_, _F, _A) ->
+    print(false, " DBG", F, A);
+debug(_, _, _) ->
     ok.
 
 
+print(Pre, F, A) ->
+    print(true, Pre, F, A).
+
+
 error(F, A) ->
-    print(" ERROR", F, A).
+    print(true, " ERROR", F, A).
 
 
-print(P, F, A) ->
-    print(P, get(name), F, A).
+print(true = _Verbose, Pre, F, A) ->
+    FStr = ?F("*** [~s] ~p ~s~s *** " ++ 
+                  "~n   " ++ F ++ "~n~n", 
+              [?FTS(), self(), string_name(), Pre | A]),
+    io:format(user, FStr, []),
+    io:format(standard_io, FStr, []);
+print(false = _Verbose, Pre, F, A) ->
+    FStr = ?F("*** [~s] ~p ~s~s *** " ++ 
+                  "~n   " ++ F ++ "~n~n", 
+              [?FTS(), self(), string_name(), Pre | A]),
+    io:format(FStr, []).
 
-print([], undefined, F, A) ->
-    io:format("*** [~s] ~p *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self() | A]);
-print(P, undefined, F, A) ->
-    io:format("*** [~s] ~p ~s *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), P | A]);
-print(P, N, F, A) ->
-    io:format("*** [~s] ~p ~s~s *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), N, P | A]).
+string_name() ->
+    case get(name) of
+        N when is_list(N) ->
+            N;
+        undefined ->
+            "";
+        N when is_atom(N) ->
+            atom_to_list(N)
+    end.
 

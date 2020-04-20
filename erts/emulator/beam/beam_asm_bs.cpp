@@ -1047,7 +1047,7 @@ void BeamModuleAssembler::emit_bs_add(ArgVal Fail, ArgVal Src1, ArgVal Src2,
 
   if (Fail.getValue() == 0) {
     a.jno(next);
-    emit_system_limit(Fail, I);
+    emit_system_limit_body(I);
     a.bind(fail);
     emit_badarg(entry, Fail);
     a.bind(next);

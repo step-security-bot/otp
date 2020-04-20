@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,8 +141,8 @@ restart(Fun) ->
         catch C:R:S ->
                 {error,{restart_failed,Fun,C,R,S}}
         end,
-    ?LOG_INTERNAL(debug,[{logger_olp,restart},
-                         {result,Result}]),
+    ?LOG_INTERNAL(debug,#{},[{logger_olp,restart},
+                             {result,Result}]),
     ok.
 
 -spec get_ref() -> olp_ref().

@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2018. All Rights Reserved.
+// Copyright Ericsson AB 2017-2020. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -459,6 +459,15 @@ send() {
 }
 
 x64.send();
+
+call_nif_early() {
+    HEAVY_SWAPOUT;
+    I = erts_call_nif_early(c_p, erts_code_to_codeinfo(I));
+    HEAVY_SWAPIN;
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+    //| -no_next
+}
 
 call_nif := nif_bif.call_nif.epilogue;
 call_bif := nif_bif.call_bif.epilogue;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,9 @@
 	 peername/2,
          sockname/2,
          port/2,
-         close/2]).
+         close/2,
+         close/1
+        ]).
 
 -export([emulated_options/0,
          emulated_options/1,
@@ -56,6 +58,7 @@ listen(Port, #config{transport_info = TransportInfo,
                      dtls_listener_sup:register_listner({self(), Listner0}, Port),
                      Result0;
                  {ok, Listner0} = Result0 ->
+                     dtls_packet_demux:new_owner(Listner0),
                      dtls_packet_demux:set_all_opts(Listner0, {Options, emulated_socket_options(EmOpts0, #socket_options{}), SslOpts}),
                      dtls_listener_sup:register_listner({self(), Listner0}, Port),
                      Result0;
@@ -95,6 +98,10 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 	{error, _} = Error->	
 	    Error
     end.
+
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port}}}}) ->
+    dtls_listener_sup:register_listner({undefined, Pid}, Port),
+    dtls_packet_demux:close(Pid).   
 
 close(_, dtls) ->
     ok;

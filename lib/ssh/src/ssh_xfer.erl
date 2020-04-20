@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ write(XF,ReqID, Handle, Offset, Data) ->
 		is_binary(Data) ->
 		    Data;
 		is_list(Data) -> 
-		    unicode:characters_to_binary(Data)
+		    ?to_binary(Data)
 	    end,
     xf_request(XF,?SSH_FXP_WRITE,
 	       [?uint32(ReqID),
@@ -240,7 +240,7 @@ xf_request(XF, Op, Arg) ->
 	       is_binary(Arg) -> 
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1+size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
@@ -250,7 +250,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 	       is_binary(Arg) ->
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).

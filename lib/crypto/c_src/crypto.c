@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ static int library_initialized = 0;
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
-    {"enable_fips_mode", 1, enable_fips_mode, 0},
+    {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
     {"hash_algorithms", 0, hash_algorithms, 0},
     {"pubkey_algorithms", 0, pubkey_algorithms, 0},
     {"cipher_algorithms", 0, cipher_algorithms, 0},
@@ -83,6 +83,7 @@ static ErlNifFunc nif_funcs[] = {
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
     {"ng_crypto_final_nif", 1, ng_crypto_final_nif, 0},
+    {"ng_crypto_get_data_nif", 1, ng_crypto_get_data_nif, 0},
     {"ng_crypto_one_time_nif", 6, ng_crypto_one_time_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
@@ -150,8 +151,10 @@ static int verify_lib_version(void)
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
+#endif
 #endif
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;

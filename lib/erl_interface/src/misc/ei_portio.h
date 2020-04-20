@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #define _EI_PORTIO_H
 
 #undef EI_HAVE_STRUCT_IOVEC__
-#if !defined(__WIN32__) && !defined(VXWORKS) && defined(HAVE_SYS_UIO_H)
+#if !defined(__WIN32__) && defined(HAVE_SYS_UIO_H)
 /* Declaration of struct iovec *iov should be visible in this scope. */
 #  include <sys/uio.h>
 #  define EI_HAVE_STRUCT_IOVEC__
@@ -47,7 +47,7 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx, const struct iov
 int ei_socket_callbacks_have_writev__(ei_socket_callbacks *cbs);
 #endif
 
-ei_socket_callbacks ei_default_socket_callbacks;
+extern ei_socket_callbacks ei_default_socket_callbacks;
 
 #define EI_FD_AS_CTX__(FD)                                              \
     ((void *) (long) (FD))

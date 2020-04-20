@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2018. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2020. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -127,13 +127,14 @@ if test "X$windows_environment_" != "Xchecked"; then
 windows_environment_=checked
 MIXED_CYGWIN=no
 MIXED_MSYS=no
+MIXED_VSL=no
 
 dnl MIXED_VC is Microsoft Visual C++ used as standard compiler
 MIXED_VC=no
 dnl MIXED_MINGW is mingw(32|64) used as standard compiler
 MIXED_MINGW=no
 
-AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
+AC_MSG_CHECKING(for mixed mingw-gcc and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="$CFLAGS -O2"
@@ -147,9 +148,15 @@ if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 		AC_MSG_RESULT([Cygwin and VC])
 		MIXED_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
+        elif test -x /bin/wslpath; then
+		CFLAGS="$CFLAGS -O2"
+		MIXED_WSL=yes
+		AC_MSG_RESULT([WSL and VC])
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
 	else
 		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+		AC_MSG_ERROR(Seems to be mixed windows but not within any known env, cannot handle this!)
 	fi
 else
 	AC_MSG_RESULT([no])
@@ -199,6 +206,13 @@ fi
 
 AC_MSG_CHECKING(if we mix msys with another native compiler)
 if test "X$MIXED_MSYS" = "Xyes" ; then
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_MSG_CHECKING(if we mix WSL with another native compiler)
+if test "X$MIXED_WSL" = "Xyes" ; then
 	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
@@ -2938,8 +2952,16 @@ fi
 # DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
 if test "x$GCC" = xyes; then
+    # Use -fno-common for gcc, that is link error if multiple definitions of
+    # global variables are encountered. This is ISO C compliant.
+    # Until version 10, gcc has had -fcommon as default, which allows and merges
+    # such dubious duplicates.
+    LM_TRY_ENABLE_CFLAG([-fno-common], [DED_CFLAGS])
+
     DED_STATIC_CFLAGS="$DED_CFLAGS"
     DED_CFLAGS="$DED_CFLAGS -fPIC"
+    # Remove -fPIE and -fno-PIE
+    DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
 fi
 
 DED_EXT=so

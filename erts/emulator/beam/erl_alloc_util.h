@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -456,8 +456,8 @@ typedef struct {
     ErtsThrPrgrVal thr_prgr;
     erts_atomic_t max_size;
     UWord abandon_limit;
-    UWord blocks[ERTS_ALC_A_MAX + 1];
-    UWord blocks_size[ERTS_ALC_A_MAX + 1];
+    UWord blocks[ERTS_ALC_A_COUNT];
+    UWord blocks_size[ERTS_ALC_A_COUNT];
     UWord total_blocks_size;
     enum {
         ERTS_MBC_IS_HOME,
@@ -492,30 +492,57 @@ typedef struct {
 } StatValues_t;
 
 typedef struct {
-    union {
-	struct {
-	    StatValues_t	mseg;
-	    StatValues_t	sys_alloc;
-	} norm;
-    } curr;
-    StatValues_t	max;
-    StatValues_t	max_ever;
-    struct {
-	StatValues_t	curr;
-	StatValues_t	max;
-	StatValues_t	max_ever;
-    } blocks;
+    StatValues_t curr;
+    StatValues_t max;
+    StatValues_t max_ever;
+} BlockStats_t;
+
+enum {
+    ERTS_CRR_ALLOC_MIN = 0,
+
+    ERTS_CRR_ALLOC_MSEG = ERTS_CRR_ALLOC_MIN,
+    ERTS_CRR_ALLOC_SYS = 1,
+
+    ERTS_CRR_ALLOC_MAX,
+    ERTS_CRR_ALLOC_COUNT = ERTS_CRR_ALLOC_MAX + 1
+};
+
+typedef struct {
+    StatValues_t    carriers[ERTS_CRR_ALLOC_COUNT];
+
+    StatValues_t    max;
+    StatValues_t    max_ever;
+
+    BlockStats_t    blocks[ERTS_ALC_A_COUNT];
 } CarriersStats_t;
 
 #ifdef USE_LTTNG_VM_TRACEPOINTS
-#define LTTNG_CARRIER_STATS_TO_LTTNG_STATS(CSP, LSP)            \
-    do {                                                        \
-        (LSP)->carriers.size = (CSP)->curr.norm.mseg.size       \
-                             + (CSP)->curr.norm.sys_alloc.size; \
-        (LSP)->carriers.no   = (CSP)->curr.norm.mseg.no         \
-                             + (CSP)->curr.norm.sys_alloc.no;   \
-        (LSP)->blocks.size   = (CSP)->blocks.curr.size;         \
-        (LSP)->blocks.no     = (CSP)->blocks.curr.no;           \
+#define LTTNG_CARRIER_STATS_TO_LTTNG_STATS(CSP, LSP)                         \
+    do {                                                                     \
+        UWord no_sum__, size_sum__;                                          \
+        int alloc_no__, i__;                                                 \
+        /* Carrier counters */                                               \
+        no_sum__ = size_sum__ = 0;                                           \
+        for (i__ = ERTS_CRR_ALLOC_MIN; i__ <= ERTS_CRR_ALLOC_MAX; i__++) {   \
+            StatValues_t *curr__ = &((CSP)->carriers[i__]);                  \
+            no_sum__ += curr__->no;                                          \
+            size_sum__ += curr__->size;                                      \
+        }                                                                    \
+        (LSP)->carriers.size = size_sum__;                                   \
+        (LSP)->carriers.no   = no_sum__;                                     \
+        /* Block counters */                                                 \
+        no_sum__ = size_sum__ = 0;                                           \
+        for (alloc_no__ = ERTS_ALC_A_MIN;                                    \
+             alloc_no__ <= ERTS_ALC_A_MAX;                                   \
+             alloc_no__++) {                                                 \
+            StatValues_t *curr__;                                            \
+            i__ = alloc_no__ - ERTS_ALC_A_MIN;                               \
+            curr__ = &((CSP)->blocks[i__].curr);                             \
+            no_sum__ += curr__->no;                                          \
+            size_sum__ += curr__->size;                                      \
+        }                                                                    \
+        (LSP)->blocks.size   = size_sum__;                                   \
+        (LSP)->blocks.no     = no_sum__;                                     \
     } while (0)
 #endif
 
@@ -654,8 +681,8 @@ struct Allctr_t_ {
         UWord           in_pool_limit;    /* acnl */
         UWord           fblk_min_limit;   /* acmfl */
 	struct {
-	    erts_atomic_t	blocks_size[ERTS_ALC_A_MAX + 1];
-	    erts_atomic_t	no_blocks[ERTS_ALC_A_MAX + 1];
+	    erts_atomic_t	blocks_size[ERTS_ALC_A_COUNT];
+	    erts_atomic_t	no_blocks[ERTS_ALC_A_COUNT];
 	    erts_atomic_t	carriers_size;
 	    erts_atomic_t	no_carriers;
             CallCounter_t       fail_pooled;

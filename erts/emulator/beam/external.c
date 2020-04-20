@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +67,19 @@
 #define ERTS_MAX_TINY_CREATION (3)
 #define is_tiny_creation(Cre) ((unsigned)(Cre) <= ERTS_MAX_TINY_CREATION)
 
+/*
+ *   When 0 is used as creation, the real creation
+ *   is unknown. Creation 0 on data will be changed to current
+ *   creation of the node which it belongs to when it enters
+ *   that node.
+ *       This typically happens when a remote pid is created with
+ *   list_to_pid/1 and then sent to the remote node. This behavior
+ *   has the undesirable effect that a pid can be passed between nodes,
+ *   and as a result of that not being equal to itself (the pid that
+ *   comes back isn't equal to the original pid).
+ *
+ */
+
 #undef ERTS_DEBUG_USE_DIST_SEP
 #ifdef DEBUG
 #  if 0
@@ -85,29 +98,15 @@
  */
 #define IS_SSMALL32(x) (((Uint) (((x) >> (32-1)) + 1)) < 2)
 
-/*
- *   Valid creations for nodes are 1, 2, or 3. 0 can also be sent
- *   as creation, though. When 0 is used as creation, the real creation
- *   is unknown. Creation 0 on data will be changed to current
- *   creation of the node which it belongs to when it enters
- *   that node.
- *       This typically happens when a remote pid is created with
- *   list_to_pid/1 and then sent to the remote node. This behavior 
- *   has the undesirable effect that a pid can be passed between nodes,
- *   and as a result of that not being equal to itself (the pid that
- *   comes back isn't equal to the original pid).
- *
- */
-
 static Export *term_to_binary_trap_export;
 
-static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint32, struct erl_off_heap_header** off_heap);
+static byte* enc_term(ErtsAtomCacheMap *, Eterm, byte*, Uint64, struct erl_off_heap_header** off_heap);
 struct TTBEncodeContext_;
-static int enc_term_int(struct TTBEncodeContext_*,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+static int enc_term_int(struct TTBEncodeContext_*,ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint64 dflags,
 			struct erl_off_heap_header** off_heap, Sint *reds, byte **res);
 static int is_external_string(Eterm obj, Uint* lenp);
-static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
-static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
+static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint64);
+static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint64);
 struct B2TContext_t;
 static byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, byte*, Eterm*, struct B2TContext_t*, int);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
@@ -116,16 +115,16 @@ static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TCont
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
 static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm opts, int level,
-                                     Uint flags, Binary *context_b, int iovec,
+                                     Uint64 dflags, Binary *context_b, int iovec,
                                      Uint fragment_size);
 
-static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
+static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, Uint64);
 static ErtsExtSzRes encode_size_struct_int(TTBSizeContext*, ErtsAtomCacheMap *acmp,
-                                           Eterm obj, unsigned dflags, Sint *reds, Uint *res);
+                                           Eterm obj, Uint64 dflags, Sint *reds, Uint *res);
 
 static Export *binary_to_term_trap_export;
 static BIF_RETTYPE binary_to_term_trap_1(BIF_ALIST_1);
-static Sint transcode_dist_obuf(ErtsDistOutputBuf*, DistEntry*, Uint32 dflags, Sint reds);
+static Sint transcode_dist_obuf(ErtsDistOutputBuf*, DistEntry*, Uint64 dflags, Sint reds);
 static byte *hopefull_bit_binary(TTBEncodeContext* ctx, byte **epp, Binary *pb_val, Eterm pb_term,
                                  byte *bytes, byte bitoffs, byte bitsize, Uint sz);
 static void hopefull_export(TTBEncodeContext* ctx, byte **epp, Export* exp, Uint32 dflags,
@@ -228,7 +227,7 @@ erts_destroy_atom_cache_map(ErtsAtomCacheMap *acmp)
 }
 
 static ERTS_INLINE void
-insert_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
+insert_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint64 dflags)
 {
     if (acmp && acmp->sz < ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES) {
 	int ix;
@@ -244,7 +243,7 @@ insert_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 }
 
 static ERTS_INLINE int
-get_iix_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
+get_iix_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint64 dflags)
 {
     if (!acmp)
 	return -1;
@@ -264,7 +263,7 @@ get_iix_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 }
 
 void
-erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
+erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint64 dflags)
 {
     if (acmp) {
 	int long_atoms = 0; /* !0 if one or more atoms are longer than 255. */
@@ -306,12 +305,11 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
                                  ErtsAtomCacheMap *acmp,
                                  Uint fragments)
 {
-
-    if (ctx->flags & DFLAG_PENDING_CONNECT) {
+    if (ctx->dflags & DFLAG_PENDING_CONNECT) {
         /* HOPEFUL_DATA + hopefull flags + hopefull ix + payload ix */
-        return 1 + 4 + 4 + 4;
+        return 1 + 8 + 4 + 4;
     }
-    else if (!acmp && !(ctx->flags & DFLAG_FRAGMENTS))
+    else if (!acmp && !(ctx->dflags & DFLAG_FRAGMENTS))
 	return 1; /* pass through */
     else {
         int fix_sz
@@ -329,7 +327,7 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
             ASSERT(acmp->hdr_sz >= 0);
             fix_sz += acmp->hdr_sz;
         } else {
-            ASSERT(ctx->flags & DFLAG_FRAGMENTS);
+            ASSERT(ctx->dflags & DFLAG_FRAGMENTS);
         }
 
         return fix_sz;
@@ -342,7 +340,7 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
 {
     /* Maximum number of atom must be less than the maximum of a 32 bits
        unsigned integer. Check is done in erl_init.c, erl_start function. */
-    if (ctx->flags & DFLAG_PENDING_CONNECT) {
+    if (ctx->dflags & DFLAG_PENDING_CONNECT) {
         byte *ep = ctl_ext;
         ep -= 4;
         ctx->payload_ixp = ep;
@@ -350,13 +348,13 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
         ep -= 4;
         ctx->hopefull_ixp = ep;
         put_int32(ERTS_NO_HIX, ep);
-        ep -= 4;
+        ep -= 8;
         ctx->hopefull_flagsp = ep;
-        put_int32(0, ep);
+        put_int64(0, ep);
         *--ep = HOPEFUL_DATA;
         return ep;
     }
-    else if (!acmp && !(ctx->flags & DFLAG_FRAGMENTS)) {
+    else if (!acmp && !(ctx->dflags & DFLAG_FRAGMENTS)) {
         byte *ep = ctl_ext;
         *--ep = PASS_THROUGH;
 	return ep;
@@ -390,7 +388,7 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
             --ep;
             put_int8(acmp->sz, ep);
         } else {
-            ASSERT(ctx->flags & DFLAG_FRAGMENTS);
+            ASSERT(ctx->dflags & DFLAG_FRAGMENTS);
             /* If we don't have an atom cache but are using a dist header we just put 0
                in the atom cache size slot */
             --ep;
@@ -432,7 +430,7 @@ byte *erts_encode_ext_dist_header_fragment(byte **hdrpp,
 
 Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
                                           DistEntry* dep,
-                                          Uint32 dflags,
+                                          Uint64 dflags,
                                           Sint reds)
 {
     byte *ip;
@@ -643,18 +641,18 @@ erts_encode_dist_ext_size(Eterm term,
         if (ctx->vlen < 0) {
             /* First term as well */
             ctx->vlen = 0;
-            if (ctx->flags & DFLAG_FRAGMENTS)
+            if (ctx->dflags & DFLAG_FRAGMENTS)
                 ctx->fragment_size = ERTS_DIST_FRAGMENT_SIZE;
         }
 
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS)))
+	if (!(ctx->dflags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
     }
 
-    res = encode_size_struct_int(ctx, acmp, term, ctx->flags, redsp, &sz);
+    res = encode_size_struct_int(ctx, acmp, term, ctx->dflags, redsp, &sz);
 
     if (res == ERTS_EXT_SZ_OK) {
         Uint total_size, fragments;
@@ -692,11 +690,12 @@ ErtsExtSzRes erts_encode_ext_size(Eterm term, Uint *szp)
 
 Uint erts_encode_ext_size_ets(Eterm term)
 {
-    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS);
+    return encode_size_struct2(NULL, term,
+                               TERM_TO_BINARY_DFLAGS|DFLAG_ETS_COMPRESSED);
 }
 
 
-int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap *acmp,
+int erts_encode_dist_ext(Eterm term, byte **ext, Uint64 flags, ErtsAtomCacheMap *acmp,
                          TTBEncodeContext* ctx, Uint *fragmentsp, Sint* reds)
 {
     int res;
@@ -726,7 +725,7 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap 
         *fragmentsp = res == 0 ? ctx->frag_ix + 1 : ctx->frag_ix;
     if (flags & DFLAG_PENDING_CONNECT) {
         ASSERT(ctx->hopefull_flagsp);
-        put_int32(ctx->hopefull_flags, ctx->hopefull_flagsp);
+        put_int64(ctx->hopefull_flags, ctx->hopefull_flagsp);
     }
     return res;
 }
@@ -745,7 +744,7 @@ void erts_encode_ext(Eterm term, byte **ext)
 
 byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off_heap)
 {
-    return enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS,
+    return enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAG_ETS_COMPRESSED,
 		    off_heap);
 }
 
@@ -850,7 +849,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     ASSERT(dep);
     erts_de_rlock(dep);
 
-    ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
+    ASSERT(dep->dflags & DFLAG_UTF8_ATOMS);
 
 
     if ((dep->state != ERTS_DE_STATE_CONNECTED &&
@@ -860,7 +859,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
         return ERTS_PREP_DIST_EXT_CLOSED;
     }
 
-    if (!(dep->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))) {
+    if (!(dep->dflags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))) {
         /* Skip PASS_THROUGH */
         ext++;
         size--;
@@ -890,7 +889,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     edep->data->seq_id = 0;
     edep->data->frag_id = 1;
 
-    if (dep->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))
+    if (dep->dflags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 
     if (ep[1] != DIST_HEADER && ep[1] != DIST_FRAG_HEADER && ep[1] != DIST_FRAG_CONT) {
@@ -900,7 +899,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	edep->data->extp = ext;
     }
     else if (ep[1] == DIST_FRAG_CONT) {
-        if (!(dep->flags & DFLAG_FRAGMENTS))
+        if (!(dep->dflags & DFLAG_FRAGMENTS))
             goto bad_hdr;
         edep->attab.size = 0;
 	edep->data->extp = ext + 1 + 1 + 8 + 8;
@@ -917,7 +916,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	    goto bad_hdr;
 
         if (ep[1] == DIST_FRAG_HEADER) {
-            if (!(dep->flags & DFLAG_FRAGMENTS))
+            if (!(dep->dflags & DFLAG_FRAGMENTS))
                 goto bad_hdr;
             edep->data->seq_id = get_int64(&ep[2]);
             edep->data->frag_id = get_int64(&ep[2+8]);
@@ -2189,7 +2188,7 @@ external_size_2(BIF_ALIST_2)
 }
 
 static Eterm
-erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint flags)
+erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint64 dflags)
 {
     Eterm bin;
     size_t real_size;
@@ -2205,7 +2204,7 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 	    bytes = erts_alloc(ERTS_ALC_T_TMP, size);
 	}
 
-	if ((endp = enc_term(NULL, Term, bytes, flags, NULL))
+	if ((endp = enc_term(NULL, Term, bytes, dflags, NULL))
 	    == NULL) {
 	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: bad term: %x\n",
 		     __FILE__, __LINE__, Term);
@@ -2250,7 +2249,7 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 	bin = new_binary(p, (byte *)NULL, size);
 	bytes = binary_bytes(bin);
 	bytes[0] = VERSION_MAGIC;
-	if ((endp = enc_term(NULL, Term, bytes+1, flags, NULL))
+	if ((endp = enc_term(NULL, Term, bytes+1, dflags, NULL))
 	    == NULL) {
 	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: bad term: %x\n",
 		     __FILE__, __LINE__, Term);
@@ -2265,7 +2264,7 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 }
 
 Eterm
-erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags) {
+erts_term_to_binary(Process* p, Eterm Term, int level, Uint64 flags) {
     Uint size = 0;
     switch (encode_size_struct_int(NULL, NULL, Term, flags, NULL, &size)) {
     case ERTS_EXT_SZ_SYSTEM_LIMIT:
@@ -2334,31 +2333,24 @@ erts_ttb_iov_size(int use_termv, Sint vlen, Uint fragments)
     ASSERT(vlen > 0);
     ASSERT(fragments > 0);
     sz = sizeof(SysIOVec)*vlen;
-    if (sz % sizeof(void *) != 0)
-        sz += sizeof(void *) - (sz % sizeof(void *));
     sz += sizeof(ErlDrvBinary *)*vlen;
     if (use_termv)
         sz += sizeof(Eterm)*vlen;
     sz += sizeof(ErlIOVec *)*fragments;
     sz += sizeof(ErlIOVec)*fragments;
-    if (sz % sizeof(void *) != 0)
-        sz += sizeof(void *) - (sz % sizeof(void *));
+    ASSERT(sz % sizeof(void*) == 0);
     return sz;
 }
 
-ErlIOVec **
+void
 erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
                   Sint vlen, Uint fragments, Uint fragment_size)
 {
-    int i;
-    ErlIOVec *feiovp;
     ctx->vlen = 0;
     ctx->size = 0;
     
     ctx->iov = (SysIOVec *) ptr;
     ptr += sizeof(SysIOVec)*vlen;
-    if (((UWord) ptr) % sizeof(void *) != 0)
-        ptr += sizeof(void *) - (((UWord) ptr) % sizeof(void *));
     ASSERT(((UWord) ptr) % sizeof(void *) == 0);
     
     ctx->binv = (ErlDrvBinary **) ptr;
@@ -2371,19 +2363,10 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
         ptr += sizeof(Eterm)*vlen;
     }
     
-    ctx->fragment_eiovs = (ErlIOVec **) ptr;
-    ptr += sizeof(ErlIOVec *)*fragments;
-
-    feiovp = (ErlIOVec *) ptr;
+    ctx->fragment_eiovs = (ErlIOVec *) ptr;
     ptr += sizeof(ErlIOVec)*fragments;
-
-    if (((UWord) ptr) % sizeof(void *) != 0)
-        ptr += sizeof(void *) - (((UWord) ptr) % sizeof(void *));
     ASSERT(((UWord) ptr) % sizeof(void *) == 0);
     
-    for (i = 0; i < fragments; i++)
-        ctx->fragment_eiovs[i] = &feiovp[i];
-
     ctx->frag_ix = -1;
     ctx->fragment_size = fragment_size;
 
@@ -2392,11 +2375,10 @@ erts_ttb_iov_init(TTBEncodeContext *ctx, int use_termv, char *ptr,
     ctx->debug_fragments = fragments;
     ctx->debug_vlen = vlen;
 #endif
-    return ctx->fragment_eiovs;
 }
 
 static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm opts,
-                                     int level, Uint flags, Binary *context_b,
+                                     int level, Uint64 dflags, Binary *context_b,
                                      int iovec, Uint fragment_size)
 {
     Eterm *hp;
@@ -2438,7 +2420,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 	/* Setup enough to get started */
 	context->state = TTBSize;
 	context->alive = 1;
-        ERTS_INIT_TTBSizeContext(&context->s.sc, flags);
+        ERTS_INIT_TTBSizeContext(&context->s.sc, dflags);
 	context->s.sc.level = level;
         context->s.sc.fragment_size = fragment_size;
         if (!level) {
@@ -2458,7 +2440,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 	switch (context->state) {
 	case TTBSize:
 	    {
-		Uint size, flags, fragments = 1;
+		Uint size, fragments = 1;
 		Binary *result_bin;
 		int level = context->s.sc.level;
                 Sint vlen;
@@ -2466,7 +2448,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                 fragment_size = context->s.sc.fragment_size;
 		size = 1; /* VERSION_MAGIC */
                 switch (encode_size_struct_int(&context->s.sc, NULL, Term,
-                                               context->s.sc.flags, &reds,
+                                               context->s.sc.dflags, &reds,
                                                &size)) {
                 case ERTS_EXT_SZ_SYSTEM_LIMIT:
                     BUMP_REDS(p, (initial_reds - reds) / TERM_TO_BINARY_LOOP_FACTOR);
@@ -2479,7 +2461,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                     break;
 		}
 		/* Move these to next state */
-		flags = context->s.sc.flags;
+		dflags = context->s.sc.dflags;
                 vlen = context->s.sc.vlen;
 		if (vlen >= 0) {
                     Uint total_size = size + context->s.sc.extra_size;
@@ -2490,7 +2472,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                 else if (size <= ERL_ONHEAP_BIN_LIMIT) {
 		    /* Finish in one go */
 		    res = erts_term_to_binary_simple(p, Term, size, 
-						     level, flags);
+						     level, dflags);
                     if (iovec) {
                         Eterm *hp = HAlloc(p, 2);
                         res = CONS(hp, res, NIL);
@@ -2503,7 +2485,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
 		result_bin->orig_bytes[0] = (byte)VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
 		context->state = TTBEncode;
-                ERTS_INIT_TTBEncodeContext(&context->s.ec, flags);
+                ERTS_INIT_TTBEncodeContext(&context->s.ec, dflags);
 		context->s.ec.level = level;
 		context->s.ec.result_bin = result_bin;
                 context->s.ec.iovec = iovec;
@@ -2525,8 +2507,8 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                 Sint realloc_offset;
                 Uint fragments;
 
-		flags = context->s.ec.flags;
-		if (enc_term_int(&context->s.ec, NULL,Term, bytes+1, flags,
+		dflags = context->s.ec.dflags;
+		if (enc_term_int(&context->s.ec, NULL,Term, bytes+1, dflags,
                                  NULL, &reds, &endp) < 0) {
 		    EXPORT_CONTEXT();
 		    RETURN_STATE();
@@ -2769,7 +2751,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
  */
 
 static byte*
-enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
+enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 {
     int iix;
     int len;
@@ -2777,7 +2759,7 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 
     ASSERT(is_atom(atom));
 
-    if (dflags & DFLAG_INTERNAL_TAGS) {
+    if (dflags & DFLAG_ETS_COMPRESSED) {
 	Uint aval = atom_val(atom);
 	ASSERT(aval < (1<<24));
 	if (aval >= (1 << 16)) {
@@ -2854,16 +2836,16 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 
 /*
  * We use this atom as sysname in local pid/port/refs
- * for the ETS compressed format (DFLAG_INTERNAL_TAGS).
+ * for the ETS compressed format
  *
  */
 #define INTERNAL_LOCAL_SYSNAME am_ErtsSecretAtom
 
 static byte*
-enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
+enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint64 dflags)
 {
     Uint on, os;
-    Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS))
+    Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_ETS_COMPRESSED))
 		      ? INTERNAL_LOCAL_SYSNAME : pid_node_name(pid));
     Uint32 creation = pid_creation(pid);
 
@@ -3044,7 +3026,7 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
 #define ENC_LAST_ARRAY_ELEMENT ((Eterm) 6)
 
 static byte*
-enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint64 dflags,
 	 struct erl_off_heap_header** off_heap)
 {
     byte *res;
@@ -3053,7 +3035,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 }
 
 static int
-enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
+enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
+             Uint64 dflags,
 	     struct erl_off_heap_header** off_heap, Sint *reds, byte **res)
 {
     DECLARE_WSTACK(s);
@@ -3260,7 +3243,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case REF_DEF:
 	case EXTERNAL_REF_DEF: {
 	    Uint32 *ref_num;
-	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj))
+	    Eterm sysname = (((dflags & DFLAG_ETS_COMPRESSED) && is_internal_ref(obj))
 			     ? INTERNAL_LOCAL_SYSNAME : ref_node_name(obj));
             Uint32 creation = ref_creation(obj);
 
@@ -3284,7 +3267,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	}
 	case PORT_DEF:
 	case EXTERNAL_PORT_DEF: {
-	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj))
+	    Eterm sysname = (((dflags & DFLAG_ETS_COMPRESSED) && is_internal_port(obj))
 			     ? INTERNAL_LOCAL_SYSNAME : port_node_name(obj));
             Uint32 creation = port_creation(obj);
 
@@ -3458,7 +3441,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                         }
                     }
                 }
-		else if (dflags & DFLAG_INTERNAL_TAGS) {
+		else if (dflags & DFLAG_ETS_COMPRESSED) {
 		    ProcBin* pb = (ProcBin*) binary_val(obj);
 		    Uint bytesize = pb->size;
 		    if (pb->thing_word == HEADER_SUB_BIN) {
@@ -3658,36 +3641,27 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 }
 
 static ERTS_INLINE void
-store_in_vec_aux(Uint *szp,
-                 Sint *vlenp,
-                 SysIOVec *iov,
-                 ErlDrvBinary **binv,
-                 Eterm *termv,
+store_in_vec_aux(TTBEncodeContext *ctx,
                  Binary *bin,
                  Eterm term,
                  byte *ptr,
-                 Uint len,
-                 Sint *fixp,
-                 ErlIOVec **frag_eiovpp,
-                 Uint frag_size)
+                 Uint len)
 {
     ErlDrvBinary *dbin = Binary2ErlDrvBinary(bin);
-    Uint size = 0;
-    int vlen = *vlenp;
+    int vlen = ctx->vlen;
     Uint iov_len;
     ErlIOVec *feiovp;
-    Sint fix = *fixp;
 
     ASSERT(((byte *) &bin->orig_bytes[0]) <= ptr);
     ASSERT(ptr + len <= ((byte *) &bin->orig_bytes[0]) + bin->orig_size);
 
-    if (fix >= 0) {
-        feiovp = frag_eiovpp[fix];
+    if (ctx->frag_ix >= 0) {
+        feiovp = &ctx->fragment_eiovs[ctx->frag_ix];
         ASSERT(0 < feiovp->size);
-        ASSERT(feiovp->size <= frag_size);
-        if (feiovp->size != frag_size) {
+        ASSERT(feiovp->size <= ctx->fragment_size);
+        if (feiovp->size != ctx->fragment_size) {
             /* current fragment not full yet... */
-            iov_len = frag_size - feiovp->size;
+            iov_len = ctx->fragment_size - feiovp->size;
             if (len < iov_len)
                 iov_len = len;
             goto store_iov_data;
@@ -3696,33 +3670,33 @@ store_in_vec_aux(Uint *szp,
 
     while (len) {
         /* Start new fragment... */
+        ctx->frag_ix++;
+        feiovp = &ctx->fragment_eiovs[ctx->frag_ix];
+        ASSERT(ctx->frag_ix >= 0);
 
-        feiovp = frag_eiovpp[++fix];
-        ASSERT(fix >= 0);
-
-        if (termv) {
-            termv[vlen] = THE_NON_VALUE;
-            termv[vlen+1] = THE_NON_VALUE;
+        if (ctx->termv) {
+            ctx->termv[vlen] = THE_NON_VALUE;
+            ctx->termv[vlen+1] = THE_NON_VALUE;
         }
 
         feiovp->vsize = 2;
         feiovp->size = 0;
-        feiovp->iov = &iov[vlen];
-        feiovp->binv = &binv[vlen];
+        feiovp->iov = &ctx->iov[vlen];
+        feiovp->binv = &ctx->binv[vlen];
 
         /* entry for driver header */
-        iov[vlen].iov_base = NULL;
-        iov[vlen].iov_len = 0;
-        binv[vlen] = NULL;
+        ctx->iov[vlen].iov_base = NULL;
+        ctx->iov[vlen].iov_len = 0;
+        ctx->binv[vlen] = NULL;
         vlen++;
 
         /* entry for dist header */
-        iov[vlen].iov_base = NULL;
-        iov[vlen].iov_len = 0;
-        binv[vlen] = NULL;
+        ctx->iov[vlen].iov_base = NULL;
+        ctx->iov[vlen].iov_len = 0;
+        ctx->binv[vlen] = NULL;
         vlen++;
 
-        iov_len = len < frag_size ? len : frag_size;
+        iov_len = len < ctx->fragment_size ? len : ctx->fragment_size;
 
     store_iov_data:
 
@@ -3738,14 +3712,14 @@ store_in_vec_aux(Uint *szp,
                 iov_len = MAX_SYSIOVEC_IOVLEN;
             }
 
-            iov[vlen].iov_base = ptr;
-            iov[vlen].iov_len = iov_len;
-            binv[vlen] = dbin;
-            if (termv)
-                termv[vlen] = term;
+            ctx->iov[vlen].iov_base = ptr;
+            ctx->iov[vlen].iov_len = iov_len;
+            ctx->binv[vlen] = dbin;
+            if (ctx->termv)
+                ctx->termv[vlen] = term;
             else
                 erts_refc_inc(&bin->intern.refc, 2);
-            size += iov_len;
+            ctx->size += iov_len;
             len -= iov_len;
             ptr += iov_len;
             vlen++;
@@ -3756,9 +3730,7 @@ store_in_vec_aux(Uint *szp,
         } while (iov_len);
     }
 
-    *fixp = fix;
-    *vlenp = vlen;
-    *szp += size;
+    ctx->vlen = vlen;
 }
 
 static void
@@ -3772,32 +3744,22 @@ store_in_vec(TTBEncodeContext *ctx,
     byte *cp = ctx->cptr;
     if (cp != ep) {
         /* save data in common binary... */
-        store_in_vec_aux(&ctx->size,
-                         &ctx->vlen,
-                         ctx->iov,
-                         ctx->binv,
-                         ctx->termv,
+        store_in_vec_aux(ctx,
                          ctx->result_bin,
                          THE_NON_VALUE,
-                         cp, ep - cp,
-                         &ctx->frag_ix,
-                         ctx->fragment_eiovs,
-                         ctx->fragment_size);
+                         cp,
+                         ep - cp);
         ASSERT(ctx->vlen <= ctx->debug_vlen);
         ASSERT(ctx->frag_ix <= ctx->debug_fragments);
         ctx->cptr = ep;
     }
     if (ohbin) {
         /* save off-heap binary... */
-        store_in_vec_aux(&ctx->size,
-                         &ctx->vlen,
-                         ctx->iov,
-                         ctx->binv,
-                         ctx->termv,
-                         ohbin, ohpb, ohp, ohsz,
-                         &ctx->frag_ix,
-                         ctx->fragment_eiovs,
-                         ctx->fragment_size);
+        store_in_vec_aux(ctx,
+                         ohbin,
+                         ohpb,
+                         ohp,
+                         ohsz);
         ASSERT(ctx->vlen <= ctx->debug_vlen);
         ASSERT(ctx->frag_ix <= ctx->debug_fragments);
     }
@@ -4963,7 +4925,7 @@ error_hamt:
    (except for cached atoms) */
 static Uint encode_size_struct2(ErtsAtomCacheMap *acmp,
                                 Eterm obj,
-                                unsigned dflags) {
+                                Uint64 dflags) {
     Uint size = 0;
     ErtsExtSzRes res = encode_size_struct_int(NULL, acmp, obj,
                                               dflags, NULL,
@@ -4978,7 +4940,7 @@ static Uint encode_size_struct2(ErtsAtomCacheMap *acmp,
 
 static ErtsExtSzRes
 encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
-		       unsigned dflags, Sint *reds, Uint *res)
+		       Uint64 dflags, Sint *reds, Uint *res)
 {
     DECLARE_WSTACK(s);
     Uint m, i, arity;
@@ -5022,7 +4984,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    result++;
 	    break;
 	case ATOM_DEF:
-	    if (dflags & DFLAG_INTERNAL_TAGS) {
+	    if (dflags & DFLAG_ETS_COMPRESSED) {
 		if (atom_val(obj) >= (1<<16)) {
 		    result += 1 + 3;
 		}
@@ -5187,7 +5149,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
             Uint bin_size = pb->size;
             byte bitoffs = 0;
             byte bitsize = 0;
-            if (dflags & DFLAG_INTERNAL_TAGS) {
+            if (dflags & DFLAG_ETS_COMPRESSED) {
 		ProcBin* pb = (ProcBin*) binary_val(obj);
 		Uint sub_extra = 0;
 		if (pb->thing_word == HEADER_SUB_BIN) {
@@ -5749,13 +5711,14 @@ error:
 
 Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
                          DistEntry* dep,
-                         Uint32 dflags,
+                         Uint64 dflags,
                          Sint reds)
 {
     ErlIOVec* eiov = ob->eiov;
     SysIOVec* iov = eiov->iov;
     byte *hdr;
-    Uint32 hopefull_flags, hopefull_ix, payload_ix;
+    Uint64 hopefull_flags;
+    Uint32 hopefull_ix, payload_ix;
     Sint start_r, r;
     Uint new_len;
     byte *ep;
@@ -5770,7 +5733,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
      * +---+--------------+-----------+----------+
      * |'H'|Hopefull Flags|Hopefull IX|Payload IX|
      * +---+--------------+-----------+----------+
-     *   1         4            4          4
+     *   1         8            4          4
      *
      * Hopefull flags: Flags corresponding to actual
      *                 hopefull encodings in this
@@ -5788,7 +5751,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     hdr = (byte *) iov[1].iov_base;
 
     ASSERT(HOPEFUL_DATA == *((byte *)iov[1].iov_base));
-    ASSERT(iov[1].iov_len == 13);
+    ASSERT(iov[1].iov_len == 1+8+4+4);
     
     /* Control message always begin in vector element 2 */
     ep = iov[2].iov_base;
@@ -5806,15 +5769,20 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
          * Suppress monitor control msg (see erts_dsig_send_monitor)
          * by converting it to an empty (tick) packet.
          */
+        int i;
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         return reds;
     }
 
     hdr++;
-    hopefull_flags = get_int32(hdr);
+    hopefull_flags = get_int64(hdr);
 
-    hdr += 4;
+    hdr += 8;
     hopefull_ix = get_int32(hdr);
 
     if ((~dflags & DFLAG_SPAWN)
@@ -5836,6 +5804,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         byte *buf_start, *buf_end;
         byte *ptr;
         Uint hsz;
+        int i;
 
         hdr += 4;
         payload_ix = get_int32(hdr);
@@ -5897,6 +5866,10 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         if (buf_start != (byte *) iov[2].iov_base)
             erts_free(ERTS_ALC_T_TMP, buf_start);
 
+        for (i = 1; i < ob->eiov->vsize; i++) {
+            if (ob->eiov->binv[i])
+                driver_free_binary(ob->eiov->binv[i]);
+        }
         ob->eiov->vsize = 1;
         ob->eiov->size = 0;
         

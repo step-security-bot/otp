@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
--export([encode_handshake/4]).
+-export([encode_handshake/4, send_key_update/2, update_cipher_key/2]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -221,7 +221,7 @@ activate_socket(#state{protocol_specific = #{active_n_toggle := true, active_n :
 next_record(State, CipherTexts, ConnectionStates, Check) ->
     next_record(State, CipherTexts, ConnectionStates, Check, []).
 %%
-next_record(#state{connection_env = #connection_env{negotiated_version = Version}} = State,
+next_record(#state{connection_env = #connection_env{negotiated_version = {3,4} = Version}} = State,
             [CT|CipherTexts], ConnectionStates0, Check, Acc) ->
     case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
         {#ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment}, ConnectionStates} ->
@@ -242,8 +242,39 @@ next_record(#state{connection_env = #connection_env{negotiated_version = Version
             %% Not ?APPLICATION_DATA but we have accumulated fragments
             %% -> build an ?APPLICATION_DATA record with concatenated fragments
             %%    and forget about decrypting this record - we'll decrypt it again next time
+            %% Will not work for stream ciphers
             next_record_done(State, [CT|CipherTexts], ConnectionStates0,
                              #ssl_tls{type = ?APPLICATION_DATA, fragment = iolist_to_binary(lists:reverse(Acc))});
+        #alert{} = Alert ->
+            Alert
+    end;
+next_record(#state{connection_env = #connection_env{negotiated_version = Version}} = State,
+            [#ssl_tls{type = ?APPLICATION_DATA} = CT |CipherTexts], ConnectionStates0, Check, Acc) ->
+    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
+        {#ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment}, ConnectionStates} ->
+            case CipherTexts of
+                [] ->
+                    %% End of cipher texts - build and deliver an ?APPLICATION_DATA record
+                    %% from the accumulated fragments
+                    next_record_done(State, [], ConnectionStates,
+                                     #ssl_tls{type = ?APPLICATION_DATA,
+                                              fragment = iolist_to_binary(lists:reverse(Acc, [Fragment]))});
+                [_|_] ->
+                    next_record(State, CipherTexts, ConnectionStates, Check, [Fragment|Acc])
+            end;
+        #alert{} = Alert ->
+            Alert
+    end;
+next_record(State, CipherTexts, ConnectionStates, _, [_|_] = Acc) ->
+    next_record_done(State, CipherTexts, ConnectionStates,
+                     #ssl_tls{type = ?APPLICATION_DATA,
+                              fragment = iolist_to_binary(lists:reverse(Acc))});
+next_record(#state{connection_env = #connection_env{negotiated_version = Version}} = State,
+            [CT|CipherTexts], ConnectionStates0, Check, []) ->
+    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of      
+        {Record, ConnectionStates} ->
+            %% Singelton non-?APPLICATION_DATA record - deliver
+            next_record_done(State, CipherTexts, ConnectionStates, Record);
         #alert{} = Alert ->
             Alert
     end.
@@ -256,14 +287,14 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 %%
-next_event(StateName, no_record, State0, Actions) ->
+next_event(StateName, no_record, #state{static_env = #static_env{role = Role}} = State0, Actions) ->
     case next_record(StateName, State0) of
  	{no_record, State} ->
             ssl_connection:hibernate_after(StateName, State, Actions);
         {Record, State} ->
             next_event(StateName, Record, State, Actions);
         #alert{} = Alert ->
-            ssl_connection:handle_normal_shutdown(Alert, StateName, State0),
+            ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0),
 	    {stop, {shutdown, own_alert}, State0}
     end;
 next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
@@ -278,23 +309,21 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
     case ssl_connection:read_application_data(Data, State0) of
        {stop, _, _} = Stop->
             Stop;
-       {Record, #state{start_or_recv_from = Caller} = State1} ->
+        {Record, #state{start_or_recv_from = Caller} = State} ->
             TimerAction = case Caller of
                               undefined -> %% Passive recv complete cancel timer
                                   [{{timeout, recv}, infinity, timeout}];
                               _ ->
                                   []
                           end,
-            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1, TimerAction), 
-            ssl_connection:hibernate_after(StateName, State, Actions)
+            next_event(StateName, Record, State, TimerAction)
     end;
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_connection:read_application_data(Data, State0) of
 	{stop, _, _} = Stop->
             Stop;
-	{Record, State1} ->
-            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1), 
-            ssl_connection:hibernate_after(StateName, State, Actions)
+	{Record, State} ->
+            next_event(StateName, Record, State)
     end;
 %%% TLS record protocol level handshake messages 
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
@@ -387,7 +416,6 @@ renegotiate(#state{static_env = #static_env{role = server,
 send_handshake(Handshake, State) ->
     send_handshake_flight(queue_handshake(Handshake, State)).
 
-
 queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
 				  connection_env = #connection_env{negotiated_version = Version},
                                   flight_buffer = Flight0,
@@ -402,7 +430,10 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
 
-
+-spec send_handshake_flight(StateIn) -> {StateOut, FlightBuffer} when
+      StateIn :: #state{},
+      StateOut :: #state{},
+      FlightBuffer :: list().
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
 			     flight_buffer = Flight} = State0) ->
@@ -706,7 +737,7 @@ hello(internal, #server_hello{} = Hello,
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
-    gen_info(Event, ?FUNCTION_NAME, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
@@ -753,15 +784,19 @@ connection({call, From}, {user_renegotiate, WriteState},
      [{next_event,{call, From}, renegotiate}]};
 connection({call, From}, 
            {close, {Pid, _Timeout}}, 
-           #state{connection_env = #connection_env{terminated = closed} =CEnv} = State) ->
+           #state{connection_env = #connection_env{terminated = closed} = CEnv,
+                 protocol_specific = PS} = State) ->
     {next_state, downgrade, State#state{connection_env = 
-                                            CEnv#connection_env{terminated = true, 
-                                                                downgrade = {Pid, From}}}, 
+                                            CEnv#connection_env{terminated = true,
+                                                                downgrade = {Pid, From}},
+                                        protocol_specific = PS#{active_n_toggle => true,
+                                                                active_n => 1}
+                                       },
      [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}]};
 connection({call, From}, 
            {close,{Pid, Timeout}},
            #state{connection_states = ConnectionStates,
-                  protocol_specific = #{sender := Sender},
+                  protocol_specific = #{sender := Sender} = PS,
                   connection_env = CEnv
                  } = State0) ->
     case tls_sender:downgrade(Sender, Timeout) of
@@ -775,7 +810,10 @@ connection({call, From},
                                                 ConnectionStates#{current_write => Write}}),
             {next_state, downgrade, State#state{connection_env = 
                                                     CEnv#connection_env{downgrade = {Pid, From},
-                                                                        terminated = true}}, 
+                                                                        terminated = true},
+                                                protocol_specific = PS#{active_n_toggle => true,
+                                                                        active_n => 1}
+                                               },
              [{timeout, Timeout, downgrade}]};
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
@@ -849,6 +887,16 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     %% TLS 1.3
     handle_new_session_ticket(NewSessionTicket, State),
     next_event(?FUNCTION_NAME, no_record, State);
+
+connection(internal, #key_update{} = KeyUpdate, State0) ->
+    %% TLS 1.3
+    case handle_key_update(KeyUpdate, State0) of
+        {ok, State} ->
+            next_event(?FUNCTION_NAME, no_record, State);
+        {error, State, Alert} ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, connection, State),
+            next_event(?FUNCTION_NAME, no_record, State)
+    end;
 
 connection(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
@@ -1077,6 +1125,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                              connection_env = #connection_env{negotiated_version = Version},
                              socket_options = SockOpts, 
                              ssl_options = #{renegotiate_at := RenegotiateAt,
+                                             key_update_at := KeyUpdateAt,
                                              log_level := LogLevel},
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
@@ -1088,6 +1137,7 @@ initialize_tls_sender(#state{static_env = #static_env{
              transport_cb => Transport,
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt,
+             key_update_at => KeyUpdateAt,
              log_level => LogLevel},
     tls_sender:initialize(Sender, Init).
 
@@ -1151,8 +1201,24 @@ handle_info({PassiveTag, Socket},  StateName,
     next_event(StateName, no_record, 
                State#state{protocol_specific = PS#{active_n_toggle => true}});
 handle_info({CloseTag, Socket}, StateName,
-            #state{static_env = #static_env{socket = Socket, close_tag = CloseTag},
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   host = Host,
+                                   port = Port,
+                                   socket = Socket, 
+                                   close_tag = CloseTag},
+                   handshake_env = #handshake_env{renegotiation = Type},
                    connection_env = #connection_env{negotiated_version = Version},
+                   session = Session} = State) when  StateName =/= connection ->
+    ssl_connection:maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+    ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
+    {stop, {shutdown, transport_closed}, State};
+handle_info({CloseTag, Socket}, StateName,
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket,
+                                   close_tag = CloseTag},
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
                    user_data_buffer = {_,BufferSize,_},
@@ -1165,18 +1231,18 @@ handle_info({CloseTag, Socket}, StateName,
 
     case (Active == false) andalso ((CTs =/= []) or (BufferSize =/= 0)) of
         false ->
-            case Version of
-                {1, N} when N >= 1 ->
-                    ok;
-                _ ->
-                    %% As invalidate_sessions here causes performance issues,
-                    %% we will conform to the widespread implementation
-                    %% practice and go aginst the spec
-                    %%invalidate_session(Role, Host, Port, Session)
-                    ok
-            end,
-
-            ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+            %% As invalidate_sessions here causes performance issues,
+            %% we will conform to the widespread implementation
+            %% practice and go aginst the spec
+            %% case Version of
+            %%     {3, N} when N >= 1 ->
+            %%         ok;
+            %%     _ ->
+            %%         invalidate_session(Role, Host, Port, Session)
+            %%         ok
+            %% end,
+            Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+            ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
             {stop, {shutdown, transport_closed}, State};
         true ->
             %% Fixes non-delivery of final TLS record in {active, once}.
@@ -1385,7 +1451,7 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
                                  ssl_options = #{session_tickets := SessionTickets,
                                                  server_name_indication := SNI},
                                  connection_env = #connection_env{user_application = {_, User}}})
-  when SessionTickets =:= enabled ->
+  when SessionTickets =:= manual ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
@@ -1403,6 +1469,50 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
     tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).
+
+
+handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
+    %% Update read key in connection
+    {ok, update_cipher_key(current_read, State0)};
+handle_key_update(#key_update{request_update = update_requested},
+                  #state{protocol_specific = #{sender := Sender}} = State0) ->
+    %% Update read key in connection
+    State1 = update_cipher_key(current_read, State0),
+    %% Send key_update and update sender's write key
+    case send_key_update(Sender, update_not_requested) of
+        ok ->
+            {ok, State1};
+        {error, Reason} ->
+            {error, State1, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason)}
+    end.
+
+
+update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
+    CS = update_cipher_key(ConnStateName, CS0),
+    State0#state{connection_states = CS};
+update_cipher_key(ConnStateName, CS0) ->
+    #{security_parameters := SecParams0,
+      cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
+    HKDF = SecParams0#security_parameters.prf_algorithm,
+    CipherSuite = SecParams0#security_parameters.cipher_suite,
+    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
+    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF, ApplicationTrafficSecret0),
+
+    %% Calculate traffic keys
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, Cipher, ApplicationTrafficSecret),
+
+    SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
+    CipherState = CipherState0#cipher_state{key = Key, iv = IV},
+    ConnState = ConnState0#{security_parameters => SecParams,
+                            cipher_state => CipherState,
+                            sequence_number => 0},
+    CS0#{ConnStateName => ConnState}.
+
+
+send_key_update(Sender, Type) ->
+    KeyUpdate = tls_handshake_1_3:key_update(Type),
+    tls_sender:send_post_handshake(Sender, KeyUpdate).
 
 
 %% Send ticket data to user as opaque binary

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
-
+-define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -33,15 +33,14 @@
 all() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'},
-     {group, 'sslv3'}].
+     {group, 'tlsv1'}
+    ].
 
 groups() ->
     [
      {'tlsv1.2', [], next_protocol_tests()},
      {'tlsv1.1', [], next_protocol_tests()},
-     {'tlsv1', [], next_protocol_tests()},
-     {'sslv3', [], next_protocol_not_supported()}
+     {'tlsv1', [], next_protocol_tests()}
     ].
 
 next_protocol_tests() ->
@@ -57,11 +56,6 @@ next_protocol_tests() ->
      no_client_negotiate_but_server_supports_npn,
      renegotiate_from_client_after_npn_handshake,
      npn_handshake_session_reused
-    ].
-
-next_protocol_not_supported() ->
-    [npn_not_supported_client,
-     npn_not_supported_server
     ].
 
 init_per_suite(Config0) ->
@@ -106,7 +100,7 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
-    ct:timetrap({seconds, 10}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -218,29 +212,6 @@ renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
                {options, ClientOpts}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok).
-
-%--------------------------------------------------------------------------------
-npn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    PrefProtocols = {client_preferred_next_protocols,
-		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
-    ClientOpts = [PrefProtocols] ++ ClientOpts0,
-    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, 8888}, {host, Hostname},
-			    {from, self()},  {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Client, {error, 
-				       {options, 
-					{not_supported_in_sslv3, PrefProtocols}}}).
-
-%--------------------------------------------------------------------------------
-npn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
-    ServerOpts = [AdvProtocols] ++  ServerOpts0,
-  
-    {error, {options, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
 
 %--------------------------------------------------------------------------------
 npn_handshake_session_reused(Config) when  is_list(Config)->

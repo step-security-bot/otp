@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,14 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
+-import(lists, [all/2,any/2,
+                foldl/3,foldr/3,
+                map/2,mapfoldl/3,member/2,
+                reverse/1]).
+
+%% Removed functions
+
+-removed([{modify_line,2,"use erl_parse:map_anno/2 instead"}]).
 
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
@@ -80,6 +87,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -type ta()   :: {atom(), arity()}.   % type+arity
 
 -type module_or_mfa() :: module() | mfa().
+
+-type gexpr_context() :: 'guard' | 'bin_seg_size' | 'map_key'.
 
 -record(typeinfo, {attr, line}).
 
@@ -141,7 +150,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
-               in_try_head=false :: boolean()  %In a try head.
+               in_try_head=false :: boolean(),  %In a try head.
+               bvt = none :: 'none' | [any()],  %Variables in binary pattern
+               gexpr_context = guard            %Context of guard expression
+                   :: gexpr_context()
               }).
 
 -type lint_state() :: #lint{}.
@@ -183,6 +195,14 @@ format_error({invalid_deprecated,D}) ->
 format_error({bad_deprecated,{F,A}}) ->
     io_lib:format("deprecated function ~tw/~w undefined or not exported",
                   [F,A]);
+format_error({invalid_removed,D}) ->
+    io_lib:format("badly formed removed attribute ~tw", [D]);
+format_error({bad_removed,{F,A}}) when F =:= '_'; A =:= '_' ->
+    io_lib:format("at least one function matching ~tw/~w is still exported",
+                  [F,A]);
+format_error({bad_removed,{F,A}}) ->
+    io_lib:format("removed function ~tw/~w is still exported",
+                  [F,A]);
 format_error({bad_nowarn_unused_function,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error({bad_nowarn_bif_clash,{F,A}}) ->
@@ -198,6 +218,9 @@ format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
+format_error(nif_inline) ->
+    "inlining is enabled - local calls to NIFs may call their Erlang "
+    "implementation instead";
 
 format_error(export_all) ->
     "export_all flag enabled - all functions will be exported";
@@ -228,21 +251,21 @@ format_error({redefine_old_bif_import,{F,A}}) ->
 format_error({redefine_bif_import,{F,A}}) ->
     io_lib:format("import directive overrides auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
-format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
+format_error({deprecated, MFA, String, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
-		  [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
-format_error({deprecated, {M1, F1, A1}, String}) when is_list(String) ->
-    io_lib:format("~p:~p/~p: ~s", [M1, F1, A1, String]);
+		  [format_mfa(MFA), Rel, String]);
+format_error({deprecated, MFA, String}) when is_list(String) ->
+    io_lib:format("~s is deprecated; ~s", [format_mfa(MFA), String]);
 format_error({deprecated_type, {M1, F1, A1}, String}) when is_list(String) ->
-    io_lib:format("~p:~p~s: ~s", [M1, F1, gen_type_paren(A1), String]);
+    io_lib:format("the type ~p:~p~s is deprecated; ~s",
+                  [M1, F1, gen_type_paren(A1), String]);
 format_error({removed, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("call to ~s will fail, since it was removed in ~s; "
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
 format_error({removed, MFA, String}) when is_list(String) ->
-    io_lib:format("~s: ~s", [format_mfa(MFA), String]);
-format_error({removed_type, MNA, ReplacementMNA, Rel}) ->
-    io_lib:format("the type ~s was removed in ~s; use ~s instead",
-                  [format_mna(MNA), Rel, format_mna(ReplacementMNA)]);
+    io_lib:format("~s is removed; ~s", [format_mfa(MFA), String]);
+format_error({removed_type, MNA, String}) ->
+    io_lib:format("the type ~s is removed; ~s", [format_mna(MNA), String]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete (use is_~p/~p)", [F, A, F, A]);
 format_error({obsolete_guard_overridden,Test}) ->
@@ -272,6 +295,8 @@ format_error({redefine_record,T}) ->
     io_lib:format("record ~tw already defined", [T]);
 format_error({redefine_field,T,F}) ->
     io_lib:format("field ~tw already defined in record ~tw", [F,T]);
+format_error(bad_multi_field_init) ->
+    io_lib:format("'_' initializes no omitted fields", []);
 format_error({undefined_field,T,F}) ->
     io_lib:format("field ~tw undefined in record ~tw", [F,T]);
 format_error(illegal_record_info) ->
@@ -313,6 +338,13 @@ format_error(bittype_unit) ->
     "a bit unit size must not be specified unless a size is specified too";
 format_error(illegal_bitsize) ->
     "illegal bit size";
+format_error({illegal_bitsize_local_call, {F,A}}) ->
+    io_lib:format("call to local/imported function ~tw/~w is illegal in a size "
+                  "expression for a binary segment",
+		  [F,A]);
+format_error(non_integer_bitsize) ->
+    "a size expression in a pattern evaluates to a non-integer value; "
+        "this pattern cannot possibly match";
 format_error(unsized_binary_not_at_end) ->
     "a binary field without size is only allowed at the end of a binary pattern";
 format_error(typed_literal_string) ->
@@ -585,6 +617,9 @@ start(File, Opts) ->
 		      false, Opts)},
          {removed,
           bool_option(warn_removed, nowarn_removed,
+                      true, Opts)},
+         {nif_inline,
+          bool_option(warn_nif_inline, nowarn_nif_inline,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -647,7 +682,14 @@ pack_warnings(Ws) ->
 
 add_error(E, St) -> add_lint_error(E, St#lint.file, St).
 
-add_error(Anno, E, St) ->
+add_error(Anno, E0, #lint{gexpr_context=Context}=St) ->
+    E = case {E0,Context} of
+            {illegal_guard_expr,bin_seg_size} ->
+                illegal_bitsize;
+            {{illegal_guard_local_call,FA},bin_seg_size} ->
+                {illegal_bitsize_local_call,FA};
+            {_,_} -> E0
+        end,
     {File,Location} = loc(Anno, St),
     add_lint_error({Location,erl_lint,E}, File, St).
 
@@ -918,7 +960,8 @@ post_traversal_check(Forms, St0) ->
     StE = check_unused_records(Forms, StD),
     StF = check_local_opaque_types(StE),
     StG = check_dialyzer_attribute(Forms, StF),
-    check_callback_information(StG).
+    StH = check_callback_information(StG),
+    check_removed(Forms, StH).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1030,7 +1073,7 @@ check_deprecated(Forms, St0) ->
 		  true -> St0#lint.defined;
 		  false -> St0#lint.exports
 	      end,
-    X = gb_sets:to_list(Exports),
+    X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
     #lint{module = Mod} = St0,
     Bad = [{E,L} || {attribute, L, deprecated, Depr} <- Forms,
                     D <- lists:flatten([Depr]),
@@ -1074,7 +1117,80 @@ depr_fa(F, A, _X, _Mod) ->
 deprecated_flag(next_version) -> true;
 deprecated_flag(next_major_release) -> true;
 deprecated_flag(eventually) -> true;
-deprecated_flag(_) -> false.
+deprecated_flag(String) -> deprecated_desc(String).
+
+deprecated_desc([Char | Str]) when is_integer(Char) -> deprecated_desc(Str);
+deprecated_desc([]) -> true;
+deprecated_desc(_) -> false.
+
+%% check_removed(Forms, State0) -> State
+
+check_removed(Forms, St0) ->
+    %% Get the correct list of exported functions.
+    Exports = case member(export_all, St0#lint.compile) of
+                  true -> St0#lint.defined;
+                  false -> St0#lint.exports
+              end,
+    X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
+    #lint{module = Mod} = St0,
+    Bad = [{E,L} || {attribute, L, removed, Removed} <- Forms,
+                    R <- lists:flatten([Removed]),
+                    E <- removed_cat(R, X, Mod)],
+    foldl(fun ({E,L}, St1) ->
+                  add_error(L, E, St1)
+          end, St0, Bad).
+
+removed_cat({F, A, Desc}=R, X, Mod) ->
+    case removed_desc(Desc) of
+        false -> [{invalid_removed,R}];
+        true -> removed_fa(F, A, X, Mod)
+    end;
+removed_cat({F, A}, X, Mod) ->
+    removed_fa(F, A, X, Mod);
+removed_cat(module, X, Mod) ->
+    removed_fa('_', '_', X, Mod);
+removed_cat(R, _X, _Mod) ->
+    [{invalid_removed,R}].
+
+removed_fa('_', '_', X, _Mod) ->
+    case X of
+        [_|_] -> [{bad_removed,{'_','_'}}];
+        [] -> []
+    end;
+removed_fa(F, '_', X, _Mod) when is_atom(F) ->
+    %% Don't use this syntax for built-in functions.
+    case lists:filter(fun({F1,_}) -> F1 =:= F end, X) of
+        [_|_] -> [{bad_removed,{F,'_'}}];
+        _ -> []
+    end;
+removed_fa(F, A, X, Mod) when is_atom(F), is_integer(A), A >= 0 ->
+    case lists:member({F,A}, X) of
+        true ->
+            [{bad_removed,{F,A}}];
+        false ->
+            case erlang:is_builtin(Mod, F, A) of
+                true -> [{bad_removed,{F,A}}];
+                false -> []
+            end
+    end;
+removed_fa(F, A, _X, _Mod) ->
+    [{invalid_removed,{F,A}}].
+
+removed_desc([Char | Str]) when is_integer(Char) -> removed_desc(Str);
+removed_desc([]) -> true;
+removed_desc(_) -> false.
+
+%% Ignores functions added by erl_internal:add_predefined_functions/1
+ignore_predefined_funcs([{behaviour_info,1} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([{module_info,0} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([{module_info,1} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([Other | Fs]) ->
+    [Other | ignore_predefined_funcs(Fs)];
+ignore_predefined_funcs([]) ->
+    [].
 
 %% check_imports(Forms, State0) -> State
 
@@ -1543,7 +1659,8 @@ pattern({record,Line,Name,Pfs}, Vt, Old, Bvt, St) ->
     case maps:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} ->
             St1 = used_record(Name, St),
-            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St1);
+            St2 = check_multi_field_init(Pfs, Line, Fields, St1),
+            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St2);
         error -> {[],[],add_error(Line, {undefined_record,Name}, St)}
     end;
 pattern({bin,_,Fs}, Vt, Old, Bvt, St) ->
@@ -1574,7 +1691,14 @@ pattern_list(Ps, Vt, Old, Bvt0, St) ->
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
           end, {[],[],St}, Ps).
 
-
+%% Check for '_' initializing no fields.
+check_multi_field_init(Fs, Line, Fields, St) ->
+    case
+        has_wildcard_field(Fs) andalso init_fields(Fs, Line, Fields) =:= []
+    of
+        true -> add_error(Line, bad_multi_field_init, St);
+        false -> St
+    end.
 
 %% reject_invalid_alias(Pat, Expr, Vt, St) -> St'
 %%  Reject aliases for binary patterns at the top level.
@@ -1705,19 +1829,16 @@ is_pattern_expr_1({op,_Line,Op,A1,A2}) ->
 is_pattern_expr_1(_Other) -> false.
 
 pattern_map(Ps, Vt, Old, Bvt, St) ->
-    foldl(fun
-	    ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
-		{Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
-	    ({map_field_exact,L,K,V}, {Psvt,Bvt0,St0}) ->
-		case is_valid_map_key(K) of
-		    true ->
-			{Kvt,St1} = expr(K, Vt, St0),
-			{Vvt,Bvt2,St2} = pattern(V, Vt, Old, Bvt, St1),
-			{vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt), vtmerge_pat(Bvt0, Bvt2), St2};
-		    false ->
-			{Psvt,Bvt0,add_error(L, illegal_map_key, St0)}
-		end
-	end, {[],[],St}, Ps).
+    foldl(fun({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
+                  {Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
+             ({map_field_exact,_L,K,V}, {Psvt,Bvt0,St0}) ->
+                  St1 = St0#lint{gexpr_context=map_key},
+                  {Kvt,St2} = gexpr(K, Vt, St1),
+                  {Vvt,Bvt2,St3} = pattern(V, Vt, Old, Bvt, St2),
+                  {vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt),
+                   vtmerge_pat(Bvt0, Bvt2),
+                   St3}
+          end, {[],[],St}, Ps).
 
 %% pattern_bin([Element], VarTable, Old, BinVarTable, State) ->
 %%           {UpdVarTable,UpdBinVarTable,State}.
@@ -1786,20 +1907,40 @@ pat_bit_expr(P, _Old, _Bvt, St) ->
 %%  Check pattern size expression, only allow really valid sizes!
 
 pat_bit_size(default, _Vt, _Bvt, St) -> {default,[],[],St};
-pat_bit_size({atom,_Line,all}, _Vt, _Bvt, St) -> {all,[],[],St};
 pat_bit_size({var,Lv,V}, Vt0, Bvt0, St0) ->
     {Vt,Bvt,St1} = pat_binsize_var(V, Lv, Vt0, Bvt0, St0),
     {unknown,Vt,Bvt,St1};
-pat_bit_size(Size, _Vt, _Bvt, St) ->
+pat_bit_size(Size, Vt0, Bvt0, St0) ->
     Line = element(2, Size),
-    case is_pattern_expr(Size) of
-        true ->
-            case erl_eval:partial_eval(Size) of
-                {integer,Line,I} -> {I,[],[],St};
-                _Other -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
-            end;
-        false -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
+    case erl_eval:partial_eval(Size) of
+        {integer,Line,I} -> {I,[],[],St0};
+        Expr ->
+            %% The size is an expression using operators
+            %% and/or guard BIFs calls. If the expression
+            %% happens to evaluate to a non-integer value, the
+            %% pattern will fail to match.
+            St1 = St0#lint{bvt=Bvt0,gexpr_context=bin_seg_size},
+            {Vt,#lint{bvt=Bvt}=St2} = gexpr(Size, Vt0, St1),
+            St3 = St2#lint{bvt=none,gexpr_context=St0#lint.gexpr_context},
+            St = case is_bit_size_illegal(Expr) of
+                     true ->
+                         %% The size is a non-integer literal or a simple
+                         %% expression that does not evaluate to an
+                         %% integer value. Issue a warning.
+                         add_warning(Line, non_integer_bitsize, St3);
+                     false -> St3
+                 end,
+            {unknown,Vt,Bvt,St}
     end.
+
+is_bit_size_illegal({atom,_,_}) -> true;
+is_bit_size_illegal({bin,_,_}) -> true;
+is_bit_size_illegal({cons,_,_,_}) -> true;
+is_bit_size_illegal({float,_,_}) -> true;
+is_bit_size_illegal({map,_,_}) -> true;
+is_bit_size_illegal({nil,_}) -> true;
+is_bit_size_illegal({tuple,_,_}) -> true;
+is_bit_size_illegal(_) -> false.
 
 %% expr_bin(Line, [Element], VarTable, State, CheckFun) -> {UpdVarTable,State}.
 %%  Check an expression group.
@@ -2114,7 +2255,7 @@ is_guard_test2(G, Info) ->
 %% is_guard_expr(Expression) -> boolean().
 %%  Test if an expression is a guard expression.
 
-is_guard_expr(E) -> is_gexpr(E, []).
+is_guard_expr(E) -> is_gexpr(E, {[],fun({_,_}) -> false end}).
 
 is_gexpr({var,_L,_V}, _Info) -> true;
 is_gexpr({char,_L,_C}, _Info) -> true;
@@ -2509,63 +2650,6 @@ is_valid_call(Call) ->
         _ -> true
     end.
 
-%% is_valid_map_key(K) -> true | false
-%%   variables are allowed for patterns only at the top of the tree
-
-is_valid_map_key({var,_,_}) -> true;
-is_valid_map_key(K) -> is_valid_map_key_value(K).
-is_valid_map_key_value(K) ->
-    case K of
-	{var,_,_} -> false;
-	{char,_,_} -> true;
-	{integer,_,_} -> true;
-	{float,_,_} -> true;
-	{string,_,_} -> true;
-	{nil,_} -> true;
-	{atom,_,_} -> true;
-	{cons,_,H,T} ->
-	    is_valid_map_key_value(H) andalso
-	    is_valid_map_key_value(T);
-	{tuple,_,Es} ->
-	    foldl(fun(E,B) ->
-			B andalso is_valid_map_key_value(E)
-		end,true,Es);
-	{map,_,Arg,Ps} ->
-	    % only check for value expressions to be valid
-	    % invalid map expressions are later checked in
-	    % core and kernel
-	    is_valid_map_key_value(Arg) andalso foldl(fun
-		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve);
-		    (_,_) -> false
-	    end,true,Ps);
-	{map,_,Ps} ->
-	    foldl(fun
-		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve);
-		    (_,_) -> false
-	    end, true, Ps);
-	{record,_,_,Fs} ->
-	    foldl(fun
-		    ({record_field,_,Ke,Ve},B) ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve)
-	      end,true,Fs);
-	{bin,_,Es} ->
-	    % only check for value expressions to be valid
-	    % invalid binary expressions are later checked in
-	    % core and kernel
-	    foldl(fun
-		    ({bin_element,_,E,_,_},B) ->
-		    B andalso is_valid_map_key_value(E)
-		end,true,Es);
-	Val -> is_pattern_expr(Val)
-    end.
-
 %% record_def(Line, RecordName, [RecField], State) -> State.
 %%  Add a record definition if it does not already exist. Normalise
 %%  so that all fields have explicit initial value.
@@ -2677,9 +2761,12 @@ check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
                  error -> {[],add_error(La, {undefined_field,Name,F}, St)}
              end}
     end;
-check_field({record_field,_Lf,{var,_La,'_'},Val}, _Name, _Fields,
+check_field({record_field,_Lf,{var,La,'_'=F},Val}, _Name, _Fields,
             Vt, St, Sfs, CheckFun) ->
-    {Sfs,CheckFun(Val, Vt, St)};
+    case member(F, Sfs) of
+        true -> {Sfs,{[],add_error(La, bad_multi_field_init, St)}};
+        false -> {[F|Sfs],CheckFun(Val, Vt, St)}
+    end;
 check_field({record_field,_Lf,{var,La,V},_Val}, Name, _Fields,
             Vt, St, Sfs, _CheckFun) ->
     {Sfs,{Vt,add_error(La, {field_name_is_variable,Name,V}, St)}}.
@@ -3443,7 +3530,7 @@ handle_generator(P,E,Vt,Uvt,St0) ->
 
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
-        {bin_element,Line,{var,_,_},default,Flags} when is_list(Flags) ->
+        {bin_element,Line,_,default,Flags} when is_list(Flags) ->
             case member(binary, Flags) orelse member(bytes, Flags)
               orelse member(bits, Flags) orelse member(bitstring, Flags) of
                 true ->
@@ -3589,7 +3676,13 @@ pat_binsize_var(V, Line, Vt, Bvt, St) ->
 %%  exported vars are probably safe, warn only if warn_export_vars is
 %%  set.
 
-expr_var(V, Line, Vt, St) ->
+expr_var(V, Line, Vt, #lint{bvt=none}=St) ->
+    do_expr_var(V, Line, Vt, St);
+expr_var(V, Line, Vt0, #lint{bvt=Bvt0}=St0) when is_list(Bvt0) ->
+    {Vt,Bvt,St} = pat_binsize_var(V, Line, Vt0, Bvt0, St0),
+    {Vt,St#lint{bvt=vtmerge(Bvt0, Bvt)}}.
+
+do_expr_var(V, Line, Vt, St) ->
     case orddict:find(V, Vt) of
         {ok,{bound,_Usage,Ls}} ->
             {[{V,{bound,used,Ls}}],St};
@@ -3774,7 +3867,29 @@ has_wildcard_field([]) -> false.
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
     St2 = check_qlc_hrl(Line, M, F, As, St1),
-    format_function(Line, M, F, As, St2).
+    St3 = check_load_nif(Line, M, F, As, St2),
+    format_function(Line, M, F, As, St3).
+
+%% check_load_nif(Line, ModName, FuncName, [Arg], State) -> State
+%%  Add warning if erlang:load_nif/2 is called when any kind of inlining has
+%%  been enabled.
+check_load_nif(Line, erlang, load_nif, [_, _], St) ->
+    case is_warn_enabled(nif_inline, St) of
+        true -> check_nif_inline(Line, St);
+        false -> St
+    end;
+check_load_nif(_Line, _ModName, _FuncName, _Args, St) ->
+    St.
+
+check_nif_inline(Line, St) ->
+    case any(fun is_inline_opt/1, St#lint.compile) of
+        true -> add_warning(Line, nif_inline, St);
+        false -> St
+    end.
+
+is_inline_opt({inline, [_|_]=_FAs}) -> true;
+is_inline_opt(inline) -> true;
+is_inline_opt(_) -> false.
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not
@@ -3845,8 +3960,8 @@ deprecated_type(L, M, N, As, St) ->
                 false ->
                     St
             end;
-        {removed, Replacement, Rel} ->
-            add_warning(L, {removed_type, {M,N,NAs}, Replacement, Rel}, St);
+        {removed, String} ->
+            add_warning(L, {removed_type, {M,N,NAs}, String}, St);
         no ->
             St
     end.

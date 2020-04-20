@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,7 +255,8 @@
                              #certificate_request_1_3{} |
                              #certificate_1_3{} |
                              #certificate_verify_1_3{} |
-                             #new_session_ticket{}.
+                             #new_session_ticket{} |
+                             #key_update{}.
 
 -export_type([tls_handshake_1_3/0]).
 

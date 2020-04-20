@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@
 	 mixed_matching_clauses/1,unnecessary_building/1,
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
-         empty_values/1,cover_letrec_effect/1]).
+         empty_values/1,cover_letrec_effect/1,
+         receive_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -48,7 +49,8 @@ groups() ->
        mixed_matching_clauses,unnecessary_building,
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
-       empty_values,cover_letrec_effect]}].
+       empty_values,cover_letrec_effect,
+       receive_effect]}].
 
 
 init_per_suite(Config) ->
@@ -307,6 +309,13 @@ coverage(Config) when is_list(Config) ->
 		{_,_} ->
 		    Tuple =:= true
 	    end,
+
+    %% Cover is literal_fun/1.
+    {'EXIT',{{case_clause,42},_}} = (catch cover_is_literal_fun()),
+
+    %% Cover core_lib.
+    ok = cover_core_lib([ok,nok]),
+
     ok.
 
 cover_will_match_list_type(A) ->
@@ -373,6 +382,21 @@ cover_eval_is_function(X) ->
 
 bsm_an_inlined(<<_:8>>, _) -> ok;
 bsm_an_inlined(_, _) -> error.
+
+cover_is_literal_fun() ->
+    [case id(42) of
+         [] ->
+             try right of
+                 wrong -> true
+             catch
+                 error:_ -> error
+             end
+     end]().
+
+cover_core_lib(Modules) ->
+    R = id(Modules),
+    _ = [id(Error) || Error <- R, element(1, Error) =/= ok],
+    ok.
 
 unused_multiple_values_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -640,5 +664,13 @@ cover_letrec_effect(_Config) ->
             #{k := {{tag,42},<<42:16>>}} = Any
     end,
     ok.
+
+receive_effect(_Config) ->
+    self() ! whatever,
+    {} = do_receive_effect(),
+    ok.
+
+do_receive_effect() ->
+    {} = receive _ -> {} = {} end.
 
 id(I) -> I.

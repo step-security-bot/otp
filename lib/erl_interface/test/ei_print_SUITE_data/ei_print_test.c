@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,13 +37,9 @@ send_printed_buf(ei_x_buff* x)
     FILE* f;
     int n, index = 0, ver;
 
-#ifdef VXWORKS
-    tmp = ".";
-#else
     if (tmp == NULL) {
         tmp = "/tmp";
     }
-#endif
     strcpy(fn, tmp);
     strcat(fn, "/ei_print_test.txt");
     f = fopen(fn, "w+");

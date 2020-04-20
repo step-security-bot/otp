@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -980,12 +980,12 @@ suite_bin_to_map(?TLS_AES_128_CCM_SHA256) ->
      #{key_exchange => any,
        cipher => aes_128_ccm,
        mac => aead,
+       prf => sha256};
+suite_bin_to_map(?TLS_AES_128_CCM_8_SHA256) ->
+     #{key_exchange => any,
+       cipher => aes_128_ccm_8,
+       mac => aead,
        prf => sha256}.
-%% suite_bin_to_map(?TLS_AES_128_CCM_8_SHA256) ->
-%%      #{key_exchange => any,
-%%       cipher => aes_128_ccm_8,
-%%        mac => aead,
-%%        prf => sha256}.
 
 %%--------------------------------------------------------------------
 -spec suite_legacy(cipher_suite() | internal_erl_cipher_suite()) -> old_erl_cipher_suite().
@@ -1715,12 +1715,12 @@ suite_map_to_bin(#{key_exchange := any,
       cipher := aes_128_ccm,
       mac := aead,
       prf := sha256}) ->
-    ?TLS_AES_128_CCM_SHA256.
-%% suite_map_to_bin(#{key_exchange := any,
-%%       cipher := aes_128_ccm_8,
-%%       mac := aead,
-%%       prf := sha256}) ->
-%%     ?TLS_AES_128_CCM_8_SHA256.
+    ?TLS_AES_128_CCM_SHA256;
+suite_map_to_bin(#{key_exchange := any,
+      cipher := aes_128_ccm_8,
+      mac := aead,
+      prf := sha256}) ->
+    ?TLS_AES_128_CCM_8_SHA256.
 
 
 tls_1_3_suite_str_to_map(CipherStr) ->
@@ -1848,11 +1848,17 @@ openssl_suite_start(Kex) ->
 
 openssl_kex_name("RSA") ->
     "";
+openssl_kex_name("DHE_RSA") ->
+    "EDH-RSA";
 openssl_kex_name(Kex) ->
     lists:append(string:replace(Kex, "_", "-", all)).
-
 kex_name_from_openssl(Kex) ->
-    lists:append(string:replace(Kex, "-", "_", all)).
+    case lists:append(string:replace(Kex, "-", "_", all)) of
+        "EDH_RSA" ->
+            "DHE_RSA"; 
+        Str  ->
+            Str
+    end.
 
 cipher_name_from_openssl("AES128") ->
     "AES_128_CBC";

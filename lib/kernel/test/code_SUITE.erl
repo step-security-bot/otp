@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
-         soft_purge/1, is_loaded/1, all_loaded/1,
+         soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
-	 upgrade/1,
+	 upgrade/0, upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
@@ -61,7 +61,7 @@ all() ->
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
-     load_binary, dir_req, object_code, set_path_file,
+     all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
@@ -507,6 +507,47 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
+all_available(Config) when is_list(Config) ->
+    case test_server:is_cover() of
+	true -> {skip,"Cover is running"};
+	false -> all_available_1(Config)
+    end.
+
+all_available_1(Config) ->
+
+    %% Add an ez dir to make sure the modules in there are found
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
+    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+
+    Available = code:all_available(),
+
+    %% Test that baz and blarg that are part of the .ez archive are found
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "baz" end, Available),
+    {value, _} =
+        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "blarg" end, Available),
+
+    %% Test that all loaded are part of all available
+    Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
+    [] = Loaded -- Available,
+
+    {value, {ModStr,_Path,false} = NotLoaded} =
+        lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
+    ct:log("Testing with ~p",[NotLoaded]),
+
+    Mod = list_to_atom(ModStr),
+
+    %% Test that the module is actually not loaded
+    false = code:is_loaded(Mod),
+
+    %% Load it
+    Mod:module_info(),
+
+    {value, {ModStr,_Path,true}} =
+        lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
+
+    ok.
+
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -522,6 +563,9 @@ load_binary(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
+
+upgrade() ->
+    [{timetrap,{minutes,2}}].
 
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -1880,6 +1924,11 @@ module_status() ->
     loaded = code:module_status(erlang),        % preloaded
     loaded = code:module_status(?MODULE),       % normal known loaded
 
+    %% module_status/0 returns status for each loaded module
+    true = (lists:sort([{M, code:module_status(M)}
+                        || {M, _} <- code:all_loaded()])
+            =:= lists:sort(code:module_status())),
+
     non_existing = code:which(?TESTMOD), % verify dummy name not in path
     code:purge(?TESTMOD), % ensure no previous version in memory
     code:delete(?TESTMOD),
@@ -1891,6 +1940,11 @@ module_status() ->
     ok = ?TESTMOD:f(),
     "" = code:which(?TESTMOD), % verify empty string for source file
     loaded = code:module_status(?TESTMOD),
+
+    %% module_status/1 also accepts a list of modules
+    [] = code:module_status([]),
+    [{erlang, loaded},{?MODULE,loaded},{?TESTMOD,loaded}] =
+        code:module_status([erlang, ?MODULE, ?TESTMOD]),
 
     %% deleting generated code
     true = code:delete(?TESTMOD),

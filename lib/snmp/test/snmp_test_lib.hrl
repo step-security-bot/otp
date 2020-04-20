@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,17 +43,18 @@
 
 
 %% - Test case macros - 
--define(TC_TRY(C, TC),            ?LIB:tc_try(C, TC)).
--define(TC_TRY(C, TCCond, TC),    ?LIB:tc_try(C, TCCond, TC)).
+
+-define(TC_TRY(C, TC),                     ?LIB:tc_try(C, TC)).
+-define(TC_TRY(C, TCCond, TC),             ?LIB:tc_try(C, TCCond, TC)).
+-define(TC_TRY(C, Pre, TC, Post),          ?LIB:tc_try(C, Pre, TC, Post)).
+-define(TC_TRY(C, TCCond, Pre, TC, Post),  ?LIB:tc_try(C, TCCond, Pre, TC, Post)).
+
 -define(OS_BASED_SKIP(Skippable), ?LIB:os_based_skip(Skippable)).
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
         ?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
 -define(SKIP(Reason),        ?LIB:skip(Reason, ?MODULE, ?LINE)).
 -define(FAIL(Reason),        ?LIB:fail(Reason, ?MODULE, ?LINE)).
--define(IS_IPV6_HOST(),      ?LIB:is_ipv6_host()).
--define(IS_IPV6_HOST(H),     ?LIB:is_ipv6_host(H)).
 -define(HAS_SUPPORT_IPV6(),  ?LIB:has_support_ipv6()).
--define(HAS_SUPPORT_IPV6(H), ?LIB:has_support_ipv6(H)).
 
 
 %% - Time macros -
@@ -83,6 +84,10 @@
 -define(FLUSH(),        ?LIB:flush_mqueue()).
 -define(ETRAP_GET(),    ?LIB:trap_exit()).
 -define(ETRAP_SET(O),   ?LIB:trap_exit(O)).
+-define(PINFO(__P__),   try process_info(__P__)
+                        catch _:_:_ ->
+                                {not_running, __P__}
+                        end).
 
 
 %% - Node utility macros - 
@@ -104,6 +109,9 @@
 -define(CRYPTO_SUPPORT(),    ?LIB:crypto_support()).
 
 
+-define(ENSURE_NOT_RUNNING(N, S, T), ?LIB:ensure_not_running(N, S, T)).
+
+
 %% - Dir macros -
 
 -define(DEL_DIR(D),         ?LIB:del_dir(D)).
@@ -111,55 +119,33 @@
 
 %% - Print macros
 
+%% Used for indicating the start of a test case
 -define(P(C),               ?LIB:p(?MODULE, C)).
--define(P1(F),              ?LIB:p(F, [])).
--define(P2(F, A),           ?LIB:p(F, A)).
+
+%% Takes a format call (such as io:format) and produces a printable string
 -define(F(F, A),            ?LIB:f(F, A)).
 
 -ifdef(snmp_debug).
--ifndef(snmp_log).
--define(snmp_log,true).
--endif.
--ifndef(snmp_error).
--define(snmp_error,true).
--endif.
--else.
--ifdef(snmp_log).
--ifndef(snmp_error).
--define(snmp_error,true).
--endif.
--endif.
--endif.
-
--ifdef(snmp_debug).
--define(DBG(F,A), ?PRINT("DBG", F, A)).
+-define(DBG(F,A),      ?IPRINT(F, A)).
 -else.
 -define(DBG(F,A), ok).
 -endif.
 
--ifdef(snmp_log).
--define(LOG(F,A), ?PRINT("LOG", F, A)).
--else.
--define(LOG(F,A), ok).
--endif.
+%% ERROR print
+-define(EPRINT(F),     ?LIB:eprint(F, [])).
+-define(EPRINT(F, A),  ?LIB:eprint(F, A)).
 
--ifdef(snmp_error).
--define(ERR(F,A), ?PRINT("ERR", F, A)).
--else.
--define(ERR(F,A), ok).
--endif.
+%% WARNING print
+-define(WPRINT(F),     ?LIB:wprint(F, [])).
+-define(WPRINT(F, A),  ?LIB:wprint(F, A)).
 
--define(INF(F,A),      ?PRINT("INF", F, A)).
+%% NOTICE print
+-define(NPRINT(F),     ?LIB:nprint(F, [])).
+-define(NPRINT(F, A),  ?LIB:nprint(F, A)).
 
--define(PRINT(P,F,A),  ?LIB:print(P, ?MODULE, ?LINE, F, A)).
-
--define(PRINT1(F, A),  ?LIB:print1(F, A)).
--define(PRINT1(F),     ?PRINT1(F, [])).
--define(EPRINT1(F, A), ?PRINT1("<ERROR> " ++ F, A)).
-
--define(PRINT2(F, A),  ?LIB:print2(F, A)).
--define(PRINT2(F),     ?PRINT2(F, [])).
--define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
+%% INFO print
+-define(IPRINT(F),     ?LIB:iprint(F, [])).
+-define(IPRINT(F, A),  ?LIB:iprint(F, A)).
 
 -define(FTS(),         snmp_misc:formated_timestamp()).
 -define(FTS(TS),       snmp_misc:format_timestamp(TS)).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -409,7 +409,7 @@ static int db_last_tree(Process *p, DbTable *tbl,
 static int db_prev_tree(Process *p, DbTable *tbl, 
 			Eterm key,
 			Eterm *ret);
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail);
+static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail, SWord *consumed_reds_p);
 static int db_get_tree(Process *p, DbTable *tbl, 
 		       Eterm key,  Eterm *ret);
 static int db_member_tree(DbTable *tbl, Eterm key, Eterm *ret);
@@ -474,7 +474,8 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_tree(Process*, DbTable*, Eterm key, Eterm *ret);
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail);
+                              int key_clash_fail,
+                              SWord *consumed_reds_p);
 
 /*
 ** Static variables
@@ -806,7 +807,8 @@ int db_put_dbterm_tree_common(DbTableCommon *tb,
 
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail) /* DB_ERROR_BADKEY if key exists */
+                              int key_clash_fail, /* DB_ERROR_BADKEY if key exists */
+                              SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_put_dbterm_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
@@ -924,7 +926,8 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
     return DB_ERROR_NONE;
 }
 
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
+static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail,
+                       SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_put_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
@@ -2679,6 +2682,7 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
     Eterm least = THE_NON_VALUE;
     Eterm most = THE_NON_VALUE;
     enum ms_key_boundness boundness;
+    Uint freason;
 
     mpi->key_boundness = MS_KEY_IMPOSSIBLE;
     mpi->mp = NULL;
@@ -2767,12 +2771,17 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
      * match specs that happen to specify non existent keys etc.
      */
     if ((mpi->mp = db_match_compile(matches, guards, bodies,
-				    num_heads, DCOMP_TABLE, NULL)) 
+				    num_heads, DCOMP_TABLE, NULL,
+                                    &freason)) 
 	== NULL) {
 	if (buff != sbuff) { 
 	    erts_free(ERTS_ALC_T_DB_TMP, buff);
 	}
-	return DB_ERROR_BADPARAM;
+        switch (freason) {
+        case BADARG: return DB_ERROR_BADPARAM;
+        case SYSTEM_LIMIT: return DB_ERROR_SYSRES;
+        default: ASSERT(0); return DB_ERROR_UNSPEC;
+        }
     }
     if (buff != sbuff) { 
 	erts_free(ERTS_ALC_T_DB_TMP, buff);
@@ -3442,7 +3451,9 @@ db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
     return db_lookup_dbterm_tree_common(p, tbl, &tb->root, key, obj, handle, tb);
 }
 
-void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
+void db_finalize_dbterm_tree_common(int cret,
+                                    DbUpdateHandle *handle,
+                                    TreeDbTerm **root,
                                     DbTableTree *stack_container)
 {
     DbTable *tbl = handle->tb;
@@ -3450,7 +3461,12 @@ void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
 
     if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
         Eterm ret;
-        db_erase_tree(tbl, GETKEY(&tbl->common, bp->dbterm.tpl), &ret);
+        db_erase_tree_common(tbl,
+                             root,
+                             GETKEY(&tbl->common, bp->dbterm.tpl),
+                             &ret,
+                             (stack_container == NULL ?
+                              NULL : &stack_container->static_stack));
     } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(TreeDbTerm,dbterm));
         reset_static_stack(stack_container);
@@ -3468,7 +3484,7 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *handle)
 {
     DbTable *tbl = handle->tb;
     DbTableTree *tb = &tbl->tree;
-    db_finalize_dbterm_tree_common(cret, handle, tb);
+    db_finalize_dbterm_tree_common(cret, handle, &tb->root, tb);
 }
 
 static int db_get_binary_info_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)

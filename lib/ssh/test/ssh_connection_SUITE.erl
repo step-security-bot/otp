@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,10 @@ sock() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ?CHECK_CRYPTO(Config).
+    ?CHECK_CRYPTO(
+       [{ptty_supported, ssh_test_lib:ptty_supported()}
+        | Config]
+      ).
 
 end_per_suite(_Config) ->
     catch ssh:stop(),
@@ -347,7 +350,11 @@ ptty_alloc_default(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -358,8 +365,12 @@ ptty_alloc(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {height, 20}]),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+                                       [{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {height, 20}]),
     ssh:close(ConnectionRef).
 
 
@@ -371,8 +382,12 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+                                       [{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -1253,37 +1268,6 @@ test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
             ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Other])
     after 5000 ->
             {fail,"Exec Timeout"}
-    end.
-
-
-%%%----------------------------------------------------------------
-get_channel_close_sequence(ConnectionRef, ChannelId) ->
-    Set = [eof, exit_status, closed],
-    get_channel_close_sequence(ConnectionRef, ChannelId, Set).
-
-get_channel_close_sequence(_ConnectionRef, _ChannelId, []) ->
-    ok;
-get_channel_close_sequence(ConnectionRef, ChannelId, Set) ->
-    receive
-        {ssh_cm, ConnectionRef, Event} when element(2,Event) == ChannelId ->
-            try lists:member(element(1,Event), Set)
-            of
-                true ->
-                    ct:log("get_channel_close_sequence: ~p received", [Event]),
-                    get_channel_close_sequence(ConnectionRef, Event, Set--[element(1,Event)]);
-                false ->
-                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
-                    ct:fail("Strange response 1")
-            catch
-                _ :_ ->
-                    ct:log("~p:~p Got unexpected ~p~nExpecting ~p",[?MODULE,?LINE,Event,Set]),
-                    ct:fail("Strange response 2")
-            end;
-        Msg ->
-            ct:log("~p:~p Got unexpected ~p~nExpecting event from the set ~p",[?MODULE,?LINE,Msg,Set]),
-            ct:fail("Strange response 3")
-    after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 %%%----------------------------------------------------------------

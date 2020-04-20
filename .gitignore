@@ -56,8 +56,10 @@ a.out.dSYM/
 
 # Windows
 *.pdb
+local.static.config.cache
 tcltk85_win32_bin.tar.gz
 erts/autoconf/win32.config.cache
+erts/autoconf/win64.config.cache
 erts/emulator/obj/
 erts/emulator/pcre/obj/
 erts/emulator/pcre/win32/
@@ -68,6 +70,9 @@ erts/epmd/src/win32/
 erts/etc/common/Install.ini
 erts/etc/common/win32/
 erts/etc/win32/cygwin_tools/vc/coffix.exe
+erts/etc/win32/wsl_tools/vc/coffix.exe
+erts/etc/win32/nsis/helper.*
+erts/etc/win32/nsis/hello.*
 erts/include/internal/win32/
 erts/include/win32/
 erts/lib/internal/win32/
@@ -180,6 +185,8 @@ JAVADOC-GENERATED
 /lib/*/doc/pdf/*.pdf
 /lib/*/doc/src/*.fo
 /lib/*/doc/xml/*.xml
+/lib/*/doc/xml/*.ent
+/lib/*/doc/chunks/*.chunk
 
 /lib/config.log
 /lib/config.status
@@ -247,12 +254,14 @@ JAVADOC-GENERATED
 /lib/compiler/src/core_parse.erl
 
 /lib/compiler/test/*_no_opt_SUITE.erl
+/lib/compiler/test/*_no_copt_SUITE.erl
 /lib/compiler/test/*_no_ssa_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
 /lib/compiler/test/*_inline_SUITE.erl
 /lib/compiler/test/*_r21_SUITE.erl
 /lib/compiler/test/*_no_module_opt_SUITE.erl
 /lib/compiler/test/*_no_type_opt_SUITE.erl
+/lib/compiler/test/*_dialyzer_SUITE.erl
 
 # crypto
 /lib/crypto/test/crypto_SUITE_data/*.rsp
@@ -277,6 +286,8 @@ JAVADOC-GENERATED
 /erts/doc/pdf/*.pdf
 /erts/doc/src/*.fo
 /erts/doc/xml/*.xml
+/erts/doc/xml/figures/*.png
+/erts/doc/chunks/*.chunk
 /erts/doc/man[0-9]/*.[0-9]
 /erts/doc/CONF_INFO
 

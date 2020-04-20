@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ typedef struct {
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
 
-#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
+#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
 struct binary;
 typedef struct erl_dist_external_data ErtsDistExternalData;
@@ -162,13 +162,13 @@ struct TTBEncodeContext_;
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
-void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
+void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint64);
 
 Uint erts_encode_ext_dist_header_size(struct TTBEncodeContext_ *ctx, ErtsAtomCacheMap *, Uint);
 byte *erts_encode_ext_dist_header_setup(struct TTBEncodeContext_ *ctx, byte *,
                                         ErtsAtomCacheMap *, Uint, Eterm);
 byte *erts_encode_ext_dist_header_fragment(byte **, Uint, Eterm);
-Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint64 dflags, Sint reds);
 struct erts_dsig_send_context;
 
 typedef enum {
@@ -181,7 +181,7 @@ ErtsExtSzRes erts_encode_dist_ext_size(Eterm term, ErtsAtomCacheMap *acmp,
                                        struct TTBSizeContext_ *ctx,
                                        Uint* szp, Sint *redsp,
                                        Sint *vlenp, Uint *fragments);
-int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
+int erts_encode_dist_ext(Eterm, byte **, Uint64, ErtsAtomCacheMap *,
                          struct TTBEncodeContext_ *, Uint *,
                          Sint *);
 ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
@@ -214,7 +214,7 @@ Sint erts_decode_ext_size_ets(byte*, Uint);
 Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
 Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
-Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
+Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint64 flags);
 Eterm erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);

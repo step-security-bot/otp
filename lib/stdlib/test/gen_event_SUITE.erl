@@ -113,6 +113,11 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid1),
     ok = gen_event:stop(Pid1),
 
+    {ok, {Pid1b,Mon1b}} = gen_event:start_monitor(), %anonymous
+    [] = gen_event:which_handlers(Pid1b),
+    ok = gen_event:stop(Pid1b),
+    receive {'DOWN',Mon1b,process,Pid1b,_} -> ok end,
+
     {ok, Pid2} = gen_event:start(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid2),
@@ -123,20 +128,44 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid3),
     ok = gen_event:stop(my_dummy_name),
 
+    {ok, {Pid3b,Mon3b}} = gen_event:start_monitor(?LMGR),
+    [] = gen_event:which_handlers(my_dummy_name),
+    [] = gen_event:which_handlers(Pid3b),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon3b,process,Pid3b,_} -> ok end,
+
     {ok, Pid4} = gen_event:start_link(?GMGR),
     [] = gen_event:which_handlers(?GMGR),
     [] = gen_event:which_handlers(Pid4),
     ok = gen_event:stop(?GMGR),
+
+    {ok, {Pid4b,Mon4b}} = gen_event:start_monitor(?GMGR),
+    [] = gen_event:which_handlers(?GMGR),
+    [] = gen_event:which_handlers(Pid4b),
+    ok = gen_event:stop(?GMGR),
+    receive {'DOWN',Mon4b,process,Pid4b,_} -> ok end,
 
     {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers(Pid5),
     ok = gen_event:stop({via, dummy_via, my_dummy_name}),
 
+    {ok, {Pid5b,Mon5b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers(Pid5b),
+    ok = gen_event:stop({via, dummy_via, my_dummy_name}),
+    receive {'DOWN',Mon5b,process,Pid5b,_} -> ok end,
+
     {ok, _} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start(?LMGR),
     ok = gen_event:stop(my_dummy_name),
+
+    {ok, {Pid5c,Mon5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start(?LMGR),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon5c,process,Pid5c,_} -> ok end,
 
     {ok, Pid6} = gen_event:start_link(?GMGR),
     {error, {already_started, _}} = gen_event:start_link(?GMGR),
@@ -149,6 +178,17 @@ start(Config) when is_list(Config) ->
 	    ct:fail(exit_gen_event)
     end,
 
+    {ok, {Pid6b,Mon6b}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start(?GMGR),
+
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
+    receive
+	{'DOWN', Mon6b, process, Pid6b, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
     {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
@@ -156,6 +196,17 @@ start(Config) when is_list(Config) ->
     exit(Pid7, shutdown),
     receive
 	{'EXIT', Pid7, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
+    {ok, {Pid7b,Mon7b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
+
+    exit(Pid7b, shutdown),
+    receive
+	{'DOWN', Mon7b, process, Pid7b, shutdown} -> ok
     after 10000 ->
 	    ct:fail(exit_gen_event)
     end,
@@ -764,27 +815,49 @@ sync_notify(Config) when is_list(Config) ->
     ok.
 
 call(Config) when is_list(Config) ->
+    Async = fun(Mgr,H,Req) ->
+                    try
+                        Promise = gen_event:send_request(Mgr,H,Req),
+                        gen_event:wait_response(Promise, infinity)
+                    catch _:Reason ->
+                            {'did_exit', Reason}
+                    end
+            end,
     {ok,_} = gen_event:start({local, my_dummy_handler}),
     ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ok = gen_event:add_handler(my_dummy_handler, {dummy_h, 1}, [self()]),
     [{dummy_h, 1}, dummy_h] = gen_event:which_handlers(my_dummy_handler),
     {'EXIT',_} = (catch gen_event:call(non_exist, dummy_h, hejsan)),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, _} = Async(non_exist, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, bad_h, hejsan),
+
     {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1},
-				   hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan,
-				   10000),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, dummy_h, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan, 10000),
     {'EXIT', {timeout, _}} =
 	(catch gen_event:call(my_dummy_handler, dummy_h, hejsan, 0)),
     flush(),
+    P1 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    timeout = gen_event:wait_response(P1, 0),
+    {reply, {ok, hejhopp}} = gen_event:wait_response(P1, infinity),
+
+    flush(),
+    P2 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    no_reply = gen_event:check_response({other,msg}, P2),
+    {reply, {ok, hejhopp}} = receive Msg -> gen_event:check_response(Msg, P2)
+                             after 1000 -> exit(tmo) end,
+
     ok = gen_event:delete_handler(my_dummy_handler, {dummy_h, 1}, []),
     {ok, swapped} = gen_event:call(my_dummy_handler, dummy_h,
 				   {swap_call,dummy1_h,swap}),
     [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, dummy_h, hejsan),
     ok = gen_event:call(my_dummy_handler, dummy1_h, delete_call),
     receive
 	{dummy1_h, removed} ->

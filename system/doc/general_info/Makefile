@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ include xmlfiles.mk
 
 XML_CHAPTER_FILES=$(GENERAL_INFO_CHAPTER_FILES)
 
+# ----------------------------------------------------
+
 TOPDOCDIR=..
 
 BOOK_FILES = book.xml
@@ -51,7 +53,9 @@ GIF_FILES =
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) 
+	$(XML_PART_FILES)
+
+XML_GEN_FILES=$(GENERAL_INFO_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 
@@ -69,13 +73,24 @@ DVIPS_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-docs: html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 
 html: $(GIF_FILES) $(HTML_UG_FILE)
 
 debug opt: 
+
+DEPRECATIONS_SCRIPT = $(ERL_TOP)/lib/stdlib/scripts/update_deprecations
+
+$(XMLDIR)/deprecations.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP) $@
+
+$(XMLDIR)/scheduled_for_removal.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removals $(ERL_TOP) $@
+
 
 clean clean_docs:
 	rm -f $(XMLDIR)/*.xml
@@ -88,12 +103,11 @@ clean clean_docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-#	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
-#	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html \
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
-release_spec:
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
+release_spec:

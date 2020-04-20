@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,10 @@
          delete_key/5,
          handle_options/2,
          keep_user_options/2,
-         keep_set_options/2
+         keep_set_options/2,
+
+         initial_default_algorithms/2,
+         check_preferred_algorithms/1
         ]).
 
 -export_type([private_options/0
@@ -161,35 +164,99 @@ handle_options(Role, PropList0) ->
                                       user_options     => []
                                      }).
 
-handle_options(Role, PropList0, Opts0) when is_map(Opts0),
-                                            is_list(PropList0) ->
-    PropList1 = proplists:unfold(PropList0), 
+handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
+                                            is_list(OptsList0) ->
+    OptsList1 = proplists:unfold(OptsList0),
     try
         OptionDefinitions = default(Role),
-        InitialMap =
+        RoleCnfs = application:get_env(ssh, cnf_key(Role), []),
+        {InitialMap,OptsList2} =
             maps:fold(
-              fun(K, #{default:=V}, M) -> M#{K=>V};
-                 (_,_,M) -> M
+              fun(K, #{default:=Vd}, {M,PL}) ->
+                      %% Now set as the default value:
+                      %%   1: from erl command list: erl -ssh opt val
+                      %%   2: from config file:  {options, [..., {opt,val}, ....]}
+                      %%   3: from the hard-coded option values in default/1
+                      %% The value in the option list will be handled later in save/3 later
+                      case config_val(K, RoleCnfs, OptsList1) of
+                          {ok,V1} ->
+                              %% A value set in config or options. Replace the current.
+                              {M#{K => V1,
+                                  user_options => [{K,V1} | maps:get(user_options,M)]},
+                               [{K,V1} | PL]
+                              };
+
+                          {append,V1} ->
+                              %% A value set in config or options, but should be
+                              %% appended to the existing value
+                              NewVal = maps:get(K,M,[]) ++ V1,
+                              {M#{K => NewVal,
+                                  user_options => [{K,NewVal} |
+                                                   lists:keydelete(K,1,maps:get(user_options,M))]},
+                               [{K,NewVal} | lists:keydelete(K,1,PL)]
+                              };
+                              
+                          undefined ->
+                              %% Use the default value
+                              {M#{K => Vd}, PL}
+                      end
+                 %%          ;
+                 %% (_,_,Acc) ->
+                 %%      Acc
               end,
-              Opts0#{user_options => 
-                         maps:get(user_options,Opts0) ++ PropList1
-                   },
+              {Opts0#{user_options => maps:get(user_options,Opts0)},
+               [{K,V} || {K,V} <- OptsList1,
+                         not maps:is_key(K,Opts0) % Keep socket opts
+               ]
+              },
               OptionDefinitions),
+
+
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
         final_preferred_algorithms(
           lists:foldl(fun(KV, Vals) ->
                               save(KV, OptionDefinitions, Vals)
-                      end, InitialMap, PropList1))
+                      end, InitialMap, OptsList2))
     catch
-        error:{eoptions, KV, undefined} -> 
-            {error, {eoptions,KV}};
+        error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
+            if
+                Reason == undefined ->
+                    {error, {EO,KV}};
+                is_list(Reason) ->
+                    {error, {EO,{KV,lists:flatten(Reason)}}};
+                true ->
+                    {error, {EO,{KV,Reason}}}
+            end
+    end.
 
-        error:{eoptions, KV, Txt} when is_list(Txt) -> 
-            {error, {eoptions,{KV,lists:flatten(Txt)}}};
+cnf_key(server) -> server_options;
+cnf_key(client) -> client_options.
 
-        error:{eoptions, KV, Extra} ->
-            {error, {eoptions,{KV,Extra}}}
+
+config_val(modify_algorithms=Key, RoleCnfs, Opts) ->
+    V = case application:get_env(ssh, Key) of
+            {ok,V0} -> V0;
+            _ -> []
+        end
+        ++ proplists:get_value(Key, RoleCnfs, [])
+        ++ proplists:get_value(Key, Opts, []),
+    case V of
+        [] -> undefined;
+        _ -> {append,V}
+    end;
+
+config_val(Key, RoleCnfs, Opts) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {_,V}} ->
+            {ok,V};
+        false ->
+            case lists:keysearch(Key, 1, RoleCnfs) of
+                {value, {_,V}} ->
+                    {ok,V};
+                false ->
+                    application:get_env(ssh, Key) % returns {ok,V} | undefined
+            end
     end.
 
 
@@ -574,8 +641,11 @@ default(common) ->
              class => user_option
             },
 
+       %% NOTE: This option's default value must be undefined.
+       %% In the final stage that "merges" the modify_algorithms and preferred_algorithms,
+       %% this option's default values is set.
       pref_public_key_algs =>
-          #{default => ssh_transport:default_algorithms(public_key),
+          #{default => undefined,
             chk => fun check_pref_public_key_algs/1,
             class => user_option
            },
@@ -914,6 +984,11 @@ valid_hash(L, Ss) when is_list(L) -> lists:all(fun(S) -> valid_hash(S,Ss) end, L
 valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec").
 
 %%%----------------------------------------------------------------
+initial_default_algorithms(DefList, ModList) ->
+    {true, L0} = check_modify_algorithms(ModList),
+    rm_non_supported(false, eval_ops(DefList,L0)).
+
+%%%----------------------------------------------------------------
 check_modify_algorithms(M) when is_list(M) ->
     [error_in_check(Op_KVs, "Bad modify_algorithms")
      || Op_KVs <- M,
@@ -1033,19 +1108,25 @@ check_input_ok(Algs) ->
             orelse (size(KVs) =/= 2)].
 
 %%%----------------------------------------------------------------
-final_preferred_algorithms(Options) ->
+final_preferred_algorithms(Options0) ->
     Result =
-        case ?GET_OPT(modify_algorithms, Options) of
+        case ?GET_OPT(modify_algorithms, Options0) of
             undefined ->
                 rm_non_supported(true,
-                                 ?GET_OPT(preferred_algorithms, Options));
+                                 ?GET_OPT(preferred_algorithms, Options0));
             ModAlgs ->
                 rm_non_supported(false,
-                                 eval_ops(?GET_OPT(preferred_algorithms, Options),
+                                 eval_ops(?GET_OPT(preferred_algorithms, Options0),
                                           ModAlgs))
         end,
     error_if_empty(Result), % Throws errors if any value list is empty
-    ?PUT_OPT({preferred_algorithms,Result}, Options).
+    Options1 = ?PUT_OPT({preferred_algorithms,Result}, Options0),
+    case ?GET_OPT(pref_public_key_algs, Options1) of
+        undefined ->
+            ?PUT_OPT({pref_public_key_algs, proplists:get_value(public_key,Result)}, Options1);
+        _ ->
+            Options1
+    end.
     
 eval_ops(PrefAlgs, ModAlgs) ->
     lists:foldl(fun eval_op/2, PrefAlgs, ModAlgs).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,9 +74,8 @@ struct enif_resource_type_t
     struct enif_resource_type_t* next;   /* list of all resource types */
     struct enif_resource_type_t* prev;
     struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
-    ErlNifResourceDtor* dtor;      /* user destructor function */
-    ErlNifResourceStop* stop;
-    ErlNifResourceDown* down;
+    ErlNifResourceTypeInit fn;
+    ErlNifResourceTypeInit fn_real;
     erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
                           +1 for active erl_module_nif */
     Eterm module;
@@ -110,6 +109,7 @@ typedef struct ErtsResource_
 
 extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 
+extern BeamInstr* erts_call_nif_early(Process* c_p, ErtsCodeInfo* ci);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
@@ -1509,7 +1509,8 @@ do {								\
 
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)
 
-extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA);
+extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA,
+                                      Uint *freasonp);
 extern void erts_match_set_release_result(Process* p);
 ERTS_GLB_INLINE void erts_match_set_release_result_trace(Process* p, Eterm);
 

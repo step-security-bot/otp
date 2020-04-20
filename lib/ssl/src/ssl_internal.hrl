@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
--define(VSN, "8.2.6").
 -define(SECRET_PRINTOUT, "***").
 
 -type reason()            :: any().
@@ -75,10 +74,10 @@
 %% Keep as interop with legacy software but do not support as default
 %% tlsv1.0 and tlsv1.1 is now also considered legacy
 %% tlsv1.3 is under development (experimental).
--define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1]).
 -define(ALL_AVAILABLE_DATAGRAM_VERSIONS, ['dtlsv1.2', dtlsv1]).
 %% Defines the default versions when not specified by an ssl option.
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2']).
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.3', 'tlsv1.2']).
 -define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1']).
 
 %% Versions allowed in TLSCiphertext.version (TLS 1.2 and prior) and
@@ -86,7 +85,7 @@
 %% TLS 1.3 sets TLSCiphertext.legacy_record_version to 0x0303 for all records
 %% generated other than an than an initial ClientHello, where it MAY also be 0x0301.
 %% Thus, the allowed range is limited to 0x0300 - 0x0303.
--define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
 
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2']).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).
@@ -109,6 +108,12 @@
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
 
+%% https://tools.ietf.org/html/rfc8446#section-5.5
+%% Limits on Key Usage
+%% http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf
+%% Number of records * Record length
+%% 2^24.5 * 2^14 = 2^38.5
+-define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
 
 %% This map stores all supported options with default values and
 %% list of dependencies:
@@ -118,6 +123,7 @@
         #{
           alpn_advertised_protocols  => {undefined, [versions]},
           alpn_preferred_protocols   => {undefined, [versions]},
+          anti_replay                => {undefined, [versions, session_tickets]},
           beast_mitigation           => {one_n_minus_one, [versions]},
           cacertfile                 => {undefined, [versions,
                                                      verify_fun,
@@ -144,8 +150,10 @@
           key                        => {undefined, [versions]},
           keyfile                    => {undefined, [versions,
                                                      certfile]},
+          key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
+          middlebox_comp_mode        => {true, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},
           padding_check              => {true,      [versions]},
@@ -156,7 +164,6 @@
           renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
           reuse_session              => {undefined, [versions]},
           reuse_sessions             => {true,      [versions]},
-          anti_replay                => {undefined, [versions, session_tickets]},
           secure_renegotiate         => {true,      [versions]},
           server_name_indication     => {undefined, [versions]},
           session_tickets            => {disabled,     [versions]},

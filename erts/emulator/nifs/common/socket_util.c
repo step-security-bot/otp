@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,13 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#if defined(HAVE_SCTP_H)
+#include <netinet/sctp.h>
+#ifndef     HAVE_SCTP
+#    define HAVE_SCTP
+#endif
 #endif
 
 #ifdef HAVE_SOCKLEN_T
@@ -99,6 +106,122 @@ static char* make_sockaddr_ll(ErlNifEnv*    env,
                               ERL_NIF_TERM  addr,
                               ERL_NIF_TERM* sa);
 #endif
+static BOOLEAN_T esock_extract_from_map(ErlNifEnv*    env,
+                                        ERL_NIF_TERM  map,
+                                        ERL_NIF_TERM  key,
+                                        ERL_NIF_TERM* val);
+
+
+
+/* *** esock_get_bool_from_map ***
+ *
+ * Simple utility function used to extract a boolean value from a map.
+ * If it fails to extract the value (for whatever reason) the default
+ * value is returned.
+ */
+
+extern
+BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
+                                  ERL_NIF_TERM map,
+                                  ERL_NIF_TERM key,
+                                  BOOLEAN_T    def)
+{
+    ERL_NIF_TERM val;
+
+    if (!GET_MAP_VAL(env, map, key, &val)) {
+        return def;
+    } else {
+        if (COMPARE(val, esock_atom_true) == 0)
+            return TRUE;
+        else
+            return FALSE;
+    }
+}
+
+
+/* *** esock_get_bool_from_map ***
+ *
+ * Simple utility function used to extract a integer value from a map.
+ */
+
+extern
+BOOLEAN_T esock_get_int_from_map(ErlNifEnv*   env,
+                                 ERL_NIF_TERM map,
+                                 ERL_NIF_TERM key,
+                                 int*         val)
+{
+    ERL_NIF_TERM eval;
+
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
+        *val = -1;
+        return FALSE;
+    }
+
+    if (!IS_NUM(env, eval)) {
+        *val = -2;
+        return FALSE;        
+    }
+
+    if (!GET_INT(env, eval, val)) {
+        *val = -3;
+        return FALSE;        
+    }
+
+    return TRUE;
+}
+
+
+
+/* *** esock_get_string_from_map ***
+ *
+ * Simple utility function used to extract a (latin1) string value from a map.
+ * This function will allocate a buffer to put the string!
+ */
+
+extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*   env,
+                                    ERL_NIF_TERM map,
+                                    ERL_NIF_TERM key,
+                                    char**       str)
+{
+    ERL_NIF_TERM value;
+    unsigned int len;
+    char*        buf;
+    int          written;
+
+    /* The currently only supported extra option is: netns */
+    if (!GET_MAP_VAL(env, map, key, &value)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    /* So far so good. The value should be a string, check. */
+    if (!enif_is_list(env, value)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    if (!enif_get_list_length(env, value, &len)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    if ((buf = MALLOC(len+1)) == NULL) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    written = enif_get_string(env, value, buf, len+1, ERL_NIF_LATIN1);
+    if (written == (len+1)) {
+        *str = buf;
+        return TRUE;
+    } else {
+        *str = NULL;
+        return FALSE;
+    }
+}
+
+
 
 
 /* +++ esock_encode_iov +++
@@ -1082,50 +1205,43 @@ char* esock_decode_timeval(ErlNifEnv*      env,
     if (!GET_MAP_VAL(env, eTime, esock_atom_usec, &eUSec))
         return ESOCK_STR_EINVAL;
 
-    /* On some platforms (e.g. OpenBSD) this is a 'long long' and on others
-     * (e.g. Linux) its a long.
-     * As long as they are both 64 bits, its easy (use our own signed 64-bit int
-     * and then cast). But if they are either not 64 bit, or they are of different size
-     * then we make it easy on ourselves and use long and then cast to whatever
-     * type sec is.
+    /* Use the appropriate variable type and nif function
+     * to decode the value from Erlang into the struct timeval fields
      */
-#if (SIZEOF_LONG_LONG == SIZEOF_LONG) && (SIZEOF_LONG == 8)
-    {
+    { /* time_t tv_sec; */
+#if (SIZEOF_TIME_T == 8)
         ErlNifSInt64 sec;
         if (!GET_INT64(env, eSec, &sec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
-    }
-#else
-    {
+#elif (SIZEOF_TIME_T == SIZEOF_INT)
+        int sec;
+        if (!GET_INT(env, eSec, &sec))
+            return ESOCK_STR_EINVAL;
+#else /* long or other e.g undefined */
         long sec;
         if (!GET_LONG(env, eSec, &sec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
-    }
 #endif
+        timeP->tv_sec = sec;
+    }
 
- #if (SIZEOF_INT == 4)
-    {
+    { /* suseconds_t tv_usec; */
+#if (SIZEOF_SUSECONDS_T == 8)
+        ErlNifSInt64 usec;
+        if (!GET_INT64(env, eSec, &usec))
+            return ESOCK_STR_EINVAL;
+#elif (SIZEOF_SUSECONDS_T == SIZEOF_INT)
         int usec;
-        if (!GET_INT(env, eUSec, &usec))
+        if (!GET_INT(env, eSec, &usec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
-    }
-#elif (SIZEOF_LONG == 4)
-    {
+#else /* long or other e.g undefined */
         long usec;
-        if (!GET_LONG(env, eUSec, &usec))
+        if (!GET_LONG(env, eSec, &usec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
-    }
-#else
-    /* Ok, we give up... */
-    if (!GET_LONG(env, eUSec, &timeP->tv_usec))
-        return ESOCK_STR_EINVAL;
-
 #endif
-    
+        timeP->tv_usec = usec;
+    }
+
     return NULL;
 }
 
@@ -1484,6 +1600,7 @@ void esock_encode_packet_pkttype(ErlNifEnv*     env,
         break;
 #endif
 
+        /* Unused? Not user space? */
 #if defined(PACKET_LOOPBACK)
     case PACKET_LOOPBACK:
         *ePktType = esock_atom_loopback;
@@ -1502,11 +1619,17 @@ void esock_encode_packet_pkttype(ErlNifEnv*     env,
         break;
 #endif
 
+        /* Unused? Not user space?
+         * Also, has the same value as PACKET_USER,
+         * so may result in a compiler error (at least
+         * on some platforms: ANDROID).
+         *
 #if defined(PACKET_FASTROUTE)
     case PACKET_FASTROUTE:
         *ePktType = esock_atom_fastroute;
         break;
 #endif
+        */
 
     default:
         *ePktType = MKUI(env, pkttype);
@@ -1635,7 +1758,7 @@ BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
 /* *** esock_extract_bool_from_map ***
  *
  * Extract an boolean item from a map.
- *
+ * This function returns the retreived or the provided default value.
  */
 extern
 BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
@@ -1645,7 +1768,7 @@ BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
 {
     ERL_NIF_TERM val;
 
-    if (!GET_MAP_VAL(env, map, key, &val))
+    if (!esock_extract_from_map(env, map, key, &val))
         return def;
 
     if (!IS_ATOM(env, val))
@@ -1653,8 +1776,63 @@ BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
 
     if (COMPARE(val, esock_atom_true) == 0)
         return TRUE;
-    else
+    else if (COMPARE(val, esock_atom_false) == 0)
         return FALSE;
+    else
+        return def;
+}
+
+
+
+/* *** esock_extract_pid_from_map ***
+ *
+ * Extract a pid item from a map.
+ * Returns TRUE on success and FALSE on failure (and then 
+ * the pid value will be set to 'undefined').
+ *
+ */
+extern
+BOOLEAN_T esock_extract_pid_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     ErlNifPid*   pid)
+{
+    BOOLEAN_T    res;
+    ERL_NIF_TERM val;
+
+    if (!esock_extract_from_map(env, map, key, &val)) {
+        enif_set_pid_undefined(pid);
+        res = FALSE;
+    } else {
+        if (enif_get_local_pid(env, val, pid)) {
+            res = TRUE;
+        } else {
+            enif_set_pid_undefined(pid);
+            res = FALSE;
+        }
+    }
+
+    return res;
+}
+
+
+
+/* *** esock_extract_from_map ***
+ *
+ * Extract a value from a map.
+ * Returns true on success and false on failure.
+ *
+ */
+static
+BOOLEAN_T esock_extract_from_map(ErlNifEnv*    env,
+                                 ERL_NIF_TERM  map,
+                                 ERL_NIF_TERM  key,
+                                 ERL_NIF_TERM* val)
+{
+    if (!GET_MAP_VAL(env, map, key, val))
+        return FALSE;
+    else
+        return TRUE;
 }
 
 
@@ -1911,12 +2089,11 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len)
 extern
 BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len)
 {
-    int       ret;
+    unsigned  ret;
 #if defined(ESOCK_USE_PRETTY_TIMESTAMP)
 
     time_t    sec     = timestamp / 1000000; // (if _MSEC) sec  = time / 1000;
     time_t    usec    = timestamp % 1000000; // (if _MSEC) msec = time % 1000;
-    int       buflen;
     struct tm t;
 
     if (localtime_r(&sec, &t) == NULL)
@@ -1925,10 +2102,10 @@ BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int l
     ret = strftime(buf, len, "%d-%b-%Y::%T", &t);
     if (ret == 0)
         return FALSE;
-    len -= ret - 1;
-    buflen = strlen(buf);
+    len -= ret;
+    buf += ret;
 
-    ret = enif_snprintf(&buf[buflen], len, ".%06b64d", usec);
+    ret = enif_snprintf(buf, len, ".%06lu", (unsigned long) usec);
     if (ret >= len)
         return FALSE;
 
@@ -1936,11 +2113,11 @@ BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int l
 
 #else
 
-    ret = enif_snprintf(buf, len, "%b64d", timestamp);
-    if (ret == 0)
+    ret = enif_snprintf(buf, len, "%lu", (unsigned long) timestamp);
+    if (ret >= len)
         return FALSE;
-    else
-        return TRUE;
+
+    return TRUE;
 
 #endif
 }

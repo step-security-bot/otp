@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1623,7 +1623,8 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
                 create_extracted_dir(Name1, Opts);
             symlink ->
                 read_verbose(Opts, "x ~ts~n", [Name0]),
-                create_symlink(Name1, Header#tar_header.linkname, Opts);
+                LinkName = safe_link_name(Header, Opts),
+                create_symlink(Name1, LinkName, Opts);
             Device when Device =:= char orelse Device =:= block ->
                 %% char/block devices will be created as empty files
                 %% and then have their major/minor device set later
@@ -1643,12 +1644,16 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
 
 make_safe_path([$/|Path], Opts) ->
     make_safe_path(Path, Opts);
-make_safe_path(Path, #read_opts{cwd=Cwd}) ->
-    case filename:safe_relative_path(Path) of
-        unsafe ->
-            throw({error,{Path,unsafe_path}});
-        SafePath ->
-            filename:absname(SafePath, Cwd)
+make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
+    case filelib:safe_relative_path(Path0, Cwd) of
+        unsafe -> throw({error,{Path0,unsafe_path}});
+        Path -> filename:absname(Path, Cwd)
+    end.
+
+safe_link_name(#tar_header{linkname=Path0},#read_opts{cwd=Cwd} ) ->
+    case filelib:safe_relative_path(Path0, Cwd) of
+        unsafe -> throw({error,{Path0,unsafe_symlink}});
+        Path -> Path
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->

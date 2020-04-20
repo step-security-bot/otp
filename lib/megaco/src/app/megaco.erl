@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,8 @@
 	 decode_binary_term_id/2,
 
 	 encode_sdp/1,
-	 decode_sdp/1, 
+	 decode_sdp/1,
+         get_sdp_record_from_PropertyGroup/2,
 
 	 versions1/0, versions2/0, 
 	 print_version_info/0, print_version_info/1, 
@@ -100,8 +101,7 @@
          formated_long_timestamp/0
         ]).
 
-%% This is for XREF
--deprecated([{format_versions, 1, eventually}]).
+-deprecated([{format_versions, 1, "use megaco:print_version_info/0,1 instead."}]).
 
 -export_type([
               void/0
@@ -488,6 +488,18 @@ encode_sdp(SDP) ->
 
 decode_sdp(PP) ->
     megaco_sdp:decode(PP).
+
+
+%%-----------------------------------------------------------------
+%% dget_sdp_record_from_PropertyGroup(Type, PG) ->
+%% 
+%%   [sdp()]}
+%%
+%% Get all sdp records of a certain type from a property group
+%%-----------------------------------------------------------------
+
+get_sdp_record_from_PropertyGroup(Type, PG) ->
+    megaco_sdp:get_sdp_record_from_PropertyGroup(Type, PG).
 
 
 %%-----------------------------------------------------------------

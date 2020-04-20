@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,9 @@ extern ERL_NIF_TERM atom_block_size;
 extern ERL_NIF_TERM atom_key_length;
 extern ERL_NIF_TERM atom_iv_length;
 extern ERL_NIF_TERM atom_mode;
+extern ERL_NIF_TERM atom_encrypt;
+extern ERL_NIF_TERM atom_padding_size;
+extern ERL_NIF_TERM atom_padding_type;
 extern ERL_NIF_TERM atom_ecb_mode;
 extern ERL_NIF_TERM atom_cbc_mode;
 extern ERL_NIF_TERM atom_cfb_mode;
@@ -93,7 +96,7 @@ extern ERL_NIF_TERM atom_rsa;
 extern ERL_NIF_TERM atom_dss;
 extern ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
 extern ERL_NIF_TERM atom_x25519;
 extern ERL_NIF_TERM atom_x448;
 extern ERL_NIF_TERM atom_ed25519;

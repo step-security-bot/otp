@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 -define(STRING(X),   ?UINT32((size(X))), (X)/binary).
 
 -define(DEC_BIN(X,Len),   ?UINT32(Len), X:Len/binary ).
+-define(DEC_INT(I,Len),   ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 -define(DEC_MPINT(I,Len), ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 
 %% building macros
@@ -86,6 +87,9 @@
 -define(Ename_list(X),   ?STRING(ssh_bits:name_list(X)) ).
 -define(Empint(X),       (ssh_bits:mpint(X))/binary ).
 -define(Ebinary(X),      ?STRING(X) ).
+
+%% Other macros
+-define(to_binary(X), (try iolist_to_binary(X) catch _:_ -> unicode:characters_to_binary(X) end) ).
 
 %% Cipher details
 -define(SSH_CIPHER_NONE, 0).
@@ -173,9 +177,12 @@
 -type mac_alg()          :: 'AEAD_AES_128_GCM' |
                             'AEAD_AES_256_GCM' |
                             'hmac-sha1' |
+                            'hmac-sha1-etm@openssh.com' |
                             'hmac-sha1-96' |
                             'hmac-sha2-256' |
-                            'hmac-sha2-512'
+                            'hmac-sha2-512' |
+                            'hmac-sha2-256-etm@openssh.com' |
+                            'hmac-sha2-512-etm@openssh.com'
                             .
 
 -type compression_alg()  :: 'none' |
@@ -284,7 +291,9 @@
 
 -type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
 
--type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) .
+-type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) % Old style
+                         | fun((PeerName::string(), Port::inet:port_number(), fingerprint() ) -> boolean()) % New style
+                           .
 -type fingerprint() :: string() | [string()].
 
 -type authentication_client_options() ::

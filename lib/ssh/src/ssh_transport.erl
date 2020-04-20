@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 -export([next_seqnum/1, 
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
+         clear_default_algorithms_env/0,
          algo_classes/0, algo_class/1,
          algo_two_spec_classes/0, algo_two_spec_class/1,
 	 handle_packet_part/5,
@@ -50,16 +51,17 @@
          parallell_gen_key/1,
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
-         valid_key_sha_alg/2,
+         valid_key_sha_alg/3,
 	 sha/1, sign/3, verify/5,
          get_host_key/2,
-         call_KeyCb/3]).
+         call_KeyCb/3,
+         public_algo/1]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
--export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -75,7 +77,46 @@
 %%% and test them without letting the default users know about them.
 %%%
 
-default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
+-define(DEFAULT_ALGS, '$def-algs$').
+
+clear_default_algorithms_env() ->
+    application:unset_env(ssh, ?DEFAULT_ALGS).
+
+-spec default_algorithms() -> algs_list()
+                                  | no_return() %  error(Reason)
+                                  .
+default_algorithms() ->
+    case application:get_env(ssh, ?DEFAULT_ALGS) of
+        undefined ->
+            %% Not cached, have to build the default, connection independent
+            %% set of algorithms:
+            Opts = get_alg_conf(),
+            Algs1 =
+                case proplists:get_value(preferred_algorithms, Opts) of
+                    undefined ->
+                        [{K,default_algorithms1(K)} || K <- algo_classes()];
+                    Algs0 ->
+                        {true,Algs01} = ssh_options:check_preferred_algorithms(Algs0),
+                        Algs01
+                end,
+            Algs =
+                case proplists:get_value(modify_algorithms, Opts) of
+                    undefined ->
+                        Algs1;
+                    Modifications ->
+                        ssh_options:initial_default_algorithms(Algs1, Modifications)
+                end,
+            application:set_env(ssh, ?DEFAULT_ALGS, Algs),
+            Algs;
+
+        {ok,Algs} ->
+            Algs
+    end.
+
+get_alg_conf() ->
+    [{T,L} || T <- [preferred_algorithms, modify_algorithms],
+              L <- [application:get_env(ssh, T, [])],
+              L =/= []].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
@@ -94,25 +135,42 @@ algo_two_spec_class(mac) -> true;
 algo_two_spec_class(compression) -> true;
 algo_two_spec_class(_) -> false.
 
+
+default_algorithms(Tag) ->
+    case application:get_env(ssh, ?DEFAULT_ALGS) of
+        undefined ->
+            default_algorithms1(Tag);
+        {ok,Algs} ->
+            proplists:get_value(Tag, Algs, [])
+    end.
     
 
-default_algorithms(kex) ->
+default_algorithms1(kex) ->
     supported_algorithms(kex, [
                                %%  Gone in OpenSSH 7.3.p1:
-                               'diffie-hellman-group1-sha1'
+                               'diffie-hellman-group1-sha1',
+                               %%  Gone in OpenSSH 8.2
+                               'diffie-hellman-group14-sha1',
+                               'diffie-hellman-group-exchange-sha1'
                               ]);
 
-default_algorithms(cipher) ->
+default_algorithms1(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
 				       'AEAD_AES_256_GCM'
                                       ]));
-default_algorithms(mac) ->
+default_algorithms1(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM',
                                     'hmac-sha1-96'
                                    ]));
 
-default_algorithms(Alg) ->
+default_algorithms1(public_key) ->
+    supported_algorithms(public_key, [
+                                      %% Gone in OpenSSH 7.3.p1:
+                                      'ssh-dss'
+                                     ]);
+
+default_algorithms1(Alg) ->
     supported_algorithms(Alg, []).
 
 
@@ -145,9 +203,9 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
        {'ssh-ed25519',          [{public_keys,eddsa}, {curves,ed25519}                    ]},
        {'ssh-ed448',            [{public_keys,eddsa}, {curves,ed448}                      ]},
-       {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
+       {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
@@ -172,8 +230,11 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
+	[{'hmac-sha2-256-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
+         {'hmac-sha2-512-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
+         {'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
+         {'hmac-sha1-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
 	 {'hmac-sha1-96',     [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
@@ -224,16 +285,12 @@ hello_version_msg(Data) ->
 next_seqnum(SeqNum) ->
     (SeqNum + 1) band 16#ffffffff.
 
-decrypt_blocks(Bin, Length, Ssh0) ->
-    <<EncBlocks:Length/binary, EncData/binary>> = Bin,
-    {Ssh, DecData} = decrypt(Ssh0, EncBlocks),
-    {Ssh, DecData, EncData}.
 
 is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    Mac == mac(Algorithm, Key, SeqNum, Data).
+    crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
 
 format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
@@ -785,7 +842,7 @@ get_host_key(SignAlg, Opts) ->
     case call_KeyCb(host_key, [SignAlg], Opts) of
 	{ok, PrivHostKey} ->
             %% Check the key - the KeyCb may be a buggy plugin
-            case valid_key_sha_alg(PrivHostKey, SignAlg) of
+            case valid_key_sha_alg(private, PrivHostKey, SignAlg) of
                 true -> PrivHostKey;
                 false -> exit({error, bad_hostkey})
             end;
@@ -803,7 +860,7 @@ extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
 extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     {Y,  #'Dss-Parms'{p=P, q=Q, g=G}};
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
-				   publicKey = Q}) ->
+				   publicKey = Q}) when is_tuple(OID) ->
     {#'ECPoint'{point=Q}, {namedCurve,OID}};
 extract_public_key({ed_pri, Alg, Pub, _Priv}) ->
     {ed_pub, Alg, Pub};
@@ -832,12 +889,15 @@ verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature})
 
 
 %%% -> boolean() | {error,_}
-accepted_host(Ssh, PeerName, Public, Opts) ->
+accepted_host(Ssh, PeerName, Port, Public, Opts) ->
+    PortStr = case Port of
+                  22 -> "";
+                  _ -> lists:concat([":",Port])
+              end,
     case ?GET_OPT(silently_accept_hosts, Opts) of
-
         %% Original option values; User question and no host key fingerprints known.
         %% Keep the original question unchanged:
-	false -> yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept");
+	false -> yes == yes_no(Ssh, "New host " ++ PeerName ++ PortStr ++ " accept");
 	true -> true;
 
         %% Variant: User question but with host key fingerprint in the question:
@@ -845,10 +905,10 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
             HostKeyAlg = (Ssh#ssh.algorithms)#alg.hkey,
             Prompt = io_lib:format("The authenticity of the host can't be established.~n"
                                    "~s host key fingerprint is ~s.~n"
-                                   "New host ~p accept",
+                                   "New host ~p~p accept",
                                    [fmt_hostkey(HostKeyAlg),
                                     public_key:ssh_hostkey_fingerprint(Alg,Public),
-                                    PeerName]),
+                                    PeerName, PortStr]),
             yes == yes_no(Ssh, Prompt);
 
         %% Call-back alternatives: A user provided fun is called for the decision:
@@ -858,8 +918,20 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
                 _ -> {error, fingerprint_check_failed}
             end;
 
+        F when is_function(F,3) ->
+            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(Public)) of
+                true -> true;
+                _ -> {error, fingerprint_check_failed}
+            end;
+
 	{DigestAlg,F} when is_function(F,2) ->
             case catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+                true -> true;
+                _ -> {error, {fingerprint_check_failed,DigestAlg}}
+            end;
+
+	{DigestAlg,F} when is_function(F,3) ->
+            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end
@@ -880,25 +952,46 @@ fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
 
 
-known_host_key(#ssh{opts = Opts, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, peer = {PeerName,{IP,Port}}} = Ssh, 
 	       Public, Alg) ->
-    case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
+    IsHostKey =
+        try
+            %% New style (with Port)
+            call_KeyCb(is_host_key, [Public, [PeerName,IP], Port, Alg], Opts)
+        catch
+            error:undef ->
+                %% old style (without Port)
+                call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts)
+        end,
+
+    case IsHostKey of
 	true ->
 	    ok;
 	false ->
+            %% Not in "known_hosts" and, if is_host_key/4, not revoked
             DoAdd = ?GET_OPT(save_accepted_host, Opts),
-	    case accepted_host(Ssh, PeerName, Public, Opts) of
+	    case accepted_host(Ssh, PeerName, Port, Public, Opts) of
 		true when DoAdd == true ->
-		    call_KeyCb(add_host_key, [PeerName, Public], Opts);
+		    try
+                        %% New style (with Port)
+                        call_KeyCb(add_host_key, [[PeerName,IP], Port, Public], Opts)
+                    catch
+                        error:undef ->
+                            %% old style (without Port)
+                            call_KeyCb(add_host_key, [PeerName, Public], Opts)
+                    end;
 		true when DoAdd == false ->
                     ok;
 		false ->
 		    {error, rejected_by_user};
                 {error,E} ->
                     {error,E}
-	    end
+	    end;
+        {error, Error} ->
+            %% Only returned by is_host_key/4
+            {error, Error}
     end.
-	    
+
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
 %%   supported (allowed) algorithm MUST be listed in order of preference.
@@ -1097,9 +1190,21 @@ alg_final(rcv, SSH0) ->
 
 
 select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
-    A = CL -- SL,  %% algortihms only used by client
+    %% algortihms only used by client
+    %% NOTE: an algorithm occuring more than once in CL will still be present
+    %%       in CLonly. This is not a problem for nice clients.
+    CLonly = CL -- SL,
+
     %% algorithms used by client and server (client pref)
-    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
+    lists:foldr(fun(ALG, Acc) -> 
+                      try [list_to_existing_atom(ALG) | Acc]
+                      catch
+                          %% If an malicious client uses the same non-existing algorithm twice,
+                          %% we will end up here
+                          _:_ -> Acc
+                      end
+              end, [], (CL -- CLonly));
+
 select_all(CL, SL) ->
     Error = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
     ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
@@ -1133,50 +1238,54 @@ pack(Data, Ssh=#ssh{}) ->
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
 	  send_mac = MacAlg,
-	  send_mac_key = MacKey,
 	  encrypt = CryptoAlg} = Ssh0,  PacketLenDeviationForTests) when is_binary(PlainText) ->
-
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
-    {FinalPacket, Ssh3} =
-	case pkt_type(CryptoAlg) of
-	    common ->
-		PaddingLen = padding_length(4+1+size(CompressedPlainText), Ssh0),
-		Padding =  ssh_bits:random(PaddingLen),
-		PlainPacketLen = 1 + PaddingLen + size(CompressedPlainText) + PacketLenDeviationForTests,
-		PlainPacketData = <<?UINT32(PlainPacketLen),?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
-		{Ssh2, EcryptedPacket0} = encrypt(Ssh1, PlainPacketData),
-		MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPacketData),
-                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2};
-	    aead ->
-		PaddingLen = padding_length(1+size(CompressedPlainText), Ssh0),
-		Padding =  ssh_bits:random(PaddingLen),
-		PlainPacketLen = 1 + PaddingLen + size(CompressedPlainText) + PacketLenDeviationForTests,
-		PlainPacketData = <<?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
-                {Ssh2, {EcryptedPacket0,MAC0}} = encrypt(Ssh1, <<?UINT32(PlainPacketLen),PlainPacketData/binary>>),
-                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2}
-	end,
-    Ssh = Ssh3#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
+    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg), 
+                               CompressedPlainText, PacketLenDeviationForTests,
+                               Ssh1),
+    Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {FinalPacket, Ssh}.
 
 
-padding_length(Size, #ssh{encrypt_block_size = BlockSize,
-			  random_length_padding = RandomLengthPadding}) ->
-    PL = (BlockSize - (Size rem BlockSize)) rem BlockSize,
-    MinPaddingLen = if PL <  4 -> PL + BlockSize;
-		       true -> PL
-		    end,
-    PadBlockSize =  max(BlockSize,4),
-    MaxExtraBlocks = (max(RandomLengthPadding,MinPaddingLen) - MinPaddingLen) div PadBlockSize,
-    ExtraPaddingLen = try (rand:uniform(MaxExtraBlocks+1) - 1) * PadBlockSize
-		      catch _:_ -> 0
-		      end,
-    MinPaddingLen + ExtraPaddingLen.
+pack(common, rfc4253, PlainText, DeltaLenTst,
+     #ssh{send_sequence = SeqNum,
+          send_mac = MacAlg,
+          send_mac_key = MacKey} = Ssh0) ->
+    PadLen = padding_length(4+1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    TextLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?UINT32(TextLen),?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
+    MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
+    {<<CipherPkt/binary,MAC0/binary>>, Ssh1};
 
 
+pack(common, enc_then_mac, PlainText, DeltaLenTst,
+     #ssh{send_sequence = SeqNum,
+          send_mac = MacAlg,
+          send_mac_key = MacKey} = Ssh0) ->
+    PadLen = padding_length(1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
+    EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
+    MAC0 = mac(MacAlg, MacKey, SeqNum, EncPacketPkt),
+    {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
 
-handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0) ->
+pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
+    PadLen = padding_length(1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, {CipherPkt,MAC0}} = encrypt(Ssh0, <<?UINT32(PlainLen),PlainPkt/binary>>),
+    {<<CipherPkt/binary,MAC0/binary>>, Ssh1}.
+
+%%%================================================================
+handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
+                                                            recv_mac = MacAlg} = Ssh0) ->
     %% New ssh packet
-    case get_length(pkt_type(CryptoAlg), Encrypted0, Ssh0) of
+    case get_length(pkt_type(CryptoAlg), mac_type(MacAlg), Encrypted0, Ssh0) of
 	get_more ->
 	    %% too short to get the length
 	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
@@ -1198,36 +1307,60 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0)
     %% need more bytes to finalize the packet
     {get_more, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0};
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
-		   #ssh{recv_mac_size = MacSize,
-			decrypt = CryptoAlg} = Ssh0) ->
+handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, #ssh{decrypt = CryptoAlg,
+                                                                          recv_mac = MacAlg} = Ssh0) ->
     %% enough bytes to decode the packet.
-    DecryptLen = TotalNeeded - size(DecryptedPfx) - MacSize,
-    <<EncryptedSfx:DecryptLen/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
-    case pkt_type(CryptoAlg) of
-	common ->
-	    {Ssh1, DecryptedSfx} = decrypt(Ssh0, EncryptedSfx),
-	    DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
-	    case is_valid_mac(Mac, DecryptedPacket, Ssh1) of
-		false ->
-		    {bad_mac, Ssh1};
-		true ->
-		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
-	    end;
-	aead ->
-            case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
-		{Ssh1, error} ->
-		    {bad_mac, Ssh1};
-		{Ssh1, DecryptedSfx} ->
-                    DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
-		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
-	    end
+    case unpack(pkt_type(CryptoAlg), mac_type(MacAlg),
+                DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) of
+        {ok, Payload, NextPacketBytes, Ssh1} ->
+            {Ssh, DecompressedPayload} = decompress(Ssh1, Payload),
+            {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh};
+        Other ->
+            Other
     end.
-    
-    
-get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
+
+%%%----------------
+unpack(common, rfc4253, DecryptedPfx, EncryptedBuffer, _AEAD, TotalNeeded,
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    {Ssh1, DecryptedSfx} = decrypt(Ssh0, EncryptedSfx),
+    PlainPkt = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
+    case is_valid_mac(Mac, PlainPkt, Ssh1) of
+        true ->
+            {ok, payload(PlainPkt), NextPacketBytes, Ssh1};
+        false ->
+            {bad_mac, Ssh1}
+    end;
+
+unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _TotalNeeded,
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    <<Payload:PlainLen/binary, MAC0:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    case is_valid_mac(MAC0, <<?UINT32(PlainLen),Payload/binary>>, Ssh0) of
+        true ->
+            {Ssh1, <<?BYTE(PaddingLen), PlainRest/binary>>} = decrypt(Ssh0, Payload),
+            CompressedPlainTextLen = size(PlainRest) - PaddingLen,
+            <<CompressedPlainText:CompressedPlainTextLen/binary, _Padding/binary>> = PlainRest,
+            {ok, CompressedPlainText, NextPacketBytes, Ssh1};
+        false ->
+            {bad_mac, Ssh0}
+    end;
+                    
+unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    %% enough bytes to decode the packet.
+    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
+        {Ssh1, error} ->
+            {bad_mac, Ssh1};
+        {Ssh1, DecryptedSfx} ->
+            DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
+            {ok, payload(DecryptedPacket), NextPacketBytes, Ssh1}
+    end.
+
+%%%----------------------------------------------------------------
+get_length(common, rfc4253, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
     case size(EncryptedBuffer) >= erlang:max(8, BlockSize) of
 	true ->
 	    <<EncBlock:BlockSize/binary, EncryptedRest/binary>> = EncryptedBuffer,
@@ -1238,7 +1371,16 @@ get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0)
 	    get_more
     end;
 
-get_length(aead, EncryptedBuffer, Ssh) ->
+get_length(common, enc_then_mac, EncryptedBuffer, Ssh) ->
+    case EncryptedBuffer of
+        <<Decrypted:4/binary, EncryptedRest/binary>> ->  
+            <<?UINT32(PacketLen)>> = Decrypted,
+            {ok, PacketLen, Decrypted, EncryptedRest, <<>>, Ssh};
+        _ ->
+            get_more
+    end;
+
+get_length(aead, _, EncryptedBuffer, Ssh) ->
     case {size(EncryptedBuffer) >= 4, Ssh#ssh.decrypt} of
        {true, 'chacha20-poly1305@openssh.com'} ->
             <<EncryptedLen:4/binary, EncryptedRest/binary>> = EncryptedBuffer,
@@ -1253,11 +1395,26 @@ get_length(aead, EncryptedBuffer, Ssh) ->
     end.
 
 
+padding_length(Size, #ssh{encrypt_block_size = BlockSize,
+			  random_length_padding = RandomLengthPad}) ->
+    PL = (BlockSize - (Size rem BlockSize)) rem BlockSize,
+    MinPadLen = if PL <  4 -> PL + BlockSize;
+		       true -> PL
+		    end,
+    PadBlockSize =  max(BlockSize,4),
+    MaxExtraBlocks = (max(RandomLengthPad,MinPadLen) - MinPadLen) div PadBlockSize,
+    ExtraPadLen = try (rand:uniform(MaxExtraBlocks+1) - 1) * PadBlockSize
+		      catch _:_ -> 0
+		      end,
+    MinPadLen + ExtraPadLen.
+
+
 payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     PayloadLen = PacketLen - PaddingLen - 1,
     <<Payload:PayloadLen/binary, _/binary>> = PayloadAndPadding,
     Payload.
 
+%%%----------------------------------------------------------------
 sign(SigData, HashAlg, #{algorithm:=dss} = Key) ->
     mk_dss_sig(crypto:sign(dss, HashAlg, SigData, Key));
 sign(SigData, HashAlg, #{algorithm:=SigAlg} = Key) ->
@@ -1276,7 +1433,7 @@ mk_dss_sig(DerSignature) ->
     #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
-
+%%%----------------------------------------------------------------
 verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
     case Sig of
         <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> ->
@@ -1393,6 +1550,11 @@ cipher(_) ->
 
 pkt_type(SshCipher) -> (cipher(SshCipher))#cipher.pkt_type.
 
+mac_type('hmac-sha2-256-etm@openssh.com') -> enc_then_mac;
+mac_type('hmac-sha2-512-etm@openssh.com') -> enc_then_mac;
+mac_type('hmac-sha1-etm@openssh.com') -> enc_then_mac;
+mac_type(_) -> rfc4253.
+    
 decrypt_magic(server) -> {"A", "C"};
 decrypt_magic(client) -> {"B", "D"}.
 
@@ -1548,7 +1710,7 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
             %% The length is already decrypted and used to divide the input
             %% Check the mac (important that it is timing-safe):
             PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-            case equal_const_time(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
+            case crypto:equal_const_time(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
                 true ->
                     %% MAC is ok, decode
                     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
@@ -1719,7 +1881,13 @@ mac('hmac-md5-96', Key, SeqNum, Data) ->
 mac('hmac-sha2-256', Key, SeqNum, Data) ->
     crypto:mac(hmac, sha256, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-sha2-512', Key, SeqNum, Data) ->
-    crypto:mac(hmac, sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
+    crypto:mac(hmac, sha512, Key, [<<?UINT32(SeqNum)>>, Data]);
+mac('hmac-sha1-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha1', Key, SeqNum, Data);
+mac('hmac-sha2-256-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha2-256', Key, SeqNum, Data);
+mac('hmac-sha2-512-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha2-512', Key, SeqNum, Data).
 
 
 %%%----------------------------------------------------------------
@@ -1747,7 +1915,7 @@ kex_hash(SSH, Key, HashAlg, Args) ->
 
 
 kex_plaintext(SSH, Key, Args) ->
-    EncodedKey = public_key:ssh_encode(Key, ssh2_pubkey),
+    EncodedKey = ssh_message:ssh2_pubkey_encode(Key),
     <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
       ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit),
       ?Ebinary(EncodedKey),
@@ -1774,33 +1942,39 @@ kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
 
 %%%----------------------------------------------------------------
 
-valid_key_sha_alg(#{engine:=_, key_id:=_}, _Alg) -> true; % Engine key
+valid_key_sha_alg(_, #{engine:=_, key_id:=_}, _Alg) -> true; % Engine key
 
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-384') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-256') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'ssh-rsa'     ) -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'ssh-rsa'     ) -> true;
 
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-512') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 
-valid_key_sha_alg({_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
-valid_key_sha_alg(#'DSAPrivateKey'{},  'ssh-dss') -> true;
+valid_key_sha_alg(public, {_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
+valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
 
-valid_key_sha_alg({ed_pub, ed25519,_},  'ssh-ed25519') -> true;
-valid_key_sha_alg({ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
-valid_key_sha_alg({ed_pub, ed448,_},    'ssh-ed448') -> true;
-valid_key_sha_alg({ed_pri, ed448,_,_},  'ssh-ed448') -> true;
+valid_key_sha_alg(public, {ed_pub, ed25519,_},  'ssh-ed25519') -> true;
+valid_key_sha_alg(private, {ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
+valid_key_sha_alg(public, {ed_pub, ed448,_},    'ssh-ed448') -> true;
+valid_key_sha_alg(private, {ed_pri, ed448,_,_},  'ssh-ed448') -> true;
 
-valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> valid_key_sha_alg_ec(OID, Alg);
-valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> valid_key_sha_alg_ec(OID, Alg);
-valid_key_sha_alg(_, _) -> false.
+valid_key_sha_alg(public, {#'ECPoint'{},{namedCurve,OID}}, Alg) when is_tuple(OID) ->
+    valid_key_sha_alg_ec(OID, Alg);
+valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) when is_tuple(OID) ->
+    valid_key_sha_alg_ec(OID, Alg);
+valid_key_sha_alg(_, _, _) -> false.
     
-valid_key_sha_alg_ec(OID, Alg) -> 
-    Curve = public_key:oid2ssh_curvename(OID),
-    Alg == list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+valid_key_sha_alg_ec(OID, Alg) ->
+    try
+        Curve = public_key:oid2ssh_curvename(OID),
+        Alg == list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(Curve))
+    catch
+        _:_ -> false
+    end.
     
 
 -dialyzer({no_match, public_algo/1}).
@@ -1809,9 +1983,12 @@ public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-cu
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
 public_algo({ed_pub, ed25519,_}) -> 'ssh-ed25519';
 public_algo({ed_pub, ed448,_}) -> 'ssh-ed448';
-public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
-    Curve = public_key:oid2ssh_curvename(OID),
-    list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+public_algo({#'ECPoint'{},{namedCurve,OID}}) when is_tuple(OID) -> 
+    SshName = public_key:oid2ssh_curvename(OID),
+    try list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(SshName))
+    catch
+        _:_ -> undefined
+    end.
 
 
 sha('ssh-rsa') -> sha;
@@ -1845,26 +2022,32 @@ sha('curve25519-sha256@libssh.org' ) -> sha256;
 sha('curve448-sha512') -> sha512;
 sha(x25519) -> sha256;
 sha(x448) -> sha512;
-sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_atom(Str)).
+sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
+mac_key_bytes('hmac-sha1-etm@openssh.com') -> 20;
 mac_key_bytes('hmac-sha1-96') -> 20;
 mac_key_bytes('hmac-md5')     -> 16;
 mac_key_bytes('hmac-md5-96')  -> 16;
 mac_key_bytes('hmac-sha2-256')-> 32;
+mac_key_bytes('hmac-sha2-256-etm@openssh.com')-> 32;
 mac_key_bytes('hmac-sha2-512')-> 64;
+mac_key_bytes('hmac-sha2-512-etm@openssh.com')-> 64;
 mac_key_bytes('AEAD_AES_128_GCM') -> 0;
 mac_key_bytes('AEAD_AES_256_GCM') -> 0;
 mac_key_bytes('chacha20-poly1305@openssh.com') -> 0;
 mac_key_bytes(none) -> 0.
 
 mac_digest_size('hmac-sha1')    -> 20;
+mac_digest_size('hmac-sha1-etm@openssh.com') -> 20;
 mac_digest_size('hmac-sha1-96') -> 12;
 mac_digest_size('hmac-md5')    -> 20;
 mac_digest_size('hmac-md5-96') -> 12;
 mac_digest_size('hmac-sha2-256') -> 32;
+mac_digest_size('hmac-sha2-256-etm@openssh.com') -> 32;
 mac_digest_size('hmac-sha2-512') -> 64;
+mac_digest_size('hmac-sha2-512-etm@openssh.com') -> 64;
 mac_digest_size('AEAD_AES_128_GCM') -> 16;
 mac_digest_size('AEAD_AES_256_GCM') -> 16;
 mac_digest_size('chacha20-poly1305@openssh.com') -> 16;
@@ -1953,18 +2136,6 @@ same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% Compare two binaries in a timing safe maner.
-%%% The time spent in comparing should not be different depending on where in the binaries they differ.
-%%% This is to avoid a certain side-channel attac.
-equal_const_time(X1, X2) -> equal_const_time(X1, X2, true).
-
-equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    equal_const_time(R1, R2, Truth and (B1 == B2));
-equal_const_time(<<>>, <<>>, Truth) ->
-    Truth;
-equal_const_time(_, _, _) ->
-    false.
-
 %%%-------- Remove CR, LF and following characters from a line
 
 trim_tail(Str) ->
@@ -1977,34 +2148,43 @@ trim_tail(Str) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,    _, _) -> [alg, ssh_messages, raw_messages, hello];
+ssh_dbg_trace_points() -> [alg, ssh_messages, raw_messages, hello].
 
-dbg_trace(flags, hello, _) -> [c];
-dbg_trace(on,    hello, _) -> dbg:tp(?MODULE,hello_version_msg,1,x),
-                              dbg:tp(?MODULE,handle_hello_version,1,x);
-dbg_trace(off,   hello, _) -> dbg:ctpg(?MODULE,hello_version_msg,1),
-                              dbg:ctpg(?MODULE,handle_hello_version,1);
-
-dbg_trace(C, raw_messages, A) -> dbg_trace(C, hello, A);
-dbg_trace(C, ssh_messages, A) -> dbg_trace(C, hello, A);
-
-dbg_trace(flags, alg,   _) -> [c];
-dbg_trace(on,    alg,   _) -> dbg:tpl(?MODULE,select_algorithm,4,x);
-dbg_trace(off,   alg,   _) -> dbg:ctpl(?MODULE,select_algorithm,4);
+ssh_dbg_flags(alg) -> [c];
+ssh_dbg_flags(hello) -> [c];
+ssh_dbg_flags(raw_messages) -> ssh_dbg_flags(hello);
+ssh_dbg_flags(ssh_messages) -> ssh_dbg_flags(hello).
 
 
-dbg_trace(format, hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
+ssh_dbg_on(alg) -> dbg:tpl(?MODULE,select_algorithm,4,x);
+ssh_dbg_on(hello) -> dbg:tp(?MODULE,hello_version_msg,1,x),
+                     dbg:tp(?MODULE,handle_hello_version,1,x);
+ssh_dbg_on(raw_messages) -> ssh_dbg_on(hello);
+ssh_dbg_on(ssh_messages) -> ssh_dbg_on(hello).
+
+
+ssh_dbg_off(alg) -> dbg:ctpl(?MODULE,select_algorithm,4);
+ssh_dbg_off(hello) -> dbg:ctpg(?MODULE,hello_version_msg,1),
+                      dbg:ctpg(?MODULE,handle_hello_version,1);
+ssh_dbg_off(raw_messages) -> ssh_dbg_off(hello);
+ssh_dbg_off(ssh_messages) -> ssh_dbg_off(hello).
+
+
+
+
+ssh_dbg_format(hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
     ["Going to send hello message:\n",
      Hello
     ];
-dbg_trace(format, hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
+ssh_dbg_format(hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
     ["Received hello message:\n",
      Hello
     ];
-
-dbg_trace(format, alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
+ssh_dbg_format(alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
     ["Negotiated algorithms:\n",
      wr_record(Alg)
-    ].
+    ];
+ssh_dbg_format(raw_messages, X) -> ssh_dbg_format(hello, X);
+ssh_dbg_format(ssh_messages, X) -> ssh_dbg_format(hello, X).
 
 ?wr_record(alg).

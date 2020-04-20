@@ -91,6 +91,7 @@ mixed(Config) when is_list(Config) ->
     {error,blurf} = mixit(5),
     {error,87987987} = mixit(6),
     {error,{a,b,c}} = mixit(7),
+    no_match = mixed_1(),
     ok.
 
 mixit(X) ->
@@ -108,6 +109,17 @@ mixit(X) ->
 	42 -> fnurra;
 	77 -> usch;
 	Other -> {error,Other}
+    end.
+
+mixed_1() ->
+    case 0 of
+        0.0 ->
+            %% This clause must not match.
+            zero;
+        0.5 ->
+            half;
+        _ ->
+            no_match
     end.
 
 aliases(Config) when is_list(Config) ->
@@ -147,6 +159,31 @@ aliases(Config) when is_list(Config) ->
     {a,b} = list_alias1([a,b]),
     {a,b} = list_alias2([a,b]),
     {a,b} = list_alias3([a,b]),
+
+    %% Multiple matches.
+    {'EXIT',{{badmatch,home},_}} =
+        (catch fun() ->
+                       Rec = (42 = V) = home,
+                       {Rec,V}
+               end()),
+    {home,home} =
+        fun() ->
+                Rec = (home = V) = home,
+                {Rec,V}
+        end(),
+    {'EXIT',{{badmatch,16},_}} =
+        (catch fun(B) ->
+                       <<42:V>> = V = B
+               end(16)),
+    {'EXIT',{{badmatch,0},_}} =
+        (catch fun() ->
+                       <<2:V>> = V = 0
+               end()),
+    {42,42} =
+        fun(E) ->
+                Rec = (42 = V) = id(E),
+                {Rec,V}
+        end(42),
 
     ok.
 
@@ -260,6 +297,7 @@ non_matching_aliases(_Config) ->
     none = mixed_aliases(<<6789:16>>),
     none = mixed_aliases(#{key=>value}),
 
+    {'EXIT',{{badmatch,bar},_}} = (catch plus_plus_prefix()),
     {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
     {'EXIT',{{badmatch,job},_}} = (catch entirely()),
     {'EXIT',{{badmatch,associates},_}} = (catch printer()),
@@ -278,6 +316,10 @@ non_matching_aliases(_Config) ->
     1 = erase(shark),
 
     {'EXIT',{{badmatch,_},_}} = (catch radio(research)),
+
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike1(whatever)),
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike2(whatever)),
+
     ok.
 
 mixed_aliases(<<X:8>> = x) -> {a,X};
@@ -294,7 +336,11 @@ mixed_aliases([X] = #{key:=X}) -> {k,X};
 mixed_aliases(#{key:=X} = [X]) -> {l,X};
 mixed_aliases({a,X} = #{key:=X}) -> {m,X};
 mixed_aliases(#{key:=X} = {a,X}) -> {n,X};
+mixed_aliases([] ++ (foo = [])) -> o;
 mixed_aliases(_) -> none.
+
+plus_plus_prefix() ->
+    [] ++ (foo = []) = bar.
 
 nomatch_alias(I) ->
     {ok={A,B}} = id(I),
@@ -335,6 +381,26 @@ radio(research) ->
     (connection = proof) =
 	(catch erlang:trace_pattern(catch mechanisms + assist,
 				    summary = mechanisms)).
+
+pike1(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [Var] = [] ->
+                    ok
+            end
+    end,
+    Var.
+
+pike2(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [_] = [] ->
+                    Var = 42
+            end
+    end,
+    Var.
 
 %% OTP-7018.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,5 +119,6 @@ cover_safe_and_pure_bifs(Config) ->
     _ = registered(),
     _ = term_to_binary(Config),
     42 = list_to_integer("2A", 16),
+    a = binary_to_atom(atom_to_binary(a)),
 
     ok.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1125,8 +1125,12 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
         state = erts_proc_sys_schedule(rp, state, enable_flag);
     }
 
-    if (state & (ERTS_PSFLG_DIRTY_RUNNING
-                 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+    if (state & ERTS_PSFLG_DIRTY_RUNNING) {
+        /*
+         * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
+         * more info see erts_execute_dirty_system_task()
+         * in erl_process.c.
+         */
         erts_make_dirty_proc_handled(rp->common.id, state, -1);
     }
 }

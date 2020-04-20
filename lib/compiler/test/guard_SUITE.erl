@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
-         repeated_type_tests/1]).
+         repeated_type_tests/1,use_after_branch/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -56,7 +56,7 @@ groups() ->
        basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests]},
+       repeated_type_tests,use_after_branch]},
      {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
@@ -1165,6 +1165,11 @@ t_is_boolean(Config) when is_list(Config) ->
     false = my_is_bool([1,2,3,4]),
     false = my_is_bool({a,b,c}),
 
+    %% Cover code in beam_ssa_dead.
+    ok = bool_semi(true),
+    ok = bool_semi(false),
+    error = bool_semi(a),
+
     ok.
 
 bool(X) when is_boolean(X) -> ok;
@@ -1187,6 +1192,9 @@ my_is_bool_b(V) ->
 	true -> true;
 	_ -> false
     end.
+
+bool_semi(V) when is_boolean(V); is_atom(not V) -> ok;
+bool_semi(_) -> error.
 
 is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun ?MODULE:all/1), 1),
@@ -1364,7 +1372,9 @@ rel_op_combinations(Config) when is_list(Config) ->
     Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
 	[{I,5*I} || I <- lists:seq(51, 80)],
     Red = gb_trees:from_orddict(Red0),
-    rel_op_combinations_3(100, Red).
+    rel_op_combinations_3(100, Red),
+
+    rel_op_combinations_4().
 
 rel_op_combinations_1(0, _) ->
     ok;
@@ -1542,7 +1552,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
-    Val = redundant_11(N),
+    Val = redundant_12(N),
     rel_op_combinations_3(N-1, Red).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
@@ -1597,14 +1607,30 @@ redundant_11(X) when X =:= 10 -> 2*X;
 redundant_11(X) when X >= 51, X =< 80 -> 5*X;
 redundant_11(_) -> none.
 
-redundant_12(X) when X >= 50, X =< 80 -> 2*X;
-redundant_12(X) when X < 51 -> 5*X;
+redundant_12(50) -> 100;
+redundant_12(X) when X >= 50, X =< 80 -> 5*X;
+redundant_12(X) when X < 51 -> 2*X;
 redundant_12(_) -> none.
+
+rel_op_combinations_4() ->
+    ne = rel_op_vars_1(id(a), id(b)),
+    le = rel_op_vars_1(id(x), id(x)),
+
+    ne = rel_op_vars_2(id(a), id(b)),
+    ge = rel_op_vars_2(id(x), id(x)),
+
+    ok.
+
+rel_op_vars_1(X, N) when X =/= N -> ne;
+rel_op_vars_1(X, N) when X =< N -> le.
+
+rel_op_vars_2(X, N) when X =/= N -> ne;
+rel_op_vars_2(X, N) when X >= N -> ge.
 
 %% Exhaustively test all combinations of relational operators
 %% to ensure the correctness of the optimizations in beam_ssa_dead.
 
-generated_combinations(Config) ->
+generated_combinations(_Config) ->
     Mod = ?FUNCTION_NAME,
     RelOps = ['=:=','=/=','==','/=','<','=<','>=','>'],
     Combinations0 = [{Op1,Op2} || Op1 <- RelOps, Op2 <- RelOps],
@@ -2270,6 +2296,10 @@ beam_bool_SUITE(_Config) ->
     wrong_order(),
     megaco(),
     looks_like_a_guard(),
+    fail_in_guard(),
+    in_catch(),
+    recv_semi(),
+    andalso_repeated_var(),
     ok.
 
 before_and_inside_if() ->
@@ -2496,6 +2526,77 @@ looks_like_a_guard(N) ->
         _ -> looks_like_a_guard(N)
     end.
 
+-record(fail_in_guard, {f}).
+fail_in_guard() ->
+    false = struct_or_map(a, "foo"),
+    false = struct_or_map(a, foo),
+    false = struct_or_map(#{}, "foo"),
+    true = struct_or_map(#{}, foo),
+
+    false = (fun() when whatever =/= (program andalso []) -> true;
+                () -> false
+             end)(),
+    false = if whatever =/= (program orelse []) -> true;
+               true -> false
+            end,
+
+    %% Would crash the compiler if optimizing passes
+    %% were disabled.
+    error = if
+                0.1 orelse "VZ", 42 -> ok;
+                true -> error
+            end,
+    error = (fun() when 3.14; <<[]:(ceil($D))>> -> ok;
+               () -> error
+            end)(),
+    error = fun() when eye; ""#fail_in_guard.f andalso #{[] => true and false} ->
+                    ok;
+               () ->
+                    error
+            end(),
+    error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
+               () -> error
+            end(),
+
+    ok.
+
+%% ERL-1183. If Name is not an atom, the `fail` atom must cause the
+%% entire guard to fail.
+struct_or_map(Arg, Name) when
+      (is_map(Arg) andalso (is_atom(Name) orelse fail) andalso
+       is_map_key(struct, Arg)) orelse is_map(Arg) -> true;
+struct_or_map(_Arg, _Name) ->
+    false.
+
+in_catch() ->
+    ok = in_catch(true),
+    {'EXIT',{{case_clause,false},[_|_]}} = in_catch(false),
+    {'EXIT',{badarg,[_|_]}} = in_catch(any),
+    ok.
+
+in_catch(V) ->
+    catch
+        case false or V of
+            true -> ok
+        end.
+
+recv_semi() ->
+    timeout = id(receive
+                     ok when home; <<(m#{}):false>> ->
+                         ok
+                 after 0 ->
+                         timeout
+                 end).
+
+andalso_repeated_var() ->
+    ok = andalso_repeated_var(true),
+    error = andalso_repeated_var(false),
+    error = andalso_repeated_var([not_boolean]),
+    ok.
+
+andalso_repeated_var(B) when B andalso B -> ok;
+andalso_repeated_var(_) -> error.
+
 %%%
 %%% End of beam_bool_SUITE tests.
 %%%
@@ -2518,6 +2619,23 @@ repeated_type_test(T) ->
             other
     end.
 
+%% ERL-1179: The result of '=/=' would be flipped if it was used after being
+%% branched on.
+use_after_branch(_Config) ->
+    {false, gaffel} = use_after_branch_1(foo),
+    {true, gurka} = use_after_branch_1(bar),
+    ok.
+
+use_after_branch_1(A) ->
+    Boolean = A =/= foo,
+    case Boolean of
+        true -> id(something);
+        false -> id(other)
+    end,
+    case Boolean of
+        true -> {id(Boolean), gurka};
+        false -> {id(Boolean), gaffel}
+    end.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.

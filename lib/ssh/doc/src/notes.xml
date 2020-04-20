@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,74 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Ssh 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Unicode problems for ssh_sftp:write fixed.</p>
+          <p>
+	    Own Id: OTP-16377</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes to the internal api of the experimental ssh_dbg
+	    tool.</p>
+          <p>
+	    Own Id: OTP-16353</p>
+        </item>
+        <item>
+          <p>
+	    The new functions <seemfa
+	    marker="ssh:ssh#set_sock_opts/2">ssh:set_sock_opts/2</seemfa>
+	    and <seemfa
+	    marker="ssh:ssh#get_sock_opts/2">ssh:get_sock_opts/2</seemfa>
+	    sets and reads option values for the underlying TCP
+	    stream.</p>
+          <p>
+	    Own Id: OTP-16485</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that <c>ssh_connection:send</c> could allocate a
+	    large amount of memory if given an iolist() as input
+	    data.</p>
+          <p>
+	    Own Id: OTP-16373</p>
+        </item>
+        <item>
+          <p>
+	    Safe atom conversions.</p>
+          <p>
+	    Own Id: OTP-16375</p>
+        </item>
+        <item>
+          <p>
+	    Constant time comparisons added.</p>
+          <p>
+	    Own Id: OTP-16376</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Ssh 4.8.1</title>
 
@@ -107,9 +175,9 @@
         </item>
         <item>
           <p>
-	    The documentation of <seealso
+	    The documentation of <seeguide
 	    marker="ssh:using_ssh#one-time-execution">One-Time
-	    Execution</seealso> in the User's Guide is updated with
+	    Execution</seeguide> in the User's Guide is updated with
 	    more examples.</p>
           <p>
 	    Own Id: OTP-16108 Aux Id: OTP-15417 </p>
@@ -229,6 +297,35 @@
 	    SSH uses the new crypto API.</p>
           <p>
 	    Own Id: OTP-15673</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.7.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that <c>ssh_connection:send</c> could allocate a
+	    large amount of memory if given an iolist() as input
+	    data.</p>
+          <p>
+	    Own Id: OTP-16373</p>
+        </item>
+        <item>
+          <p>
+	    Safe atom conversions.</p>
+          <p>
+	    Own Id: OTP-16375</p>
+        </item>
+        <item>
+          <p>
+	    Constant time comparisons added.</p>
+          <p>
+	    Own Id: OTP-16376</p>
         </item>
       </list>
     </section>
@@ -608,6 +705,50 @@
         </item>
       </list>
     </section>
+</section>
+
+<section><title>Ssh 4.6.9.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed possible hanging in <c>ssh_sftp:stop_channel/1</c>.</p>
+          <p>
+	    Own Id: OTP-16507 Aux Id: ERIERL-470 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.9.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that <c>ssh_connection:send</c> could allocate a
+	    large amount of memory if given an iolist() as input
+	    data.</p>
+          <p>
+	    Own Id: OTP-16373</p>
+        </item>
+        <item>
+          <p>
+	    Safe atom conversions.</p>
+          <p>
+	    Own Id: OTP-16375</p>
+        </item>
+        <item>
+          <p>
+	    Constant time comparisons added.</p>
+          <p>
+	    Own Id: OTP-16376</p>
+        </item>
+      </list>
+    </section>
+
 </section>
 
 <section><title>Ssh 4.6.9.5</title>

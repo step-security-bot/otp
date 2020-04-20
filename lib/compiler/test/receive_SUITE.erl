@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
          match_built_terms/1,elusive_common_exit/1,
-         return_before_receive/1,trapping/1]).
+         return_before_receive/1,trapping/1,
+         after_expression/1,in_after/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -49,7 +50,8 @@ groups() ->
       [recv,coverage,otp_7980,export,wait,
        recv_in_try,double_recv,receive_var_zero,
        match_built_terms,elusive_common_exit,
-       return_before_receive,trapping]},
+       return_before_receive,trapping,
+       after_expression,in_after]},
      {slow,[],[ref_opt]}].
 
 init_per_suite(Config) ->
@@ -94,6 +96,8 @@ recv(Config) when is_list(Config) ->
 	    io:format("Unexpected extra message: ~p", [X]),
 	    ct:fail(unexpected)
     after 10 ->
+            unlink(Pid),
+            exit(Pid, kill),
 	    ok
     end,
     ok.
@@ -140,6 +144,11 @@ coverage(Config) when is_list(Config) ->
     self() ! {data,no_data},
     ok = receive_sink_tuple({any,pattern}),
     {b,a} = receive_sink_tuple({a,b}),
+
+    %% Basically a smoke test of no_clauses_left/0.
+    smoke_receive(fun no_clauses_left_1/0),
+    smoke_receive(fun no_clauses_left_2/0),
+    smoke_receive(fun no_clauses_left_3/0),
 
     ok.
 
@@ -188,6 +197,34 @@ tuple_to_values(Timeout, X) ->
 		    end
 	    end,
     A+B.
+
+no_clauses_left_1() ->
+    receive
+        %% This clause would be removed because it cannot match...
+        a = b ->
+            V = whatever
+    end,
+    %% ... leaving a reference to an unbound variable. Crash.
+    V.
+
+no_clauses_left_2() ->
+    [receive
+         %% This clause would be removed because it cannot match...
+         a = <<V0:(node())>> ->
+             year
+     end],
+    %% ... leaving a reference to an unbound variable. Crash.
+    V0.
+
+no_clauses_left_3() ->
+    case id([]) of
+        [] ->
+            receive
+                [Var] = [] ->
+                    ok
+            end
+    end,
+    Var.
 
 %% Cover a help function for beam_ssa_opt:ssa_opt_sink/1.
 receive_sink_tuple({Line,Pattern}) ->
@@ -330,13 +367,19 @@ wait_1(A, B, C) ->
     {A,B,C}.
 
 recv_in_try(_Config) ->
-    self() ! {ok,fh}, {ok,fh} = recv_in_try(infinity, native),
-    self() ! {ok,ignored}, {ok,42} = recv_in_try(infinity, plain),
-    self() ! {error,ignored}, nok = recv_in_try(infinity, plain),
-    timeout = recv_in_try(1, plain),
+    self() ! {ok,fh}, {ok,fh} = recv_in_try_1(infinity, native),
+    self() ! {ok,ignored}, {ok,42} = recv_in_try_1(infinity, plain),
+    self() ! {error,ignored}, nok = recv_in_try_1(infinity, plain),
+    timeout = recv_in_try_1(1, plain),
+
+    smoke_receive(fun recv_in_try_2/0),
+    smoke_receive(fun recv_in_try_3/0),
+    smoke_receive(fun recv_in_try_4/0),
+    smoke_receive(fun recv_in_catch_1/0),
+
     ok.
 
-recv_in_try(Timeout, Format) ->
+recv_in_try_1(Timeout, Format) ->
     try
 	receive
 	    {Status,History} ->
@@ -371,6 +414,47 @@ recv_in_try(Timeout, Format) ->
 	throw:{error,Reason} ->
 	    {nok,Reason}
     end.
+
+recv_in_try_2() ->
+    try
+        %% The live range of the try tag would stop here because of
+        %% the infinite receive below. The code generator would
+        %% generate a kill instruction that would kill the try tag.
+        %% Although probably safe in practice, beam_validator does not
+        %% consider it safe.
+        _ = (catch try a after [] end),
+        receive after infinity -> ok end
+    after
+        []
+    end.
+
+recv_in_try_3() ->
+    #{make_ref() =>
+          not (catch
+                   (catch 9 = kid)#{key =>
+                                        receive after infinity ->
+                                                        ok
+                                                end})}.
+
+recv_in_try_4() ->
+    #{make_ref() =>
+          not (catch
+                   (catch 9 = kid)#{key =>
+                                        receive
+                                        [] when false ->
+                                                ok
+                                        end})}.
+
+recv_in_catch_1() ->
+    catch
+        (catch
+             try
+                 some_module
+             after
+                 ok
+             end):some_function(receive
+                                after infinity -> ok
+                                end#{key := value}).
 
 %% ERL-703. The compiler would crash because beam_utils:anno_defs/1
 %% failed to take into account that code after loop_rec_end is
@@ -416,7 +500,9 @@ receive_var_zero(Config) when is_list(Config) ->
               end,
     self() ! w,
     receive
-	x -> ok;
+	x ->
+            receive y -> ok end,
+            receive w -> ok end;
 	Other ->
 	    ct:fail({bad_message,Other})
     end.
@@ -555,5 +641,62 @@ do_trapping(N) ->
     end,
     receive Ref -> ok end,
     receive after 1 -> ok end.
+
+after_expression(_Config) ->
+    self() ! {a,message},
+    {a,message} = after_expr(0),
+    timeout = after_expr(0),
+    timeout = after_expr(10),
+    ok = after_expr_timeout(0),
+    ok = after_expr_timeout(1),
+    ok.
+
+after_expr(Timeout) ->
+    receive
+        Msg -> Msg
+    after id(Timeout) ->
+            timeout
+    end.
+
+after_expr_timeout(Timeout) ->
+    receive
+    after id(Timeout) ->
+            ok
+    end.
+
+in_after(_Config) ->
+    self() ! first,
+    self() ! message,
+    do_in_after(fun() -> ok end),
+    do_in_after(fun() -> ok end),
+    self() ! message,
+    catch do_in_after(fun() -> error(bad) end),
+    catch do_in_after(fun() -> error(bad) end),
+    self() ! last,
+    first = receive M1 -> M1 end,
+    last = receive M2 -> M2 end,
+    ok.
+
+do_in_after(E) ->
+    try
+        E()
+    after
+        receive
+            message ->
+                ok
+        after 1 ->
+                ok
+        end
+    end,
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
+
+smoke_receive(Fun) ->
+    NoClausesLeft = spawn(Fun),
+    receive after 1 -> ok end,
+    exit(NoClausesLeft, kill).
 
 id(I) -> I.

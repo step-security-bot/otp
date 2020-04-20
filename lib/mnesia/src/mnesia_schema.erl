@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1271,7 +1271,7 @@ verify_nodes(Cs) ->
     lists:foreach(AtomCheck, Nodes).
 
 verify(Expected, Fun, Error) when is_function(Fun) ->
-    do_verify(Expected, catch Fun(), Error);
+    do_verify(Expected, ?CATCH(Fun()), Error);
 verify(Expected, Actual, Error) ->
     do_verify(Expected, Actual, Error).
 

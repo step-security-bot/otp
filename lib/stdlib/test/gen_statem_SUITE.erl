@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +69,8 @@ tcs(sys) ->
      error_format_status, terminate_crash_format,
      get_state, replace_state];
 tcs(undef_callbacks) ->
-    [undef_code_change, undef_terminate1, undef_terminate2];
+    [undef_code_change, undef_terminate1, undef_terminate2,
+     pop_too_many];
 tcs(format_log) ->
     [format_log_1, format_log_2].
 
@@ -86,9 +87,7 @@ init_per_group(GroupName, Config)
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
 init_per_group(undef_callbacks, Config) ->
-    DataDir = ?config(data_dir, Config),
-    StatemPath = filename:join(DataDir, "oc_statem.erl"),
-    {ok, oc_statem} = compile:file(StatemPath),
+    compile_oc_statem(Config),
     Config;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -101,6 +100,9 @@ init_per_testcase(_CaseName, Config) ->
 %%%    dbg:tracer(),
 %%%    dbg:p(all, c),
 %%%    dbg:tpl(gen_statem, cx),
+%%%    dbg:tpl(gen_statem, loop_receive, cx),
+%%%    dbg:tpl(gen_statem, loop_state_callback, cx),
+%%%    dbg:tpl(gen_statem, loop_callback_mode_result, cx),
 %%%    dbg:tpl(proc_lib, cx),
 %%%    dbg:tpl(gen, cx),
 %%%    dbg:tpl(sys, cx),
@@ -109,6 +111,12 @@ init_per_testcase(_CaseName, Config) ->
 end_per_testcase(_CaseName, Config) ->
 %%%    dbg:stop(),
     Config.
+
+compile_oc_statem(Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "oc_statem.erl"),
+    {ok, oc_statem} = compile:file(StatemPath),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(EXPECT_FAILURE(Code, Reason),
@@ -135,8 +143,18 @@ start1(Config) ->
 %%	?EXPECT_FAILURE(gen_statem:call(Pid0, hej), Reason),
 
     %%process_flag(trap_exit, OldFl),
-    ok = verify_empty_msgq().
+    ok = verify_empty_msgq(),
 
+    {ok,{Pid1,Mon1}} = gen_statem:start_monitor(?MODULE, start_arg(Config, []), []),
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    stop_it(Pid1),
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+    ok = verify_empty_msgq().
+    
 %% anonymous w. shutdown
 start2(Config) ->
     %% Dont link when shutdown
@@ -192,7 +210,7 @@ start6(Config) ->
 
     ok = verify_empty_msgq().
 
-%% global register linked
+%% global register linked & monitored
 start7(Config) ->
     STM = {global,my_stm},
 
@@ -202,12 +220,36 @@ start7(Config) ->
 	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
     {error,{already_started,Pid}} =
 	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
     ok = do_func_test(STM),
     ok = do_sync_func_test(STM),
     stop_it(STM),
+
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(STM),
+    ok = do_sync_func_test(STM),
+    stop_it(STM),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
 
     ok = verify_empty_msgq().
 
@@ -232,7 +274,7 @@ start8(Config) ->
     %%process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
 
-%% local register linked
+%% local register linked & monitored
 start9(Config) ->
     %%OldFl = process_flag(trap_exit, true),
     Name = my_stm,
@@ -250,6 +292,24 @@ start9(Config) ->
     stop_it(Pid),
 
     %%process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(Name),
+    ok = do_sync_func_test(Name),
+    stop_it(Pid1),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+
     ok = verify_empty_msgq().
 
 %% global register
@@ -1725,7 +1785,7 @@ enter_loop(Reg1, Reg2, Opts) ->
     end.
 
 undef_code_change(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug, [trace]}]),
     {error, {'EXIT',
              {undef, [{oc_statem, code_change, [_, _, _, _], _}|_]}}}
         = fake_upgrade(Statem, oc_statem).
@@ -1738,7 +1798,7 @@ fake_upgrade(Pid, Mod) ->
     Ret.
 
 undef_terminate1(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem),
     verify_down(Statem, MRef, normal),
@@ -1746,7 +1806,7 @@ undef_terminate1(_Config) ->
 
 undef_terminate2(_Config) ->
     Reason = {error, test},
-    {ok, Statem} = oc_statem:start(),
+    {ok, Statem} = oc_statem:start([{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem, Reason, infinity),
     verify_down(Statem, MRef, Reason).
@@ -1771,6 +1831,54 @@ verify_down(Statem, MRef, Reason) ->
     after 5000 ->
         ct:fail(default_terminate_failed)
     end.
+
+
+pop_too_many(_Config) ->
+    _ = process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,undefined}
+	      end,
+	  start =>
+	      fun ({call, From}, {change_callback_module, _Module} = Action,
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [Action,
+                        {reply,From,ok}]};
+                  ({call, From}, {verify, ?MODULE},
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [{reply,From,ok}]};
+                  ({call, From}, pop_callback_module = Action,
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [Action,
+                        {reply,From,ok}]}
+	      end},
+    {ok, STM} =
+	gen_statem:start_link(
+          ?MODULE,
+          {map_statem, Machine, []},
+          [{debug, [trace]}]),
+
+    ok = gen_statem:call(STM, {change_callback_module, oc_statem}),
+    ok = gen_statem:call(STM, {push_callback_module, ?MODULE}),
+    ok = gen_statem:call(STM, {verify, ?MODULE}),
+    ok = gen_statem:call(STM, pop_callback_module),
+    BadAction = {bad_action_from_state_function, pop_callback_module},
+    {{BadAction, _},
+     {gen_statem,call,[STM,pop_callback_module,infinity]}} =
+        ?EXPECT_FAILURE(gen_statem:call(STM, pop_callback_module), Reason),
+
+    receive
+        {'EXIT', STM, {BadAction, _}} ->
+            ok;
+        Other ->
+            ct:fail({surprise, Other})
+    end.
+
 
 %% Test the order for multiple {next_event,T,C}
 next_events(Config) ->
@@ -1798,9 +1906,10 @@ format_log_1(_Config) ->
     FExpected1 = "** State machine ~tp terminating~n"
         "** When server state  = ~tp~n"
         "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
         "** Callback mode = ~tp~n",
     FExpected1 = F1,
-    [Name,Term,error,Reason,state_functions] = A1,
+    [Name,Term,error,Reason,[?MODULE],state_functions] = A1,
 
     {F3,A3} = gen_statem:format_log(Report2),
     ct:log("F3: ~ts~nA3: ~tp",[F3,A3]),
@@ -1808,6 +1917,7 @@ format_log_1(_Config) ->
         "** Last event = ~tp~n"
         "** When server state  = ~tp~n"
         "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
         "** Callback mode = ~tp~n"
         "** Queued = ~tp~n"
         "** Postponed = ~tp~n"
@@ -1818,7 +1928,7 @@ format_log_1(_Config) ->
         "** ~tp~n",
     FExpected3 = F3,
     Stacktrace = stacktrace(),
-    [Name,Term,Term,error,Reason,[state_functions,state_enter],[Term],
+    [Name,Term,Term,error,Reason,[?MODULE],[state_functions,state_enter],[Term],
      [{internal,Term}],Stacktrace,{1,[{timeout,message}]},[Term],Name,[]] = A3,
 
     Depth = 10,
@@ -1829,10 +1939,11 @@ format_log_1(_Config) ->
     FExpected2 = "** State machine ~tP terminating~n"
         "** When server state  = ~tP~n"
         "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
         "** Callback mode = ~tP~n",
     FExpected2 = F2,
-    [Name,Depth,Limited,Depth,error,Depth,Reason,
-     Depth,state_functions,Depth] = A2,
+    [Name,Depth,Limited,Depth,error,Depth,Reason,Depth,
+     [?MODULE],Depth,state_functions,Depth] = A2,
 
     {F4,A4} = gen_statem:format_log(Report2),
     ct:log("F4: ~ts~nA4: ~tp",[F4,A4]),
@@ -1840,6 +1951,7 @@ format_log_1(_Config) ->
         "** Last event = ~tP~n"
         "** When server state  = ~tP~n"
         "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
         "** Callback mode = ~tP~n"
         "** Queued = ~tP~n"
         "** Postponed = ~tP~n"
@@ -1853,7 +1965,7 @@ format_log_1(_Config) ->
     LimitedStacktrace = io_lib:limit_term(Stacktrace, Depth),
     LimitedQueue = io_lib:limit_term([Term], Depth),
     [Name,Depth,Limited,Depth,Limited,Depth,error,Depth,Reason,Depth,
-     [state_functions,state_enter],Depth,LimitedQueue,Depth,
+     [?MODULE],Depth,[state_functions,state_enter],Depth,LimitedQueue,Depth,
      LimitedPostponed,Depth,LimitedStacktrace,Depth,{1,[{timeout,message}]},
      Depth,[Limited],Depth,Name,Depth,[],Depth] = A4,
 
@@ -1888,6 +2000,7 @@ format_log_2_simple() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = state_functions\n",
     ct:log("Str1: ~ts", [Str1]),
     ct:log("length(Str1): ~p", [L1]),
@@ -1901,6 +2014,7 @@ format_log_2_simple() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = state_functions\n",
     ct:log("Str2: ~ts", [Str2]),
     ct:log("length(Str2): ~p", [L2]),
@@ -1981,6 +2095,7 @@ format_log_2_elaborate() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = [state_functions,state_enter]\n"
         "** Queued = [[1,2,3,4,5,6,7,8|...]]\n"
         "** Postponed = [{internal,[1,2,3,4,5,6|...]}]\n"
@@ -2056,6 +2171,7 @@ simple_report(Name, Term, Reason) ->
       name=>Name,
       queue=>[],
       postponed=>[],
+      modules=>[?MODULE],
       callback_mode=>state_functions,
       state_enter=>false,
       state=>Term,
@@ -2069,6 +2185,7 @@ elaborate_report(Name, Term, Reason) ->
       name=>Name,
       queue=>[Term,Term],
       postponed=>[{internal,Term}],
+      modules=>[?MODULE],
       callback_mode=>state_functions,
       state_enter=>true,
       state=>Term,
@@ -2118,7 +2235,17 @@ do_func_test(STM) ->
     wfor(yes),
     ok = do_disconnect(STM),
     ok = gen_statem:cast(STM, {'alive?',self()}),
+    P0 = gen_statem:send_request(STM, 'alive?'),
+    timeout = gen_statem:wait_response(P0, 0),
     wfor(yes),
+    {reply, yes} = gen_statem:wait_response(P0, infinity),
+    _ = flush(),
+    P1 = gen_statem:send_request(STM, 'alive?'),
+    receive Msg ->
+            no_reply = gen_statem:check_response(Msg, P0),
+            {reply, yes} = gen_statem:check_response(Msg, P1)
+    after 1000 -> exit(timeout)
+    end,
     ok.
 
 

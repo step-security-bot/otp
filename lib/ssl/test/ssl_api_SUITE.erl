@@ -37,7 +37,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -51,7 +50,6 @@ groups() ->
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'sslv3', [],  (gen_api_tests() -- [new_options_in_handshake]) ++ beast_mitigation_test() ++ pre_1_3()},
      {'dtlsv1.2', [], (gen_api_tests() --
                            [invalid_keyfile, invalid_certfile, invalid_cacertfile,
                             invalid_options, new_options_in_handshake])  ++
@@ -136,7 +134,13 @@ tls13_group() ->
     [
      supported_groups,
      honor_server_cipher_order_tls13,
-     honor_client_cipher_order_tls13
+     honor_client_cipher_order_tls13,
+     client_options_negative_version_gap,
+     client_options_negative_dependency_version,
+     client_options_negative_dependency_stateless,
+     client_options_negative_dependency_role,
+     server_options_negative_version_gap,
+     server_options_negative_dependency_role
     ].
 
 
@@ -155,29 +159,17 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    [{client_type, erlang},
-                     {server_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
+init_per_group(GroupName, Config0) ->
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            [{client_type, erlang},
+             {server_type, erlang}|Config]
     end.
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(prf, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -196,6 +188,15 @@ init_per_testcase(prf, Config) ->
          {md5sha, <<63,136,3,217,205,123,200,177,251,211,17,229,132,4,173,80>>}],
     TestPlan = prf_create_plan([Version], PRFS, ExpectedPrfResults),
     [{prf_test_plan, TestPlan} | Config];
+init_per_testcase(handshake_continue_tls13_client, Config) ->
+    case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
+        true ->
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 10}),
+            Config;
+        false ->
+            {skip, "Missing crypto support: TLS 1.3 not supported"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
@@ -518,12 +519,13 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                         {from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                         {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                            {session_tickets, enabled},
+                                                                            {session_tickets, manual},
                                                                             {use_ticket, [DummyTicket]},
                                                                             {versions, ['tlsv1.3',
                                                                                         'tlsv1.2',
                                                                                         'tlsv1.1',
-                                                                                        'tlsv1']},
+                                                                                        'tlsv1'
+                                                                                       ]},
                                                                             {verify, verify_peer} | ClientOpts
                                                                            ],
                                                                            Config)},
@@ -1748,6 +1750,60 @@ honor_client_cipher_order_tls13(Config) when is_list(Config) ->
                                                                       prf => sha384}).
 
 %%--------------------------------------------------------------------
+client_options_negative_version_gap() ->
+    [{doc,"Test client options with faulty version gap."}].
+client_options_negative_version_gap(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1', 'tlsv1.3']}],
+                          {options, missing_version, 
+                           {'tlsv1.2', {versions,[tlsv1, 'tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_version() ->
+    [{doc,"Test client options with faulty version dependency."}].
+client_options_negative_dependency_version(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.1', 'tlsv1.2']},
+                                   {session_tickets, manual}],
+                          {options,dependency,
+                           {session_tickets,{versions,['tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_stateless() ->
+    [{doc,"Test client options with faulty 'session_tickets' option."}].
+client_options_negative_dependency_stateless(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {anti_replay, '10k'},
+                                   {session_tickets, manual}],
+                          {options,dependency,
+                           {anti_replay,{session_tickets,[stateless]}}}).
+
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_role() ->
+    [{doc,"Test client options with faulty role."}].
+client_options_negative_dependency_role(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateless}],
+                          {options,role,
+                           {session_tickets,{stateless,{client,[disabled,manual,auto]}}}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_version_gap() ->
+    [{doc,"Test server options with faulty version gap."}].
+server_options_negative_version_gap(Config) when is_list(Config) ->
+    start_server_negative(Config, [{versions, ['tlsv1', 'tlsv1.3']}],
+                          {options, missing_version,
+                           {'tlsv1.2', {versions,[tlsv1, 'tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_dependency_role() ->
+    [{doc,"Test server options with faulty role."}].
+server_options_negative_dependency_role(Config) when is_list(Config) ->
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, manual}],
+                          {options,role,
+                           {session_tickets,{manual,{server,[disabled,stateful,stateless]}}}}).
+
+%%--------------------------------------------------------------------
 honor_server_cipher_order_tls13() ->
     [{doc,"Test API honor server cipher order in TLS 1.3."}].
 honor_server_cipher_order_tls13(Config) when is_list(Config) ->
@@ -1773,7 +1829,7 @@ honor_server_cipher_order_tls13(Config) when is_list(Config) ->
                                                                      prf => sha256}).
 %%--------------------------------------------------------------------
 getstat() ->
-    [{doc, "Test that you use ssl:getstat on an TLS socket"}].
+    [{doc, "Test that you use ssl:getstat on a TLS socket"}].
 
 getstat(Config) when is_list(Config) ->    
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
@@ -2109,6 +2165,28 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+start_client_negative(Config, Options, Error) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, 0},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, Options ++ ClientOpts}]),
+    ct:pal("Actual: ~p~nExpected: ~p", [Client, {connect_failed, Error}]),
+    {connect_failed, Error} = Client.
+
+start_server_negative(Config, Options, Error) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options,  Options ++ ServerOpts}]),
+
+    ct:pal("Actual: ~p~nExpected: ~p", [Server,Error]),
+    Error = Server.
 
 connection_info_result(Socket) ->
     {ok, Info} = ssl:connection_information(Socket, [protocol, selected_cipher_suite]),

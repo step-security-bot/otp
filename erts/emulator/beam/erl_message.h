@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -339,6 +339,14 @@ typedef struct erl_trace_message_queue__ {
         if ((P)->sig_qs.saved_last) {                                   \
             if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
                 (P)->sig_qs.flags |= FS_DEFERRED_SAVE;                  \
+                /*                                                      \
+                 * Trigger handling of signals in loop_rec by           \
+                 * setting save pointer to the end of message queue     \
+                 * (inner queue). This in order to resolv saved_last    \
+                 * which currently may point into inner or middle       \
+                 * queue.                                               \
+                 */                                                     \
+                (P)->sig_qs.save = (P)->sig_qs.last;                    \
             }                                                           \
             else {                                                      \
                 /* Points to inner queue; safe to use */                \

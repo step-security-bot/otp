@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,7 +143,19 @@ lfo_optimize_is([], _LFuns, _Trampolines) ->
     [].
 
 lfo_short_circuit(Call, Trampolines) ->
-    case maps:find(Call, Trampolines) of
-        {ok, Other} -> lfo_short_circuit(Other, Trampolines);
-        error -> Call
+    lfo_short_circuit(Call, Trampolines, cerl_sets:new()).
+
+lfo_short_circuit(Call, Trampolines, Seen0) ->
+    %% Beware of infinite loops! Get out if this call has been seen before.
+    case cerl_sets:is_element(Call, Seen0) of
+        true ->
+            Call;
+        false ->
+            case Trampolines of
+                #{Call := Other} ->
+                    Seen = cerl_sets:add_element(Call, Seen0),
+                    lfo_short_circuit(Other, Trampolines, Seen);
+                #{} ->
+                    Call
+            end
     end.

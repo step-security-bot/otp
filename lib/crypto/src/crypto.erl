@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 
 -export([start/0, stop/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
+-export([equal_const_time/2]).
 -export([cipher_info/1, hash_info/1]).
 -export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([sign/4, sign/5, verify/5, verify/6]).
@@ -44,39 +45,163 @@
 -export([rand_seed/1]).
 
 %%%----------------------------------------------------------------
-%% Old interface. Now implemented with the New interface
+%% Removed functions.
+%%
+-removed([{rand_bytes,1,"use crypto:strong_rand_bytes/1 instead"}]).
 
--deprecated([{next_iv, 2, next_major_release},
-             {next_iv, 3, next_major_release}
-           ]).
+-removed([{md4,1,"use crypto:hash/2 instead"}]).
+-removed([{md5,1,"use crypto:hash/2 instead"}]).
+-removed([{sha,1,"use crypto:hash/2 instead"}]).
+
+-removed([{md4_init,0,"use crypto:hash_init/1 instead"}]).
+-removed([{md5_init,0,"use crypto:hash_init/1 instead"}]).
+-removed([{sha_init,0,"use crypto:hash_init/1 instead"}]).
+
+-removed([{md4_update,2,"use crypto:hash_update/2 instead"}]).
+-removed([{md5_update,2,"use crypto:hash_update/2 instead"}]).
+-removed([{sha_update,2,"use crypto:hash_update/2 instead"}]).
+
+-removed([{md4_final,1,"use crypto:hash_final/1 instead"}]).
+-removed([{md5_final,1,"use crypto:hash_final/1 instead"}]).
+-removed([{sha_final,1,"use crypto:hash_final/1 instead"}]).
+
+-removed([{md5_mac,2,"use crypto:hmac/3 instead"}]).
+-removed([{md5_mac_96,2,"use crypto:hmac/4 instead"}]).
+
+-removed([{sha_mac,2,"use crypto:hmac/3 instead"}]).
+-removed([{sha_mac,3,"use crypto:hmac/4 instead"}]).
+-removed([{sha_mac_96,2,"use crypto:hmac/4 instead"}]).
+
+-removed([{rsa_sign,'_',"use crypto:sign/4 instead"}]).
+-removed([{rsa_verify,'_',"use crypto:verify/5 instead"}]).
+
+-removed([{dss_sign,'_',"use crypto:sign/4 instead"}]).
+-removed([{dss_verify,'_',"use crypto:verify/5 instead"}]).
+
+-removed([{mod_exp,3,"use crypto:mod_pow/3 instead"}]).
+
+-removed([{dh_compute_key,3,"use crypto:compute_key/4 instead"}]).
+-removed([{dh_generate_key,1,"use crypto:generate_key/2 instead"}]).
+-removed([{dh_generate_key,2,"use crypto:generate_key/3 instead"}]).
+
+%% DES
+
+-removed([{des_cfb_ivec,2,"use crypto:next_iv/3 instead"}]).
+-removed([{des_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+
+-removed([{des_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
+-removed([{des_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des_ede3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des_cfb_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{des_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
+-removed([{des_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des_cfb_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% Triple-DES
+
+-removed([{des3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des3_cfb_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{des3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_cfb_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_ede3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+
+%% Blowfish
+
+-removed([{blowfish_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
+-removed([{blowfish_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_cfb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_ofb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{blowfish_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
+-removed([{blowfish_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_cfb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_ofb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% AES
+
+-removed([{aes_cfb_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_256_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{aes_cfb_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_256_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+-removed([{aes_ctr_stream_init,2,"use crypto:stream_init/3 instead"}]).
+-removed([{aes_ctr_stream_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_encrypt,3,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_stream_decrypt,2,"use crypto:stream_decrypt/2 instead"}]).
+-removed([{aes_ctr_decrypt,3,"use crypto:stream_decrypt/2 instead"}]).
+
+-removed([{aes_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+
+%% RC2
+
+-removed([{rc2_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{rc2_40_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{rc2_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{rc2_40_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% RC4
+
+-removed([{rc4_set_key,2,"use crypto:stream_init/2 instead"}]).
+-removed([{rc4_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{rc4_encrypt_with_state,2,"use crypto:stream_encrypt/2 instead"}]).
+
+%% Other
+
+-removed([{info,0,"use crypto:module_info/0 instead"}]).
+
+-removed([{strong_rand_mpint,3,"only needed by other removed functions"}]).
+-removed([{erlint,1,"only needed by other removed functions"}]).
+-removed([{mpint,1,"only needed by other removed functions"}]).
+
+%%%----------------------------------------------------------------
+%% Old interface. Now implemented with the New interface.
+%% Remove in OTP-24.0 See OTP-16232
+
+-deprecated([{next_iv, '_',
+              "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
 -export([next_iv/2, next_iv/3]).
 
--deprecated([{hmac, 3, next_major_release},
-             {hmac, 4, next_major_release},
-             {hmac_init, 2, next_major_release},
-             {hmac_update, 2, next_major_release},
-             {hmac_final, 1, next_major_release},
-             {hmac_final_n, 2, next_major_release}
-            ]).
+-deprecated([{hmac, 3, "use crypto:mac/4 instead"},
+             {hmac, 4, "use crypto:macN/5 instead"},
+             {hmac_init, 2, "use crypto:mac_init/3 instead"},
+             {hmac_update, 2, "use crypto:mac_update/2 instead"},
+             {hmac_final, 1, "use crypto:mac_final/1 instead"},
+             {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"}]).
+
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 
--deprecated([{cmac, 3, next_major_release},
-             {cmac, 4, next_major_release}
-            ]).
+-deprecated([{cmac, 3, "use crypto:mac/4 instead"},
+             {cmac, 4, "use crypto:macN/5 instead"}]).
 -export([cmac/3, cmac/4]).
 
--deprecated([{poly1305, 2, next_major_release}
-            ]).
+-deprecated([{poly1305, 2, "use crypto:mac/3 instead"}]).
 -export([poly1305/2]).
 
--deprecated([{stream_init, 2, next_major_release},
-             {stream_init, 3, next_major_release},
-             {stream_encrypt, 2, next_major_release},
-             {stream_decrypt, 2, next_major_release},
-             {block_encrypt, 3, next_major_release},
-             {block_encrypt, 4, next_major_release},
-             {block_decrypt, 3, next_major_release},
-             {block_decrypt, 4, next_major_release}
+-deprecated([{stream_init, '_',
+              "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
+              "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
+             {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
+             {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
+             {block_encrypt, 3,
+              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+             {block_encrypt, 4, 
+              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+              "or crypto:crypto_(dyn_iv)?_init + "
+              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
+             {block_decrypt, 3,
+              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+             {block_decrypt, 4,
+              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+              "or crypto:crypto_(dyn_iv)?_init + "
+              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
             ]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
@@ -84,6 +209,11 @@
          block_encrypt/3, block_encrypt/4,
          block_decrypt/3, block_decrypt/4
         ]).
+-deprecated_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
+                  {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
+                  {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
+                  {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
+                 ]).
 
 %%%----------------------------------------------------------------
 %% New interface
@@ -96,6 +226,7 @@
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
          crypto_final/1,
+         crypto_get_data/1,
 
          supports/1,
          mac/3, mac/4, macN/4, macN/5,
@@ -155,7 +286,7 @@
 	 get_test_engine/0]).
 -export([rand_plugin_aes_jump_2pow20/1]).
 
--deprecated({rand_uniform, 2, next_major_release}).
+-deprecated({rand_uniform, 2, "use rand:rand_uniform/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
@@ -515,7 +646,13 @@ version() -> ?CRYPTO_VSN.
 
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
-    application:start(crypto).
+    case application:start(crypto) of
+        ok ->
+            _ = supports(curves), % Build curves cache if needed
+            ok;
+        Error ->
+            Error
+    end.
 
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
@@ -530,17 +667,18 @@ stop() ->
                                       | {rsa_opts, RSAopts},
                              Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
-     [{hashs, hash_algorithms()},
-      {ciphers, prepend_old_aliases( cipher_algorithms())},
-      {public_keys, pubkey_algorithms()},
-      {macs, mac_algorithms()},
-      {curves, curve_algorithms()},
-      {rsa_opts, rsa_opts_algorithms()}
+     [{hashs,       supports(hashs)},
+      {ciphers,     prepend_old_aliases(supports(ciphers))}
+      | [{T,supports(T)} || T <- [public_keys,
+                                  macs,
+                                  curves,
+                                  rsa_opts]
+        ]
      ].
 
 
@@ -559,16 +697,18 @@ supports() ->
                                       | RSAopts,
                              Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+
+-define(CURVES, '$curves$').
 
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> cipher_algorithms();
 supports(macs)        -> mac_algorithms();
-supports(curves)      -> curve_algorithms();
+supports(curves)      -> cached_curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
 
 
@@ -583,7 +723,79 @@ info_fips() -> ?nif_stub.
 
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
-enable_fips_mode(_) -> ?nif_stub.
+enable_fips_mode(Enable) ->
+    OldState = info_fips(),
+    Result = enable_fips_mode_nif(Enable),
+    case info_fips() of
+        OldState ->
+            %% No state change, so no need to touch the curve's cache
+            Result;
+        NewState ->
+            %% State change (not_enabled -> enabled  or  enabled -> not_enabled)
+            NewCurves =
+                case application:get_env(?MODULE, var_name(NewState)) of
+                    {ok,Cs} when is_list(Cs) ->
+                        %% We have been in this state before, and saved the
+                        %% list for that state.
+                        Cs;
+                    _ ->
+                        %% We have not been in this state before. Rebuild and save.
+                        %% But first maintain the local enable_fips_mode_nif cache:
+                        case application:get_env(?MODULE, var_name(OldState)) of
+                            undefined ->
+                                %% Make the next state change fast:
+                                OldCs = application:get_env(?MODULE,?CURVES), 
+                                application:set_env(?MODULE, var_name(OldState), OldCs);
+                            _ ->
+                                ok
+                        end,
+                        %% Now rebuild the list by hard work:
+                        application:unset_env(?MODULE, ?CURVES), % This will force a re-build
+                        %% Re-build curves cache. Not strictly needed here.
+                        Cs = supports(curves),
+                        %% We came here because var(NewState) wasn't set, so make the
+                        %% next state change fast:
+                        application:set_env(?MODULE, var_name(NewState), Cs),
+                        Cs
+                end,
+            application:set_env(?MODULE, ?CURVES, NewCurves), % So the call to supports(curves) will be fast
+            Result
+    end.
+
+var_name(enabled) -> '$curves-fips-enabled$';
+var_name(not_enabled) -> '$curves-fips-not_enabled$'.
+
+
+enable_fips_mode_nif(_) -> ?nif_stub.
+
+%%%================================================================
+%%%
+%%% Compare in constant time
+%%%
+%%%================================================================
+
+%%% Candidate for a NIF
+
+equal_const_time(X1, X2) ->
+    equal_const_time(X1, X2, true).
+
+
+equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
+    equal_const_time(R1, R2, Truth and (B1 == B2));
+equal_const_time(<<_,R1/binary>>, <<>>, Truth) ->
+    equal_const_time(R1, <<>>, Truth and false);
+equal_const_time(<<>>, <<>>, Truth) ->
+    Truth;
+
+equal_const_time([H1|T1], [H2|T2], Truth) ->
+    equal_const_time(T1, T2, Truth and (H1 == H2));
+equal_const_time([_|T1], [], Truth) ->
+    equal_const_time(T1, [], Truth and false);
+equal_const_time([], [], Truth) ->
+    Truth;
+
+equal_const_time(_, _, _) ->
+    false.
 
 %%%================================================================
 %%%
@@ -1183,10 +1395,19 @@ crypto_dyn_iv_update(State, Data, IV) ->
 
 -spec crypto_final(State) -> FinalResult | descriptive_error()
                             when State :: crypto_state(),
-                                 FinalResult :: binary() | {PadSize, binary()},
-                                 PadSize :: non_neg_integer() .
+                                 FinalResult :: binary() .
 crypto_final(State) ->
     ng_crypto_final_nif(State).
+
+%%%----------------------------------------------------------------
+%%%
+%%% Get result of padding etc
+
+-spec crypto_get_data(State) -> Result
+                            when State :: crypto_state(),
+                                 Result :: map() .
+crypto_get_data(State) ->
+    ng_crypto_get_data_nif(State).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1286,6 +1507,7 @@ ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 ng_crypto_final_nif(_State) -> ?nif_stub.
 
+ng_crypto_get_data_nif(_State) -> ?nif_stub.
 
 ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
                                                    padding := Padding}) ->
@@ -1836,7 +2058,7 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddsa | rsa | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params()
@@ -1846,7 +2068,7 @@ generate_key(Type, Params) ->
 
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddsa | rsa | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
@@ -1888,8 +2110,12 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
             {lists:sublist(Private, 2), Private}
     end;
 
+generate_key(eddh, Curve, PrivKey) when Curve == x448 ;
+                                        Curve == x25519 ->
+    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
 generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
                                         Curve == x25519 ->
+    %% This was here before the eddh was added as an own Type
     evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
 generate_key(ecdh, Curve, PrivKey) ->
     ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
@@ -1903,7 +2129,7 @@ evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
 -spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
                  -> SharedSecret
-                        when Type :: dh | ecdh | srp,
+                        when Type :: dh | ecdh | eddh |  srp,
                              SharedSecret :: binary(),
                              OthersPublicKey :: dh_public() | ecdh_public() | srp_public(),
                              MyPrivateKey :: dh_private() | ecdh_private() | {srp_public(),srp_private()},
@@ -1950,6 +2176,10 @@ compute_key(srp, UserPublic, {HostPublic, HostPrivate},
                           UserPubBin, Prime));
 
 compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
+                                          Curve == x25519 ->
+    evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
+
+compute_key(eddh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->
     evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
 
@@ -2353,7 +2583,7 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
@@ -2598,6 +2828,26 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
     exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
 
 do_exor(_A, _B) -> ?nif_stub.
+
+cached_curve_algorithms() ->
+    case application:get_env(?MODULE, ?CURVES) of
+        undefined ->
+            Cs = remove_unavailable_curves(curve_algorithms()),
+            application:set_env(?MODULE, ?CURVES, Cs),
+            Cs;
+        {ok,Cs} ->
+            Cs
+    end.
+
+remove_unavailable_curves(Cs) ->
+    [C || C <- Cs,
+          lists:member(C,[ed25519,ed448,x25519,x448])
+              orelse try
+                         crypto:generate_key(ecdh,C)
+                     of _-> true
+                     catch _:_-> false
+                     end
+    ].
 
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.

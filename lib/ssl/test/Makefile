@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2018. All Rights Reserved.
+# Copyright Ericsson AB 1999-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,6 +66,8 @@ MODULES = \
 	ssl_dist_bench_SUITE \
 	ssl_engine_SUITE\
 	ssl_handshake_SUITE \
+	ssl_key_update_SUITE \
+	openssl_key_update_SUITE \
 	ssl_npn_hello_SUITE \
 	ssl_packet_SUITE \
 	ssl_payload_SUITE \
@@ -73,6 +75,7 @@ MODULES = \
 	ssl_session_SUITE \
 	ssl_session_cache_SUITE	\
 	ssl_session_ticket_SUITE \
+	openssl_session_ticket_SUITE \
 	openssl_session_SUITE \
 	ssl_ECC_SUITE \
 	ssl_ECC_openssl_SUITE \

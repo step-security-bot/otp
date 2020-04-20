@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,42 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Tools application.</p>
+
+<section><title>Tools 3.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An Emacs warning due to lacking type in defcustom
+	    declaration has been fixed.</p>
+          <p>
+	    Own Id: OTP-16356</p>
+        </item>
+        <item>
+          <p>
+	    Improve emacs indentation.</p>
+          <p>
+	    Own Id: OTP-16472 Aux Id: ERL-1140 </p>
+        </item>
+        <item>
+	    <p>The cover tool could generate instrumented code for a
+	    module that would cause warnings to be issued.</p>
+          <p>
+	    Own Id: OTP-16476 Aux Id: ERL-1147 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed generated <seeerl
+	    marker="tools:fprof#analysis">fprof analysis
+	    format</seeerl> to also handle data in maps.</p>
+          <p>
+	    Own Id: OTP-16498 Aux Id: ERL-814 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Tools 3.3</title>
 
@@ -684,10 +720,10 @@
 	    Earlier, supervisor flags and child specs were given as
 	    tuples. While this is kept for backwards compatibility,
 	    it is now also allowed to give these parameters as maps,
-	    see <seealso
-	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
-	    and <seealso
-	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+	    see <seeerl
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seeerl>
+	    and <seeerl
+	    marker="stdlib:supervisor#child_spec">child_spec</seeerl>.</p>
           <p>
 	    Own Id: OTP-11043</p>
         </item>

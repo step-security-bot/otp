@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1361,7 +1361,11 @@ start_tracer(Node) ->
                              Me ! Ref,
                              simple_tracer([], 0)
                      end),
-    receive Ref -> Pid end.
+    receive
+        Ref ->
+            unlink(Pid),
+            Pid
+    end.
            
 
 set_token_flags([]) ->

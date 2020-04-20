@@ -70,23 +70,9 @@ usage ()
     echo "    env_win64 - echo environment settings for win32 with visual C++, use with eval"
     echo "                Note that env_win32 x64 gives the same result, Windows 64bit"
     echo ""
-    echo "Before trying to build for vxworks, consider the following option"
-    echo "    env_vxworks <cpu>  - echo environment settings for vxworks, use with eval"
-    echo ""
-    case $version_controller in
-	none)
-	    ;;
-	git)
-	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
-	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
-	    ;;
-    esac
-}
-
-git_required ()
-{
-    echo "This operation must be run in a git repository."
-    exit 1
+    echo "update_primary [--no-commit]      - build and maybe commit a new primary bootstrap"
+    echo "update_preloaded [--no-commit]    - build and maybe commit the preloaded modules"
+    echo "update_deprecations [--no-commit] - build and maybe commit deprecations"
 }
 
 hide_vars ()
@@ -226,19 +212,6 @@ distribute_config_helpers ()
 do_autoconf ()		
 {
 	distribute_config_helpers
-
-	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
-	    echo "Autoconf disabled on target $TARGET, but is performed on host" >&2
-	    # We still use erts configure for erl_interface and VxWorks
-	    case "$TARGET" in
-		*vxworks*)
-		    AUTOCONF_SUBDIRS=`echo $AUTOCONF_SUBDIRS | \
-					sed -e 's,lib/erl_interface,,' \
-					    -e 's,lib/gs,,' \
-					    -e 's,lib/megaco,,'`
-		    ;;
-	    esac
-	fi
 	
 	hide_vars OVERRIDE_TARGET TARGET
 	TARGET=$BUILDSYS
@@ -447,33 +420,12 @@ do_configure ()
     # Get `erl_build_tool_vars'
     . "$ERL_TOP/erl-build-tool-vars.sh" || exit 1
 
-    if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
-	case $TARGET in
-	    vxworks_*)
-		( cd erts/autoconf && \
-		  "$ERL_TOP/erts/autoconf/configure.vxworks" $TARGET )
-		  echo "Configuring for build system too..." >&2
-		  hide_vars OVERRIDE_TARGET TARGET
-		  TARGET=$BUILDSYS
-		  export TARGET
-		  set_config_flags "$@"
-		  run_configure "$@"
-		  restore_vars OVERRIDE_TARGET TARGET;;
-	    *)
-		echo "Unexpected target when ordinary configure is" \
-			"overridden" >&2
-		echo 'check if $OVERRIDE_CONFIGURE and $OVERRIDE_TAGET' \
-		        'environments are correct.' >&2
-		exit 1;;
-	esac
-    else
-	maybe_copy_static_cache
-	try_cross_configure "$@"
-	if [ $cross_configure = no ]; then
-	    CONFIG_FLAGS=
-	    set_config_flags "$@"
-	    run_configure "$@"
-	fi
+    maybe_copy_static_cache
+    try_cross_configure "$@"
+    if [ $cross_configure = no ]; then
+	CONFIG_FLAGS=
+	set_config_flags "$@"
+	run_configure "$@"
     fi
 }
 
@@ -530,18 +482,6 @@ echo_envinfo ()
 	echo '# $ eval `./otp_build env_<something>`'
 	echo '# If you see this comment, you probably haven'"'"'t done that.'
     fi
-}
-
-echo_env_vxworks ()
-{
-    if [ -z "$1" ]; then 
-	echo "env_vxworks requires CPU architecture as parameter (ppc603, ppc860 etc)." >&2
-	exit 1
-    fi
-    echo_env_erltop
-    echo_setenv OVERRIDE_CONFIGURE true ';'
-    echo_setenv OVERRIDE_TARGET vxworks_$1
-    echo_envinfo
 }
 
 #
@@ -754,6 +694,83 @@ echo_env_msys ()
     echo_envinfo
 }
 
+echo_env_wsl ()
+{
+    X64=$1
+    #echo_envinfo
+    if [ X"$SHELL" = X"" ]; then
+	echo "You need to export the shell variable first," \
+		"for bourne-like shells, type:" >&2
+	echo 'export SHELL' >&2
+	echo "and for csh-like shells, type:" >&2
+	echo 'setenv SHELL $SHELL' >&2
+	echo " - then try again." >&2
+	exit 1
+    fi
+    echo_env_erltop
+
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/wsl_tools/vc:$ERL_TOP/erts/etc/win32/wsl_tools"
+
+    if [ ! -n "`lookup_prog_in_path cl`" ]; then
+        if [ X"$X64" = X"true" ]; then
+            setup_win32_cl_env "x64" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        else
+            setup_win32_cl_env "x86" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        fi
+    fi
+    echo_setenv OVERRIDE_TARGET win32 ';'
+    if [ X"$X64" = X"true" ]; then
+        echo_setenv CONFIG_SUBTYPE win64 ';'
+    fi
+    echo_setenv WSLcross true ';'
+    echo_setenv CC cc.sh ';'
+    echo_setenv CXX cc.sh ';'
+    echo_setenv AR ar.sh ';'
+    echo_setenv RANLIB true ';'
+    if [ X"$X64" = X"true" ]; then
+        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+    else
+        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+    fi
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$PATH" ';'
+    echo_envinfo
+}
+
+
+setup_win32_cl_env ()
+{
+    eval `cmd.exe /c $2 $1`
+    echo_setenv INCLUDE "$INCLUDE" ';'
+    echo_setenv LIB "$LIB" ';'
+    echo_setenv LIBPATH "$LIBPATH" ';'
+    echo_setenv VCToolsRedistDir "$VCToolsRedistDir" ';'
+    echo_setenv WSLENV "$WSLENV:WSLPATH/l:CLASSPATH/l" ';'
+
+    save_ifs=$IFS
+    IFS=:
+    WSLPATH=""
+    for p in $PATH; do
+	if [ -d "$p" ]; then
+	    case "$p" in
+		/mnt/c/*)
+		    WSLPATH=$WSLPATH:$p
+		    ;;
+		*)
+		    ;;
+	    esac
+	fi
+    done
+    IFS=$save_ifs
+    echo_setenv WSLPATH "$WSLPATH" ';'
+}
+
 lookup_prog_in_path ()
 {
     PROG=$1
@@ -795,13 +812,47 @@ setup_make ()
 
 get_do_commit ()
 {
-    if [ "x$1" = "x" ]; then
-	do_commit=true
-    elif [ "$1" = "--no-commit" ]; then
-	do_commit=false
+    case $version_controller in
+	git)
+	    if [ "x$1" = "x" ]; then
+		do_commit=true
+	    elif [ "$1" = "--no-commit" ]; then
+		do_commit=false
+	    else
+		echo "Unknown option '$1'" 1>&2
+		exit 1
+	    fi;;
+	none)
+	    do_commit=false;;
+    esac
+}
+  
+do_deprecations_git ()
+{
+    get_do_commit $1
+    setup_make
+
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        deprecations || exit 1;
+
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        primary_bootstrap || exit 1;
+
+    if [ $do_commit = true ]; then
+        git add -A bootstrap/lib/stdlib/ebin/otp_internal.beam
+        git add -A lib/stdlib/src/otp_internal.erl
+        git commit --no-verify -m 'Update deprecations'
+        echo ""
+        echo "Deprecations updated and committed."
+        echo ""
     else
-	echo "Unknown option '$1'" 1>&2
-	exit 1
+        echo ""
+        echo "Deprecations updated. Use the following commands to stage "
+        echo "changed files:"
+        echo ""
+        echo "$ git add bootstrap/lib/stdlib/ebin/otp_internal.beam"
+        echo "$ git add lib/stdlib/src/otp_internal.erl"
+        echo ""
     fi
 }
   
@@ -826,7 +877,10 @@ do_primary_git ()
 	echo "Primary bootstrap updated and commited."
     else
 	echo ""
-	echo "Primary bootstrap rebuilt. Use \"git add bootstrap/...\" to stage changed files."
+	echo "Primary bootstrap rebuilt."
+	if [ $version_controller = git ]; then
+	    echo "Use \"git add bootstrap/...\" to stage changed files."
+	fi
 	echo ""
     fi
 }
@@ -844,7 +898,10 @@ do_update_prel_git ()
 	echo "Preloaded updated and commited."
     else
 	echo ""
-	echo "Preloaded rebuilt. Use \"git add erts/preloaded/ebin/...\" to stage changed beam files."
+	echo "Preloaded rebuilt."
+	if [ $version_controller = git ]; then
+	    echo "Use \"git add erts/preloaded/ebin/...\" to stage changed beam files."
+	fi
 	echo ""
     fi
 }
@@ -1044,8 +1101,13 @@ case $TARGET in
 		'the command'
 	    exit 1
 	fi;;
-	*)
-	;;
+    *)
+        if [ -x /bin/wslpath -a X"$OVERRIDE_TARGET" = X"" \
+                -a X"$1" != X"env_win32" -a X"$1" != X"env_msys32" -a X"$1" != X"env_msys64" ]; then
+            echo "Building linux binary; if you intended to cross build for win32 use"  >&2
+            echo '   eval `./otp_build env_win32`\n' >&2
+        fi
+        ;;
 esac
 
 if [ ! -z "$OVERRIDE_TARGET" ]; then
@@ -1114,16 +1176,12 @@ case "$1" in
 		fi;
 		FLAVOR=$1
 		do_boot;;
+	update_deprecations)
+	        do_deprecations_git "$2";;
 	update_primary)
-		case $version_controller in
-		    git) do_primary_git "$2";;
-		    none) git_required ;;
-		esac ;;
+	        do_primary_git "$2";;
 	update_preloaded)
-		case $version_controller in
-		    git) do_update_prel_git "$2";;
-		    none) git_required ;;
-		esac ;;
+	        do_update_prel_git "$2";;
         primary)
 	        echo "Primary bootstrap is under version control since R13";
 		echo "Use update_primary if you really are";
@@ -1162,7 +1220,9 @@ case "$1" in
 	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
                     ISX64=true
 		fi
-		if [ -x /usr/bin/msys-?.0.dll ]; then
+                if [ -x /bin/wslpath ]; then
+                    echo_env_wsl $ISX64
+                elif [ -x /usr/bin/msys-?.0.dll ]; then
 		    echo_env_msys $ISX64
 		else
 		    echo_env_cygwin $ISX64
@@ -1170,7 +1230,9 @@ case "$1" in
 	env_mingw32)
 		echo_env_mingw32;;
 	env_win64)
-	        if [ -x /usr/bin/msys-?.0.dll ]; then
+                if [ -x /bin/wslpath ]; then
+                    echo_env_wsl true
+                elif [ -x /usr/bin/msys-?.0.dll ]; then
 		    echo_env_msys true
 		else
 		    echo_env_cygwin true
@@ -1179,8 +1241,6 @@ case "$1" in
 		echo_env_msys;;
 	env_msys64)
 		echo_env_msys true;;
-	env_vxworks)
-		echo_env_vxworks "$2";;
 	env_cross)
 		echo_env_cross "$2";;
         env_bootstrap)

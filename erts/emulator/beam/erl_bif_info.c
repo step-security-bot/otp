@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4116,7 +4116,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                     erts_aint32_t state;
 		    Eterm res;
 		    Process *p;
-                    int sigs_done, local_only;
+                    int sigs_done;
 
 		    p = erts_pid2proc(BIF_P,
 				      ERTS_PROC_LOCK_MAIN,
@@ -4127,15 +4127,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			BIF_RET(am_undefined);
 		    }
                     
-                    local_only = 0;
+                    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+                    erts_proc_sig_fetch(p);
+                    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
                                                                   &state,
                                                                   &reds,
                                                                   CONTEXT_REDS,
-                                                                  local_only);
-                        local_only = !0;
+                                                                  !0);
                     } while (!sigs_done && !(state & ERTS_PSFLG_EXITING));
 
                     if (!(state & ERTS_PSFLG_EXITING))
@@ -4181,7 +4182,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                     erts_aint32_t state;
 		    Process *p;
 		    Eterm res;
-                    int sigs_done, local_only;
+                    int sigs_done;
 
 		    p = erts_pid2proc(BIF_P,
 				      ERTS_PROC_LOCK_MAIN,
@@ -4192,15 +4193,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			BIF_RET(am_undefined);
 		    }
                     
-                    local_only = 0;
+                    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+                    erts_proc_sig_fetch(p);
+                    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
                     do {
                         int reds = CONTEXT_REDS;
                         sigs_done = erts_proc_sig_handle_incoming(p,
                                                                   &state,
                                                                   &reds,
                                                                   CONTEXT_REDS,
-                                                                  local_only);
-                        local_only = !0;
+                                                                  !0);
                     } while (!sigs_done && !(state & ERTS_PSFLG_EXITING));
 
                     if (!(state & ERTS_PSFLG_EXITING)) {
@@ -4284,9 +4286,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		}
 	    }
 	    else if (ERTS_IS_ATOM_STR("term_to_binary_tuple_fallbacks", tp[1])) {
-		Uint dflags = (TERM_TO_BINARY_DFLAGS
-                               & ~DFLAG_EXPORT_PTR_TAG
-                               & ~DFLAG_BIT_BINARIES);
+		Uint64 dflags = (TERM_TO_BINARY_DFLAGS
+                                 & ~DFLAG_EXPORT_PTR_TAG
+                                 & ~DFLAG_BIT_BINARIES);
 		Eterm res = erts_term_to_binary(BIF_P, tp[2], 0, dflags);
                 if (is_value(res))
                     BIF_RET(res);
@@ -4576,6 +4578,40 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    erts_set_gc_state(BIF_P, enable);
 	    BIF_RET(res);
 	}
+        else if (ERTS_IS_ATOM_STR("inconsistent_heap", BIF_ARG_1)) {
+            /* Used by code_SUITE (emulator) */
+            if (am_start == BIF_ARG_2) {
+                Eterm broken_term;
+                Eterm *hp;
+
+                ERTS_ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+                erts_set_gc_state(BIF_P, 0);
+
+                hp = HAlloc(BIF_P, 2);
+                hp[0] = make_arityval(1234);
+                hp[1] = THE_NON_VALUE;
+
+                broken_term = make_tuple(hp);
+
+                BIF_RET(broken_term);
+            } else {
+                Eterm broken_term;
+                Eterm *hp;
+
+                broken_term = BIF_ARG_2;
+
+                hp = tuple_val(broken_term);
+                ERTS_ASSERT(hp[0] == make_arityval(1234));
+                ERTS_ASSERT(hp[1] == THE_NON_VALUE);
+                hp[0] = make_arityval(1);
+                hp[1] = am_ok;
+
+                ERTS_ASSERT(BIF_P->flags & F_DISABLE_GC);
+                erts_set_gc_state(BIF_P, 1);
+
+                BIF_RET(am_ok);
+            }
+        }
         else if (ERTS_IS_ATOM_STR("colliding_names", BIF_ARG_1)) {
 	    /* Used by ets_SUITE (stdlib) */
 	    if (is_tuple(BIF_ARG_2)) {
@@ -4795,6 +4831,200 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
     }
 
     BIF_ERROR(BIF_P, BADARG);
+}
+
+Eterm
+erts_get_ethread_info(Process *c_p)
+{
+    Uint sz, *szp;
+    Eterm res, *hp, **hpp, *end_hp = NULL;
+
+    sz = 0;
+    szp = &sz;
+    hpp = NULL;
+
+    while (1) {
+	Eterm tup, list, name;
+#if defined(ETHR_NATIVE_ATOMIC32_IMPL)	  \
+    || defined(ETHR_NATIVE_ATOMIC64_IMPL)	\
+    || defined(ETHR_NATIVE_DW_ATOMIC_IMPL)
+	char buf[1024];
+	int i;
+	char **str;
+#endif
+
+	res = NIL;
+
+#ifdef ETHR_X86_MEMBAR_H__
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp, "sse2"),
+#ifdef ETHR_X86_RUNTIME_CONF_HAVE_SSE2__
+			     erts_bld_string(hpp, szp,
+					     (ETHR_X86_RUNTIME_CONF_HAVE_SSE2__
+					      ? "yes" : "no"))
+#else
+			     erts_bld_string(hpp, szp, "yes")
+#endif
+	    );
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp,
+					     "x86"
+#ifdef ARCH_64
+					     "_64"
+#endif
+					     " OOO"),
+			     erts_bld_string(hpp, szp,
+#ifdef ETHR_X86_OUT_OF_ORDER
+					     "yes"
+#else
+					     "no"
+#endif
+				 ));
+
+	res = erts_bld_cons(hpp, szp, tup, res);
+#endif
+
+#ifdef ETHR_SPARC_V9_MEMBAR_H__
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp, "Sparc V9"),
+			     erts_bld_string(hpp, szp,
+#if defined(ETHR_SPARC_TSO)
+					     "TSO"
+#elif defined(ETHR_SPARC_PSO)
+					     "PSO"
+#elif defined(ETHR_SPARC_RMO)
+					     "RMO"
+#else
+					     "undefined"
+#endif
+				 ));
+
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+#endif
+
+#ifdef ETHR_PPC_MEMBAR_H__
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp, "lwsync"),
+			     erts_bld_string(hpp, szp,
+#if defined(ETHR_PPC_HAVE_LWSYNC)
+					     "yes"
+#elif defined(ETHR_PPC_HAVE_NO_LWSYNC)
+					     "no"
+#elif defined(ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__)
+					     ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__ ? "yes" : "no"
+#else
+					     "undefined"
+#endif
+				 ));
+
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+#endif
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp, "Native rw-spinlocks"),
+#ifdef ETHR_NATIVE_RWSPINLOCK_IMPL
+			     erts_bld_string(hpp, szp, ETHR_NATIVE_RWSPINLOCK_IMPL)
+#else
+			     erts_bld_string(hpp, szp, "no")
+#endif
+	    );
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+	tup = erts_bld_tuple(hpp, szp, 2,
+			     erts_bld_string(hpp, szp, "Native spinlocks"),
+#ifdef ETHR_NATIVE_SPINLOCK_IMPL
+			     erts_bld_string(hpp, szp, ETHR_NATIVE_SPINLOCK_IMPL)
+#else
+			     erts_bld_string(hpp, szp, "no")
+#endif
+	    );
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+
+	list = NIL;
+#ifdef ETHR_NATIVE_DW_ATOMIC_IMPL
+	if (ethr_have_native_dw_atomic()) {
+	    name = erts_bld_string(hpp, szp, ETHR_NATIVE_DW_ATOMIC_IMPL);
+	    str = ethr_native_dw_atomic_ops();
+	    for (i = 0; str[i]; i++) {
+		erts_snprintf(buf, sizeof(buf), "ethr_native_dw_atomic_%s()", str[i]);
+		list = erts_bld_cons(hpp, szp,
+				     erts_bld_string(hpp, szp, buf),
+				     list);
+	    }
+	    str = ethr_native_su_dw_atomic_ops();
+	    for (i = 0; str[i]; i++) {
+		erts_snprintf(buf, sizeof(buf), "ethr_native_su_dw_atomic_%s()", str[i]);
+		list = erts_bld_cons(hpp, szp,
+				     erts_bld_string(hpp, szp, buf),
+				     list);
+	    }
+	}
+	else 
+#endif
+	    name = erts_bld_string(hpp, szp, "no");
+
+	tup = erts_bld_tuple(hpp, szp, 3,
+			     erts_bld_string(hpp, szp, "Double word native atomics"),
+			     name,
+			     list);
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+	list = NIL;
+#ifdef ETHR_NATIVE_ATOMIC64_IMPL
+	name = erts_bld_string(hpp, szp, ETHR_NATIVE_ATOMIC64_IMPL);
+	str = ethr_native_atomic64_ops();
+	for (i = 0; str[i]; i++) {
+	    erts_snprintf(buf, sizeof(buf), "ethr_native_atomic64_%s()", str[i]);
+	    list = erts_bld_cons(hpp, szp,
+				 erts_bld_string(hpp, szp, buf),
+				 list);
+	}
+#else
+	name = erts_bld_string(hpp, szp, "no");
+#endif
+	tup = erts_bld_tuple(hpp, szp, 3,
+			     erts_bld_string(hpp, szp, "64-bit native atomics"),
+			     name,
+			     list);
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+	list = NIL;
+#ifdef ETHR_NATIVE_ATOMIC32_IMPL
+	name = erts_bld_string(hpp, szp, ETHR_NATIVE_ATOMIC32_IMPL);
+	str = ethr_native_atomic32_ops();
+	for (i = 0; str[i]; i++) {
+	    erts_snprintf(buf, sizeof(buf), "ethr_native_atomic32_%s()", str[i]);
+	    list = erts_bld_cons(hpp, szp,
+				erts_bld_string(hpp, szp, buf),
+				list);
+	}
+#else
+	name = erts_bld_string(hpp, szp, "no");
+#endif
+	tup = erts_bld_tuple(hpp, szp, 3,
+			     erts_bld_string(hpp, szp, "32-bit native atomics"),
+			     name,
+			     list);
+	res = erts_bld_cons(hpp, szp, tup, res);
+
+	if (hpp) {
+	    HRelease(c_p, end_hp, *hpp)
+	    return res;
+	}
+
+	hp = HAlloc(c_p, sz);
+	end_hp = hp + sz;
+	hpp = &hp;
+	szp = NULL;
+    }
 }
 
 static BIF_RETTYPE

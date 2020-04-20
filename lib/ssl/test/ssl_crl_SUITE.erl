@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+
+-define(TIMEOUT, {seconds, 30}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -159,7 +161,7 @@ init_per_testcase(Case, Config0) ->
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
 	    case make_certs:all(DataDir, CertDir, CertOpts) of
                 {ok, _} ->
-                    ct:timetrap({seconds, 6}),
+                    ct:timetrap(?TIMEOUT),
                     [{cert_dir, CertDir} | Config];
                 _ ->
                     end_per_testcase(Case, Config0),

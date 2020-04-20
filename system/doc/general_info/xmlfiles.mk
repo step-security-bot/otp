@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009-2018. All Rights Reserved.
+# Copyright Ericsson AB 2009-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@
 # 
 # %CopyrightEnd%
 #
-GENERAL_INFO_CHAPTER_FILES = \
+
+GENERAL_INFO_CHAPTER_FILES =
+
+GENERAL_INFO_CHAPTER_GEN_FILES = \
 	deprecations.xml \
 	scheduled_for_removal.xml

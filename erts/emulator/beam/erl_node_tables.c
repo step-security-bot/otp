@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,15 +172,15 @@ dist_table_alloc(void *dep_tmpl)
     erts_rwmtx_init_opt(&dep->rwmtx, &rwmtx_opt, "dist_entry", sysname,
         ERTS_LOCK_FLAGS_CATEGORY_DISTRIBUTION);
     dep->sysname			= sysname;
+    dep->creation                       = 0; /* undefined */
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
     dep->connection_id			= 0;
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->pending_nodedown               = 0;
     dep->suspended_nodeup               = NULL;
-    dep->flags				= 0;
+    dep->dflags				= 0;
     dep->opts                           = 0;
-    dep->version			= 0;
 
     dep->mld                            = NULL;
 
@@ -635,7 +635,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     else {
         ASSERT(dep->state != ERTS_DE_STATE_IDLE);
         ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
-        if (dep->flags & DFLAG_PUBLISHED) {
+        if (dep->dflags & DFLAG_PUBLISHED) {
             ASSERT(erts_no_of_visible_dist_entries > 0);
             erts_no_of_visible_dist_entries--;
             head = &erts_visible_dist_entries;
@@ -659,7 +659,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 	dep->next->prev = dep->prev;
 
     dep->state = ERTS_DE_STATE_IDLE;
-    dep->flags = 0;
+    dep->dflags = 0;
     dep->opts = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -701,7 +701,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
     erts_no_of_not_connected_dist_entries--;
 
     dep->state = ERTS_DE_STATE_PENDING;
-    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_PENDING_CONNECT);
+    dep->dflags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_PENDING_CONNECT);
     dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
 
     ASSERT(!dep->mld);
@@ -720,7 +720,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
 }
 
 void
-erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
+erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 {
     erts_aint32_t set_qflgs;
 
@@ -751,7 +751,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     erts_no_of_pending_dist_entries--;
 
     dep->state = ERTS_DE_STATE_CONNECTED;
-    dep->flags = flags & ~DFLAG_PENDING_CONNECT;
+    dep->dflags = flags & ~DFLAG_PENDING_CONNECT;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);
@@ -1272,7 +1272,9 @@ erts_get_node_and_dist_references(struct process *proc)
 
     erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
-    /* No need to lock any thing since we are alone... */
+    erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
+    /* No need to lock any thing else since we are alone...
+       ... except dirty stuff... (?) */
 
     if (references_atoms_need_init) {
 	INIT_AM(heap);
@@ -1327,7 +1329,6 @@ erts_get_node_and_dist_references(struct process *proc)
     clear_system();
 
     erts_thr_progress_unblock();
-    erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
     return res;
 }
 

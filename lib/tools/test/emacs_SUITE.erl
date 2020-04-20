@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -214,11 +214,12 @@ emacs(EmacsCmds) when is_list(EmacsCmds) ->
            "--directory ", dquote(emacs_dir()), " ",
            "--eval \"(require 'erlang-start)\" "
            | EmacsCmds],
+    io:format("Cmd: ~ts~n", [Cmd]),
     Res0 = os:cmd(Cmd ++ " ; echo $?"),
     Rows = string:lexemes(Res0, ["\r\n", $\n]),
     Res = lists:last(Rows),
     Output = string:join(lists:droplast(Rows), "\n"),
-    io:format("Cmd ~ts:~n  => ~s ~ts~n", [Cmd, Res, Output]),
+    io:format(" => ~s ~ts~n", [Res, Output]),
     "0" = Res,
     Output.
 

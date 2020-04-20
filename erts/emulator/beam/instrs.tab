@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2018. All Rights Reserved.
+// Copyright Ericsson AB 2017-2020. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,7 +158,8 @@ APPLY(I, Deallocate, Next) {
 }
 
 HANDLE_APPLY_ERROR() {
-    I = handle_error(c_p, I, reg, bif_trap_export[BIF_apply_3].info.mfa);
+    static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
+    I = handle_error(c_p, I, reg, &apply3_mfa);
     goto post_error_handling;
 }
 
@@ -757,8 +758,9 @@ is_ge(Fail, X, Y) {
 
 x64.is_ge(Fail, X, Y);
 
-badarg(Fail) {
-    $BADARG($Fail);
+badarg_body() {
+    c_p->freason = BADARG;
+    $FAIL_BODY();
     //| -no_next;
 }
 
@@ -788,12 +790,13 @@ if_end() {
 
 x64.if_end();
 
-system_limit(Fail) {
-    $SYSTEM_LIMIT($Fail);
+system_limit_body() {
+    c_p->freason = SYSTEM_LIMIT;
+    $FAIL_BODY();
     //| -no_next;
 }
 
-x64.system_limit(Fail);
+x64.system_limit_body();
 
 catch(Y, Fail) {
     c_p->catches++;
@@ -806,6 +809,7 @@ catch_end(Y) {
     $try_end($Y);
     if (is_non_value(r(0))) {
         c_p->fvalue = NIL;
+        c_p->ftrace = NIL;
         if (x(1) == am_throw) {
             r(0) = x(2);
         } else {
@@ -843,6 +847,7 @@ try_case(Y) {
     $try_end($Y);
     ASSERT(is_non_value(r(0)));
     c_p->fvalue = NIL;
+    c_p->ftrace = NIL;
     r(0) = x(1);
     x(1) = x(2);
     x(2) = x(3);

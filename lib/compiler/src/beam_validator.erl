@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,29 +23,42 @@
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
+%% When an instruction throws an exception it does so by branching (branch/4)
+%% to this label, following the {f,0} convention used in BIFs.
+%%
+%% Instructions that have fail labels but cannot throw exceptions should guard
+%% themselves with assert_no_exception/1, and instructions that are statically
+%% guaranteed not to fail should simply skip branching.
+-define(EXCEPTION_LABEL, 0).
+
 -compile({no_auto_import,[min/2]}).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 
 %% Interface for compiler.
--export([module/2, format_error/1]).
+-export([validate/2, format_error/1]).
 
--import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,sort/1,zip/2]).
+-import(lists, [dropwhile/2,foldl/3,member/2,reverse/2,zip/2]).
 
 %% To be called by the compiler.
 
--spec module(beam_utils:module_code(), [compile:option()]) ->
-                    {'ok',beam_utils:module_code()}.
+-spec validate(Code, Level) -> Result when
+      Code :: beam_utils:module_code(),
+      Level :: strong | weak,
+      Result :: ok | {error, [{atom(), list()}]}.
 
-module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
-  when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
-    case validate(Mod, Fs) of
-	[] ->
-	    {ok,Code};
-	Es0 ->
-	    Es = [{?MODULE,E} || E <- Es0],
-	    {error,[{atom_to_list(Mod),Es}]}
+validate({Mod,Exp,Attr,Fs,Lc}, Level) when is_atom(Mod),
+                                           is_list(Exp),
+                                           is_list(Attr),
+                                           is_integer(Lc) ->
+    Ft = build_function_table(Fs, #{}),
+    case validate_0(Fs, Mod, Level, Ft) of
+        [] ->
+            ok;
+        Es0 ->
+            Es = [{?MODULE,E} || E <- Es0],
+            {error,[{atom_to_list(Mod),Es}]}
     end.
 
 -spec format_error(term()) -> iolist().
@@ -89,26 +102,26 @@ format_error(Error) ->
 %%% - Heap allocation for binaries.
 %%%
 
-%% validate(Module, [Function]) -> [] | [Error]
+%% validate(Module, Level, [Function], Ft) -> [] | [Error]
 %%  A list of functions with their code. The code is in the same
 %%  format as used in the compiler and in .S files.
 
-validate(Module, Fs) ->
-    Ft = build_function_table(Fs, []),
-    validate_0(Module, Fs, Ft).
 
-validate_0(_Module, [], _) -> [];
-validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
-    try validate_1(Code, Name, Ar, Entry, Ft) of
-	_ -> validate_0(Module, Fs, Ft)
+validate_0([], _Module, _Level, _Ft) ->
+    [];
+validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
+    MFA = {Module, Name, Arity},
+    try validate_1(Code, MFA, Entry, Level, Ft) of
+        _ ->
+            validate_0(Fs, Module, Level, Ft)
     catch
-	 throw:Error ->
-	     %% Controlled error.
-	     [Error|validate_0(Module, Fs, Ft)];
+        throw:Error ->
+            %% Controlled error.
+            [Error | validate_0(Fs, Module, Level, Ft)];
         Class:Error:Stack ->
-	    %% Crash.
-	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
-	    erlang:raise(Class, Error, Stack)
+            %% Crash.
+            io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+            erlang:raise(Class, Error, Stack)
     end.
 
 -record(t_abstract, {kind}).
@@ -194,40 +207,42 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
         }).
 
 -type label()        :: integer().
--type label_set()    :: gb_sets:set(label()).
--type branched_tab() :: gb_trees:tree(label(), #st{}).
--type ft_tab()       :: gb_trees:tree().
+-type state()        :: #st{} | 'none'.
 
 %% Validator state
 -record(vst,
         {%% Current state
-         current=none              :: #st{} | 'none',
+         current=none              :: state(),
+         %% Validation level
+         level                     :: strong | weak,
          %% States at labels
-         branched=gb_trees:empty() :: branched_tab(),
+         branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=gb_sets:empty()    :: label_set(),
+         labels=cerl_sets:new()    :: cerl_sets:set(),
          %% Information of other functions in the module
-         ft=gb_trees:empty()       :: ft_tab(),
+         ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
          ref_ctr=0                 :: index()
         }).
 
-build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
-    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
-			(_) -> true
-		     end, Code0),
+build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry ->
+                             false;
+                        (_) ->
+                             true
+                     end, Code0),
     case Code of
-	[{label,Entry}|Is] ->
-	    Info = #{ arity => Arity,
-                  parameter_info => find_parameter_info(Is, #{}) },
-	    build_function_table(Fs, [{Entry, Info} | Acc0]);
-	_ ->
-	    %% Something is seriously wrong. Ignore it for now.
-	    %% It will be detected and diagnosed later.
-	    build_function_table(Fs, Acc0)
+        [{label,Entry} | Is] ->
+            Info = #{ arity => Arity,
+                      parameter_info => find_parameter_info(Is, #{}) },
+            build_function_table(Fs, Acc#{ Entry => Info });
+        _ ->
+            %% Something is seriously wrong. Ignore it for now.
+            %% It will be detected and diagnosed later.
+            build_function_table(Fs, Acc)
     end;
 build_function_table([], Acc) ->
-    gb_trees:from_orddict(sort(Acc)).
+    Acc.
 
 find_parameter_info([{'%', {var_info, Reg, Info}} | Is], Acc) ->
     find_parameter_info(Is, Acc#{ Reg => Info });
@@ -236,71 +251,44 @@ find_parameter_info([{'%', _} | Is], Acc) ->
 find_parameter_info(_, Acc) ->
     Acc.
 
-validate_1(Is, Name, Arity, Entry, Ft) ->
-    validate_2(labels(Is), Name, Arity, Entry, Ft).
+validate_1(Is, MFA0, Entry, Level, Ft) ->
+    {Offset, MFA, Header, Body} = extract_header(Is, MFA0, Entry, 1, []),
 
-validate_2({Ls1,[{func_info,{atom,Mod},{atom,Name},Arity}=_F|Is]},
-	   Name, Arity, Entry, Ft) ->
-    validate_3(labels(Is), Name, Arity, Entry, Mod, Ls1, Ft);
-validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
-    error({{'_',Name,Arity},{first(Is),length(Ls1),illegal_instruction}}).
+    Vst0 = init_vst(MFA, Level, Ft),
 
-validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
-    Offset = 1 + length(Ls1) + 1 + length(Ls2),
-    EntryOK = member(Entry, Ls2),
-    if
-	EntryOK ->
-            Vst0 = init_vst(Arity, Ls1, Ls2, Ft),
-	    MFA = {Mod,Name,Arity},
-	    Vst = valfun(Is, MFA, Offset, Vst0),
-	    validate_fun_info_branches(Ls1, MFA, Vst);
-	true ->
-	    error({{Mod,Name,Arity},{first(Is),Offset,no_entry_label}})
-    end.
+    %% We validate the header after the body as the latter may jump to the
+    %% former to raise 'function_clause' exceptions.
+    Vst1 = validate_instrs(Body, MFA, Offset, Vst0),
+    Vst = validate_instrs(Header, MFA, 1, Vst1),
 
-validate_fun_info_branches([L|Ls], MFA, #vst{branched=Branches}=Vst0) ->
-    Vst = Vst0#vst{current=gb_trees:get(L, Branches)},
-    validate_fun_info_branches_1(0, MFA, Vst),
-    validate_fun_info_branches(Ls, MFA, Vst);
-validate_fun_info_branches([], _, _) -> ok.
+    validate_branches(MFA, Vst).
 
-validate_fun_info_branches_1(Arity, {_,_,Arity}, _) -> ok;
-validate_fun_info_branches_1(X, {Mod,Name,Arity}=MFA, Vst) ->
-    try
-        case Vst of
-            #vst{current=#st{numy=none}} ->
-                ok;
-            #vst{current=#st{numy=Size}} ->
-                error({unexpected_stack_frame,Size})
-        end,
-        assert_term({x,X}, Vst)
-    catch Error ->
-	    I = {func_info,{atom,Mod},{atom,Name},Arity},
-	    Offset = 2,
-	    error({MFA,{I,Offset,Error}})
-    end,
-    validate_fun_info_branches_1(X+1, MFA, Vst).
+extract_header([{func_info, {atom,Mod}, {atom,Name}, Arity}=I | Is],
+             MFA0, Entry, Offset, Acc) ->
+    {_, Name, Arity} = MFA0,                    %Assertion.
+    MFA = {Mod, Name, Arity},
 
-first([X|_]) -> X;
-first([]) -> [].
+    case Is of
+        [{label, Entry} | _] ->
+            Header = reverse(Acc, [I]),
+            {Offset + 1, MFA, Header, Is};
+        _ ->
+            error({MFA, no_entry_label})
+    end;
+extract_header([{label,_}=I | Is], MFA, Entry, Offset, Acc) ->
+    extract_header(Is, MFA, Entry, Offset + 1, [I | Acc]);
+extract_header([{line,_}=I | Is], MFA, Entry, Offset, Acc) ->
+    extract_header(Is, MFA, Entry, Offset + 1, [I | Acc]);
+extract_header(_Is, MFA, _Entry, _Offset, _Acc) ->
+    error({MFA, invalid_function_header}).
 
-labels(Is) ->
-    labels_1(Is, []).
-
-labels_1([{label,L}|Is], R) ->
-    labels_1(Is, [L|R]);
-labels_1([{line,_}|Is], R) ->
-    labels_1(Is, R);
-labels_1(Is, R) ->
-    {reverse(R),Is}.
-
-init_vst(Arity, Ls1, Ls2, Ft) ->
-    Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
-    Branches = gb_trees_from_list([{L,Vst0#vst.current} || L <- Ls1]),
-    Labels = gb_sets:from_list(Ls1++Ls2),
-    Vst0#vst{branched=Branches,
-             labels=Labels,
-             ft=Ft}.
+init_vst({_, _, Arity}, Level, Ft) ->
+    Vst = #vst{branched=#{},
+               current=#st{},
+               ft=Ft,
+               labels=cerl_sets:new(),
+               level=Level},
+    init_function_args(Arity - 1, Vst).
 
 init_function_args(-1, Vst) ->
     Vst;
@@ -310,72 +298,72 @@ init_function_args(X, Vst) ->
 kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
 
-valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
-    Targets = gb_trees:keys(Targets0),
-    Labels = gb_sets:to_list(Labels0),
+validate_branches(MFA, Vst) ->
+    #vst{ branched=Targets0, labels=Labels0 } = Vst,
+    Targets = maps:keys(Targets0),
+    Labels = cerl_sets:to_list(Labels0),
     case Targets -- Labels of
-	[] -> Vst;
-	Undef ->
-	    Error = {undef_labels,Undef},
-	    error({MFA,Error})
-    end;
-valfun([I|Is], MFA, Offset, Vst0) ->
-    valfun(Is, MFA, Offset+1,
-	   try
-	       Vst = val_dsetel(I, Vst0),
-	       valfun_1(I, Vst)
-	   catch Error ->
-		   error({MFA,{I,Offset,Error}})
-	   end).
+        [_|_]=Undef ->
+            Error = {undef_labels, Undef},
+            error({MFA, Error});
+        [] ->
+            Vst
+    end.
 
-%% Instructions that are allowed in dead code or when failing,
-%% that is while the state is undecided in some way.
-valfun_1({label,Lbl}, #vst{current=St0,
-                           ref_ctr=Counter0,
-                           branched=B,
-                           labels=Lbls}=Vst) ->
-    {St, Counter} = merge_states(Lbl, St0, B, Counter0),
+validate_instrs([I|Is], MFA, Offset, Vst0) ->
+    validate_instrs(Is, MFA, Offset+1,
+                    try
+                        Vst = validate_mutation(I, Vst0),
+                        vi(I, Vst)
+                    catch Error ->
+                        error({MFA, {I, Offset, Error}})
+                    end);
+validate_instrs([], _MFA, _Offset, Vst) ->
+    Vst.
+
+vi({label,Lbl}, #vst{current=St0,
+                          ref_ctr=Counter0,
+                          branched=Branched0,
+                          labels=Labels0}=Vst) ->
+    {St, Counter} = merge_states(Lbl, St0, Branched0, Counter0),
+
+    Branched = Branched0#{ Lbl => St },
+    Labels = cerl_sets:add_element(Lbl, Labels0),
+
     Vst#vst{current=St,
             ref_ctr=Counter,
-            branched=gb_trees:enter(Lbl, St, B),
-            labels=gb_sets:add(Lbl, Lbls)};
-valfun_1(_I, #vst{current=none}=Vst) ->
-    %% Ignore instructions after erlang:error/1,2, which
-    %% the original R10B compiler thought would return.
+            branched=Branched,
+            labels=Labels};
+vi(_I, #vst{current=none}=Vst) ->
+    %% Ignore all unreachable code.
     Vst;
-valfun_1({badmatch,Src}, Vst) ->
-    assert_durable_term(Src, Vst),
-    verify_y_init(Vst),
-    kill_state(Vst);
-valfun_1({case_end,Src}, Vst) ->
-    assert_durable_term(Src, Vst),
-    verify_y_init(Vst),
-    kill_state(Vst);
-valfun_1(if_end, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-valfun_1({try_case_end,Src}, Vst) ->
-    verify_y_init(Vst),
-    assert_durable_term(Src, Vst),
-    kill_state(Vst);
-%% Instructions that cannot cause exceptions
-valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
-    assert_type(#t_bs_context{}, Ctx, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
 
-    #t_bs_context{tail_unit=Unit} = get_raw_type(Ctx, Vst0),
+%%
+%% Misc annotations
+%%
 
-    Vst = prune_x_regs(Live, Vst0),
-    extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
-                 Vst, Vst0);
-valfun_1(bs_init_writable=I, Vst) ->
-    call(I, 1, Vst);
-valfun_1(build_stacktrace=I, Vst) ->
-    call(I, 1, Vst);
-valfun_1({move,Src,Dst}, Vst) ->
+vi({'%', {var_info, Reg, Info}}, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+vi({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
+vi({'%',_}, Vst) ->
+    Vst;
+vi({line,_}, Vst) ->
+    Vst;
+
+%%
+%% Moves
+%%
+
+vi({move,Src,Dst}, Vst) ->
     assign(Src, Dst, Vst);
-valfun_1({swap,RegA,RegB}, Vst0) ->
+vi({swap,RegA,RegB}, Vst0) ->
     assert_movable(RegA, Vst0),
     assert_movable(RegB, Vst0),
 
@@ -392,58 +380,180 @@ valfun_1({swap,RegA,RegB}, Vst0) ->
     VrefB = get_reg_vref(RegB, Vst2),
     Vst = set_reg_vref(VrefB, RegA, Vst2),
     set_reg_vref(VrefA, RegB, Vst);
-valfun_1({fmove,Src,{fr,_}=Dst}, Vst) ->
+vi({fmove,Src,{fr,_}=Dst}, Vst) ->
     assert_type(#t_float{}, Src, Vst),
     set_freg(Dst, Vst);
-valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
+vi({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
     create_term(#t_float{}, fmove, [], Dst, Vst);
-valfun_1({kill,Reg}, Vst) ->
+vi({kill,Reg}, Vst) ->
     create_tag(initialized, kill, [], Reg, Vst);
-valfun_1({init,Reg}, Vst) ->
+vi({init,Reg}, Vst) ->
     create_tag(initialized, init, [], Reg, Vst);
-valfun_1({test_heap,Heap,Live}, Vst) ->
+
+%%
+%% Matching and test instructions.
+%%
+
+vi({jump,{f,Lbl}}, Vst) ->
+    assert_no_exception(Lbl),
+
+    %% The next instruction is never executed.
+    branch(Lbl, Vst, fun kill_state/1);
+vi({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
+    assert_term(Src, Vst),
+    assert_choices(Choices),
+    validate_select_val(Fail, Choices, Src, Vst);
+vi({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
+    assert_type(#t_tuple{}, Tuple, Vst),
+    assert_arities(Choices),
+    validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
+vi({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
+    verify_has_map_fields(Lbl, Src, List, Vst);
+vi({test,is_atom,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_atom{}, Src, Vst);
+vi({test,is_binary,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_bitstring{size_unit=8}, Src, Vst);
+vi({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_bitstring{}, Src, Vst);
+vi({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, beam_types:make_boolean(), Src, Vst);
+vi({test,is_float,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_float{}, Src, Vst);
+vi({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_tuple{}, Src, Vst);
+vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_integer{}, Src, Vst);
+vi({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_cons{}, Src, Vst);
+vi({test,is_number,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, number, Src, Vst);
+vi({test,is_list,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_list{}, Src, Vst);
+vi({test,is_map,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, #t_map{}, Src, Vst);
+vi({test,is_nil,{f,Lbl},[Src]}, Vst) ->
+    %% is_nil is an exact check against the 'nil' value, and should not be
+    %% treated as a simple type test.
+    assert_term(Src, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, nil, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, nil, SuccVst)
+           end);
+vi({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
+    assert_type(#t_tuple{}, Tuple, Vst),
+    Type =  #t_tuple{exact=true,size=Sz},
+    type_test(Lbl, Type, Tuple, Vst);
+vi({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
+    assert_term(Src, Vst),
+    Es = #{ 1 => get_literal_type(Atom) },
+    Type = #t_tuple{exact=true,size=Sz,elements=Es},
+    type_test(Lbl, Type, Src, Vst);
+vi({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    assert_no_exception(Lbl),
+    validate_src(Ss, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, Val, SuccVst)
+           end);
+vi({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    assert_no_exception(Lbl),
+    validate_src(Ss, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_eq_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_ne_types(Src, Val, SuccVst)
+           end);
+
+
+%%
+%% Simple getters that can't fail.
+%%
+
+vi({get_list,Src,D1,D2}, Vst0) ->
+    assert_not_literal(Src),
+    assert_type(#t_cons{}, Src, Vst0),
+
+    SrcType = get_term_type(Src, Vst0),
+    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+
+    Vst = extract_term(HeadType, get_hd, [Src], D1, Vst0),
+    extract_term(TailType, get_tl, [Src], D2, Vst, Vst0);
+vi({get_hd,Src,Dst}, Vst) ->
+    assert_not_literal(Src),
+    assert_type(#t_cons{}, Src, Vst),
+
+    SrcType = get_term_type(Src, Vst),
+    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+
+    extract_term(HeadType, get_hd, [Src], Dst, Vst);
+vi({get_tl,Src,Dst}, Vst) ->
+    assert_not_literal(Src),
+    assert_type(#t_cons{}, Src, Vst),
+
+    SrcType = get_term_type(Src, Vst),
+    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+
+    extract_term(TailType, get_tl, [Src], Dst, Vst);
+vi({get_tuple_element,Src,N,Dst}, Vst) ->
+    Index = N+1,
+    assert_not_literal(Src),
+    assert_type(#t_tuple{size=Index}, Src, Vst),
+    #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
+    Type = beam_types:get_tuple_element(Index, Es),
+    extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
+
+%%
+%% Allocate, deallocate, et.al.
+%%
+
+vi({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-valfun_1({bif,Op,{f,0},Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            %% This BIF cannot fail, handle it here without updating catch
-            %% state.
-            validate_bif(Op, cannot_fail, Ss, Dst, Vst0);
-        no ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            %% The BIF can fail, make sure that any catch state is updated.
-            Vst = branch_exception(Vst0),
-            valfun_2(I, Vst)
+vi({allocate,Stk,Live}, Vst) ->
+    allocate(uninitialized, Stk, 0, Live, Vst);
+vi({allocate_heap,Stk,Heap,Live}, Vst) ->
+    allocate(uninitialized, Stk, Heap, Live, Vst);
+vi({allocate_zero,Stk,Live}, Vst) ->
+    allocate(initialized, Stk, 0, Live, Vst);
+vi({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
+    allocate(initialized, Stk, Heap, Live, Vst);
+vi({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
+    verify_no_ct(Vst),
+    deallocate(Vst);
+vi({deallocate,_}, #vst{current=#st{numy=NumY}}) ->
+    error({allocated,NumY});
+vi({trim,N,Remaining}, #vst{current=St0}=Vst) ->
+    #st{numy=NumY} = St0,
+    if
+        N =< NumY, N+Remaining =:= NumY ->
+            Vst#vst{current=trim_stack(N, 0, NumY, St0)};
+        N > NumY; N+Remaining =/= NumY ->
+            error({trim,N,Remaining,allocated,NumY})
     end;
-valfun_1({gc_bif,Op,{f,0},Live,Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            validate_gc_bif(Op, cannot_fail, Ss, Dst, Live, Vst0);
-        no ->
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            Vst = branch_exception(Vst0),
-            assert_float_checked(Vst),
-            valfun_2(I, Vst)
-    end;
-%% Put instructions.
-valfun_1({put_list,A,B,Dst}, Vst0) ->
+
+%%
+%% Term-building instructions
+%%
+
+vi({put_list,A,B,Dst}, Vst0) ->
     Vst = eat_heap(2, Vst0),
 
     Head = get_term_type(A, Vst),
     Tail = get_term_type(B, Vst),
 
     create_term(beam_types:make_cons(Head, Tail), put_list, [A, B], Dst, Vst);
-valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
+vi({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     _ = [assert_term(El, Vst0) || El <- Elements],
     Size = length(Elements),
     Vst = eat_heap(Size+1, Vst0),
@@ -454,14 +564,14 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                    end, {#{}, 1}, Elements),
     Type = #t_tuple{exact=true,size=Size,elements=Es},
     create_term(Type, put_tuple2, [], Dst, Vst);
-valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
+vi({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
     Vst = create_term(#t_abstract{kind=unfinished_tuple}, put_tuple, [],
                       Dst, Vst1),
     #vst{current=St0} = Vst,
     St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
-valfun_1({put,Src}, Vst0) ->
+vi({put,Src}, Vst0) ->
     assert_term(Src, Vst0),
     Vst = eat_heap(1, Vst0),
     #vst{current=St0} = Vst,
@@ -481,9 +591,9 @@ valfun_1({put,Src}, Vst0) ->
             St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
-%% This instruction never fails, though it may be invalid in some contexts; see
-%% val_dsetel/2
-valfun_1({set_tuple_element,Src,Tuple,N}, Vst) ->
+vi({set_tuple_element,Src,Tuple,N}, Vst) ->
+    %% This instruction never fails, though it may be invalid in some contexts;
+    %% see validate_mutation/2
     I = N + 1,
     assert_term(Src, Vst),
     assert_type(#t_tuple{size=I}, Tuple, Vst),
@@ -494,96 +604,139 @@ valfun_1({set_tuple_element,Src,Tuple,N}, Vst) ->
     #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
-%% Instructions for optimization of selective receives.
-valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
-    set_receive_marker(initialized, Vst);
-valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
-    set_receive_marker(committed, Vst);
-%% Misc.
-valfun_1(remove_message, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
-
-    %% The message term is no longer fragile. It can be used
-    %% without restrictions.
-    remove_fragility(Vst);
-valfun_1({'%', {var_info, Reg, Info}}, Vst) ->
-    validate_var_info(Info, Reg, Vst);
-valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
-    %% This is a hack to make prim_eval:'receive'/2 work.
-    %%
-    %% Normally it's illegal to pass fragile terms as a function argument as we
-    %% have no way of knowing what the callee will do with it, but we know that
-    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
-    %% disabled while matching messages.
-    remove_fragility(Reg, Vst);
-valfun_1({'%',_}, Vst) ->
-    Vst;
-valfun_1({line,_}, Vst) ->
-    Vst;
 
 %%
-%% Calls; these may be okay when the try/catch state or stack is undecided,
-%% depending on whether they always succeed or always fail.
+%% Calls
 %%
-valfun_1({apply,Live}, Vst) ->
+
+vi({apply,Live}, Vst) ->
     validate_body_call(apply, Live+2, Vst);
-valfun_1({apply_last,Live,N}, Vst) ->
+vi({apply_last,Live,N}, Vst) ->
     validate_tail_call(N, apply, Live+2, Vst);
-valfun_1({call_fun,Live}, Vst) ->
+vi({call,Live,Func}, Vst) ->
+    validate_body_call(Func, Live, Vst);
+vi({call_ext,Live,Func}, Vst) ->
+    validate_body_call(Func, Live, Vst);
+vi({call_only,Live,Func}, Vst) ->
+    validate_tail_call(none, Func, Live, Vst);
+vi({call_ext_only,Live,Func}, Vst) ->
+    validate_tail_call(none, Func, Live, Vst);
+vi({call_last,Live,Func,N}, Vst) ->
+    validate_tail_call(N, Func, Live, Vst);
+vi({call_ext_last,Live,Func,N}, Vst) ->
+    validate_tail_call(N, Func, Live, Vst);
+vi({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
 
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
+    branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                    SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
                                          Fun, SuccVst0),
                    validate_body_call('fun', Live+1, SuccVst)
            end);
-valfun_1({call,Live,Func}, Vst) ->
-    validate_body_call(Func, Live, Vst);
-valfun_1({call_ext,Live,Func}, Vst) ->
-    validate_body_call(Func, Live, Vst);
-valfun_1({call_only,Live,Func}, Vst) ->
-    validate_tail_call(none, Func, Live, Vst);
-valfun_1({call_ext_only,Live,Func}, Vst) ->
-    validate_tail_call(none, Func, Live, Vst);
-valfun_1({call_last,Live,Func,N}, Vst) ->
-    validate_tail_call(N, Func, Live, Vst);
-valfun_1({call_ext_last,Live,Func,N}, Vst) ->
-    validate_tail_call(N, Func, Live, Vst);
-valfun_1(_I, #vst{current=#st{ct=undecided}}) ->
-    error(unknown_catch_try_state);
+vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
+    #{ arity := Arity0 } = map_get(Lbl, Ft),
+    Arity = Arity0 - NumFree,
+
+    true = Arity >= 0,                          %Assertion.
+
+    Vst = prune_x_regs(NumFree, Vst0),
+    verify_call_args(make_fun, NumFree, Vst),
+    verify_y_init(Vst),
+    Type = #t_fun{arity=Arity},
+    create_term(Type, make_fun, [], {x,0}, Vst);
+vi(return, Vst) ->
+    assert_durable_term({x,0}, Vst),
+    verify_return(Vst);
+
 %%
-%% Allocate and deallocate, et.al
+%% BIF calls
 %%
-valfun_1({allocate,Stk,Live}, Vst) ->
-    allocate(uninitialized, Stk, 0, Live, Vst);
-valfun_1({allocate_heap,Stk,Heap,Live}, Vst) ->
-    allocate(uninitialized, Stk, Heap, Live, Vst);
-valfun_1({allocate_zero,Stk,Live}, Vst) ->
-    allocate(initialized, Stk, 0, Live, Vst);
-valfun_1({allocate_heap_zero,Stk,Heap,Live}, Vst) ->
-    allocate(initialized, Stk, Heap, Live, Vst);
-valfun_1({deallocate,StkSize}, #vst{current=#st{numy=StkSize}}=Vst) ->
-    verify_no_ct(Vst),
-    deallocate(Vst);
-valfun_1({deallocate,_}, #vst{current=#st{numy=NumY}}) ->
-    error({allocated,NumY});
-valfun_1({trim,N,Remaining}, #vst{current=St0}=Vst) ->
-    #st{numy=NumY} = St0,
-    if
-        N =< NumY, N+Remaining =:= NumY ->
-            Vst#vst{current=trim_stack(N, 0, NumY, St0)};
-        N > NumY; N+Remaining =/= NumY ->
-            error({trim,N,Remaining,allocated,NumY})
+
+vi({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs neither fail nor throw an exception;
+            %% errors are postponed until the next fcheckerror instruction.
+            ?EXCEPTION_LABEL = Fail,            %Assertion.
+            validate_float_arith_bif(Ss, Dst, Vst0);
+        false ->
+            validate_src(Ss, Vst0),
+            validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
     end;
+vi({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
+    validate_src(Ss, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    %% Heap allocations and X registers are killed regardless of whether we
+    %% fail or not, as we may fail after GC.
+    #vst{current=St0} = Vst0,
+    St = kill_heap_allocation(St0),
+    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
+
+    validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
+
+%%
+%% Message instructions
+%%
+
+vi(send, Vst) ->
+    validate_body_call(send, 2, Vst);
+vi({loop_rec,{f,Fail},Dst}, Vst) ->
+    %% This term may not be part of the root set until remove_message/0 is
+    %% executed. If control transfers to the loop_rec_end/1 instruction, no
+    %% part of this term must be stored in a Y register.
+    assert_no_exception(Fail),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
+                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
+           end);
+vi({loop_rec_end,Lbl}, Vst) ->
+    assert_no_exception(Lbl),
+    verify_y_init(Vst),
+    kill_state(Vst);
+vi({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
+    assert_no_exception(Fail),
+    set_receive_marker(initialized, Vst);
+vi({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
+    assert_no_exception(Fail),
+    set_receive_marker(committed, Vst);
+vi(remove_message, Vst0) ->
+    Vst = set_receive_marker(none, Vst0),
+
+    %% The message term is no longer fragile. It can be used
+    %% without restrictions.
+    remove_fragility(Vst);
+vi(timeout, Vst0) ->
+    Vst = set_receive_marker(none, Vst0),
+    prune_x_regs(0, Vst);
+vi({wait,{f,Lbl}}, Vst) ->
+    assert_no_exception(Lbl),
+    verify_y_init(Vst),
+    branch(Lbl, Vst, fun kill_state/1);
+vi({wait_timeout,{f,Lbl},Src}, Vst0) ->
+    assert_no_exception(Lbl),
+
+    %% Note that the receive marker is not cleared since we may re-enter the
+    %% loop while waiting. If we time out we'll be transferred to a timeout
+    %% instruction that clears the marker.
+    assert_term(Src, Vst0),
+    verify_y_init(Vst0),
+
+    Vst = branch(Lbl, prune_x_regs(0, Vst0)),
+    branch(?EXCEPTION_LABEL, Vst);
+
+%%
 %% Catch & try.
-valfun_1({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
+%%
+vi({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(catchtag, Dst, Fail, Vst);
-valfun_1({'try',Dst,{f,Fail}}, Vst)  when Fail =/= none ->
+vi({'try',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(trytag, Dst, Fail, Vst);
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
+vi({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {catchtag,_Fail}=Tag ->
             %% Kill the catch tag and receive marker.
@@ -598,7 +751,7 @@ valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
         Type ->
             error({wrong_tag_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
+vi({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
     case get_tag_type(Reg, Vst) of
         {trytag,_Fail}=Tag ->
             %% Kill the catch tag. Note that x registers and the receive marker
@@ -607,7 +760,7 @@ valfun_1({try_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst) ->
         Type ->
             error({wrong_tag_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
+vi({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
         {trytag,_Fail}=Tag ->
             %% Kill the catch tag, all x registers, and the receive marker.
@@ -622,49 +775,294 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
         Type ->
             error({wrong_tag_type,Type})
     end;
-%% Simple getters that can't fail.
-valfun_1({get_list,Src,D1,D2}, Vst0) ->
-    assert_not_literal(Src),
-    assert_type(#t_cons{}, Src, Vst0),
+vi(build_stacktrace=I, Vst) ->
+    validate_body_call(I, 1, Vst);
 
-    SrcType = get_term_type(Src, Vst0),
-    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
-    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+%%
+%% Map instructions.
+%%
 
-    Vst = extract_term(HeadType, get_hd, [Src], D1, Vst0),
-    extract_term(TailType, get_tl, [Src], D2, Vst, Vst0);
-valfun_1({get_hd,Src,Dst}, Vst) ->
-    assert_not_literal(Src),
-    assert_type(#t_cons{}, Src, Vst),
+vi({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
+    verify_get_map(Fail, Src, List, Vst);
+vi({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
+vi({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 
-    SrcType = get_term_type(Src, Vst),
-    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+%%
+%% Bit syntax matching
+%%
 
-    extract_term(HeadType, get_hd, [Src], Dst, Vst);
-valfun_1({get_tl,Src,Dst}, Vst) ->
-    assert_not_literal(Src),
-    assert_type(#t_cons{}, Src, Vst),
+vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
+    assert_type(#t_bs_context{}, Ctx, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
 
-    SrcType = get_term_type(Src, Vst),
-    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+    #t_bs_context{tail_unit=Unit} = get_raw_type(Ctx, Vst0),
 
-    extract_term(TailType, get_tl, [Src], Dst, Vst);
-valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
-    Index = N+1,
-    assert_not_literal(Src),
-    assert_type(#t_tuple{size=Index}, Src, Vst),
-    #t_tuple{elements=Es} = normalize(get_term_type(Src, Vst)),
-    Type = beam_types:get_tuple_element(Index, Es),
-    extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
-valfun_1({jump,{f,Lbl}}, Vst) ->
-    branch(Lbl, Vst,
-           fun(SuccVst) ->
-                   %% The next instruction is never executed.
-                   kill_state(SuccVst)
+    Vst = prune_x_regs(Live, Vst0),
+    extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
+                 Vst, Vst0);
+vi({bs_start_match4,Fail,Live,Src,Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+vi({test,bs_start_match2,{f,_}=Fail,Live,[Src,Slots],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, Slots, Src, Dst, Vst);
+vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
+    true = is_bitstring(String),                %Assertion.
+    validate_bs_skip(Fail, Ctx, Stride, Vst);
+vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
+    assert_term(Size, Vst),
+
+    Stride = case get_raw_type(Size, Vst) of
+                 #t_integer{elements={Same,Same}} -> Same * Unit;
+                 _ -> Unit
+             end,
+
+    validate_bs_skip(Fail, Ctx, Stride, Vst);
+vi({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
+    assert_no_exception(Fail),
+    assert_type(#t_bs_context{}, Ctx, Vst),
+    branch(Fail, Vst);
+vi({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
+    assert_type(#t_bs_context{}, Ctx, Vst),
+    type_test(Fail, #t_bs_context{tail_unit=Unit}, Ctx, Vst);
+vi({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip(Fail, Ctx, 8, Live, Vst);
+vi({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip(Fail, Ctx, 16, Live, Vst);
+vi({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip(Fail, Ctx, 32, Live, Vst);
+vi({test,bs_get_integer2=Op,{f,Fail},Live,
+    [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
+    NumBits = Size * Unit,
+    Type = case member(unsigned, Flags) of
+               true when 0 =< NumBits, NumBits =< 64 ->
+                   beam_types:make_integer(0, (1 bsl NumBits)-1);
+               _ ->
+                   %% Signed integer, way too large, or negative size.
+                   #t_integer{}
+           end,
+    validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
+vi({test,bs_get_integer2=Op,{f,Fail},Live,
+          [Ctx,_Size,Unit,_Flags],Dst},Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
+vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, 1, #t_float{}, Dst, Vst);
+vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
+    Type = #t_bitstring{size_unit=Unit},
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
+vi({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, 8, Type, Dst, Vst);
+vi({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, 16, Type, Dst, Vst);
+vi({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    Type = beam_types:make_integer(0, ?UNICODE_MAX),
+    validate_bs_get(Op, Fail, Ctx, Live, 32, Type, Dst, Vst);
+vi({test,_Op,{f,Lbl},Src}, Vst) ->
+    %% is_pid, is_reference, et cetera.
+    validate_src(Src, Vst),
+    branch(Lbl, Vst);
+
+%%
+%% Bit syntax positioning
+%%
+
+vi({bs_save2,Ctx,SavePoint}, Vst) ->
+    bsm_save(Ctx, SavePoint, Vst);
+vi({bs_restore2,Ctx,SavePoint}, Vst) ->
+    bsm_restore(Ctx, SavePoint, Vst);
+vi({bs_get_position, Ctx, Dst, Live}, Vst0) ->
+    assert_type(#t_bs_context{}, Ctx, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    create_term(#t_abstract{kind=ms_position}, bs_get_position, [Ctx],
+                Dst, Vst, Vst0);
+vi({bs_set_position, Ctx, Pos}, Vst) ->
+    assert_type(#t_bs_context{}, Ctx, Vst),
+    assert_type(#t_abstract{kind=ms_position}, Pos, Vst),
+    Vst;
+
+%%
+%% Floating-point instructions (excluding BIFs)
+%%
+vi({fconv,Src,{fr,_}=Dst}, Vst) ->
+    assert_term(Src, Vst),
+
+    branch(?EXCEPTION_LABEL, Vst,
+           fun(FailVst) ->
+                   %% This is a hack to supress assert_float_checked/1 in
+                   %% fork_state/2, since this instruction is legal even when
+                   %% the state is unchecked.
+                   set_fls(checked, FailVst)
+           end,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
+                   set_freg(Dst, SuccVst)
            end);
-valfun_1(I, Vst0) ->
-    Vst = branch_exception(Vst0),
-    valfun_2(I, Vst).
+vi(fclearerror, Vst) ->
+    case get_fls(Vst) of
+        undefined -> ok;
+        checked -> ok;
+        Fls -> error({bad_floating_point_state,Fls})
+    end,
+    set_fls(cleared, Vst);
+vi({fcheckerror,_}, Vst0) ->
+    assert_fls(cleared, Vst0),
+    Vst = set_fls(checked, Vst0),
+    branch(?EXCEPTION_LABEL, Vst);
+
+%%
+%% Exception-raising instructions
+%%
+
+vi({func_info, {atom, _Mod}, {atom, _Name}, Arity}, Vst) ->
+    #vst{current=#st{numy=NumY}} = Vst,
+    if
+         NumY =:= none ->
+            verify_live(Arity, Vst),
+            verify_call_args(func_info, Arity, Vst),
+
+            branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+         NumY =/= none ->
+            error({allocated, NumY})
+    end;
+vi({badmatch,Src}, Vst) ->
+    assert_durable_term(Src, Vst),
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+vi({case_end,Src}, Vst) ->
+    assert_durable_term(Src, Vst),
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+vi(if_end, Vst) ->
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+vi({try_case_end,Src}, Vst) ->
+    assert_durable_term(Src, Vst),
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
+vi(raw_raise=I, Vst) ->
+    branch(?EXCEPTION_LABEL, Vst,
+           fun(FailVst) -> validate_body_call(I, 3, FailVst) end,
+           fun kill_state/1);
+
+%%
+%% Binary construction
+%%
+
+vi(bs_init_writable=I, Vst) ->
+    validate_body_call(I, 1, Vst);
+vi({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    if
+        is_integer(Sz) -> ok;
+        true -> assert_term(Sz, Vst0)
+    end,
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
+                               SuccVst, SuccVst0)
+           end);
+vi({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    if
+        is_integer(Sz) -> ok;
+        true -> assert_term(Sz, Vst0)
+    end,
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
+           end);
+vi({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
+    assert_term(A, Vst),
+    assert_term(B, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
+           end);
+vi({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
+    assert_term(A, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
+           end);
+vi({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
+    assert_term(A, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
+           end);
+vi({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    assert_term(Bits, Vst0),
+    assert_term(Bin, Vst0),
+    Vst = heap_alloc(Heap, Vst0),
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
+                               [Bin], Dst, SuccVst, SuccVst0)
+           end);
+vi({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
+    assert_term(Bits, Vst),
+    assert_term(Bin, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
+                               [Bin], Dst, SuccVst)
+           end);
+vi({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
+    Vst;
+vi({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
+           end);
+vi({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
+           end);
+vi({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
+           end);
+vi({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
+           end);
+vi({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
+           end);
+vi({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
+    branch(Fail, Vst,
+           fun(SuccVst) ->
+                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
+           end);
+
+vi(_, _) ->
+    error(unknown_instruction).
 
 validate_var_info([{fun_type, Type} | Info], Reg, Vst0) ->
     %% Explicit type information inserted after make_fun2 instructions to mark
@@ -685,43 +1083,61 @@ validate_var_info([_ | Info], Reg, Vst) ->
 validate_var_info([], _Reg, Vst) ->
     Vst.
 
+%% Tail call.
+%%  The stackframe must have a known size and be initialized.
+%%  Does not return to the instruction following the call.
 validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
     assert_float_checked(Vst0),
+
+    verify_y_init(Vst0),
+    verify_live(Live, Vst0),
+    verify_call_args(Func, Live, Vst0),
+
     case will_call_succeed(Func, Vst0) of
         yes when Deallocate =:= NumY ->
-            %% This call cannot fail, handle it without updating catch state.
-            tail_call(Func, Live, Vst0);
+            %% The call cannot fail; we don't need to handle exceptions
+            Vst = deallocate(Vst0),
+            verify_return(Vst);
         maybe when Deallocate =:= NumY ->
-            %% The call can fail, make sure that any catch state is updated.
-            Vst = branch_exception(Vst0),
-            tail_call(Func, Live, Vst);
+            %% The call may fail; make sure we update exception state
+            Vst = deallocate(Vst0),
+            branch(?EXCEPTION_LABEL, Vst, fun verify_return/1);
         no ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            %%
-            %% Note that the compiler is allowed to emit garbage values for
-            %% "Deallocate" as we know that it will not be used in this case.
-            Vst = branch_exception(Vst0),
-            verify_live(Live, Vst),
-            verify_y_init(Vst),
-            kill_state(Vst);
+            %% The compiler is allowed to emit garbage values for "Deallocate"
+            %% as we know that it will not be used in this case.
+            branch(?EXCEPTION_LABEL, Vst0, fun kill_state/1);
         _ when Deallocate =/= NumY ->
             error({allocated, NumY})
     end.
 
+%% A "plain" call.
+%%  The stackframe must be initialized.
+%%  The instruction will return to the instruction following the call.
 validate_body_call(Func, Live,
-                   #vst{current=#st{numy=NumY}}=Vst0) when is_integer(NumY)->
-    assert_float_checked(Vst0),
-    case will_call_succeed(Func, Vst0) of
+                   #vst{current=#st{numy=NumY}}=Vst) when is_integer(NumY)->
+    assert_float_checked(Vst),
+
+    verify_y_init(Vst),
+    verify_live(Live, Vst),
+    verify_call_args(Func, Live, Vst),
+
+    SuccFun = fun(#vst{current=St0}=SuccVst0) -> 
+                      {RetType, _, _} = call_types(Func, Live, SuccVst0),
+                      true = RetType =/= none,  %Assertion.
+
+                      St = St0#st{f=init_fregs()},
+                      SuccVst = prune_x_regs(0, SuccVst0#vst{current=St}),
+
+                      create_term(RetType, call, [], {x,0}, SuccVst)
+              end,
+
+    case will_call_succeed(Func, Vst) of
         yes ->
-            call(Func, Live, Vst0);
+            SuccFun(Vst);
         maybe ->
-            Vst = branch_exception(Vst0),
-            call(Func, Live, Vst);
+            branch(?EXCEPTION_LABEL, Vst, SuccFun);
         no ->
-            Vst = branch_exception(Vst0),
-            verify_live(Live, Vst),
-            verify_y_init(Vst),
-            kill_state(Vst)
+            branch(?EXCEPTION_LABEL, Vst, fun kill_state/1)
     end;
 validate_body_call(_, _, #vst{current=#st{numy=NumY}}) ->
     error({allocated, NumY}).
@@ -734,414 +1150,16 @@ assert_float_checked(Vst) ->
     end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
+    assert_no_exception(Fail),
+
     Tag = {Kind, [Fail]},
     Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
-    branch(Fail, Vst,
-           fun(CatchVst0) ->
-                   %% We add the tag here because branch/4 rejects jumps to
-                   %% labels referenced by try tags.
-                   #vst{current=#st{ct=Tags,ys=Ys}=St0} = CatchVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   CatchVst1 = CatchVst0#vst{current=St},
-
-                   %% The receive marker is cleared on exceptions.
-                   CatchVst = set_receive_marker(none, CatchVst1),
-
-                   maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
-           end,
-           fun(SuccVst0) ->
-                   #vst{current=#st{ct=Tags}=St0} = SuccVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   SuccVst = SuccVst0#vst{current=St},
-
-                   %% All potentially-throwing instructions after this one will
-                   %% implicitly branch to the current try/catch handler; see
-                   %% the base case of valfun_1/2
-                   SuccVst
-           end).
-
-%% Set the initial state at the try/catch label. Assume that Y registers
-%% contain terms or try/catch tags.
-init_catch_handler_1(Reg, initialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(Reg, uninitialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(_, _, Vst) ->
-    Vst.
-
-branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst)
-   when is_integer(Fail) ->
-    %% We have an active try/catch tag and we can jump there from this
-    %% instruction, so we need to update the branched state of the try/catch
-    %% handler.
-    fork_state(Fail, Vst);
-branch_exception(#vst{current=#st{ct=[]}}=Vst) ->
-    Vst;
-branch_exception(_) ->
-    error(ambiguous_catch_try_state).
-
-%% Handle the remaining floating point instructions here.
-%% Floating point.
-valfun_2({fconv,Src,{fr,_}=Dst}, Vst) ->
-    assert_term(Src, Vst),
-
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
-           fun(SuccVst0) ->
-               SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
-               set_freg(Dst, SuccVst)
-           end);
-valfun_2({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-valfun_2({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-valfun_2({bif,fmul,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-valfun_2({bif,fnegate,_,[_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-valfun_2({bif,fsub,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-valfun_2(fclearerror, Vst) ->
-    case get_fls(Vst) of
-        undefined -> ok;
-        checked -> ok;
-        Fls -> error({bad_floating_point_state,Fls})
-    end,
-    set_fls(cleared, Vst);
-valfun_2({fcheckerror,_}, Vst) ->
-    assert_fls(cleared, Vst),
-    set_fls(checked, Vst);
-valfun_2(I, Vst) ->
-    assert_float_checked(Vst),
-    valfun_3(I, Vst).
-
-%% Instructions that can cause exceptions.
-valfun_3({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
-    Arity = Arity0 - NumFree,
-
-    true = Arity >= 0,                          %Assertion.
-
-    Vst = prune_x_regs(NumFree, Vst0),
-    verify_call_args(make_fun, NumFree, Vst),
-    verify_y_init(Vst),
-
-    create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
-%% Other BIFs
-valfun_3({bif,raise,{f,0},Src,_Dst}, Vst) ->
-    validate_src(Src, Vst),
-    kill_state(Vst);
-valfun_3(raw_raise=I, Vst) ->
-    call(I, 3, Vst);
-valfun_3({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
-    validate_bif(Op, Fail, Ss, Dst, Vst);
-valfun_3({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst) ->
-    validate_gc_bif(Op, Fail, Ss, Dst, Live, Vst);
-valfun_3(return, Vst) ->
-    assert_durable_term({x,0}, Vst),
-    verify_return(Vst),
-    kill_state(Vst);
-valfun_3({loop_rec,{f,Fail},Dst}, Vst) ->
-    %% This term may not be part of the root set until remove_message/0 is
-    %% executed. If control transfers to the loop_rec_end/1 instruction, no
-    %% part of this term must be stored in a Y register.
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
-                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
-           end);
-valfun_3({wait,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-valfun_3({wait_timeout,_,Src}, Vst) ->
-    %% Note that the receive marker is not cleared since we may re-enter the
-    %% loop while waiting. If we time out we'll be transferred to a timeout
-    %% instruction that clears the marker.
-    assert_term(Src, Vst),
-    verify_y_init(Vst),
-    prune_x_regs(0, Vst);
-valfun_3({loop_rec_end,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-valfun_3(timeout, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
-    prune_x_regs(0, Vst);
-valfun_3(send, Vst) ->
-    call(send, 2, Vst);
-%% Match instructions.
-valfun_3({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
-    assert_term(Src, Vst),
-    assert_choices(Choices),
-    validate_select_val(Fail, Choices, Src, Vst);
-valfun_3({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(#t_tuple{}, Tuple, Vst),
-    assert_arities(Choices),
-    validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
-
-%% New bit syntax matching instructions.
-valfun_3({bs_start_match4,Fail,Live,Src,Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
-valfun_3({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
-valfun_3({test,bs_start_match2,{f,_}=Fail,Live,[Src,Slots],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, Slots, Src, Dst, Vst);
-valfun_3({test,bs_match_string,{f,Fail},[Ctx,Rem,{string,String}]}, Vst) ->
-    true = is_bitstring(String),                %Assertion.
-    Stride = bit_size(String) + Rem,
-    validate_bs_skip(Fail, Ctx, Stride, Vst);
-valfun_3({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
-    assert_term(Size, Vst),
-
-    Stride = case get_raw_type(Size, Vst) of
-                 #t_integer{elements={Same,Same}} -> Same * Unit;
-                 _ -> Unit
-             end,
-
-    validate_bs_skip(Fail, Ctx, Stride, Vst);
-valfun_3({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_3({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    type_test(Fail, #t_bs_context{tail_unit=Unit}, Ctx, Vst);
-valfun_3({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip(Fail, Ctx, 8, Live, Vst);
-valfun_3({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip(Fail, Ctx, 16, Live, Vst);
-valfun_3({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip(Fail, Ctx, 32, Live, Vst);
-valfun_3({test,bs_get_integer2=Op,{f,Fail},Live,
-          [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
-    NumBits = Size * Unit,
-    Type = case member(unsigned, Flags) of
-               true when NumBits =< 64 ->
-                   beam_types:make_integer(0, (1 bsl NumBits)-1);
-               _ ->
-                   %% Signed integer or way too large, don't bother.
-                   #t_integer{}
-           end,
-    validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
-valfun_3({test,bs_get_integer2=Op,{f,Fail},Live,
-          [Ctx,_Size,Unit,_Flags],Dst},Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
-valfun_3({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, 1, #t_float{}, Dst, Vst);
-valfun_3({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
-    Type = #t_bitstring{size_unit=Unit},
-    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
-valfun_3({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, 8, Type, Dst, Vst);
-valfun_3({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, 16, Type, Dst, Vst);
-valfun_3({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, 32, Type, Dst, Vst);
-valfun_3({bs_save2,Ctx,SavePoint}, Vst) ->
-    bsm_save(Ctx, SavePoint, Vst);
-valfun_3({bs_restore2,Ctx,SavePoint}, Vst) ->
-    bsm_restore(Ctx, SavePoint, Vst);
-valfun_3({bs_get_position, Ctx, Dst, Live}, Vst0) ->
-    assert_type(#t_bs_context{}, Ctx, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    Vst = prune_x_regs(Live, Vst0),
-    create_term(#t_abstract{kind=ms_position}, bs_get_position, [Ctx],
-                Dst, Vst, Vst0);
-valfun_3({bs_set_position, Ctx, Pos}, Vst) ->
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    assert_type(#t_abstract{kind=ms_position}, Pos, Vst),
-    Vst;
-
-%% Other test instructions.
-valfun_3({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    verify_has_map_fields(Lbl, Src, List, Vst);
-valfun_3({test,is_atom,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_atom{}, Src, Vst);
-valfun_3({test,is_binary,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_bitstring{size_unit=8}, Src, Vst);
-valfun_3({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_bitstring{}, Src, Vst);
-valfun_3({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, beam_types:make_boolean(), Src, Vst);
-valfun_3({test,is_float,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_float{}, Src, Vst);
-valfun_3({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_tuple{}, Src, Vst);
-valfun_3({test,is_integer,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_integer{}, Src, Vst);
-valfun_3({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_cons{}, Src, Vst);
-valfun_3({test,is_number,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, number, Src, Vst);
-valfun_3({test,is_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_list{}, Src, Vst);
-valfun_3({test,is_map,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_map{}, Src, Vst);
-valfun_3({test,is_nil,{f,Lbl},[Src]}, Vst) ->
-    %% is_nil is an exact check against the 'nil' value, and should not be
-    %% treated as a simple type test.
-    assert_term(Src, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_ne_types(Src, nil, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_eq_types(Src, nil, SuccVst)
-           end);
-valfun_3({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
-    assert_type(#t_tuple{}, Tuple, Vst),
-    Type =  #t_tuple{exact=true,size=Sz},
-    type_test(Lbl, Type, Tuple, Vst);
-valfun_3({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
-    assert_term(Src, Vst),
-    Es = #{ 1 => get_literal_type(Atom) },
-    Type = #t_tuple{exact=true,size=Sz,elements=Es},
-    type_test(Lbl, Type, Src, Vst);
-valfun_3({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
-    validate_src(Ss, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_ne_types(Src, Val, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_eq_types(Src, Val, SuccVst)
-           end);
-valfun_3({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
-    validate_src(Ss, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_eq_types(Src, Val, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_ne_types(Src, Val, SuccVst)
-           end);
-valfun_3({test,_Op,{f,Lbl},Src}, Vst) ->
-    %% is_pid, is_reference, et cetera.
-    validate_src(Src, Vst),
-    branch(Lbl, Vst, fun(V) -> V end);
-valfun_3({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_term(A, Vst),
-    assert_term(B, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
-           end);
-valfun_3({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
-           end);
-valfun_3({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
-           end);
-valfun_3({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-	is_integer(Sz) ->
-	    ok;
-	true ->
-	    assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
-                               SuccVst, SuccVst0)
-           end);
-valfun_3({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-	is_integer(Sz) ->
-	    ok;
-	true ->
-	    assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
-           end);
-valfun_3({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    assert_term(Bits, Vst0),
-    assert_term(Bin, Vst0),
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
-                               [Bin], Dst, SuccVst, SuccVst0)
-           end);
-valfun_3({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
-    assert_term(Bits, Vst),
-    assert_term(Bin, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
-                               [Bin], Dst, SuccVst)
-           end);
-valfun_3({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
-    Vst;
-valfun_3({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
-           end);
-valfun_3({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
-           end);
-valfun_3({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-valfun_3({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-valfun_3({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-valfun_3({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-%% Map instructions.
-valfun_3({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-valfun_3({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-valfun_3({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
-    verify_get_map(Fail, Src, List, Vst);
-valfun_3(_, _) ->
-    error(unknown_instruction).
+    #vst{current=St0} = Vst,
+    #st{ct=Tags}=St0,
+    St = St0#st{ct=[Tag|Tags]},
+ 
+    Vst#vst{current=St}.
 
 verify_has_map_fields(Lbl, Src, List, Vst) ->
     assert_type(#t_map{}, Src, Vst),
@@ -1155,9 +1173,10 @@ verify_map_fields([Key | Keys], Map, Lbl, Vst) ->
         {_, _, _} -> verify_map_fields(Keys, Map, Lbl, Vst)
     end;
 verify_map_fields([], _Map, Lbl, Vst) ->
-    branch(Lbl, Vst, fun(V) -> V end).
+    branch(Lbl, Vst).
 
 verify_get_map(Fail, Src, List, Vst0) ->
+    assert_no_exception(Fail),
     assert_not_literal(Src),                    %OTP 22.
     assert_type(#t_map{}, Src, Vst0),
 
@@ -1222,18 +1241,27 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(#t_map{}, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+
     _ = [assert_term(Term, Vst0) || Term <- List],
     Vst = heap_alloc(0, Vst0),
 
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   Keys = extract_map_keys(List),
-                   assert_unique_map_keys(Keys),
+    SuccFun = fun(SuccVst0) ->
+                      SuccVst = prune_x_regs(Live, SuccVst0),
+                      Keys = extract_map_keys(List),
+                      assert_unique_map_keys(Keys),
 
-                   Type = put_map_type(Src, List, Vst),
-                   create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
-           end).
+                      Type = put_map_type(Src, List, Vst),
+                      create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
+              end,
+
+    case Op of
+        put_map_exact ->
+            branch(Fail, Vst, SuccFun);
+        put_map_assoc ->
+            %% This instruction cannot fail.
+            ?EXCEPTION_LABEL = Fail,            %Assertion.
+            SuccFun(Vst)
+    end.
 
 put_map_type(Map0, List, Vst) ->
     Map = normalize(get_term_type(Map0, Vst)),
@@ -1270,8 +1298,9 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     %% the message.
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
+    assert_float_checked(Vst),
     verify_no_ct(Vst),
-    ok.
+    kill_state(Vst).
 
 %%
 %% Common code for validating BIFs.
@@ -1281,22 +1310,20 @@ verify_return(Vst) ->
 %% have clobbered the sources.
 %%
 
-validate_bif(Op, Fail, Ss, Dst, Vst) ->
-    validate_src(Ss, Vst),
-    validate_bif_1(bif, Op, Fail, Ss, Dst, Vst, Vst).
-
-validate_gc_bif(Op, Fail, Ss, Dst, Live, #vst{current=St0}=Vst0) ->
-    validate_src(Ss, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-
-    %% Heap allocations and X registers are killed regardless of whether we
-    %% fail or not, as we may fail after GC.
-    St = kill_heap_allocation(St0),
-    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
-    validate_src(Ss, Vst),
-
-    validate_bif_1(gc_bif, Op, Fail, Ss, Dst, Vst, Vst).
+validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+    assert_float_checked(Vst),
+    case {will_bif_succeed(Op, Ss, Vst), Fail} of
+        {yes, _} ->
+            %% This BIF cannot fail (neither throw nor branch), make sure it's
+            %% handled without updating exception state.
+            validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst);
+        {no, _} ->
+            %% This BIF always fails; jump directly to the fail block or
+            %% exception handler.
+            branch(Fail, Vst, fun kill_state/1);
+        {maybe, _} ->
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst)
+    end.
 
 validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0) ->
     %% This BIF explicitly cannot fail; it will not jump to a guard nor throw
@@ -1362,6 +1389,8 @@ validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
     Vst = prune_x_regs(Live, Vst1),
     extract_term(CtxType, bs_start_match, [Src], Dst, Vst, Vst0);
 validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
+    assert_no_exception(Fail),
+
     branch(Fail, Vst,
            fun(FailVst) ->
                    update_type(fun subtract/2, #t_bs_matchable{}, Src, FailVst)
@@ -1375,6 +1404,8 @@ validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
 %% Common code for validating bs_get* instructions.
 %%
 validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
+    assert_no_exception(Fail),
+
     assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
@@ -1396,6 +1427,8 @@ validate_bs_skip(Fail, Ctx, Stride, Vst) ->
     validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
 
 validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
+    assert_no_exception(Fail),
+
     assert_type(#t_bs_context{}, Ctx, Vst),
 
     #t_bs_context{tail_unit=TailUnit} = get_raw_type(Ctx, Vst),
@@ -1427,6 +1460,7 @@ type_test(Fail, Type, Reg, Vst) ->
     type_test_1(Fail, Type, Reg, Vst).
 
 type_test_1(Fail, Type, Reg, Vst) ->
+    assert_no_exception(Fail),
     branch(Fail, Vst,
            fun(FailVst) ->
                    update_type(fun subtract/2, Type, Reg, FailVst)
@@ -1442,65 +1476,44 @@ type_test_1(Fail, Type, Reg, Vst) ->
 %%
 %% Note that #vst.current will be 'none' if the instruction is unreachable.
 %%
-val_dsetel({move,_,_}, Vst) ->
+
+validate_mutation(I, Vst) ->
+    vm_1(I, Vst).
+
+vm_1({move,_,_}, Vst) ->
     Vst;
-val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
+vm_1({swap,_,_}, Vst) ->
+    Vst;
+vm_1({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};
-val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
+vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
-val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
+vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
     Vst;
-val_dsetel({get_tuple_element,_,_,_}, Vst) ->
+vm_1({get_tuple_element,_,_,_}, Vst) ->
     Vst;
-val_dsetel({line,_}, Vst) ->
+vm_1({line,_}, Vst) ->
     Vst;
-val_dsetel(_, #vst{current=#st{setelem=true}=St}=Vst) ->
+vm_1(_, #vst{current=#st{setelem=true}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=false}};
-val_dsetel(_, Vst) -> Vst.
+vm_1(_, Vst) -> Vst.
 
 kill_state(Vst) ->
     Vst#vst{current=none}.
 
-%% A "plain" call.
-%%  The stackframe must be initialized.
-%%  The instruction will return to the instruction following the call.
-call(Name, Live, #vst{current=St0}=Vst0) ->
-    verify_call_args(Name, Live, Vst0),
-    verify_y_init(Vst0),
-    case call_types(Name, Live, Vst0) of
-        {none, _, _} ->
-            kill_state(Vst0);
-        {RetType, _, _} ->
-            St = St0#st{f=init_fregs()},
-            Vst = prune_x_regs(0, Vst0#vst{current=St}),
-            create_term(RetType, call, [], {x,0}, Vst)
-    end.
-
-%% Tail call.
-%%  The stackframe must have a known size and be initialized.
-%%  Does not return to the instruction following the call.
-tail_call(Name, Live, Vst0) ->
-    verify_y_init(Vst0),
-    Vst = deallocate(Vst0),
-    verify_call_args(Name, Live, Vst),
-    verify_return(Vst),
-    kill_state(Vst).
-
 verify_call_args(_, 0, #vst{}) ->
     ok;
-verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
-    case gb_trees:lookup(Lbl, Ft) of
-        {value, FuncInfo} ->
+verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) ->
+    case Ft of
+        #{ Lbl := FuncInfo } ->
             #{ arity := Live,
                parameter_info := ParamInfo } = FuncInfo,
             verify_local_args(Live - 1, ParamInfo, #{}, Vst);
-        none ->
+        #{} ->
             error(local_call_to_unknown_function)
     end;
-verify_call_args(_, Live, Vst) when is_integer(Live)->
-    verify_remote_args_1(Live - 1, Vst);
-verify_call_args(_, Live, _) ->
-    error({bad_number_of_live_regs,Live}).
+verify_call_args(_, Live, Vst) ->
+    verify_remote_args_1(Live - 1, Vst).
 
 verify_remote_args_1(-1, _) ->
     ok;
@@ -1520,37 +1533,68 @@ verify_local_args(X, ParamInfo, CtxRefs, Vst) ->
                 #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
-                    verify_arg_type(Reg, Type, ParamInfo),
+                    verify_arg_type(Reg, Type, ParamInfo, Vst),
                     verify_local_args(X - 1, ParamInfo,
                                       CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
-            verify_arg_type(Reg, Type, ParamInfo),
+            verify_arg_type(Reg, Type, ParamInfo, Vst),
             verify_local_args(X - 1, ParamInfo, CtxRefs, Vst)
     end.
 
-verify_arg_type(Reg, GivenType, ParamTypes) ->
-    case {ParamTypes, GivenType} of
+verify_arg_type(Reg, GivenType, ParamInfo, Vst) ->
+    case {ParamInfo, GivenType} of
         {#{ Reg := Info }, #t_bs_context{}} ->
             %% Match contexts require explicit support, and may not be passed
             %% to a function that accepts arbitrary terms.
             case member(accepts_match_context, Info) of
-                true -> verify_arg_type_1(Reg, GivenType, Info);
+                true -> verify_arg_type_1(Reg, GivenType, Info, Vst);
                 false -> error(no_bs_start_match2)
             end;
         {_, #t_bs_context{}} ->
             error(no_bs_start_match2);
         {#{ Reg := Info }, _} ->
-            verify_arg_type_1(Reg, GivenType, Info);
+            verify_arg_type_1(Reg, GivenType, Info, Vst);
         {#{}, _} ->
             ok
     end.
 
-verify_arg_type_1(Reg, GivenType, Info) ->
+verify_arg_type_1(Reg, GivenType, Info, Vst) ->
     RequiredType = proplists:get_value(type, Info, any),
     case meet(GivenType, RequiredType) of
-        GivenType -> ok;
-        _ -> error({bad_arg_type, Reg, GivenType, RequiredType})
+        Type when Type =/= none, Vst#vst.level =:= weak ->
+            %% Strictly speaking this should always match GivenType, but
+            %% beam_jump:share/1 sometimes joins blocks in a manner that makes
+            %% it very difficult to accurately reconstruct type information,
+            %% for example:
+            %%
+            %%        bug({Tag, _, _} = Key) when Tag == a; Tag == b ->
+            %%            foo(Key);
+            %%        bug({Tag, _} = Key) when Tag == a; Tag == b ->
+            %%            foo(Key).
+            %%
+            %%        foo(I) -> I.
+            %%
+            %% At the first call to foo/1, we know that we have either `{a,_}`
+            %% or `{b,_}`, and at the second call `{a,_,_}` or `{b,_,_}`.
+            %%
+            %% When both calls to foo/1 are joined into the same block, all we
+            %% know is that we have tuple with an arity of at least 2, whose
+            %% first element is `a` or `b`.
+            %%
+            %% Fixing this properly is a big undertaking, so for now we've
+            %% decided on a compromise that splits validation into two steps.
+            %%
+            %% We run a 'strong' pass directly after code generation in which
+            %% arguments must be at least as narrow as expected, and a 'weak'
+            %% pass after all optimizations have been applied in which we
+            %% tolerate arguments that aren't in direct conflict.
+            ok;
+        GivenType ->
+            true = GivenType =/= none,          %Assertion.
+            ok;
+        _ ->
+            error({bad_arg_type, Reg, GivenType, RequiredType})
     end.
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
@@ -1665,7 +1709,14 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%   fmove Src {fr,_}		%% Move INTO floating point register.
 %%%
 
-float_op(Ss, Dst, Vst0) ->
+is_float_arith_bif(fadd, [_, _]) -> true;
+is_float_arith_bif(fdiv, [_, _]) -> true;
+is_float_arith_bif(fmul, [_, _]) -> true;
+is_float_arith_bif(fnegate, [_]) -> true;
+is_float_arith_bif(fsub, [_, _]) -> true;
+is_float_arith_bif(_, _) -> false.
+
+validate_float_arith_bif(Ss, Dst, Vst0) ->
     _ = [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
@@ -2090,7 +2141,9 @@ set_reg_vref(Ref, {y,_}=Dst, #vst{current=#st{ys=Ys0}=St0} = Vst) ->
             %% Storing into a non-existent Y register means that we haven't set
             %% up a (sufficiently large) stack.
             error({invalid_store, Dst})
-    end.
+    end;
+set_reg_vref(_Ref, Dst, _Vst) ->
+    error({invalid_register, Dst}).
 
 get_reg_vref({x,_}=Src, #vst{current=#st{xs=Xs}}) ->
     check_limit(Src),
@@ -2111,13 +2164,17 @@ get_reg_vref({y,_}=Src, #vst{current=#st{ys=Ys}}) ->
             error(Tag);
         #{} ->
             error({uninitialized_reg, Src})
-    end.
+    end;
+get_reg_vref(Src, _Vst) ->
+    error({invalid_register, Src}).
 
 set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
     #{ Ref := #value{}=Entry } = Vs0,
     Vs = Vs0#{ Ref => Entry#value{type=Type} },
     Vst#vst{current=St#st{vs=Vs}}.
 
+new_value(none, _, _, _) ->
+    error(creating_none_value);
 new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
     Ref = #value_ref{id=Counter},
     Vs = Vs0#{ Ref => #value{op=Op,args=Ss,type=Type} },
@@ -2143,6 +2200,11 @@ check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
         false ->
             ok
     end.
+
+assert_no_exception(?EXCEPTION_LABEL) ->
+    error(throws_exception);
+assert_no_exception(_) ->
+    ok.
 
 assert_term(Src, Vst) ->
     _ = get_term_type(Src, Vst),
@@ -2273,7 +2335,7 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
         #{ Ref := #value{type=Type} } -> Type;
         #{} -> none
     end;
-get_raw_type(Src, #vst{}) ->
+get_raw_type(Src, #vst{current=#st{}}) ->
     get_literal_type(Src).
 
 get_literal_type(nil) -> 
@@ -2343,7 +2405,7 @@ validate_branch_1(Lbl, [{trytag, FailLbls} | Tags]) ->
     end;
 validate_branch_1(Lbl, [_ | Tags]) ->
     validate_branch_1(Lbl, Tags);
-validate_branch_1(_Lbl, []) ->
+validate_branch_1(_Lbl, _Tags) ->
     ok.
 
 %% A shorthand version of branch/4 for when the state is only altered on
@@ -2351,37 +2413,57 @@ validate_branch_1(_Lbl, []) ->
 branch(Fail, Vst, SuccFun) ->
     branch(Fail, Vst, fun(V) -> V end, SuccFun).
 
+%% Shorthand of branch/4 for when the state is neither altered on failure nor
+%% success.
+branch(Fail, Vst) ->
+    branch(Fail, Vst, fun(V) -> V end).
+
 %% Directly branches off the state. This is an "internal" operation that should
 %% be used sparingly.
-fork_state(0, #vst{}=Vst) ->
-    %% If the instruction fails, the stack may be scanned looking for a catch
-    %% tag. Therefore the Y registers must be initialized at this point.
-    verify_y_init(Vst),
-    Vst;
-fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
-    case gb_trees:is_defined(L, B) of
-        true ->
-            {MergedSt, Counter} = merge_states(L, St, B, Counter0),
-            Branched = gb_trees:update(L, MergedSt, B),
-            Vst#vst{branched=Branched,ref_ctr=Counter};
-        false ->
-            Vst#vst{branched=gb_trees:insert(L, St, B)}
-    end.
+fork_state(?EXCEPTION_LABEL, Vst0) ->
+    #vst{current=#st{ct=CatchTags,numy=NumY}} = Vst0,
+
+    %% Floating-point exceptions must be checked before any other kind of
+    %% exception can be raised.
+    assert_float_checked(Vst0),
+
+    %% The stack will be scanned looking for a catch tag, so all Y registers
+    %% must be initialized.
+    verify_y_init(Vst0),
+
+    case CatchTags of
+        [{_, [Fail]} | _] when is_integer(Fail) ->
+            true = Fail =/= ?EXCEPTION_LABEL,   %Assertion.
+            true = NumY =/= none,               %Assertion.
+
+            %% Clear the receive marker and fork to our exception handler.
+            Vst = set_receive_marker(none, Vst0),
+            fork_state(Fail, Vst);
+        [] ->
+            %% No catch handler; the exception leaves the function.
+            Vst0;
+        _ ->
+            error(ambiguous_catch_try_state)
+    end;
+fork_state(L, #vst{current=St0,branched=Branched0,ref_ctr=Counter0}=Vst) ->
+    {St, Counter} = merge_states(L, St0, Branched0, Counter0),
+    Branched = Branched0#{ L => St },
+    Vst#vst{branched=Branched,ref_ctr=Counter}.
 
 %% merge_states/3 is used when there's more than one way to arrive at a
 %% certain point, requiring the states to be merged down to the least
 %% common subset for the subsequent code.
 
 merge_states(L, St, Branched, Counter) when L =/= 0 ->
-    case gb_trees:lookup(L, Branched) of
-        none ->
-            {St, Counter};
-        {value,OtherSt} when St =:= none ->
-            {OtherSt, Counter};
-        {value,OtherSt} ->
-             merge_states_1(St, OtherSt, Counter)
+    case Branched of
+        #{ L := OtherSt } -> merge_states_1(St, OtherSt, Counter);
+        #{} -> {St, Counter}
     end.
 
+merge_states_1(St, none, Counter) ->
+    {St, Counter};
+merge_states_1(none, St, Counter) ->
+    {St, Counter};
 merge_states_1(StA, StB, Counter0) ->
     #st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,
         h=HA,ct=CtA,recv_marker=MarkerA} = StA,
@@ -2726,22 +2808,25 @@ call_types({extfunc,M,F,A}, A, Vst) ->
 call_types(_, A, Vst) ->
     {any, get_call_args(A, Vst), false}.
 
-will_bif_succeed(fadd, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fdiv, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fmul, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fnegate, [_], _Vst) ->
-    maybe;
-will_bif_succeed(fsub, [_,_], _Vst) ->
-    maybe;
+will_bif_succeed(raise, [_,_], _Vst) ->
+    %% Compiler-generated raise, the user-facing variant that can return
+    %% 'badarg' is erlang:raise/3.
+    no;
 will_bif_succeed(Op, Ss, Vst) ->
-    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
-    beam_call_types:will_succeed(erlang, Op, Args).
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs can't fail; their error checking is
+            %% deferred until fcheckerror.
+            yes;
+        false ->
+            Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
+            beam_call_types:will_succeed(erlang, Op, Args)
+    end.
 
 will_call_succeed({extfunc,M,F,A}, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
+will_call_succeed(bs_init_writable, _Vst) ->
+    yes;
 will_call_succeed(_Call, _Vst) ->
     maybe.
 
@@ -2782,7 +2867,5 @@ gcd(A, B) ->
         0 -> B;
         X -> gcd(B, X)
     end.
-
-gb_trees_from_list(L) -> gb_trees:from_orddict(sort(L)).
 
 error(Error) -> throw(Error).

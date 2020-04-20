@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,48 +80,6 @@ static char *mystrdup(char *s)
     strcpy(r,s);
     return r;
 }
-
-#ifdef VXWORKS
-int start_epmd(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
-char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;     
-{
-  char*  argarr[] = {a0,a1,a2,a3,a4,a5,a6,a7,a8,a9};
-  int    i;
-  char** argv = malloc(sizeof(char *)*10);
-  int    argvsiz = 10;
-  int    argc = 1;
-  char*  tmp = malloc(100);
-  int    tmpsiz = 100;
-  char*  pplast;
-  char*  token;
-  
-  argv[0] = mystrdup("epmd");
-  argv[1] = NULL;
-  
-  for(i=0;i<10;++i)
-    {
-      if(argarr[i] == NULL || *argarr[i] == '\0')
-	continue;
-      if(strlen(argarr[i]) >= tmpsiz)
-	tmp = realloc(tmp, tmpsiz = (strlen(argarr[i])+1));
-      strcpy(tmp,argarr[i]);
-      for(token = strtok_r(tmp," ",&pplast);
-	  token != NULL;
-	  token = strtok_r(NULL," ",&pplast))
-	{
-	  if(argc >= argvsiz - 1)
-	    argv = realloc(argv,sizeof(char *) * (argvsiz += 10));
-	  argv[argc++] = mystrdup(token);
-	  argv[argc] = NULL;
-	}
-    }
-  free(tmp);
-  return taskSpawn("epmd",100,VX_FP_TASK,20000,epmd_main,
-		   argc,(int) argv,1,
-		   0,0,0,0,0,0,0);
-}
-#endif    /* WxWorks */
-
 
 int epmd(int argc, char **argv)
 {
@@ -393,13 +351,6 @@ static void run_daemon(EpmdVars *g)
     open("nul", O_WRONLY);
     open("nul", O_WRONLY);
 
-    run(g);
-}
-#endif
-
-#if defined(VXWORKS)
-static void run_daemon(EpmdVars *g)
-{
     run(g);
 }
 #endif

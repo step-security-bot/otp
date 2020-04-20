@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2016</year><year>2016</year>
+      <year>2016</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -82,7 +82,7 @@
 
   <section>
     <title>SEE ALSO</title>
-	<p><seealso marker="kernel:application">application(3)</seealso></p>
+	<p><seeerl marker="kernel:application">application(3)</seeerl></p>
   </section>
   
 </appref>

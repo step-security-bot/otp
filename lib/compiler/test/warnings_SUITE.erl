@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -270,6 +270,7 @@ bad_arith(Config) when is_list(Config) ->
 	     {3,sys_core_fold,{eval_failure,badarith}},
 	     {9,sys_core_fold,nomatch_guard},
 	     {9,sys_core_fold,{eval_failure,badarith}},
+	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 	     {10,sys_core_fold,nomatch_guard},
 	     {10,sys_core_fold,{eval_failure,badarith}},
 	     {15,sys_core_fold,{eval_failure,badarith}}
@@ -621,8 +622,8 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,badmap}]}},
-	   {ok_map_literal_key,
+	   {warnings,[{3,sys_core_fold,{eval_failure,badmap}}]}},
+           {ok_map_literal_key,
            <<"
              t() ->
 		 V = id(1),

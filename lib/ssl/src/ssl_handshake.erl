@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@
 %% Create handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
 	 certificate/4,  client_certificate_verify/6,  certificate_request/5, key_exchange/3,
-	 finished/5,  next_protocol/1]).
+	 finished/5,  next_protocol/1, digitally_signed/5]).
 
 %% Handle handshake messages
 -export([certify/7, certificate_verify/6, verify_signature/5,
@@ -171,7 +171,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 	false ->
 	    Hashes =
 		calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey),
+	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo),
 	    #certificate_verify{signature = Signed, hashsign_algorithm = {HashAlgo, SignAlgo}}
     end.
 
@@ -400,21 +400,30 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
-verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
-    true;
-verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
+verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, 
+                 {_, PubKey, PubKeyParams}) when  Minor >= 3,
+                                                  SignAlgo == rsa_pss_rsae;
+                                                  SignAlgo == rsa_pss_pss ->
+    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
+    public_key:verify(Hash, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey);
-verify_signature(_Version, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) ->
+    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
+    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hash -> true;
-	_    -> false
+	_   -> false
     end;
-verify_signature(_Version, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, 4}, Hash, {HashAlgo, _SignAlgo}, Signature, {?'id-ecPublicKey', PubKey, PubKeyParams}) ->
+    public_key:verify(Hash, HashAlgo, Signature, {PubKey, PubKeyParams});
 verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
+    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, Minor}, _Hash, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
+    true;
+verify_signature({3, Minor}, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
     public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
@@ -948,8 +957,6 @@ cipher_suites(Suites, true) ->
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf({3,0}, _, _, _, _, _) ->
-    {error, undefined};
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
@@ -1714,15 +1721,20 @@ handle_incomplete_chain(PeerCert, Chain0,
                         #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
         {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
-            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
-                                                                    CertDbHandle, CertsDbRef,
-                                                                    PartialChain),
-            case public_key:pkix_path_validation(Trusted, Path, Options) of
-		{ok, {PublicKeyInfo,_}} ->
-		    {PeerCert, PublicKeyInfo};
-                {error, PathError} ->
-                    handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError)
-	    end;
+            case ssl_certificate:trusted_cert_and_path(Chain,
+                                                       CertDbHandle, CertsDbRef,
+                                                       PartialChain) of
+                {unknown_ca, []} ->
+                     path_validation_alert(Reason);
+                {Trusted, Path} ->
+                    case public_key:pkix_path_validation(Trusted, Path, Options) of
+                        {ok, {PublicKeyInfo,_}} ->
+                            {PeerCert, PublicKeyInfo};
+                        {error, PathError} ->
+                            handle_unordered_chain(PeerCert, Chain0, Opts, Options, 
+                                                   CertDbHandle, CertsDbRef, PathError)
+                    end
+            end;
         _ ->
             handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
     end.
@@ -1732,15 +1744,19 @@ handle_unordered_chain(PeerCert, Chain0,
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
         {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unordered 
-            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
-                                                                    CertDbHandle, CertsDbRef,
-                                                                    PartialChain),
-            case public_key:pkix_path_validation(Trusted, Path, Options) of
-                {ok, {PublicKeyInfo,_}} ->
-                    {PeerCert, PublicKeyInfo};
-                {error, PathError} ->
-                    path_validation_alert(PathError)
-	    end;
+            case ssl_certificate:trusted_cert_and_path(Chain,
+                                                       CertDbHandle, CertsDbRef,
+                                                       PartialChain) of
+                {unknown_ca, []} ->
+                    path_validation_alert(Reason);
+                {Trusted, Path} ->
+                    case public_key:pkix_path_validation(Trusted, Path, Options) of
+                        {ok, {PublicKeyInfo,_}} ->
+                            {PeerCert, PublicKeyInfo};
+                        {error, PathError} ->
+                            path_validation_alert(PathError)
+                    end
+            end;
         _ ->
             path_validation_alert(Reason)
     end.
@@ -1767,36 +1783,86 @@ path_validation_alert({bad_cert, unknown_ca}) ->
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
-digitally_signed(Version, Hashes, HashAlgo, PrivateKey) ->
-    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey) of
+digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
+    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) of
 	Signature ->
 	    Signature
     catch
 	error:badkey->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine) 
-  when Minor >= 3 ->
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
-do_digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
-    public_key:sign({digest, Hash}, HashAlgo, Key);
-do_digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
-    public_key:encrypt_private(Hash, Key,
-			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed({3, _}, Hash, _, 
-                    #{algorithm := rsa} = Engine) ->
+
+do_digitally_signed({3, Minor}, Hash, _, 
+                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
     crypto:private_encrypt(rsa, Hash, maps:remove(algorithm, Engine),
                            rsa_pkcs1_padding);
-do_digitally_signed({3, _}, Hash, HashAlgo, #{algorithm := Alg} = Engine) ->
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
-do_digitally_signed(_Version, Hash, HashAlgo, Key) ->
+do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
+  when Minor > 3 ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
+  when Minor > 3 ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{} = Params}, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo, Params),
+    public_key:sign(Hash, HashAlgo, Key, Options);
+do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    public_key:sign(Hash, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, Hash, HashAlgo, Key, SignAlgo) when Minor >= 3 ->
+    Options = signature_options(HashAlgo, SignAlgo),
+    public_key:sign({digest,Hash}, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when  Minor =< 2 ->
+    public_key:encrypt_private(Hash, Key,
+			       [{rsa_pad, rsa_pkcs1_padding}]);
+do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
+    
+signature_options(SignAlgo, HashAlgo) ->
+    signature_options(SignAlgo, HashAlgo, undefined).
+signature_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
+    pss_pss_options(HashAlgo, Params);
+signature_options(rsa_pss_rsae, HashAlgo, _) ->
+    pss_rsae_options(HashAlgo);
+signature_options(_, _, _) ->
+    [].
+
+verify_options(rsa_pss_rsae, HashAlgo, _KeyParams) -> 
+    pss_rsae_options(HashAlgo);
+verify_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
+    pss_pss_options(HashAlgo, Params);
+verify_options(_, _, _) ->
+    [].
+
+pss_rsae_options(HashAlgo) ->
+    %% of the digest algorithm: rsa_pss_saltlen = -1
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}].
+
+pss_pss_options(HashAlgo, #'RSASSA-PSS-params'{saltLength = SaltLen,
+                                               maskGenAlgorithm = 
+                                                   #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                       parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+
+    HashAlgo = public_key:pkix_hash_type(HashOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, SaltLen},
+     {rsa_mgf1_md, HashAlgo}].
 
 bad_key(#'DSAPrivateKey'{}) ->
     unacceptable_dsa_key;
 bad_key(#'RSAPrivateKey'{}) ->
     unacceptable_rsa_key;
 bad_key(#'ECPrivateKey'{}) ->
+    unacceptable_ecdsa_key;
+bad_key(#{algorithm := rsa}) ->
+    unacceptable_rsa_key;
+bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
 crl_check(_, false, _,_,_, _, _, _) ->
@@ -1910,13 +1976,8 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, premaster_encryption_failed))
     end.
 
-calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
-    ssl_v3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
 calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake) ->
     tls_v1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
-
-calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
-    ssl_v3:finished(Role, MasterSecret, lists:reverse(Handshake));
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
@@ -1946,20 +2007,10 @@ master_secret(Version, MasterSecret,
     {MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
-
-setup_keys({3,0}, _PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
-    ssl_v3:setup_keys(MasterSecret, ServerRandom,
-			ClientRandom, HashSize, KML, EKML, IVS);
-
 setup_keys({3,N}, PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     tls_v1:setup_keys(N, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
-
-calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
-    ssl_v3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
-
 calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 	
@@ -2158,7 +2209,7 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
 						     ServerRandom/binary,
 						     EncParams/binary>>),
-	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
+	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey, SignAlgo),
 	    #server_key_params{params = Params,
 			       params_bin = EncParams,
 			       hashsign = {HashAlgo, SignAlgo},
@@ -2356,6 +2407,20 @@ dec_server_key_params(Len, Keys, Version) ->
     <<Params:Len/bytes, Signature/binary>> = Keys,
     dec_server_key_signature(Params, Signature, Version).
 
+dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
+                                   ?UINT16(0)>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
+    Scheme = ssl_cipher:signature_scheme(Scheme0),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
+    {Params, {Hash, Sign}, <<>>};
+dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
+                                   ?UINT16(Len), Signature:Len/binary>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
+    Scheme = ssl_cipher:signature_scheme(Scheme0),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
+    {Params, {Hash, Sign}, Signature};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(0)>>, {Major, Minor})
   when Major == 3, Minor >= 3 ->
@@ -2464,8 +2529,17 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
   when Version =:= {3,4} ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
-    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
-			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    SignSchemes= lists:filtermap(Fun, [SignScheme ||
+                                          <<?UINT16(SignScheme)>> <= SignSchemeList]),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{signature_algs =>
                                #signature_algorithms{
@@ -2475,8 +2549,17 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
-    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
-			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    SignSchemes= lists:filtermap(Fun, [SignScheme ||
+                                          <<?UINT16(SignScheme)>> <= SignSchemeList]),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{signature_algs_cert =>
                                #signature_algorithms_cert{
@@ -2651,11 +2734,18 @@ decode_client_shares(ClientShares) ->
 %%
 decode_client_shares(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_client_shares(<<?UINT16(Group),?UINT16(Len),KeyExchange:Len/binary,Rest/binary>>, Acc) ->
-    decode_client_shares(Rest, [#key_share_entry{
-                                   group = tls_v1:enum_to_group(Group),
-                                   key_exchange= KeyExchange
-                                  }|Acc]).
+decode_client_shares(<<?UINT16(Group0),?UINT16(Len),KeyExchange:Len/binary,Rest/binary>>, Acc) ->
+    case tls_v1:enum_to_group(Group0) of
+        undefined ->
+            %% Ignore key_share with unknown group
+            decode_client_shares(Rest, Acc);
+        Group ->
+            decode_client_shares(Rest, [#key_share_entry{
+                                           group = Group,
+                                           key_exchange= KeyExchange
+                                          }|Acc])
+    end.
+
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
     decode_protocols(Protocols, []).
@@ -2681,7 +2771,10 @@ decode_psk_key_exchange_modes(<<>>, Acc) ->
 decode_psk_key_exchange_modes(<<?BYTE(?PSK_KE), Rest/binary>>, Acc) ->
     decode_psk_key_exchange_modes(Rest, [psk_ke|Acc]);
 decode_psk_key_exchange_modes(<<?BYTE(?PSK_DHE_KE), Rest/binary>>, Acc) ->
-    decode_psk_key_exchange_modes(Rest, [psk_dhe_ke|Acc]).
+    decode_psk_key_exchange_modes(Rest, [psk_dhe_ke|Acc]);
+%% Ignore unknown PskKeyExchangeModes
+decode_psk_key_exchange_modes(<<?BYTE(_), Rest/binary>>, Acc) ->
+    decode_psk_key_exchange_modes(Rest, Acc).
 
 
 decode_psk_identities(Identities) ->
@@ -3182,9 +3275,6 @@ handle_renegotiation_info(_, _RecordCB, server, #renegotiation_info{renegotiated
                       throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, server_renegotiation))
 	      end
       end;
-handle_renegotiation_info({3,0}, _RecordCB, client, undefined, ConnectionStates, true, _SecureRenegotation, _) ->
-    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
-
 handle_renegotiation_info(_, RecordCB, client, undefined, ConnectionStates, true, SecureRenegotation, _) ->
     handle_renegotiation_info(RecordCB, ConnectionStates, SecureRenegotation);
 
@@ -3271,8 +3361,6 @@ empty_extensions({3,4}, hello_retry_request) ->
       key_share => undefined,
       pre_shared_key => undefined
      };
-empty_extensions({3,0}, _) ->
-    empty_extensions();
 empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,

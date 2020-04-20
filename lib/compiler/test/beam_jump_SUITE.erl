@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 undefined_label/1,ambiguous_catch_try_state/1,
          unsafe_move_elimination/1,build_tuple/1,
-         coverage/1]).
+         coverage/1,call_sharing/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -37,7 +37,8 @@ groups() ->
        ambiguous_catch_try_state,
        unsafe_move_elimination,
        build_tuple,
-       coverage
+       coverage,
+       call_sharing
       ]}].
 
 init_per_suite(Config) ->
@@ -67,9 +68,18 @@ flights(_, Reproduction, introduction) when false, Reproduction ->
 %% [ERL-209] beam_jump would share 'catch' blocks, causing an
 %% ambiguous_catch_try_state error in beam_validator.
 
-ambiguous_catch_try_state(_Config) ->
+ambiguous_catch_try_state(Config) ->
     {{'EXIT',{{case_clause,song},_}},{'EXIT',{{case_clause,song},_}}} =
 	checks(42),
+
+    {'EXIT',{{try_clause,42},_}} = (catch unsafe_sharing()),
+
+    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(<<>>)),
+    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(Config)),
+
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
+
     ok.
 
 river() -> song.
@@ -77,6 +87,9 @@ river() -> song.
 checks(Wanted) ->
     %% Must be one line to cause the unsafe optimization.
     {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.
+
+%% Must be one line to cause the unsafe optimization. Would cause beam_validator to reject the function.
+unsafe_sharing() -> try try id(42) catch parent:215 -> []; education:17 -> try 12 catch _:_ -> a end /= if false -> fy end end of [] -> if false -> a end catch _:_ -> name end.
 
 unsafe_move_elimination(_Config) ->
     {{left,right,false},false} = unsafe_move_elimination_1(left, right, false),
@@ -154,6 +167,66 @@ expects_h(7, Atom) ->
     Atom = id(h),
     ok.
 
+%% When compiled with +no_copt, beam_validator would complain about
+%% ambigous try/catch state.
+ambiguous_catch_try_state_1(<<42:false>>) ->
+    %% The beam_ssa_bsm pass will duplicate the entire second clause.
+    %% beam_jump will share the blocks with the build_stacktrace
+    %% instructions.
+    [];
+ambiguous_catch_try_state_1(V0) ->
+    try
+        try
+            receive after bad -> timeout end
+        catch
+            _:V0 ->
+                error
+        after
+            ok
+        end
+    of
+        true ->
+            ok
+    catch
+        month:power:V2 ->
+            %% A build_stacktrace instruction would be shared, causing
+            %% an ambiguous try/catch state.
+            V2
+    after
+        a = b
+    end.
+
+ambiguous_catch_try_state_2() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% if_end would be shared in an unsafe way.
+                if 0 -> way end after [] end of [] -> if $X -> "D" end
+    end.
+
+ambiguous_catch_try_state_3() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% case_end would be shared in an unsafe way.
+                case x of y -> way end after [] end of [] -> case x of $X -> "D" end
+    end.
+
+
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).
 
@@ -176,6 +249,8 @@ coverage(_Config) ->
     le = coverage_2([], []),
     gt = coverage_2([], xxx),
 
+    error = coverage_3(#{key => <<"child">>}),
+    error = coverage_3(#{}),
     ok.
 
 coverage_1(Var) ->
@@ -204,6 +279,42 @@ coverage_2(Pre1, Pre2) ->
                     le
             end
     end.
+
+coverage_3(#{key := <<child>>}) when false ->
+    ok;
+coverage_3(#{}) ->
+    error.
+
+%% ERIERL-478: The validator failed to validate argument types when calls were
+%% shared and the types at the common block turned out wider than the join of
+%% each individual call site.
+call_sharing(_Config) ->
+    A_2 = {a, 1},
+    A_3 = {a, 1, 2},
+
+    A_2 = cs_1(id(A_2)),
+    A_3 = cs_1(id(A_3)),
+
+    B_2 = {b, 1},
+    B_3 = {b, 1, 2},
+    B_2 = cs_1(id(B_2)),
+    B_3 = cs_1(id(B_3)),
+
+    C_2 = {c, 1},
+    C_3 = {c, 1, 2},
+    {'EXIT',_} = (catch (cs_1(id(C_2)))),
+    {'EXIT',_} = (catch (cs_1(id(C_3)))),
+
+    ok.
+
+cs_1(Key) ->
+    A = case Key of
+            %% Must be a single line to trigger the bug.
+            {Tag, _, _} when Tag == a; Tag == b -> cs_2(Key); {Tag, _} when Tag == a; Tag == b -> cs_2(Key)
+        end,
+    id(A).
+
+cs_2(I) -> I.
 
 
 id(I) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -297,10 +297,7 @@
       NormalizedURI :: uri_string()
                      | error().
 normalize(URIMap) ->
-    try normalize(URIMap, [])
-    catch
-        throw:{error, Atom, RestData} -> {error, Atom, RestData}
-    end.
+    normalize(URIMap, []).
 
 
 -spec normalize(URI, Options) -> NormalizedURI when
@@ -309,20 +306,32 @@ normalize(URIMap) ->
       NormalizedURI :: uri_string() | uri_map()
                      | error().
 normalize(URIMap, []) when is_map(URIMap) ->
-    recompose(normalize_map(URIMap));
+    try recompose(normalize_map(URIMap))
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
 normalize(URIMap, [return_map]) when is_map(URIMap) ->
-    normalize_map(URIMap);
+    try normalize_map(URIMap)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
 normalize(URIString, []) ->
     case parse(URIString) of
         Value when is_map(Value) ->
-            recompose(normalize_map(Value));
+            try recompose(normalize_map(Value))
+            catch
+                throw:{error, Atom, RestData} -> {error, Atom, RestData}
+            end;
         Error ->
             Error
     end;
 normalize(URIString, [return_map]) ->
     case parse(URIString) of
         Value when is_map(Value) ->
-            normalize_map(Value);
+            try normalize_map(Value)
+            catch
+                throw:{error, Atom, RestData} -> {error, Atom, RestData}
+            end;
         Error ->
             Error
     end.

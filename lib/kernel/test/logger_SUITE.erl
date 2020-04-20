@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -570,6 +570,7 @@ filter_failed(cleanup,_Config) ->
     ok.
 
 handler_failed(_Config) ->
+    logger:set_primary_config(level,all),
     register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
@@ -613,7 +614,7 @@ handler_failed(_Config) ->
         logger:add_handler(h1,?MODULE,#{add_call=>KillHandler}),
 
     check_no_log(),
-    ok = logger:add_handler(h1,?MODULE,#{}),
+    ok = logger:add_handler(h1,?MODULE,#{tc_proc=>self()}),
     {error,{attempting_syncronous_call_to_self,_}} =
         logger:set_handler_config(h1,#{conf_call=>CallAddHandler}),
     {error,{callback_crashed,_}} =
@@ -629,7 +630,8 @@ handler_failed(_Config) ->
         logger:set_handler_config(h1,conf_call,KillHandler),
 
     ok = logger:remove_handler(h1),
-    [add,remove] = test_server:messages_get(),
+    [add,{#{level:=error},_},{#{level:=error},_},
+     {#{level:=error},_},{#{level:=error},_},remove] = test_server:messages_get(),
 
     check_no_log(),
     ok = logger:add_handler(h1,?MODULE,#{rem_call=>CallAddHandler}),
@@ -645,6 +647,7 @@ handler_failed(_Config) ->
 handler_failed(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:remove_handler(h2),
+    logger:set_primary_config(level,info),
     ok.
 
 config_sanity_check(_Config) ->
@@ -1281,11 +1284,21 @@ test_api(Level) ->
     ok = check_logged(Level,#{Level=>rep},#{my=>meta}),
     logger:Level("~w: ~w",[Level,fa]),
     ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
+    logger:Level('~w: ~w',[Level,fa]),
+    ok = check_logged(Level,'~w: ~w',[Level,fa],#{}),
+    logger:Level(<<"~w: ~w">>,[Level,fa]),
+    ok = check_logged(Level,<<"~w: ~w">>,[Level,fa],#{}),
     logger:Level("~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,x,
                  #{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:Level(fun(x) -> {<<"~w: ~w ~w">>,[Level,fun_to_fa,meta]} end,x,
+                 #{my=>meta}),
+    ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:Level(fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,x,
+                 #{my=>meta}),
+    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> #{Level=>fun_to_r,meta=>true} end,x,
                      #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),
@@ -1311,6 +1324,12 @@ test_log_function(Level) ->
     logger:log(Level,fun(x) -> {"~w: ~w ~w",[Level,fun_to_fa,meta]} end,
                x, #{my=>meta}),
     ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:log(Level,fun(x) -> {<<"~w: ~w ~w">>,[Level,fun_to_fa,meta]} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
+    logger:log(Level,fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,
+               x, #{my=>meta}),
+    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end,
                x, #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),

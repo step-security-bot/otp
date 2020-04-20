@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -321,6 +321,10 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'rsaEncryption'}, 
 				      subjectPublicKey = Key}) ->
     Key;
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                        parameters = Params}, 
+				      subjectPublicKey = Key}) ->
+    {Key, Params};
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->
@@ -362,7 +366,7 @@ new_trusteded_chain(DerCert, [DerCert | Chain]) ->
 new_trusteded_chain(DerCert, [_ | Rest]) ->
     new_trusteded_chain(DerCert, Rest);
 new_trusteded_chain(_, []) ->
-    unknown_ca.
+    {unknown_ca, []}.
 
 verify_hostname({fallback, Hostname}, Customize, Cert, UserState) when is_list(Hostname) ->
     case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of

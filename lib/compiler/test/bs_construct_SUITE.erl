@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
-         cover/1]).
+         strings/1,bad_size/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,7 +47,7 @@ groups() ->
       [verify_highest_opcode,
        two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
-       otp_8054,cover]}].
+       otp_8054,strings,bad_size]}].
 
 
 init_per_suite(Config) ->
@@ -332,7 +332,31 @@ fail(Config) when is_list(Config) ->
     %% Unaligned sizes with literal binaries.
     {'EXIT',{badarg,_}} = (catch <<0,(<<7777:17>>)/binary>>),
 
+    %% Make sure that variables are bound even if binary
+    %% construction fails.
+    {'EXIT',{badarg,_}} = (catch case <<face:(V0 = 42)>> of
+                                    _Any -> V0
+                                end),
+    {'EXIT',{badarg,_}} = (catch case <<face:(V1 = 3)>> of
+                                     a when V1 ->
+                                         office
+                                 end),
+    {'EXIT',{badarg,_}} = (catch <<13:(put(?FUNCTION_NAME, 17))>>),
+    17 = erase(?FUNCTION_NAME),
+    {'EXIT',{badarg,_}} = (catch fail_1()),
+
+    %% Size exceeds length of binary. 'native' is redundant for
+    %% binaries, but when it was present sys_core_fold would not
+    %% detect the overlong binary and beam_ssa_opt would crash.
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
+
     ok.
+
+fail_1() ->
+    case <<(V0 = 1),[]/utf32>> of
+        _ when V0 -> true
+    end.
 
 float_bin(Config) when is_list(Config) ->
     %% Some more coverage.
@@ -559,6 +583,7 @@ otp_7556(Bin, A, B, C) ->
 
 float_arith(Config) when is_list(Config) ->
     {<<1,2,3,64,69,0,0,0,0,0,0>>,21.0} = do_float_arith(<<1,2,3>>, 42, 2),
+
     ok.
 
 do_float_arith(Bin0, X, Y)  ->
@@ -591,9 +616,71 @@ otp_8054_1([], Bin) -> Bin.
         "Zuo1J1J6CCwEVZ/wDc79OpDPPj/qOGhDK73F8DaMcynZ91El+01vfTn"
         "uUxNFUHLpuoQ==").
 
-cover(Config) ->
-    %% Cover handling of a huge partially literal string.
+strings(Config) ->
     L = length(Config),
+
+    <<$a:16,$b:16,$c:16,L:32>> = <<"abc":16,L:32>>,
+
+    %% Empty strings.
+    <<L:16>> = <<L:16,""/utf8>>,
+    <<L:16>> = <<L:16,"":(length(Config))>>,
+    <<L:16>> = <<L:16,"":(BindMe = 42)>>,
+    42 = BindMe,
+    <<L:16>> = <<"":70,L:16>>,
+    <<L:16>> = <<L:16,"":$F>>,
+
+    %% Cover handling of a huge partially literal string.
     Bin = id(<<L:32,?LONG_STRING>>),
     <<L:32,?LONG_STRING>> = Bin,
+
+    %% Bad sizes for empty strings.
+    {'EXIT',{badarg,_}} = (catch <<"":(-42)>>),
+    {'EXIT',{badarg,_}} = (catch <<"":bad_size>>),
+    {'EXIT',{badarg,_}} = (catch bad_empty_string_1()),
+    {'EXIT',{badarg,_}} = (catch bad_empty_string_2()),
+    error = bad_empty_string_3(),
+    error = bad_empty_string_4(true),
+    error = bad_empty_string_4(false),
+
     ok.
+
+bad_empty_string_1() ->
+    <<"":(V0 = true)>>,
+    V0.
+
+bad_empty_string_2() ->
+    <<"":(V0 = -1)>>,
+    V0.
+
+bad_empty_string_3() when <<a, "":96>> -> ok;
+bad_empty_string_3() -> error.
+
+bad_empty_string_4(V) when <<"","eFN"/utf8-native>>, V -> ok;
+bad_empty_string_4(_) -> error.
+
+bad_size(_Config) ->
+    {'EXIT',{badarg,_}} = (catch bad_float_size()),
+    {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size()),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
+    ok.
+
+bad_float_size() ->
+    <<4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_float_size(Bin) ->
+    <<Bin/binary,4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_integer_size() ->
+    <<0:case 0 of 0 -> art end/integer>>.
+
+bad_integer_size(Bin) ->
+    <<Bin/binary,0:case 0 of 0 -> art end/integer>>.
+
+bad_binary_size() ->
+    <<<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size(Bin) ->
+    <<Bin/binary,<<"abc">>:case 0 of 0 -> art end/binary>>.

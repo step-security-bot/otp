@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -157,7 +157,7 @@ BeamInstr beam_continue_exit[1];
 
 
 /* NOTE These should be the only variables containing trace instructions.
-**      Sometimes tests are form the instruction value, and sometimes
+**      Sometimes tests are for the instruction value, and sometimes
 **      for the referring variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
@@ -1059,7 +1059,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	 * This layout is determined by the ErtsNativeFunc struct
 	 */
 
-	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+	ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_NIF);
 
 	codemfa = erts_code_to_codemfa(I);
 
@@ -1083,7 +1083,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+	ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_EMULATOR);
 	if (exiting)
 	    goto do_dirty_schedule;
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -1141,7 +1141,6 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_notsup,		/* 17 */
   am_badmap,		/* 18 */
   am_badkey,		/* 19 */
-  am_timeout            /* 20 */
 };
 
 /* Returns the return address at E[0] in printable form, skipping tracing in
@@ -1381,6 +1380,8 @@ terminate_proc(Process* c_p, Eterm Value)
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
+    c_p->ftrace = NIL;
+
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
 	int alive = erts_is_alive;

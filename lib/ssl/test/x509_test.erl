@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,6 +64,8 @@ do_gen_pem_config_files(Config, CertFile, KeyFile, CAFile) ->
 cert_entry(Cert) ->
     {'Certificate', Cert, not_encrypted}.
 
+key_entry({'PrivateKeyInfo', DERKeyInfo}) ->
+    {'PrivateKeyInfo', DERKeyInfo, not_encrypted};
 key_entry({'RSAPrivateKey', DERKey}) ->
     {'RSAPrivateKey', DERKey, not_encrypted};
 key_entry({'DSAPrivateKey', DERKey}) ->

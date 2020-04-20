@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -244,6 +244,11 @@ parse_handshake(Direction, #new_session_ticket{} = NewSessionTicket) ->
     Header = io_lib:format("~s Post-Handshake, NewSessionTicket",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(new_session_ticket, NewSessionTicket)]),
+    {Header, Message};
+parse_handshake(Direction, #key_update{} = KeyUpdate) ->
+    Header = io_lib:format("~s Post-Handshake, KeyUpdate",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(key_update, KeyUpdate)]),
     {Header, Message}.
 
 

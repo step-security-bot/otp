@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,7 +44,7 @@
       That is, Erlang processes that know the name of the
       C-node can communicate with it in a normal manner, but
       the node name is not shown in the listing provided by
-      <seealso marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seealso>
+      <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>
       in <c>ERTS</c>.</p>
 
     <p>The environment variable <c>ERL_EPMD_PORT</c> can be used
@@ -96,11 +96,11 @@
     his/her own IPv4 socket implementation. This, for example, in order
     to communicate over TLS. A user supplied socket implementation
     is plugged in by passing a
-    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+    <seecref marker="#ei_socket_callbacks">callback structure</seecref>
     to either
-    <seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+    <seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
     or
-    <seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>.</p>
+    <seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>.</p>
     
     <p>All callbacks in the <c>ei_socket_callbacks</c> structure
     <em>should</em> return zero on success; and a posix error
@@ -186,9 +186,9 @@ typedef struct {
 	the created socket. This context will be passed to all other
 	socket callbacks. This function will be passed the same
 	<c>setup_context</c> as passed to the preceeding
-	<seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+	<seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
 	or
-	<seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>
+	<seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>
 	call.</p>
 	
 	<note><p>During the lifetime of a socket, the pointer <c>*ctx</c>
@@ -422,6 +422,8 @@ typedef struct {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect(ei_cnode* ec, char *nodename)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port(ei_cnode* ec, char *hostname, int port)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port)</nametext></name>
       <fsummary>Establish a connection to an Erlang node.</fsummary>
       <desc>
         <p>Sets up a connection to an Erlang node.</p>
@@ -429,13 +431,21 @@ typedef struct {
           remote host and the alive name of the remote node to be
           specified. <c>ei_connect()</c> provides an alternative
           interface and determines the information from the node name
-          provided.</p>
+          provided. The <c>ei_xconnect_host_port()</c> function provides
+          yet another alternative that will work even if there is no
+          EPMD instance on the host where the remote node is running. The
+          <c>ei_xconnect_host_port()</c> function requires the IP
+          address and port of the remote node to be specified.
+          The <c>ei_connect_host_port()</c> function is an alternative
+          to <c>ei_xconnect_host_port()</c> that lets the user specify
+          a hostname instead of an IP address.</p>
         <list type="bulleted">
-          <item><c>addr</c> is the 32-bit IP address of the remote
+          <item><c>adr</c> is the 32-bit IP address of the remote
             host.</item>
           <item><c>alive</c> is the alivename of the remote node.
           </item>
           <item><c>node</c> is the name of the remote node.</item>
+          <item><c>port</c> is the port number of the remote node.</item>
         </list>
         <p>These functions return an open file descriptor on success, or
           a negative value indicating that an error occurred. In the latter
@@ -489,8 +499,8 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
               for connecting and receiving data.</p>
           </item>
           <item>
-            <p><c>this_node_name</c> is the registered name of the
-              process (the name before '@').</p>
+            <p><c>this_node_name</c> is the name of the C-node
+              (the name before '@' in the full node name).</p>
           </item>
           <item>
             <p><c>cookie</c> is the cookie for the node.</p>
@@ -507,19 +517,21 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
               instead of <c>durin</c>).</p>
           </item>
           <item>
-            <p><c>thisalivename</c> is the registered name of the
-              process.</p>
+            <p><c>thisalivename</c> is the name of the local C-node (the name
+	    before '@' in the full node name). Can be <c>NULL</c> (from OTP 23)
+	    to get a dynamically assigned name from the peer node.</p>
           </item>
           <item>
-            <p><c>thisnodename</c> is the full name of the node,
-              that is, <c>einode@durin</c>.</p>
+            <p><c>thisnodename</c> is the full name of the local C-node,
+              that is, <c>mynode@myhost</c>. Can be <c>NULL</c> if
+	      <c>thisalivename</c> is <c>NULL</c>.</p>
           </item>
           <item>
             <p><c>thispaddr</c> if the IP address of the host.</p>
           </item>
 	  <item>
 	    <p><c>cbs</c> is a pointer to a
-	    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+	    <seecref marker="#ei_socket_callbacks">callback structure</seecref>
 	    implementing and alternative socket interface.</p>
 	  </item>
 	  <item>
@@ -571,13 +583,16 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port_tmo(ei_cnode* ec, char *hostname, int port, unsigned ms)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms)</nametext></name>
       <fsummary>Establish a connection to an Erlang node with optional
         time-out.</fsummary>
       <desc>
-        <p>Equivalent to
-          <c>ei_connect</c> and <c>ei_xconnect</c> with an optional time-out
-          argument, see the description at the beginning of this manual
-          page.</p>
+        <p>Equivalent to <c>ei_connect</c>, <c>ei_xconnect</c>,
+        <c>ei_connect_host_port</c> and
+        <c>ei_xconnect_host_port</c> with an optional time-out
+        argument, see the description at the beginning of this manual
+        page.</p>
       </desc>
     </func>
 
@@ -588,8 +603,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <desc>
         <p>Used to set tracing on the distribution. The levels are different
           verbosity levels. A higher level means more information. See also
-          section <seealso marker="#debug_information">
-          Debug Information</seealso>.</p>
+          section <seecref marker="#debug_information">
+          Debug Information</seecref>.</p>
 	<p>These functions are not thread safe.</p>
       </desc>
     </func>
@@ -823,7 +838,7 @@ typedef struct {
           </item>
         </taglist>
         <p>The return value is the same as for
-          <seealso marker="#ei_receive"><c>ei_receive</c></seealso>.</p>
+          <seecref marker="#ei_receive"><c>ei_receive</c></seecref>.</p>
       </desc>
     </func>
 
@@ -902,8 +917,8 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
           and <c>ei_rpc_from()</c> receives the results of such a
           call. <c>ei_rpc()</c> combines the functionality of these
           two functions by sending an RPC request and waiting for the results.
-          See also <seealso marker="kernel:rpc#call/4">
-          <c>rpc:call/4</c></seealso> in Kernel.</p>
+          See also <seemfa marker="kernel:rpc#call/4">
+          <c>rpc:call/4</c></seemfa> in Kernel.</p>
         <list type="bulleted">
           <item>
             <p><c>ec</c> is the C-node structure previously
@@ -942,8 +957,8 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
               <c>erlang_msg</c> and contains information on the
               message
               received. For a description of the <c>erlang_msg</c>
-              format, see <seealso marker="#ei_receive_msg">
-              <c>ei_receive_msg</c></seealso>.</p>
+              format, see <seecref marker="#ei_receive_msg">
+              <c>ei_receive_msg</c></seecref>.</p>
           </item>
           <item>
             <p><c>x</c> points to the dynamic buffer that receives

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,8 @@
              vars=#{} :: map(),     %Defined variables.
              break=0 :: label(),    %Break label
              recv=0 :: label(),     %Receive label
-             ultimate_failure=0 :: label() %Label for ultimate match failure.
+             ultimate_failure=0 :: label(), %Label for ultimate match failure.
+             labels=#{} :: #{atom() => label()}
             }).
 
 %% Internal records.
@@ -122,14 +123,6 @@ cg(#k_try_enter{arg=Ta,vars=Vs,body=Tb,evars=Evs,handler=Th}, St) ->
     try_enter_cg(Ta, Vs, Tb, Evs, Th, St);
 cg(#k_catch{body=Cb,ret=[R]}, St) ->
     do_catch_cg(Cb, R, St);
-cg(#k_receive{anno=Le,timeout=Te,var=Rvar,body=Rm,action=Tes,ret=Rs}, St) ->
-    recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St);
-cg(#k_receive_next{}, #cg{recv=Recv}=St) ->
-    Is = [#b_set{op=recv_next},make_uncond_branch(Recv)],
-    {Is,St};
-cg(#k_receive_accept{}, St) ->
-    Remove = #b_set{op=remove_message},
-    {[Remove],St};
 cg(#k_put{anno=Le,arg=Con,ret=Var}, St) ->
     put_cg(Var, Con, Le, St);
 cg(#k_return{args=[Ret0]}, St) ->
@@ -137,7 +130,21 @@ cg(#k_return{args=[Ret0]}, St) ->
     {[#b_ret{arg=Ret}],St};
 cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
     Args = ssa_args(Bs, St),
-    {[#cg_break{args=Args,phi=Br}],St}.
+    {[#cg_break{args=Args,phi=Br}],St};
+cg(#k_letrec_goto{label=Label,first=First,then=Then,ret=Rs},
+   #cg{break=OldBreak,labels=Labels0}=St0) ->
+    {Tf,St1} = new_label(St0),
+    {B,St2} = new_label(St1),
+    Labels = Labels0#{Label=>Tf},
+    {Fis,St3} = cg(First, St2#cg{labels=Labels,break=B}),
+    {Sis,St4} = cg(Then, St3),
+    St5 = St4#cg{labels=Labels0},
+    {BreakVars,St} = new_ssa_vars(Rs, St5),
+    Phi = #cg_phi{vars=BreakVars},
+    {Fis ++ [{label,Tf}] ++ Sis ++ [{label,B},Phi],St#cg{break=OldBreak}};
+cg(#k_goto{label=Label}, #cg{labels=Labels}=St) ->
+    Branch = map_get(Label, Labels),
+    {[make_uncond_branch(Branch)],St}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.
@@ -203,6 +210,28 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
     {Is,St} = select_val_cg(Type, Arg, Vls, Tf, Vf, Sis, St2),
     {Is,St}.
 
+select_val_cg(k_atom, {bool,Dst}, Vls, _Tf, _Vf, Sis, St) ->
+    %% Generate a br instruction for a known boolean value from
+    %% the `wait_timeout` instruction.
+    [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
+    case Dst of
+        #b_var{} ->
+            Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
+            {[Br|Sis],St};
+        #b_literal{val=true}=Bool ->
+            %% A `wait_timeout 0` instruction was optimized away.
+            Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
+            {[Br|Sis],St}
+    end;
+select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
+    [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
+    #b_var{} = Dst,                             %Assertion.
+    %% Generate a `succeeded` instruction and two-way branch
+    %% following the `peek_message` instruction.
+    {Bool,St} = new_ssa_var('@ssa_bool', St0),
+    Succeeded = #b_set{op={succeeded,guard},dst=Bool,args=[Dst]},
+    Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+    {[Succeeded,Br|Sis],St};
 select_val_cg(k_tuple, Tuple, Vls, Tf, Vf, Sis, St0) ->
     {Is0,St1} = make_cond_branch({bif,is_tuple}, [Tuple], Tf, St0),
     {Arity,St2} = new_ssa_var('@ssa_arity', St1),
@@ -310,33 +339,37 @@ make_uncond_branch(Fail) ->
     #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
 
 %%
-%% The 'succeeded' instruction needs special treatment in catch blocks to
-%% prevent the checked operation from being optimized away if a later pass
-%% determines that it always fails.
+%% Success checks need to be treated differently in bodies and guards; a check
+%% in a guard can be safely removed when we know it fails because we know
+%% there's never any side-effects, but in bodies the checked instruction may
+%% throw an exception and we need to ensure it isn't optimized away.
+%%
+%% Checks are expressed as {succeeded,guard} and {succeeded,body} respectively,
+%% where the latter has a side-effect (see beam_ssa:no_side_effect/1) and the
+%% former does not. This ensures that passes like ssa_opt_dead and ssa_opt_live
+%% won't optimize away pure operations that may throw an exception, since their
+%% result is used in {succeeded,body}.
+%%
+%% Other than the above details, the two variants are equivalent and most
+%% passes that care about them can simply match {succeeded,_}.
 %%
 
-make_succeeded(Var, {in_catch, CatchLbl}, St0) ->
-    {Bool, St1} = new_ssa_var('@ssa_bool', St0),
-    {Succ, St2} = new_label(St1),
-    {Fail, St} = new_label(St2),
+make_succeeded(Var, {guard, Fail}, St) ->
+    make_succeeded_1(Var, guard, Fail, St);
+make_succeeded(Var, {in_catch, CatchLbl}, St) ->
+    make_succeeded_1(Var, body, CatchLbl, St);
+make_succeeded(Var, {no_catch, Fail}, St) ->
+    #cg{ultimate_failure=Fail} = St,            %Assertion
+    make_succeeded_1(Var, body, Fail, St).
 
-    Check = [#b_set{op=succeeded,dst=Bool,args=[Var]},
+make_succeeded_1(Var, Kind, Fail, St0) ->
+    {Bool,St1} = new_ssa_var('@ssa_bool', St0),
+    {Succ,St} = new_label(St1),
+
+    Check = [#b_set{op={succeeded,Kind},dst=Bool,args=[Var]},
              #b_br{bool=Bool,succ=Succ,fail=Fail}],
 
-    %% Add a dummy block that references the checked variable, ensuring it
-    %% stays alive and that it won't be merged with the landing pad.
-    Trampoline = [{label,Fail},
-                  #b_set{op=exception_trampoline,args=[Var]},
-                  make_uncond_branch(CatchLbl)],
-
-    {Check ++ Trampoline ++ [{label,Succ}], St};
-make_succeeded(Var, {no_catch, Fail}, St) ->
-    %% Ultimate failure raises an exception, so we must treat it as if it were
-    %% in a catch to keep it from being optimized out.
-    #cg{ultimate_failure=Fail} = St,            %Assertion
-    make_succeeded(Var, {in_catch, Fail}, St);
-make_succeeded(Var, {guard, Fail}, St) ->
-    make_cond_branch(succeeded, [Var], Fail, St).
+    {Check ++ [{label,Succ}], St}.
 
 %% Instructions for selection of binary segments.
 
@@ -368,11 +401,11 @@ select_bin_seg(#k_val_clause{val=#k_bin_int{size=Sz,unit=U,flags=Fs,
     {Bis,St} = match_cg(B, Fail, St1),
     Is = case Mis ++ Bis of
              [#b_set{op=bs_match,args=[#b_literal{val=string},OtherCtx1,Bin1]},
-              #b_set{op=succeeded,dst=Bool1},
+              #b_set{op={succeeded,guard},dst=Bool1},
               #b_br{bool=Bool1,succ=Succ,fail=Fail},
               {label,Succ},
               #b_set{op=bs_match,dst=Dst,args=[#b_literal{val=string},_OtherCtx2,Bin2]}|
-              [#b_set{op=succeeded,dst=Bool2},
+              [#b_set{op={succeeded,guard},dst=Bool2},
                #b_br{bool=Bool2,fail=Fail}|_]=Is0] ->
                  %% We used to do this optimization later, but it
                  %% turns out that in huge functions with many
@@ -402,7 +435,15 @@ select_bin_end(#k_val_clause{val=#k_bin_end{},body=B}, Src, Tf, St0) ->
 select_extract_bin(#k_var{name=Hd}, Size0, Unit, Type, Flags, Vf,
                    Ctx, Anno, St0) ->
     {Dst,St1} = new_ssa_var(Hd, St0),
-    Size = ssa_arg(Size0, St0),
+    Size = case {Size0,ssa_arg(Size0, St0)} of
+               {#k_var{},#b_literal{val=all}} ->
+                   %% The size `all` is used for the size of the final binary
+                   %% segment in a pattern. Using `all` explicitly is not allowed,
+                   %% so we convert it to an obvious invalid size.
+                   #b_literal{val=bad_size};
+               {_,Size1} ->
+                   Size1
+           end,
     build_bs_instr(Anno, Type, Vf, Ctx, Size, Unit, Flags, Dst, St1).
 
 select_extract_int(#k_var{name=Tl}, 0, #k_literal{val=0}, _U, _Fs, _Vf,
@@ -629,8 +670,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% failure branch.
             #k_remote{mod=#k_literal{val=erlang},
                       name=#k_literal{val=error}} = Func, %Assertion.
-            [#k_var{name=DestVar}] = Rs,
-            St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
+            St = set_unused_ssa_vars(Rs, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
         FailCtx ->
             %% Ordinary function call in a function body.
@@ -640,21 +680,13 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
-            St2 = foldl(fun(#k_var{name=Dummy}, S) ->
-                                set_ssa_var(Dummy, #b_literal{val=unused}, S)
-                        end, St1, MoreRs),
+            St2 = set_unused_ssa_vars(MoreRs, St1),
 
             {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
             {[Call|TestIs],St}
     end.
 
 enter_cg(Func, As0, Le, St0) ->
-    %% Adding a trampoline here would give us greater freedom in rewriting
-    %% calls, but doing so makes it difficult to tell tail calls apart from
-    %% body calls during code generation.
-    %%
-    %% We therefore skip the trampoline, reasoning that we've already left the
-    %% current function by the time an exception is thrown.
     As = ssa_args([Func|As0], St0),
     {Ret,St} = new_ssa_var('@ssa_ret', St0),
     Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
@@ -676,16 +708,76 @@ internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
     Args = ssa_args(As, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
     Resume = #b_set{op=resume,dst=Dst,args=Args},
-    case St of
-        #cg{catch_label=none} ->
-            {[Resume],St};
-        #cg{catch_label=Catch} when is_integer(Catch) ->
-            Is = [Resume,make_uncond_branch(Catch),#cg_unreachable{}],
+    case fail_context(St) of
+        {no_catch,_Fail} ->
+            %% No current catch in this function. Follow the resume
+            %% instruction by a return (instead of a branch to
+            %% ?EXCEPTION_MARKER) to ensure that the trim optimization
+            %% can be applied. (Allowing control to pass through to
+            %% the next instruction would mean that the type for the
+            %% try/catch construct would be `any`.)
+            Is = [Resume,#b_ret{arg=Dst},#cg_unreachable{}],
+            {Is,St};
+        {in_catch,Fail} ->
+            Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
+    end;
+internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
+                                    #k_var{name=Dst0}], St0) ->
+    {Dst,St1} = new_ssa_var(Dst0, St0),
+    St = new_succeeded_value(Succeeded0, Dst, St1),
+    Set = #b_set{op=peek_message,dst=Dst,args=[]},
+    {[Set],St};
+internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
+    case ssa_args(As, St0) of
+        [#b_literal{val=0}] ->
+            %% If beam_ssa_opt is run (which is default), the
+            %% `wait_timeout` instruction will be removed if the
+            %% operand is a literal 0.  However, if optimizations have
+            %% been turned off, we must not not generate a
+            %% `wait_timeout` instruction with a literal 0 timeout,
+            %% because the BEAM instruction will not handle it
+            %% correctly.
+            St = new_bool_value(Succeeded0, #b_literal{val=true}, St0),
+            {[],St};
+        Args ->
+            %% Note that the `wait_timeout` instruction can
+            %% potentially branch in three different directions:
+            %%
+            %% * A new message is available in the message queue.
+            %%   wait_timeout branches to the given label.
+            %%
+            %% * The timeout expired. wait_timeout transfers control
+            %%   to the next instruction.
+            %%
+            %% * The value for timeout duration is invalid (either not
+            %%   an integer or negative or too large). A timeout_value
+            %%   exception will be raised.
+            %%
+            %% wait_timeout will be represented like this in SSA code:
+            %%
+            %%       WaitBool = wait_timeout TimeoutValue
+            %%       Succeeded = succeeded:body WaitBool
+            %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+            %%
+            %%   good_timeout_value:
+            %%       br WaitBool, ^timeout_expired, ^new_message_received
+            %%
+            {Wait,St1} = new_ssa_var('@ssa_wait', St0),
+            {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
+            St = new_bool_value(Succeeded0, Wait, St2),
+            Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
+            {[Set|Succ],St}
     end;
 internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
+    Args = ssa_args(As, St),
+    Set = #b_set{op=Op,dst=Dst,args=Args},
+    {[Set],St};
+internal_cg(Op, As, [], St0) when is_atom(Op) ->
+    %% This behaves like a function call.
+    {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     Args = ssa_args(As, St),
     Set = #b_set{op=Op,dst=Dst,args=Args},
     {[Set],St}.
@@ -728,59 +820,6 @@ bif_is_record_cg(Dst, Tuple, TagVal, ArityVal, St0) ->
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2 ++ Is3,
     {Is,St}.
 
-%% recv_loop_cg(TimeOut, ReceiveVar, ReceiveMatch, TimeOutExprs,
-%%              [Ret], Le, St) -> {[Ainstr],St}.
-
-recv_loop_cg(Te, _Rvar, #k_receive_next{}, Tes, Rs, _Le, St0) ->
-    {Tl,St1} = new_label(St0),
-    {Bl,St2} = new_label(St1),
-    St3 = St2#cg{break=Bl,recv=Tl},
-    {Wis,St4} = cg_recv_wait(Te, Tes, St3),
-    {BreakVars,St} = new_ssa_vars(Rs, St4),
-    {[make_uncond_branch(Tl),{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}};
-recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St0) ->
-    %% Get labels.
-    {Rl,St1} = new_label(St0),
-    {Tl,St2} = new_label(St1),
-    {Bl,St3} = new_label(St2),
-    St4 = St3#cg{break=Bl,recv=Rl},
-    {Ris,St5} = cg_recv_mesg(Rvar, Rm, Tl, Le, St4),
-    {Wis,St6} = cg_recv_wait(Te, Tes, St5),
-    {BreakVars,St} = new_ssa_vars(Rs, St6),
-    {Ris ++ [{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}}.
-
-%% cg_recv_mesg( ) -> {[Ainstr],St}.
-
-cg_recv_mesg(#k_var{name=R}, Rm, Tl, Le, St0) ->
-    {Dst,St1} = new_ssa_var(R, St0),
-    {Mis,St2} = match_cg(Rm, none, St1),
-    RecvLbl = St1#cg.recv,
-    {TestIs,St} = make_succeeded(Dst, {guard, Tl}, St2),
-    Is = [#b_br{anno=line_anno(Le),bool=#b_literal{val=true},
-                succ=RecvLbl,fail=RecvLbl},
-          {label,RecvLbl},
-          #b_set{op=peek_message,dst=Dst}|TestIs],
-    {Is++Mis,St}.
-
-%% cg_recv_wait(Te, Tes, St) -> {[Ainstr],St}.
-
-cg_recv_wait(#k_literal{val=0}, Es, St0) ->
-    {Tis,St} = cg(Es, St0),
-    {[#b_set{op=timeout}|Tis],St};
-cg_recv_wait(Te, Es, St0) ->
-    {Tis,St1} = cg(Es, St0),
-    Args = [ssa_arg(Te, St1)],
-    {WaitDst,St2} = new_ssa_var('@ssa_wait', St1),
-    {WaitIs,St} = make_succeeded(WaitDst, {guard, St1#cg.recv}, St2),
-    %% Infinite timeout will be optimized later.
-    Is = [#b_set{op=wait_timeout,dst=WaitDst,args=Args}] ++ WaitIs ++
-        [#b_set{op=timeout}] ++ Tis,
-    {Is,St}.
-
 %% try_cg(TryBlock, [BodyVar], TryBody, [ExcpVar], TryHandler, [Ret], St) ->
 %%         {[Ainstr],St}.
 
@@ -793,6 +832,22 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
     {SsaVs,St6} = new_ssa_vars(Vs, St5),
     {SsaEvs,St7} = new_ssa_vars(Evs, St6),
     {Ais,St8} = cg(Ta, St7#cg{break=B,catch_label=H}),
+
+    %% We try to avoid constructing a try/catch if the expression to
+    %% be evaluated don't have any side effects and if the error
+    %% reason is not explicitly matched.
+    %%
+    %% Starting in OTP 23, segment sizes in binary matching and keys
+    %% in map matching are allowed to be arbitrary guard
+    %% expressions. Those expressions are evaluated in a try/catch
+    %% so that matching can continue with the next clause if the evaluation
+    %% of such expression fails.
+    %%
+    %% It is not allowed to use try/catch during matching in a receive
+    %% (the try/catch would force the saving of fragile message references
+    %% to the stack frame). Therefore, avoiding creating try/catch is
+    %% not merely an optimization but necessary for correctness.
+
     case {Vs,Tb,Th,is_guard_cg_safe_list(Ais)} of
         {[#k_var{name=X}],#k_break{args=[#k_var{name=X}]},
          #k_break{args=[#k_literal{}]},true} ->
@@ -800,6 +855,36 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
             %% and the exception is not matched. Therefore, a
             %% try/catch is not needed. This code is probably located
             %% in a guard.
+            {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
+            {His,St10} = cg(Th, St9),
+            {RetVars,St} = new_ssa_vars(Rs, St10),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},#cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {[#k_var{name=X}],#k_break{args=[#k_literal{}=SuccLit0,#k_var{name=X}]},
+         #k_break{args=[#k_literal{val=false},#k_literal{}]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably evaluates
+            %% a key expression in map matching.
+            {FinalLabel,St9} = new_label(St7),
+            {ProtIs,St10} = guard_cg(Ta, H, St9#cg{break=B,bfail=H}),
+            {His,St11} = cg(Th, St10#cg{break=FinalLabel}),
+            {RetVars,St12} = new_ssa_vars(Rs, St11),
+            {Result,St} = new_ssa_var('@ssa_result', St12),
+            SuccLit = ssa_arg(SuccLit0, St),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},
+                 #cg_phi{vars=[Result]},
+                 #cg_break{args=[SuccLit,Result],phi=FinalLabel},
+                 {label,FinalLabel},
+                 #cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {_,#k_break{args=[]},#k_break{args=[]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably does the
+            %% size calculation for a segment in binary matching.
             {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
             {His,St10} = cg(Th, St9),
             {RetVars,St} = new_ssa_vars(Rs, St10),
@@ -845,7 +930,8 @@ is_guard_cg_safe(#b_br{}) -> true;
 is_guard_cg_safe(#b_switch{}) -> true;
 is_guard_cg_safe(#cg_break{}) -> true;
 is_guard_cg_safe(#cg_phi{}) -> true;
-is_guard_cg_safe({label,_}) -> true.
+is_guard_cg_safe({label,_}) -> true;
+is_guard_cg_safe(#cg_unreachable{}) -> false.
 
 try_enter_cg(Ta, Vs, Tb, Evs, Th, St0) ->
     {B,St1} = new_label(St0),			%Body label
@@ -1144,6 +1230,14 @@ ssa_arg(#k_remote{mod=Mod0,name=Name0,arity=Arity}, St) ->
 ssa_arg(#k_local{name=Name,arity=Arity}, _) when is_atom(Name) ->
     #b_local{name=#b_literal{val=Name},arity=Arity}.
 
+new_succeeded_value(VarBase, Var, #cg{vars=Vars0}=St) ->
+    Vars = Vars0#{VarBase=>{succeeded,Var}},
+    St#cg{vars=Vars}.
+
+new_bool_value(VarBase, Var, #cg{vars=Vars0}=St) ->
+    Vars = Vars0#{VarBase=>{bool,Var}},
+    St#cg{vars=Vars}.
+
 new_ssa_vars(Vs, St) ->
     mapfoldl(fun(#k_var{name=V}, S) ->
                      new_ssa_var(V, S)
@@ -1161,6 +1255,11 @@ new_ssa_var(VarBase, #cg{lcount=Uniq,vars=Vars}=St0)
             St = St0#cg{vars=Vars#{VarBase=>Var}},
             {Var,St}
     end.
+
+set_unused_ssa_vars(Vars, St) ->
+    foldl(fun(#k_var{name=V}, S) ->
+                  set_ssa_var(V, #b_literal{val=unused}, S)
+          end, St, Vars).
 
 set_ssa_var(VarBase, Val, #cg{vars=Vars}=St)
   when is_atom(VarBase); is_integer(VarBase) ->
@@ -1215,27 +1314,37 @@ finalize(Asm0, St0) ->
     {Asm,St} = fix_sets(Asm1, [], St0),
     {build_map(Asm),St}.
 
+%% fix_phis(Is0) -> Is.
+%%  Rewrite #cg_break{} and #cg_phi{} records to #b_set{} records.
+%%  A #cg_break{} is rewritten to an unconditional branch, and
+%%  and a #cg_phi{} is rewritten to one or more phi nodes.
+
 fix_phis(Is) ->
     fix_phis_1(Is, none, #{}).
 
-fix_phis_1([{label,L},#cg_phi{vars=[]}=Phi|Is0], _Lbl, Map0) ->
-    case maps:is_key(L, Map0) of
-        false ->
-            %% No #cg_break{} references this label. Nothing else can
-            %% reference it, so it can be safely be removed.
-            {Is,Map} = drop_upto_label(Is0, Map0),
-            fix_phis_1(Is, none, Map);
-        true ->
-            %% There is a break referencing this label; probably caused
-            %% by a try/catch whose return value is ignored.
-            [{label,L}|fix_phis_1([Phi|Is0], L, Map0)]
+fix_phis_1([{label,Lbl},#cg_phi{vars=Vars}|Is0], _Lbl, Map0) ->
+    case Map0 of
+        #{Lbl:=Pairs} ->
+            %% This phi node was referenced by at least one #cg_break{}.
+            %% Create the phi nodes.
+            Phis = gen_phis(Vars, Pairs),
+            Map = maps:remove(Lbl, Map0),
+            [{label,Lbl}] ++ Phis ++ fix_phis_1(Is0, Lbl, Map);
+        #{} ->
+            %% No #cg_break{} instructions reference this label.
+            %% #cg_break{} instructions must reference the labels for
+            %% #cg_phi{} instructions; therefore this label is
+            %% unreachable and can be dropped.
+            Is = drop_upto_label(Is0),
+            fix_phis_1(Is, none, Map0)
     end;
 fix_phis_1([{label,L}=I|Is], _Lbl, Map) ->
     [I|fix_phis_1(Is, L, Map)];
-fix_phis_1([#cg_unreachable{}|Is0], _Lbl, Map0) ->
-    {Is,Map} = drop_upto_label(Is0, Map0),
+fix_phis_1([#cg_unreachable{}|Is0], _Lbl, Map) ->
+    Is = drop_upto_label(Is0),
     fix_phis_1(Is, none, Map);
 fix_phis_1([#cg_break{args=Args,phi=Target}|Is], Lbl, Map) when is_integer(Lbl) ->
+    %% Pair each argument with the label for this block and save in the map.
     Pairs1 = case Map of
                  #{Target:=Pairs0} -> Pairs0;
                  #{} -> []
@@ -1243,17 +1352,6 @@ fix_phis_1([#cg_break{args=Args,phi=Target}|Is], Lbl, Map) when is_integer(Lbl) 
     Pairs = [[{Arg,Lbl} || Arg <- Args]|Pairs1],
     I = make_uncond_branch(Target),
     [I|fix_phis_1(Is, none, Map#{Target=>Pairs})];
-fix_phis_1([#cg_phi{vars=Vars}|Is0], Lbl, Map0) ->
-    Pairs = maps:get(Lbl, Map0),
-    Map1 = maps:remove(Lbl, Map0),
-    case gen_phis(Vars, Pairs) of
-        [#b_set{op=phi,args=[]}] ->
-            {Is,Map} = drop_upto_label(Is0, Map1),
-            Ret = #b_ret{arg=#b_literal{val=unreachable}},
-            [Ret|fix_phis_1(Is, none, Map)];
-        Phis ->
-            Phis ++ fix_phis_1(Is0, Lbl, Map1)
-    end;
 fix_phis_1([I|Is], Lbl, Map) ->
     [I|fix_phis_1(Is, Lbl, Map)];
 fix_phis_1([], _, Map) ->
@@ -1262,6 +1360,7 @@ fix_phis_1([], _, Map) ->
 
 gen_phis([V|Vs], Preds0) ->
     {Pairs,Preds} = collect_preds(Preds0, [], []),
+    [_|_] = Pairs,                              %Assertion.
     [#b_set{op=phi,dst=V,args=Pairs}|gen_phis(Vs, Preds)];
 gen_phis([], _) -> [].
 
@@ -1270,6 +1369,36 @@ collect_preds([[First|Rest]|T], ColAcc, RestAcc) ->
 collect_preds([], ColAcc, RestAcc) ->
     {keysort(2, ColAcc),RestAcc}.
 
+drop_upto_label([{label,_}|_]=Is) -> Is;
+drop_upto_label([_|Is]) -> drop_upto_label(Is).
+
+%% fix_sets(Is0, Acc, St0) -> {Is,St}.
+%%  Ensure that #b_set.dst is filled in with a proper variable.
+%%  (For convenience, for instructions that don't have a useful return value,
+%%  the code generator would set #b_set.dst to `none`.)
+
+fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
+    NoValue = case Op of
+                  remove_message -> true;
+                  timeout -> true;
+                  _ -> false
+              end,
+    case NoValue of
+        true ->
+            %% An instruction without value was used in effect
+            %% context in `after` block. Example:
+            %%
+            %%   try
+            %%       ...
+            %%   after
+            %%       receive _ -> ignored end
+            %%   end,
+            %%   ok.
+            %%
+            fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
+        false ->
+            fix_sets(Is, [Ret,Set|Acc], St)
+    end;
 fix_sets([#b_set{dst=none}=Set|Is], Acc, St0) ->
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     I = Set#b_set{dst=Dst},
@@ -1279,9 +1408,14 @@ fix_sets([I|Is], Acc, St) ->
 fix_sets([], Acc, St) ->
     {reverse(Acc),St}.
 
+%% build_map(Is) -> #{}.
+%%  Split up the sequential instruction stream into blocks and
+%%  store them in a map.
+
 build_map(Is) ->
-    Blocks = build_graph_1(Is, [], []),
-    maps:from_list(Blocks).
+    Linear0 = build_graph_1(Is, [], []),
+    Linear = beam_ssa:trim_unreachable(Linear0),
+    maps:from_list(Linear).
 
 build_graph_1([{label,L}|Is], Lbls, []) ->
     build_graph_1(Is, [L|Lbls], []);
@@ -1292,18 +1426,8 @@ build_graph_1([I|Is], Lbls, BlockAcc) ->
 build_graph_1([], Lbls, BlockAcc) ->
     make_blocks(Lbls, BlockAcc).
 
-make_blocks(Lbls, [Last|Is0]) ->
+make_blocks(Lbls, [Last0|Is0]) ->
     Is = reverse(Is0),
+    Last = beam_ssa:normalize(Last0),
     Block = #b_blk{is=Is,last=Last},
     [{L,Block} || L <- Lbls].
-
-drop_upto_label([{label,_}|_]=Is, Map) ->
-    {Is,Map};
-drop_upto_label([#cg_break{phi=Target}|Is], Map) ->
-    Pairs = case Map of
-                #{Target:=Pairs0} -> Pairs0;
-                #{} -> []
-            end,
-    drop_upto_label(Is, Map#{Target=>Pairs});
-drop_upto_label([_|Is], Map) ->
-    drop_upto_label(Is, Map).

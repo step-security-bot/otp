@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -816,7 +816,7 @@ end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
 			  lists:keydelete(Func,2,Running);
 		     ({_,{suite0_failed,_}}) ->
 			  undefined;
-		     ([{_,CurrTC}]) when CurrTC == Func ->
+		     ([{_,_}]) ->
 			  undefined;
 		     (undefined) ->
 			  undefined;

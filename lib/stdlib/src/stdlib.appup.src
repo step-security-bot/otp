@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,12 @@
 {"%VSN%",
  [{<<"^3\\.10$">>,[restart_new_emulator]},
   {<<"^3\\.10\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.11$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.12$">>,[restart_new_emulator]},
+  {<<"^3\\.12\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.5$">>,[restart_new_emulator]},
   {<<"^3\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
@@ -47,6 +53,12 @@
   {<<"^3\\.9\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
  [{<<"^3\\.10$">>,[restart_new_emulator]},
   {<<"^3\\.10\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.11$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.11\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^3\\.12$">>,[restart_new_emulator]},
+  {<<"^3\\.12\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.5$">>,[restart_new_emulator]},
   {<<"^3\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^3\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},

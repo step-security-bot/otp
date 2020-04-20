@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1,stack_init/1]).
+         beam_ssa_dead_crash/1,stack_init/1,
+         mapfoldl/0,mapfoldl/1,
+         grab_bag/1,coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [{group,p}].
+    [mapfoldl,
+     {group,p}].
 
 groups() ->
     [{p,test_lib:parallel(),
@@ -40,7 +43,9 @@ groups() ->
        combine_sw,
        share_opt,
        beam_ssa_dead_crash,
-       stack_init
+       stack_init,
+       grab_bag,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -484,6 +489,12 @@ cover_ssa_dead(_Config) ->
     40.0 = percentage(4.0, 10.0),
     60.0 = percentage(6, 10),
 
+    {'EXIT',{{badmatch,42},_}} = (catch #{key => abs(("a" = id(42)) /= teacher)}),
+
+    <<>> = id(<< V || V <- [], V andalso false >>),
+
+    false = id(([] = id([])) =/= []),
+
     ok.
 
 format_str(Str, FormatData, IoList, EscChars) ->
@@ -692,6 +703,338 @@ stack_init(Key, Map) ->
     %% y(0) would be uninitialized here if the key was not present in the map
     %% (if the second clause was executed).
     id(Res).
+
+%% Test that compiler "optimizations" don't rewrite mapfold/3 to the
+%% equivalent of slow_mapfoldl/3.
+mapfoldl() ->
+    {N,Size} = mapfoldl_limits(),
+    {Time,_} = timer:tc(fun() ->
+                                mapfoldl(fun(Sz, _) ->
+                                                 erlang:garbage_collect(),
+                                                 {Sz,erlang:make_tuple(Sz, a)}
+                                         end, [], [Size])
+                        end),
+    Seconds = 15 + ceil(10 * Time * N / 1_000_000),
+    io:format("~p seconds timetrap\n", [Seconds]),
+    [{timetrap,{seconds,Seconds}}].
+
+mapfoldl(_Config) ->
+    test_mapfoldl_implementations(),
+    F = fun(Sz, _) ->
+                erlang:garbage_collect(),
+                {Sz,erlang:make_tuple(Sz, a)}
+        end,
+    {N,Size} = mapfoldl_limits(),
+    List = lists:duplicate(N, Size),
+    {List,Tuple} = mapfoldl(F, [], List),
+    {List,Tuple} = fast_mapfoldl(F, [], List),
+    Size = tuple_size(Tuple),
+    ok.
+
+mapfoldl_limits() ->
+    {1_000,100_000}.
+
+test_mapfoldl_implementations() ->
+    Seq = lists:seq(1, 10),
+    F = fun(N, Sum) -> {N,Sum+N} end,
+    {Seq,55} = mapfoldl(F, 0, Seq),
+    {Seq,55} = fast_mapfoldl(F, 0, Seq),
+    {Seq,55} = slow_mapfoldl(F, 0, Seq),
+    ok.
+
+mapfoldl(F, Acc0, [Hd|Tail]) ->
+    {R,Acc1} = F(Hd, Acc0),
+    {Rs,Acc2} = mapfoldl(F, Acc1, Tail),
+    {[R|Rs],Acc2};
+mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
+
+%% Here is an illustration of how the compiler used to sink
+%% get_tuple_element instructions in a way that would cause all
+%% versions of the accumulator to be kept until the end. The compiler
+%% now uses a heuristic to only sink get_tuple_element instructions if
+%% that would cause fewer values to be saved in the stack frame.
+slow_mapfoldl(F, Acc0, [Hd|Tail]) ->
+    Res1 = F(Hd, Acc0),
+    %% By saving the Res1 tuple, all intermediate accumulators will be
+    %% kept to the end.
+    Res2 = slow_mapfoldl(F, element(2, Res1), Tail),
+    {[element(1, Res1)|element(1, Res2)],element(2, Res2)};
+slow_mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
+
+%% Here is an illustration how the compiler should compile mapfoldl/3
+%% to avoid keeping all intermediate accumulators. Note that
+%% slow_mapfoldl/3 and fast_mapfoldl/3 use the same amount of stack
+%% space.
+fast_mapfoldl(F, Acc0, [Hd|Tail]) ->
+    Res1 = F(Hd, Acc0),
+    R = element(1, Res1),
+    Res2 = fast_mapfoldl(F, element(2, Res1), Tail),
+    {[R|element(1, Res2)],element(2, Res2)};
+fast_mapfoldl(F, Acc, []) when is_function(F, 2) -> {[],Acc}.
+
+grab_bag(_Config) ->
+    {'EXIT',_} = (catch grab_bag_1()),
+    {'EXIT',_} = (catch grab_bag_2()),
+    {'EXIT',_} = (catch grab_bag_3()),
+    {'EXIT',_} = (catch grab_bag_4()),
+    {'EXIT',{function_clause,[{?MODULE,grab_bag_5,[a,17],_}|_]}} =
+        (catch grab_bag_5(a, 17)),
+    way = grab_bag_6(face),
+    no_match = grab_bag_6("ABC"),
+    no_match = grab_bag_6(any),
+    ok = grab_bag_7(),
+    [] = grab_bag_8(),
+    ok = grab_bag_9(),
+    whatever = grab_bag_10(ignore, whatever),
+    other = grab_bag_11(),
+    {'EXIT',_} = (catch grab_bag_12()),
+    {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
+    timeout = grab_bag_14(),
+    ?MODULE = grab_bag_15(?MODULE),
+
+    error = grab_bag_16a(timeout_value),
+    {'EXIT',{timeout_value,_}} = (catch grab_bag_16a(whatever)),
+    {'EXIT',{timeout_value,_}} = (catch grab_bag_16b(whatever)),
+    timeout_value = grab_bag_16b(error),
+
+    fact = grab_bag_17(),
+
+    ok.
+
+grab_bag_1() ->
+    %% beam_kernel_to_ssa would crash when attempting to translate a make_fun
+    %% instruction without a destination variable.
+    (catch fun () -> 15 end)(true#{}).
+
+grab_bag_2() ->
+    %% is_guard_cg_safe/1 will be called with #cg_unreachable{}, which was
+    %% not handled.
+    27
+        or
+    try
+        try
+            x#{}
+        catch
+            _:_ ->
+                []
+        end
+    after
+        false
+    end.
+
+grab_bag_3() ->
+    case
+        fun (V0)
+              when
+                  %% The only thing left after optimizations would be
+                  %% a bs_add instruction not followed by succeeded,
+                  %% which would crash beam_ssa_codegen because there
+                  %% was no failure label available.
+                  binary_part(<<>>,
+                              <<V0:V0/unit:196>>) ->
+                []
+        end
+    of
+        <<>> ->
+            []
+    end.
+
+grab_bag_4() ->
+    %% beam_kernel_to_ssa would crash because there was a #cg_phi{}
+    %% instruction that was not referenced from any #cg_break{}.
+    case $f of
+        V0 ->
+            try
+                try fy of
+                    V0 ->
+                        fu
+                catch
+                    throw:$s ->
+                        fy
+                end
+            catch
+                error:#{#{[] + [] => []} := false} when [] ->
+                    fy
+            after
+                ok
+            end
+    end.
+
+grab_bag_5(A, B) when <<business:(node(power))>> ->
+    true.
+
+grab_bag_6(face) ->
+    way;
+grab_bag_6("ABC") when (node([]))#{size(door) => $k} ->
+    false;
+grab_bag_6(_) ->
+    no_match.
+
+grab_bag_7() ->
+    catch
+        case
+            case 1.6 of
+                %% The hd([] call will be translated to erlang:error(badarg).
+                %% This case exports two variables in Core Erlang (the
+                %% return value of the case and V). beam_kernel_to_ssa was not
+                %% prepared to handle a call to error/1 which is supposed to
+                %% export two variables.
+                <<0.5:(hd([])),V:false>> ->
+                    ok
+            end
+        of
+            _ ->
+                V
+        end,
+        ok.
+
+%% ssa_opt_sink would crash if sys_core_fold had not been run.
+grab_bag_8() ->
+    try
+        []
+    catch
+        _:_ ->
+            try
+                []
+            catch
+                _:any:_ ->
+                    a
+            end;
+        _:right ->
+            b
+    end.
+
+%% The ssa_opt_try optimization would leave a succeeded:body
+%% instruction followed by a #b_ret{} terminator, which would crash
+%% beam_ssa_pre_codegen.
+grab_bag_9() ->
+    catch
+        <<1 || 99, [] <- hour>> bsr false,
+        ok.
+
+grab_bag_10(_, V) ->
+    %% This function needs a stack frame in order to preserve V.
+    fun() -> ok end,
+    V.
+
+grab_bag_11() ->
+    try 0 of
+        false -> error;
+        true -> ok;
+        _ -> other
+    catch
+        _:_ ->
+            catched
+    end.
+
+grab_bag_12() ->
+    %% beam_ssa_pre_codegen would try to place the created map in x1.
+    %% That would not be safe because x0 is not initialized.
+    check_process_code(1, (#{})#{key := teacher}),
+    ok.
+
+grab_bag_13() ->
+    %% If sys_core_fold was skipped, beam_ssa_beam would leave
+    %% unreachable code with invalid phi nodes.
+    case <<810:true>> = [] of
+        <<709:false>> ->
+            ok;
+        whatever ->
+            case 42 of
+                175 ->
+                    {ok,case "b" of
+                            $X -> time
+                        end}
+            end
+    end.
+
+grab_bag_14() ->
+    %% If optimizations were turned off, beam_ssa_pre_codegen would
+    %% sanitize the binary construction instruction, replacing it with
+    %% a call to erlang:error/1, which is not allowed in a receive.
+    receive
+        #{<<42:(-1)>> := _} ->
+            ok
+    after 0 ->
+            timeout
+    end.
+
+grab_bag_15(V) ->
+    %% Instead of:
+    %%
+    %%    move x0, y0
+    %%    move y0, x0
+    %%
+    %% a swap instruction would be emitted by beam_ssa_codegen:
+    %%
+    %%    swap x0, y0
+    %%
+    case [] of
+        [] -> V
+    end:all(),
+    V.
+
+grab_bag_16a(V) ->
+    try
+        catch 22,
+    receive
+    after bad ->
+            not_reached
+    end
+    catch
+        _:V ->
+            error
+    end.
+
+grab_bag_16b(V) ->
+    try
+        receive
+        after get() ->
+                ok
+        end
+    catch
+        V:Reason ->
+            Reason
+    end.
+
+grab_bag_17() ->
+    try "xwCl" of
+        V when V ->
+            <<[] || V>>;
+        [_|_] ->
+            %% Constant propagation in beam_ssa_codegen:prefer_xregs/2
+            %% would produce get_hd and get_tl instructions with literal
+            %% operands.
+            fact
+    catch
+        _:_ ->
+            []
+    end.
+
+
+coverage(_Config) ->
+
+    %% Cover beam_ssa_codegen:force_reg/2
+    no_match = case true of
+                   <<_:42>> -> true;
+                   _ -> no_match
+              end,
+
+    no_match = case [] of
+                   <<$f:1.7>> -> ok;
+                   _ -> no_match
+               end,
+    {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
+
+    error = coverage_2(),
+    ok.
+
+coverage_1() ->
+    <<area/signed-bitstring>> = $T.
+
+coverage_2() when << []:<<0/native>> >> -> ok;
+coverage_2() -> error.
+
 
 %% The identity function.
 id(I) -> I.

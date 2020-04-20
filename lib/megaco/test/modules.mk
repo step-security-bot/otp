@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2019. All Rights Reserved.
+# Copyright Ericsson AB 2001-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,15 @@ COVER_SPEC_FILE = megaco.cover
 BEHAVIOUR_MODULES = \
 	megaco_test_generator
 
+ifeq ($(INCLUDE_PREV3_MODULES),true)
+TEST_UTIL_PREV3_MODULES = \
+	megaco_test_msg_prev3a_lib \
+	megaco_test_msg_prev3b_lib \
+	megaco_test_msg_prev3c_lib
+else
+TEST_UTIL_PREV3_MODULES =
+endif
+
 TEST_UTIL_MODULES = \
 	$(BEHAVIOUR_MODULES) \
 	megaco_codec_test_lib \
@@ -33,6 +42,7 @@ TEST_UTIL_MODULES = \
 	megaco_mess_otp8212_test \
 	megaco_profile \
 	megaco_tc_controller \
+	megaco_test_command_handler \
 	megaco_test_global_sys_monitor \
 	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
@@ -44,11 +54,19 @@ TEST_UTIL_MODULES = \
 	megaco_test_mg \
 	megaco_test_msg_v1_lib \
 	megaco_test_msg_v2_lib \
-	megaco_test_msg_prev3a_lib \
-	megaco_test_msg_prev3b_lib \
-	megaco_test_msg_prev3c_lib \
+	$(TEST_UTIL_PREV3_MODULES) \
 	megaco_test_msg_v3_lib \
 	megaco_test_lib
+
+
+ifeq ($(INCLUDE_PREV3_MODULES),true)
+SUITE_PREV3_MODULES = \
+	megaco_codec_prev3a_SUITE \
+	megaco_codec_prev3b_SUITE \
+	megaco_codec_prev3c_SUITE
+else
+SUITE_PREV3_MODULES =
+endif
 
 SUITE_MODULES = \
 	megaco_actions_SUITE \
@@ -58,9 +76,7 @@ SUITE_MODULES = \
 	megaco_codec_mini_SUITE \
 	megaco_codec_v1_SUITE \
 	megaco_codec_v2_SUITE \
-	megaco_codec_prev3a_SUITE \
-	megaco_codec_prev3b_SUITE \
-	megaco_codec_prev3c_SUITE \
+	$(SUITE_PREV3_MODULES) \
 	megaco_codec_v3_SUITE \
 	megaco_config_SUITE \
 	megaco_digit_map_SUITE \

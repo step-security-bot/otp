@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,13 +30,6 @@
 #define NO_DAEMON
 #endif
 
-#ifdef VXWORKS
-#define NO_SYSCONF
-#define NO_DAEMON
-#define NO_FCNTL
-#define DONT_USE_MAIN
-#endif
-
 /* ************************************************************************ */
 /* Standard includes                                                        */
 
@@ -56,16 +49,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-#ifdef VXWORKS
-#  include <sys/times.h>
-#  include <time.h>
-#  include <selectLib.h>
-#  include <sysLib.h>
-#  include <sockLib.h>
-#  include <ioLib.h>
-#  include <taskLib.h>
-#  include <rpc/rpc.h>
-#else /* ! VXWORKS */
 #ifndef __WIN32__
 #  ifdef TIME_WITH_SYS_TIME
 #    include <sys/time.h>
@@ -78,7 +61,6 @@
 #    endif
 #  endif
 #endif
-#endif /* ! VXWORKS */
 
 #if !defined(__WIN32__)
 #  include <netinet/in.h>
@@ -129,10 +111,6 @@
 #  define sleep(s) Sleep((s) * 1000)
 #  define ioctl(s,r,o) ioctlsocket((s),(r),(o))
 #endif /* WIN32 */
-
-#ifdef VXWORKS
-#define sleep(n) taskDelay((n) * sysClkRateGet())
-#endif /* VXWORKS */
 
 #ifdef USE_BCOPY
 #  define memcpy(a, b, c) bcopy((b), (a), (c))

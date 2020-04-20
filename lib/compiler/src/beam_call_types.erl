@@ -65,6 +65,9 @@ will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, is_function, [_,#t_integer{elements={Min,_}}])
+  when Min >= 0 ->
+    yes;
 will_succeed(erlang, is_map_key, [_Key, Map]) ->
     succeeds_if_type(Map, #t_map{});
 will_succeed(erlang, length, [Arg]) ->
@@ -81,7 +84,8 @@ will_succeed(erlang, setelement, [#t_integer{elements={Min,Max}},
         false -> maybe
     end;
 will_succeed(erlang, size, [Arg]) ->
-    succeeds_if_type(Arg, #t_bitstring{});
+    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    succeeds_if_type(Arg, ArgType);
 will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
 will_succeed(erlang, tl, [Arg]) ->
@@ -98,10 +102,12 @@ will_succeed(Mod, Func, Args) ->
                 false ->
                     %% While we can't infer success for functions outside the
                     %% 'erlang' module (see above comment), it's safe to infer
-                    %% failure when we know the arguments must have certain
-                    %% types.
-                    {_, ArgTypes, _} = types(Mod, Func, Args),
-                    fails_on_conflict(Args, ArgTypes)
+                    %% failure when we know they return none or if the
+                    %% arguments must have certain types.
+                    case types(Mod, Func, Args) of
+                        {none, _, _} -> no;
+                        {_, ArgTypes, _} -> fails_on_conflict(Args, ArgTypes)
+                    end
             end
     end.
 
@@ -251,7 +257,8 @@ types(erlang, 'node', [_]) ->
 types(erlang, 'node', []) ->
     sub_unsafe(#t_atom{}, []);
 types(erlang, 'size', [_]) ->
-    sub_unsafe(#t_integer{}, [any]);
+    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    sub_unsafe(#t_integer{}, [ArgType]);
 
 %% Tuple element ops
 types(erlang, element, [PosType, TupleType]) ->
@@ -726,16 +733,21 @@ erlang_band_type_1(LHS, Int) ->
             Max = min(Max0, Union band Int),
 
             #t_integer{elements={Min,Max}};
-        _ when Int >= 0 ->
+        #t_integer{} when Int >= 0 ->
             %% The range is either unknown or too wide, conservatively assume
             %% that the new range is 0 .. Int.
-            #t_integer{elements={0,Int}};
-        _ when Int < 0 ->
-            %% We can't infer boundaries when the range is unknown and the
-            %% other operand is a negative number, as the latter sign-extends
-            %% to infinity and we can't express an inverted range at the
-            %% moment (cf. X band -8; either less than -7 or greater than 7).
-            #t_integer{}
+            %%
+            %% NOTE: We must not produce a singleton type unless we are sure
+            %% that the operation can't fail. Therefore, we only do this
+            %% inference if LHS is known to be an integer.
+            beam_types:meet(LHS, #t_integer{elements={0,Int}});
+        _ ->
+            %% We can't infer boundaries when LHS is not an integer or
+            %% the range is unknown and the other operand is a
+            %% negative number, as the latter sign-extends to infinity
+            %% and we can't express an inverted range at the moment
+            %% (cf. X band -8; either less than -7 or greater than 7).
+            beam_types:meet(LHS, #t_integer{})
     end.
 
 erlang_map_get_type(Key, Map) ->

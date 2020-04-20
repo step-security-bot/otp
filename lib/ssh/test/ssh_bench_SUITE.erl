@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -233,7 +233,7 @@ send_wait_acc(C, Ch, Data) ->
 %%%----------------------------------------------------------------
 preferred_algorithms(KexAlg) ->
      [{kex,         [KexAlg]},
-      {public_key,  ['ssh-rsa']},
+      {public_key,  ['rsa-sha2-256']},
       {cipher,      ['aes128-ctr']},
       {mac,         ['hmac-sha1']},
       {compression, [none]}

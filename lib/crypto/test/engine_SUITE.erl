@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    case {os:type(), crypto:info_lib()} of
+    try {os:type(), crypto:info_lib()} of
         {_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
             {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
 
@@ -100,6 +100,8 @@ init_per_suite(Config) ->
             catch _:_ ->
                     {skip, "Crypto did not start"}
             end
+    catch _:_ ->
+	    {skip, "Crypto not loaded"}
     end.
 
 end_per_suite(_Config) ->

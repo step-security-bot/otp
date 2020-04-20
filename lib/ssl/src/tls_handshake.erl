@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -411,6 +411,8 @@ get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
 	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
+        throw:#alert{} = Alert ->
+            throw(Alert);
 	_:_ ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, handshake_decode_error))
     end;

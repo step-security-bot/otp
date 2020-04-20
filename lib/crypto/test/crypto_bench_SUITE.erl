@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,11 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,
+           [{crypto,block_encrypt,4},
+            {crypto,stream_encrypt,2},
+            {crypto,stream_init,3}]}]).
+
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -67,7 +72,7 @@ init_per_suite(Config0) ->
             calibrate([{sec_goal,10} | Config1])
 
     catch _:_ ->
-	    {fail, "Crypto did not start"}
+	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->

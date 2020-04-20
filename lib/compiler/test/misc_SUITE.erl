@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ silly_coverage(Config) when is_list(Config) ->
 
     %% beam_ssa_opt
     BadSSABlocks = #{0 => {b_blk,#{},[bad_code],{b_ret,#{},arg}}},
-    BadSSAOpt = {b_module,#{},a,[],c,
+    BadSSAOpt = {b_module,#{},a,[],[],
                  [{b_function,#{func_info=>{mod,foo,0}},[],
                    BadSSABlocks,0}]},
     expect_error(fun() -> beam_ssa_opt:module(BadSSAOpt, []) end),
@@ -278,7 +278,7 @@ silly_coverage(Config) when is_list(Config) ->
 		      [{label,1},
 		       {func_info,{atom,?MODULE},{atom,foo},0},
 		       {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
+    expect_error(fun() -> beam_validator:validate(BeamValInput, strong) end),
 
     ok.
 

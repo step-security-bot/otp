@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -294,7 +294,7 @@ store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
              true ->
                   Db0
           end,
-    Key = erlang:monotonic_time(),
+    Key =  {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     Db = gb_trees:insert(Key,
                          #data{hkdf = HKDF,
                                sni = SNI,

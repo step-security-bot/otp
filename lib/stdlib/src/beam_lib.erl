@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 %%
 -module(beam_lib).
 -behaviour(gen_server).
--compile({nowarn_deprecated_function,{crypto,block_decrypt,4}}).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -974,7 +973,7 @@ decrypt_chunk(Type, Module, File, Id, Bin) ->
 	KeyString = get_crypto_key({debug_info, Type, Module, File}),
 	{Type,Key,IVec,_BlockSize} = make_crypto_key(Type, KeyString),
 	ok = start_crypto(),
-	NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
+	NewBin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin, false),
 	binary_to_term(NewBin)
     catch
 	_:_ ->

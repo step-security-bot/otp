@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -379,6 +379,7 @@ finish_loading_1(BIF_ALIST_1)
 	    /* tracing or hipe need thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    is_blocking = 1;
 	    break;
 	}
@@ -466,7 +467,6 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	}
 	if (is_blocking) {
 	    erts_thr_progress_unblock();
-	    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 	}
 	erts_release_code_write_permission();
 	return res;
@@ -607,8 +607,12 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
         BIF_RET(am_false);
 
     state = erts_atomic32_read_nob(&rp->state);
-    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
-                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    /*
+     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
+     * comment in erts_execute_dirty_system_task()
+     * in erl_process.c).
+     */
     if (!dirty)
         BIF_RET(am_normal);
 
@@ -663,6 +667,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 		/* tracing or hipe need to go single threaded */
 		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		erts_thr_progress_block();
+                erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		is_blocking = 1;
 		if (modp->curr.num_breakpoints) {
 		    erts_clear_module_break(modp);
@@ -796,6 +801,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
             is_blocking = 1;
 	}
 
@@ -959,6 +965,14 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     if (!la)
         goto return_ok;
 
+    /* The heap may be in an inconsistent state when the GC is disabled, for
+     * example when we're in the middle of building a record in
+     * binary_to_term/1, so we have to delay scanning until the GC is enabled
+     * again. */
+    if (c_p->flags & F_DISABLE_GC) {
+        return THE_NON_VALUE;
+    }
+
     oh = la->off_heap;
     literals = (char *) &la->start[0];
     lit_bsize = (char *) la->end - literals;
@@ -1078,9 +1092,6 @@ literal_gc:
 
     if (!gc_allowed)
         return am_need_gc;
-
-    if (c_p->flags & F_DISABLE_GC)
-        return THE_NON_VALUE;
 
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);
@@ -1466,12 +1477,14 @@ rla_resume(void *literal_area)
 }
 
 
+#ifdef DEBUG
 static ERTS_INLINE Sint
 rla_bc_read(int sched_ix, int block_ix)
 {
     return (Sint) erts_atomic_read_nob(
         &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
 }
+#endif
 
 static ERTS_INLINE Sint
 rla_bc_read_acqb(int sched_ix, int block_ix)
@@ -2044,22 +2057,21 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		ERTS_BIF_PREP_RET(ret, am_false);
 	    }
 	    else {
-		/*
-		 * Unload any NIF library
-		 */
-		if (modp->old.nif != NULL
-		    || IF_HIPE(hipe_purge_need_blocking(modp))) {
-		    /* ToDo: Do unload nif without blocking */
+		if (IF_HIPE(hipe_purge_need_blocking(modp))) {
 		    erts_rwunlock_old_code(code_ix);
 		    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    erts_thr_progress_block();
 		    is_blocking = 1;
 		    erts_rwlock_old_code(code_ix);
-		    if (modp->old.nif) {
-		      erts_unload_nif(modp->old.nif);
-		      modp->old.nif = NULL;
-		    }
 		}
+
+                /*
+                 * Unload any NIF library
+                 */
+                if (modp->old.nif) {
+                  erts_unload_nif(modp->old.nif);
+                  modp->old.nif = NULL;
+                }
 
 		/*
 		 * Remove the old code.

@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1, daemon_info/2,
+         set_sock_opts/2, get_sock_opts/2,
 	 default_algorithms/0,
          chk_algos_opts/1,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
@@ -94,6 +95,10 @@ start() ->
 start(Type) ->
     case application:ensure_all_started(ssh, Type) of
         {ok, _} ->
+            %% Clear cached default_algorithms (if exists) ...
+            ssh_transport:clear_default_algorithms_env(),
+            %% ... and rebuld them taking configure options in account
+            ssh_transport:default_algorithms(),
             ok;
         Other ->
             Other
@@ -163,7 +168,9 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
             Host = mangle_connect_address(Host0, SocketOpts),
 	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
 		{ok, Socket} ->
-                    connect_socket(Socket, Options, NegotiationTimeout);
+                    connect_socket(Socket,
+                                   ?PUT_INTERNAL_OPT({host,Host}, Options),
+                                   NegotiationTimeout);
 		{error, Reason} ->
 		    {error, Reason}
 	    catch
@@ -182,7 +189,6 @@ connect_socket(Socket, Options0, NegotiationTimeout) ->
     {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, client, Host, Port, Profile, Options0),
     ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
     Opts = ?PUT_INTERNAL_OPT([{user_pid,self()},
-                              {host,Host},
                               {supervisors, [{system_sup, SystemSup},
                                              {subsystem_sup, SubSysSup},
                                              {connection_sup, ConnectionSup}]}
@@ -574,6 +580,25 @@ chk_algos_opts(Opts) ->
         OtherOps ->
             {error, {non_algo_opts_found,OtherOps}}
     end.
+
+
+%%--------------------------------------------------------------------
+-spec set_sock_opts(ConnectionRef, SocketOptions) ->
+                           ok | {error, inet:posix()}  when
+      ConnectionRef :: connection_ref(),
+      SocketOptions :: [gen_tcp:option()] .
+%%--------------------------------------------------------------------
+set_sock_opts(ConnectionRef, SocketOptions) ->
+    ssh_connection_handler:set_sock_opts(ConnectionRef, SocketOptions).
+
+%%--------------------------------------------------------------------
+-spec get_sock_opts(ConnectionRef, SocketGetOptions) ->
+                           ok | {error, inet:posix()}  when
+      ConnectionRef :: connection_ref(),
+      SocketGetOptions :: [gen_tcp:option_name()] .
+%%--------------------------------------------------------------------
+get_sock_opts(ConnectionRef, SocketGetOptions) ->
+    ssh_connection_handler:get_sock_opts(ConnectionRef, SocketGetOptions).
 
 %%--------------------------------------------------------------------
 %% Ask local client to listen to ListenHost:ListenPort.  When someone

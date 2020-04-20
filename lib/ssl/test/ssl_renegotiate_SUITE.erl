@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -50,8 +49,7 @@ groups() ->
      {'tlsv1.3', [], renegotiate_tests()},
      {'tlsv1.2', [], renegotiate_tests()},
      {'tlsv1.1', [], renegotiate_tests()},
-     {'tlsv1', [], renegotiate_tests()},
-     {'sslv3', [], ssl3_renegotiate_tests()}
+     {'tlsv1', [], renegotiate_tests()}
     ].
 
 renegotiate_tests() ->
@@ -114,6 +112,18 @@ end_per_group(GroupName, Config) ->
       false ->
           Config
   end.
+
+init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
+                                          TestCase == renegotiate_dos_mitigate_passive;
+                                          TestCase == renegotiate_dos_mitigate_absolute ->
+    ct:timetrap({seconds, 160}),
+    Config;
+init_per_testcase(_, Config) ->
+    ct:timetrap({seconds, 15}),
+    Config.
+
+end_per_testcase(_, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ typedef unsigned int BOOLEAN_T;
  * "Global" atoms (esock_atom_...)
  *
  * Note that when an (global) atom is added here, it must also be added
- * in the socket_nif.c file!
+ * in the prim_socket_nif.c file!
  */
 
 #define GLOBAL_ATOM_DEFS                       \
@@ -166,6 +166,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
     GLOBAL_ATOM_DEF(egp);                      \
+    GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
     GLOBAL_ATOM_DEF(error);                    \
     GLOBAL_ATOM_DEF(errqueue);                 \
@@ -207,6 +208,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(keepcnt);                  \
     GLOBAL_ATOM_DEF(keepidle);                 \
     GLOBAL_ATOM_DEF(keepintvl);                \
+    GLOBAL_ATOM_DEF(kernel);                   \
     GLOBAL_ATOM_DEF(leave_group);              \
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \
@@ -328,6 +330,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(unicast_hops);             \
     GLOBAL_ATOM_DEF(unknown);                  \
     GLOBAL_ATOM_DEF(usec);                     \
+    GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
@@ -378,6 +381,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
 #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL))
 #define MKUI(E,UI)          enif_make_uint((E), (UI))
+#define MKUI64(E,UI)        enif_make_uint64((E), (UI))
 #define MKUL(E,UL)          enif_make_ulong((E), (UL))
 
 #define MCREATE(N)          enif_mutex_create((N))
@@ -389,6 +393,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define DEMONP(S,E,D,M)     esock_demonitor((S), (E), (D), (M))
 #define MON_INIT(M)         esock_monitor_init((M))
 #define MON2T(E, M)         enif_make_monitor_term((E), (M))
+#define MON_EQ(M1, M2)      esock_monitor_eq((M1), (M2))
 
 #define COMPARE(A, B)        enif_compare((A), (B))
 #define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
@@ -414,6 +419,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define GET_STR(E, L, B, SZ)      \
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, UIP)        enif_get_uint((E), (TE), (UIP))
+#define GET_UINT64(E, TE, UIP)      enif_get_uint64((E), (TE), (UIP))
 #define GET_ULONG(E, TE, ULP)       enif_get_long((E), (TE), (ULP))
 #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))

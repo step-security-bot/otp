@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,9 @@ ERL_NIF_TERM atom_block_size;
 ERL_NIF_TERM atom_key_length;
 ERL_NIF_TERM atom_iv_length;
 ERL_NIF_TERM atom_mode;
+ERL_NIF_TERM atom_encrypt;
+ERL_NIF_TERM atom_padding_size;
+ERL_NIF_TERM atom_padding_type;
 ERL_NIF_TERM atom_ecb_mode;
 ERL_NIF_TERM atom_cbc_mode;
 ERL_NIF_TERM atom_cfb_mode;
@@ -89,7 +92,7 @@ ERL_NIF_TERM atom_rsa;
 ERL_NIF_TERM atom_dss;
 ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
 ERL_NIF_TERM atom_x25519;
 ERL_NIF_TERM atom_x448;
 ERL_NIF_TERM atom_ed25519;
@@ -184,6 +187,9 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_key_length = enif_make_atom(env,"key_length");
     atom_iv_length = enif_make_atom(env,"iv_length");
     atom_mode = enif_make_atom(env,"mode");
+    atom_encrypt = enif_make_atom(env, "encrypt");
+    atom_padding_size = enif_make_atom(env, "padding_size");
+    atom_padding_type = enif_make_atom(env, "padding_type");
     atom_ecb_mode = enif_make_atom(env,"ecb_mode");
     atom_cbc_mode = enif_make_atom(env,"cbc_mode");
     atom_cfb_mode = enif_make_atom(env,"cfb_mode");
@@ -224,7 +230,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     atom_x25519 = enif_make_atom(env,"x25519");
     atom_x448 = enif_make_atom(env,"x448");
     atom_ed25519 = enif_make_atom(env,"ed25519");

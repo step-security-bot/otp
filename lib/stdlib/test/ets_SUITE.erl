@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@
          fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
+-export([update_counter_with_default_bad_pos/1]).
 -export([update_counter_table_growth/1]).
 -export([member/1]).
 -export([memory/1]).
@@ -96,6 +97,7 @@
 -export([massive_ets_all/1]).
 -export([take/1]).
 -export([whereis_table/1]).
+-export([ms_excessive_nesting/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -136,7 +138,9 @@ all() ->
      interface_equality, fixtable_next, fixtable_iter_bag, fixtable_insert,
      rename, rename_unnamed, evil_rename, update_element,
      update_counter, evil_update_counter,
-     update_counter_with_default, partly_bound,
+     update_counter_with_default,
+     update_counter_with_default_bad_pos,
+     partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
      select_bound_chunk,
@@ -169,7 +173,8 @@ all() ->
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
-     test_decentralized_counters_setting].
+     test_decentralized_counters_setting,
+     ms_excessive_nesting].
 
 
 groups() ->
@@ -1190,14 +1195,25 @@ t_insert_list_do(Opts) ->
 % Insert a long list twice in a bag
 t_insert_list_bag(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    T = ets:new(t, [bag]),
+    repeat_for_opts(fun t_insert_list_bag_do/1,
+                    [write_concurrency, compressed]),
+    verify_etsmem(EtsMem).
+
+t_insert_list_bag_do(Opts) ->
+    T = ets:new(t, [bag | Opts]),
     ListSize = 25000,
     List = [ {N} || N <- lists:seq(1, ListSize)],
     ets:insert(T, List),
     ets:insert(T, List),
     ListSize = ets:info(T, size),
+
+    %% Insert different sized objects to better test (compressed) object comparison
+    List2 = [begin Bits=(N rem 71), {N div 7, <<N:Bits>>} end || {N} <- List],
+    ets:insert(T, List2),
+    List2Sz = ListSize * 2,
+    List2Sz = ets:info(T, size),
     ets:delete(T),
-    verify_etsmem(EtsMem).
+    ok.
 
 % Insert a long list twice in a duplicate_bag
 t_insert_list_duplicate_bag(Config) when is_list(Config) ->
@@ -2626,35 +2642,76 @@ update_counter_with_default_do(Opts) ->
     T1 = ets_new(a, [set | Opts]),
     %% Insert default object.
     3 = ets:update_counter(T1, foo, 2, {beaufort,1}),
+    1 = ets:info(T1, size),
     %% Increment.
     5 = ets:update_counter(T1, foo, 2, {cabecou,1}),
+    1 = ets:info(T1, size),
     %% Increment with list.
     [9] = ets:update_counter(T1, foo, [{2,4}], {camembert,1}),
+    1 = ets:info(T1, size),
     %% Same with non-immediate key.
     3 = ets:update_counter(T1, {foo,bar}, 2, {{chaource,chevrotin},1}),
+    2 = ets:info(T1, size),
     5 = ets:update_counter(T1, {foo,bar}, 2, {{cantal,comté},1}),
+    2 = ets:info(T1, size),
     [9] = ets:update_counter(T1, {foo,bar}, [{2,4}], {{emmental,de,savoie},1}),
+    2 = ets:info(T1, size),
+    %% default counter is not an integer.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
+    2 = ets:info(T1, size),
+    %% No third element in default value.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
+    2 = ets:info(T1, size),
+
     %% Same with ordered set.
     T2 = ets_new(b, [ordered_set | Opts]),
     3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
+    1 = ets:info(T2, size),
     5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
+    1 = ets:info(T2, size),
     [9] = ets:update_counter(T2, foo, [{2,4}], {morbier,1}),
+    1 = ets:info(T2, size),
     3 = ets:update_counter(T2, {foo,bar}, 2, {{laguiole},1}),
+    2 = ets:info(T2, size),
     5 = ets:update_counter(T2, {foo,bar}, 2, {{saint,nectaire},1}),
+    2 = ets:info(T2, size),
     [9] = ets:update_counter(T2, {foo,bar}, [{2,4}], {{rocamadour},1}),
+    2 = ets:info(T2, size),
     %% Arithmetically-equal keys.
     3 = ets:update_counter(T2, 1.0, 2, {1,1}),
+    3 = ets:info(T2, size),
     5 = ets:update_counter(T2, 1, 2, {1,1}),
+    3 = ets:info(T2, size),
     7 = ets:update_counter(T2, 1, 2, {1.0,1}),
+    3 = ets:info(T2, size),
     %% Same with reversed type difference.
     3 = ets:update_counter(T2, 2, 2, {2.0,1}),
+    4 = ets:info(T2, size),
     5 = ets:update_counter(T2, 2.0, 2, {2.0,1}),
+    4 = ets:info(T2, size),
     7 = ets:update_counter(T2, 2.0, 2, {2,1}),
-    %% bar is not an integer.
+    4 = ets:info(T2, size),
+    %% default counter is not an integer.
     {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
+    4 = ets:info(T2, size),
     %% No third element in default value.
     {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
+    4 = ets:info(T2, size),
+    ok.
 
+%% ERL-1125
+update_counter_with_default_bad_pos(Config) when is_list(Config) ->
+    repeat_for_all_ord_set_table_types(fun update_counter_with_default_bad_pos_do/1).
+
+update_counter_with_default_bad_pos_do(Opts) ->
+    T = ets_new(a, Opts),
+    0 = ets:info(T, size),
+    ok = try ets:update_counter(T, 101065, {1, 1}, {101065, 0})
+         catch
+             error:badarg -> ok;
+             Class:Reason -> {Class, Reason}
+         end,
+    0 = ets:info(T, size),
     ok.
 
 update_counter_table_growth(_Config) ->
@@ -7295,6 +7352,50 @@ whereis_table(Config) when is_list(Config) ->
 
     ok.
 
+ms_excessive_nesting(Config) when is_list(Config) ->
+    MkMSCond = fun (_Fun, N) when N < 0 -> true;
+                   (Fun, N) -> {'orelse', {'==', N, '$1'}, Fun(Fun, N-1)}
+               end,
+    %% Ensure it compiles with substantial but reasonable
+    %% (hmm...) nesting
+    MS = [{{'$1', '$2'}, [MkMSCond(MkMSCond, 100)], [{{'$1', blipp}}]}],
+    io:format("~p~n", [erlang:match_spec_test({1, blupp}, MS, table)]),
+    _ = ets:match_spec_compile(MS),
+    %% Now test match_spec_compile() and select_replace()
+    %% with tree and hash using excessive nesting. These
+    %% used to seg-fault the emulator due to recursion
+    %% beyond the end of the C-stack.
+    %%
+    %% We expect to get a system_limit error, but don't
+    %% fail if it compiles (someone must have rewritten
+    %% compilation of match specs to use an explicit
+    %% stack instead of using recursion).
+    ENMS = [{{'$1', '$2'}, [MkMSCond(MkMSCond, 1000000)], [{{'$1', blipp}}]}],
+    io:format("~p~n", [erlang:match_spec_test({1, blupp}, ENMS, table)]),
+    ENMSC = try
+                ets:match_spec_compile(ENMS),
+                "compiled"
+            catch
+                error:system_limit ->
+                    "got system_limit"
+            end,
+    Tree = ets:new(tree, [ordered_set]),
+    SRT = try
+              ets:select_replace(Tree, ENMS),
+              "compiled"
+          catch
+              error:system_limit ->
+                  "got system_limit"
+          end,
+    Hash = ets:new(hash, [set]),
+    SRH = try
+              ets:select_replace(Hash, ENMS),
+              "compiled"
+          catch
+              error:system_limit ->
+                  "got system_limit"
+          end,
+    {comment, "match_spec_compile() "++ENMSC++"; select_replace(_,[ordered_set]) "++SRT++"; select_replace(_,[set]) "++SRH}.
 
 %% The following help functions are used by
 %% throughput_benchmark. They are declared on the top level beacuse

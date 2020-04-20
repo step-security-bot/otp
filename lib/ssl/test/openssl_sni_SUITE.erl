@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ all() ->
     %% Note: SNI not supported in sslv3
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
-            [{group, 'tlsv1.2'},
+            [{group, 'tlsv1.3'},
+             {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'}
              %% Seems broken in openssl 
@@ -46,7 +47,8 @@ all() ->
              %%{group, 'dtlsv1'}
             ];
         false ->
-            [{group, 'tlsv1.2'},
+            [{group, 'tlsv1.3'},
+             {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'}]
     end.
@@ -54,7 +56,8 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{'tlsv1.2', [], sni_tests()},
+             [{'tlsv1.3', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()}
               %% Seems broken in openssl 
@@ -62,7 +65,8 @@ groups() ->
               %%{'dtlsv1', [], sni_tests()}
              ];
         false ->
-             [{'tlsv1.2', [], sni_tests()},
+             [{'tlsv1.3', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()}
              ]
@@ -114,30 +118,10 @@ end_per_suite(_Config) ->
     ssl_test_lib:kill_openssl().
 
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            case ssl_test_lib:supports_ssl_tls_version(GroupName) of
-                 true ->
-                    case ssl_test_lib:check_sane_openssl_version(GroupName) of
-                         true ->
-                            ssl_test_lib:init_tls_version(GroupName, Config);
-                         false ->
-                            {skip, openssl_does_not_support_version}
-                    end;
-                false ->
-                    {skip, openssl_does_not_support_version}
-            end; 
-         _ ->
-            Config
-    end.
+    ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-       false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(_TestCase, Config) -> 
     ct:timetrap({seconds, 10}),

@@ -217,8 +217,9 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
   switch (inst.op) {
 #include "beamasm_emit.h"
   case op_i_func_info_IaaI: {
-    //code.flatten();
+
     if (functions.size() > 0) {
+      // Pad if needed for patching nif load
       Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
       uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@
  */
 
 #include <string.h>
-
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
+#include <stdlib.h>
 
 #include "ei_runner.h"
 
@@ -31,15 +28,9 @@
  * Author:  Kent
  */
 
-#ifdef VXWORKS
-#define MESSAGE_BACK(SIZE) \
-    message("err = %d, size2 = %d, expected size = %d", \
-             err, size1, SIZE); 
-#else
 #define MESSAGE_BACK(SIZE) \
     message("err = %d, size2 = %d, expected size = %d, long long val = %lld", \
              err, size1, SIZE, (EI_LONGLONG)p); 
-#endif
 
 #define ERLANG_ANY (ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8)
 
@@ -483,7 +474,6 @@ TESTCASE(test_ei_decode_longlong)
 {
     ei_init();
 
-#ifndef VXWORKS
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 0);
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 255);
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, 256);
@@ -509,7 +499,6 @@ TESTCASE(test_ei_decode_longlong)
     EI_DECODE_2_FAIL(decode_longlong, 11, EI_LONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_longlong,  1, EI_LONGLONG,  0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -519,7 +508,6 @@ TESTCASE(test_ei_decode_ulonglong)
 {
     ei_init();
 
-#ifndef VXWORKS
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 0);
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 255);
     EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG, 256);
@@ -545,7 +533,6 @@ TESTCASE(test_ei_decode_ulonglong)
     EI_DECODE_2     (decode_ulonglong,11, EI_ULONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_ulonglong, 1, EI_ULONGLONG, 0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -637,8 +624,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 
     /* ---------------------------------------------------------------- */
 
-#ifndef VXWORKS
-
     EI_DECODE_2(decode_longlong,  2, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  5, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  4, EI_LONGLONG, 42);
@@ -680,8 +665,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
-
-#endif /* !VXWORKS */
 
     /* ---------------------------------------------------------------- */
 
@@ -767,6 +750,59 @@ TESTCASE(test_ei_decode_utf8_atom)
 		     P99({ERLANG_ASCII,ERLANG_LATIN1,ERLANG_ASCII}));
 
   report(1);
+}
+
+/* ******************************************************************** */
+
+TESTCASE(test_ei_decode_iodata)
+{
+    ei_init();
+
+    while (1) {
+        char *buf, *data;
+        int len, index, saved_index, err;
+
+        buf = read_packet(&len);
+
+        if (len == 4
+            && buf[0] == 'd'
+            && buf[1] == 'o'
+            && buf[2] == 'n'
+            && buf[3] == 'e') {
+            break;
+        }
+        
+        index = 0;
+        err = ei_decode_version(buf, &index, NULL);
+        if (err != 0)
+            fail1("ei_decode_version returned %d", err);
+        saved_index = index;
+        err = ei_decode_iodata(buf, &index, &len, NULL);
+        if (err != 0) {
+            ei_x_buff x;
+            ei_x_new_with_version(&x);
+            ei_x_encode_atom(&x, "decode_size_failed");
+            send_bin_term(&x);
+            ei_x_free(&x);
+            continue;
+        }
+        data = malloc(len);
+        err = ei_decode_iodata(buf, &saved_index, NULL, (unsigned char *) data);
+        if (err != 0) {
+            ei_x_buff x;
+            ei_x_new_with_version(&x);
+            ei_x_encode_atom(&x, "decode_data_failed");
+            send_bin_term(&x);
+            ei_x_free(&x);
+            free(data);
+            continue;
+        }
+
+        send_buffer(data, len);
+        free(data);
+    }
+
+    report(1);
 }
 
 /* ******************************************************************** */

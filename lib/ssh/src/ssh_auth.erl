@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 
 -include("ssh.hrl").
 -include("ssh_auth.hrl").
+-include("ssh_agent.hrl").
 -include("ssh_transport.hrl").
 
 -export([get_public_key/2,
@@ -140,47 +141,60 @@ keyboard_interactive_msg([#ssh{user = User,
 get_public_key(SigAlg, #ssh{opts = Opts}) ->
     KeyAlg = key_alg(SigAlg),
     case ssh_transport:call_KeyCb(user_key, [KeyAlg], Opts) of
+        {ok, {ssh2_pubkey, PubKeyBlob}} ->
+            {ok, {ssh2_pubkey, PubKeyBlob}};
+
         {ok, PrivKey} ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
-                true = ssh_transport:valid_key_sha_alg(PrivKey, KeyAlg),
+                true = ssh_transport:valid_key_sha_alg(private, PrivKey, KeyAlg),
                 Key = ssh_transport:extract_public_key(PrivKey),
-                public_key:ssh_encode(Key, ssh2_pubkey)
+                ssh_message:ssh2_pubkey_encode(Key)
             of
-                PubKeyBlob -> {ok,{PrivKey,PubKeyBlob}}
+                PubKeyBlob -> {ok, {PrivKey, PubKeyBlob}}
             catch
                 _:_ -> 
                     not_ok
             end;
 
-	_Error ->
-	    not_ok
+        _Error ->
+            not_ok
     end.
 
 
 publickey_msg([SigAlg, #ssh{user = User,
-		       session_id = SessionId,
-		       service = Service} = Ssh]) ->
+                            session_id = SessionId,
+                            service = Service,
+                            opts = Opts} = Ssh]) ->
     case get_public_key(SigAlg, Ssh) of
-	{ok, {PrivKey,PubKeyBlob}} ->
+        {ok, {_, PubKeyBlob} = Key} ->
             SigAlgStr = atom_to_list(SigAlg),
-            SigData = build_sig_data(SessionId, User, Service,
-                                     PubKeyBlob, SigAlgStr),
-            Hash = ssh_transport:sha(SigAlg),
-            Sig = ssh_transport:sign(SigData, Hash, PrivKey),
+            SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
+
+            Sig = case Key of
+                {ssh2_pubkey, PubKeyBlob} ->
+                  ssh_transport:call_KeyCb(sign, [PubKeyBlob, SigData], Opts);
+
+                {PrivKey, PubKeyBlob} ->
+                  Hash = ssh_transport:sha(SigAlg),
+                  ssh_transport:sign(SigData, Hash, PrivKey)
+              end,
+
             SigBlob = list_to_binary([?string(SigAlgStr),
                                       ?binary(Sig)]),
+
             ssh_transport:ssh_packet(
-              #ssh_msg_userauth_request{user = User,
-                                        service = Service,
-                                        method = "publickey",
-                                        data = [?TRUE,
-                                                ?string(SigAlgStr),
-                                                ?binary(PubKeyBlob),
-                                                ?binary(SigBlob)]},
-              Ssh);
-     	_ ->
-	    {not_ok, Ssh}
+                #ssh_msg_userauth_request{user = User,
+                                          service = Service,
+                                          method = "publickey",
+                                          data = [?TRUE,
+                                                  ?string(SigAlgStr),
+                                                  ?binary(PubKeyBlob),
+                                                  ?binary(SigBlob)]},
+                Ssh);
+
+        _ ->
+            {not_ok, Ssh}
     end.
 
 %%%----------------------------------------------------------------
@@ -462,7 +476,7 @@ check_password(User, Password, Opts, Ssh) ->
     case ?GET_OPT(pwdfun, Opts) of
 	undefined ->
 	    Static = get_password_option(Opts, User),
-	    {Password == Static, Ssh};
+	    {crypto:equal_const_time(Password,Static), Ssh};
 
 	Checker when is_function(Checker,2) ->
 	    {Checker(User, Password), Ssh};
@@ -495,7 +509,7 @@ get_password_option(Opts, User) ->
 	    
 pre_verify_sig(User, KeyBlob, Opts) ->
     try
-	Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts)
     catch
 	_:_ ->
@@ -505,7 +519,7 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts = Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
-        Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+        Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         true = ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts),
         PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
 -export([find_file/2, find_file/3, find_source/1, find_source/2, find_source/3]).
+-export([safe_relative_path/2]).
 
 %% For debugging/testing.
 -export([compile_wildcard/1]).
@@ -333,6 +334,7 @@ match_part([_|_], []) ->
     false.
 
 will_always_match([accept]) -> true;
+will_always_match([double_star]) -> true;
 will_always_match(_) -> false.
 
 prepare_base(Base0) ->
@@ -340,22 +342,33 @@ prepare_base(Base0) ->
     "x"++Base2 = lists:reverse(Base1),
     lists:reverse(Base2).
 
-do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
+do_double_star(Base, [H|T], Patterns, Result0, Mod, Root) ->
     Full = case Root of
-	       false -> filename:join(Base, H);
-	       true -> H
-	   end,
+               false -> filename:join(Base, H);
+               true -> H
+           end,
     Result1 = case do_list_dir(Full, Mod) of
-        {ok, Files} ->
-            do_double_star(Full, Files, Rest, Result, Mod, false);
-        _ -> Result
-    end,
-    Result2 = case Root andalso Rest == [] of
-        true  -> Result1;
-        false -> do_wildcard_3(Full, Rest, Result1, Mod)
-    end,
-    do_double_star(Base, T, Rest, Result2, Mod, Root);
-do_double_star(_Base, [], _Rest, Result, _Mod, _Root) ->
+                  {ok, Files} ->
+                      do_double_star(Full, Files, Patterns, Result0, Mod, false);
+                  _ -> Result0
+              end,
+    Result2 = case Patterns of
+                  %% The root is never included in the result.
+                  _ when Root -> Result1;
+
+                  %% An empty pattern includes all results (except the root).
+                  [] -> [Full | Result1];
+
+                  %% Otherwise we check if the current entry matches
+                  %% and continue recursively.
+                  [Pattern | Rest] ->
+                      case match_part(Pattern, H) of
+                          true ->  do_wildcard_2([Full], Rest, Result1, Mod);
+                          false -> Result1
+                      end
+              end,
+    do_double_star(Base, T, Patterns, Result2, Mod, Root);
+do_double_star(_Base, [], _Patterns, Result, _Mod, _Root) ->
     Result.
 
 do_star(Pattern, [_|Rest]=File) ->
@@ -706,3 +719,71 @@ find_regular_file([File|Files]) ->
         true -> {ok, File};
         false -> find_regular_file(Files)
     end.
+
+-spec safe_relative_path(Filename, Cwd) -> unsafe | SafeFilename when
+      Filename :: filename_all(),
+      Cwd :: filename_all(),
+      SafeFilename :: filename_all().
+
+safe_relative_path(Path, Cwd) ->
+    case filename:pathtype(Path) of
+        relative -> safe_relative_path(filename:split(Path), Cwd, [], "");
+        _ -> unsafe
+    end.
+
+safe_relative_path([], _Cwd, _PrevLinks, Acc) ->
+    Acc;
+
+safe_relative_path([Segment | Segments], Cwd, PrevLinks, Acc) ->
+    AccSegment = join(Acc, Segment),
+    case safe_relative_path(AccSegment) of
+        unsafe ->
+            unsafe;
+        SafeAccSegment ->
+            case file:read_link(join(Cwd, SafeAccSegment)) of
+                {ok, LinkPath} ->
+                    case lists:member(LinkPath, PrevLinks) of
+                        true ->
+                            unsafe;
+                        false ->
+                            case safe_relative_path(filename:split(LinkPath), Cwd, [LinkPath | PrevLinks], Acc) of
+                                unsafe -> unsafe;
+                                NewAcc -> safe_relative_path(Segments, Cwd, [], NewAcc)
+                            end
+                    end;
+                {error, _} ->
+                    safe_relative_path(Segments, Cwd, PrevLinks, SafeAccSegment)
+            end
+  end.
+
+join([], Path) -> Path;
+join(Left, Right) -> filename:join(Left, Right).
+
+safe_relative_path(Path) ->
+    case filename:pathtype(Path) of
+        relative ->
+            Cs0 = filename:split(Path),
+            safe_relative_path_1(Cs0, []);
+        _ ->
+            unsafe
+    end.
+
+safe_relative_path_1(["."|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([<<".">>|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([".."|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([<<"..">>|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([H|T], Acc) ->
+    safe_relative_path_1(T, [H|Acc]);
+safe_relative_path_1([], []) ->
+    [];
+safe_relative_path_1([], Acc) ->
+    filename:join(lists:reverse(Acc)).
+
+climb(_, []) ->
+    unsafe;
+climb(T, [_|Acc]) ->
+    safe_relative_path_1(T, Acc).
