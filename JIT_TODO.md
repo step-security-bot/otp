@@ -2,6 +2,9 @@
 
 ## Known bugs
 * memory leaks in code re-loading
+* erts_schedule_bif is broken because it checks *I
+  * Because of this, trapping has been disabled for integer_to_binary/1,2 and
+    integer_to_list/1,2
 
 ## Missing fetures
 
