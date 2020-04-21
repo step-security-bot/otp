@@ -1337,18 +1337,20 @@ endif
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 
+COMPDB_FLAGS=$(filter-out -fno-tree-copyrename,$(DEP_FLAGS))
+
 compdb:
-	clang -MJ $(TTF_DIR)/beam.json $(DEP_FLAGS) $(BEAM_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/beam.cpp.json $(DEP_FLAGS) -I$(TTF_DIR)/usr/local/include $(BEAM_CPP_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/drv.json $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/beam.json $(COMPDB_FLAGS) $(BEAM_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/beam.cpp.json $(COMPDB_FLAGS) -I$(TTF_DIR)/usr/local/include $(BEAM_CPP_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv.json $(COMPDB_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
 	clang -MJ $(TTF_DIR)/drv_$(ERLANG_OSTYPE).json \
-		$(DEP_FLAGS) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/nif.json $(DEP_FLAGS) $(DEP_FLAGS) $(NIF_COMMON_SRC)  > /dev/null
+		$(COMPDB_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/nif.json $(COMPDB_FLAGS) $(NIF_COMMON_SRC)  > /dev/null
 	clang -MJ $(TTF_DIR)/nif_$(ERLANG_OSTYPE).json \
-		$(DEP_FLAGS) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/sys.json $(DEP_FLAGS) $(DEP_FLAGS) $(SYS_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/target.json $(DEP_FLAGS) $(TARGET_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/zlib.json $(DEP_FLAGS) $(DEP_FLAGS) $(ZLIB_SRC) > /dev/null
+		$(COMPDB_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/sys.json $(COMPDB_FLAGS) $(SYS_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/target.json $(COMPDB_FLAGS) $(TARGET_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/zlib.json $(COMPDB_FLAGS) $(ZLIB_SRC) > /dev/null
 	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
 
 
