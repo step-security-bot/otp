@@ -23,10 +23,9 @@
 using namespace asmjit;
 
 extern "C" {
-  extern BeamInstr beam_exit[1];
-
   void call_error_handler(void);
   void handle_error(void);
+  BeamInstr *beamasm_call_nif_early = NULL;
 }
 
 BeamGlobalAssembler::BeamGlobalAssembler(JitRuntime *rt) : BeamAssembler(rt) {
@@ -40,6 +39,8 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitRuntime *rt) : BeamAssembler(rt) {
       reset();
 
     BEAM_GLOBAL_FUNCS(EMIT_FUNC)
+#undef EMIT_FUNC
+      beamasm_call_nif_early = (BeamInstr*)get_call_nif_early();
 }
 
 void BeamGlobalAssembler::emit_garbage_collect() {
@@ -245,6 +246,14 @@ void BeamGlobalAssembler::emit_i_func_info() {
   a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
   a.mov(x86::qword_ptr(c_p,offsetof(Process,current)), TMP1);
   farjmp(this->get_handle_error());
+}
+
+void BeamGlobalAssembler::emit_call_nif_early() {
+  a.mov(ARG1, c_p);
+  a.lea(ARG1, x86::qword_ptr(ARG1, -sizeof(ErtsCodeInfo)));
+  call((uint64_t)erts_call_nif_early);
+  a.mov(x86::qword_ptr(x86::rsp, -8), RET);
+  a.ret();
 }
 
 void BeamGlobalAssembler::emit_dbg() {

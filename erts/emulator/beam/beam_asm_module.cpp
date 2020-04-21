@@ -240,16 +240,14 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     }
 
     if (1) {
-        Eterm module, function;
-        void *bp_ptr;
-        Uint arity;
+        ErtsCodeInfo info;
 
-        module = inst.args[1].getValue();
-        function = inst.args[2].getValue();
-        arity = inst.args[3].getValue();
-        bp_ptr = NULL;
+        info.mfa.module = inst.args[1].getValue();
+        info.mfa.function = inst.args[2].getValue();
+        info.mfa.arity = inst.args[3].getValue();
+        info.u.gen_bp = NULL;
 
-        comment("%T:%T/%d", module, function, arity);
+        comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
         /* This is an ErtsCodeInfo structure that has a valid x86 opcode as its
         * `op` field, which *calls* the funcInfo trampoline so we can trace it
@@ -258,20 +256,32 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
           a.call(funcInfo);
         else
           a.call(currLabel);
-        a.align(kAlignCode, 8);
-        a.embed(&bp_ptr, sizeof(bp_ptr));
-        a.embed(&module, sizeof(module));
-        a.embed(&function, sizeof(function));
-        a.embed(&arity, sizeof(arity));
+        a.align(kAlignCode, 8); // Word align
+        a.embed(&info.u.gen_bp, sizeof(info.u.gen_bp));
+        a.embed(&info.mfa, sizeof(info.mfa));
     }
 
     break;
   }
-  case op_label_L:
+  case op_label_L: {
     a.align(kAlignCode, 8);
     a.bind(labels[inst.args[0].getValue()]);
     currLabel = labels[inst.args[0].getValue()];
+    /* If the prev_op is a label, then we this is the first label of a new function */
+    if (prev_op == op_label_L && I) {
+      Label next = a.newLabel();
+      a.mov(RET, x86::qword_ptr(currLabel, -4 * 8));
+      a.cmp(RET, 0);
+      a.je(next);
+      a.mov(ARG1, x86::qword_ptr(currLabel));
+      a.call(RET);
+      prev_op = 0;
+      a.align(kAlignCode, 8);
+      ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) == BEAM_ASM_FUNC_PROLOGUE_SIZE);
+      a.bind(next);
+    }
     break;
+  }
   case op_int_code_end: {
     Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
     uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());

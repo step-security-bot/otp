@@ -314,6 +314,7 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(dbg)                                        \
   _(call_bif)                                   \
   _(call_nif)                                   \
+  _(call_nif_early)                             \
   _(dispatch_nif)                               \
   _(bif_nif_epilogue)                           \
   _(call)

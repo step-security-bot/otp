@@ -495,6 +495,7 @@ void BeamModuleAssembler::emit_call_bif(ArgVal Func, Instruction *I)
   a.jmp(RET);
 }
 
+/* Both dispatch_nif and call_nif will end up in this function */
 void BeamGlobalAssembler::emit_call_nif(void)
 {
   Label check_trap = a.newLabel(), error = a.newLabel();
@@ -504,11 +505,11 @@ void BeamGlobalAssembler::emit_call_nif(void)
 
   a.mov(ARG1, c_p);
   a.mov(qTMP1_MEM, ARG2);
-  // a.mov(ARG2, ARG2); THIS IS SUPPLIED AS ARGUMENT
+  // ARG2 set in caller
   a.mov(ARG3, x_reg);
-  a.mov(ARG4, x86::qword_ptr(ARG2, 8));
-  a.mov(ARG5, x86::qword_ptr(ARG2, 16));
-  a.mov(ARG6, x86::qword_ptr(ARG2, 24));
+  a.mov(ARG4, x86::qword_ptr(ARG2, 8 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+  a.mov(ARG5, x86::qword_ptr(ARG2, 16 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
+  a.mov(ARG6, x86::qword_ptr(ARG2, 24 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
   call((uint64_t)call_nif);
 
   emit_heavy_swapin();
@@ -539,7 +540,7 @@ void BeamModuleAssembler::emit_call_nif(ArgVal Func, ArgVal NifMod, ArgVal Dirty
   // The real code starts here
   a.bind(entry);
   a.mov(RET,ga->get_call_nif());
-  a.lea(ARG2, x86::qword_ptr(currLabel));
+  a.lea(ARG2, x86::qword_ptr(currLabel, -BEAM_ASM_FUNC_PROLOGUE_SIZE));
   a.jmp(RET);
 }
 

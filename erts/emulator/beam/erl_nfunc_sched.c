@@ -129,12 +129,13 @@ erts_nfunc_schedule(Process *c_p, Process *dirty_shadow_proc,
     nep->trampoline.info.mfa.module = mod;
     nep->trampoline.info.mfa.function = func;
     nep->trampoline.info.mfa.arity = (Uint) argc;
+    nep->trampoline.trace[0] = (BeamInstr) instr; /* call_bif || call_nif */
     nep->trampoline.call_op = (BeamInstr) instr; /* call_bif || call_nif */
     nep->trampoline.dfunc = (BeamInstr) dfunc;
     nep->func = ifunc;
     used_proc->arity = argc;
     used_proc->freason = TRAP;
-    used_proc->i = (BeamInstr*)&nep->trampoline.call_op;
+    used_proc->i = (BeamInstr*)&nep->trampoline.trace;
     erts_code_to_codemfa(used_proc->i);
     return nep;
 }
