@@ -383,11 +383,11 @@ class BeamModuleAssembler : public BeamAssembler {
   Instruction inst; /* Current instruction */
 
   /* Used by emit to populate the labelToMFA map */
-  std::vector<ArgVal> currFunction;
   Label currLabel;
   unsigned prev_op = 0;
   Label codeHeader;
   Label funcInfo;
+  Label on_load;
 
   Label floatMax;
   Label floatSignMask;
@@ -413,6 +413,7 @@ public:
   Label embed_instr_rodata(Instruction *instr, int index, int count);
   unsigned getCodeSize() { ASSERT(module); return code.codeSize(); }
   void getCodeHeader(BeamCodeHeader **);
+  BeamInstr getOnLoad(void);
   unsigned patchCatches();
   void patchLiteral(unsigned index, Eterm lit);
   void patchImport(unsigned index, BeamInstr I);

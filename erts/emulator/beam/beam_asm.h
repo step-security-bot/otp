@@ -74,6 +74,7 @@ void beamasm_patch_strings(void *instance, byte *strtab);
 void beamasm_emit_patch(Eterm module, unsigned specific_op, GenOp *op, char *buff,
                         unsigned buf_len, int debug);
 Uint beamasm_get_header(void *ba, BeamCodeHeader **);
+BeamInstr beamasm_get_on_load(void *ba);
 
 // Number of bytes emitted at first label in order to support trace and nif load
 #  define BEAM_ASM_FUNC_PROLOGUE_SIZE 32

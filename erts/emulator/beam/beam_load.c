@@ -283,7 +283,7 @@ typedef struct LoaderState {
     unsigned loaded_size;	/* Final size of code when loaded. */
     byte mod_md5[MD5_SIZE];	/* MD5 for module code. */
     int may_load_nif;           /* true if NIFs may later be loaded for this module */  
-    int on_load;		/* Index in the code for the on_load function
+    BeamInstr on_load;		/* Index in the code for the on_load function
 				 * (or 0 if there is no on_load function)
 				 */
     int otp_20_or_higher;       /* Compiled with OTP 20 or higher */
@@ -824,7 +824,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 		continue;
 	    }
 
-            DBG_CHECK_EXPORT(ep, code_ix);
+//            DBG_CHECK_EXPORT(ep, code_ix);
 
 	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
 		if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
@@ -839,7 +839,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                     ASSERT(ep->addressv[code_ix] != ep->trampoline.raw);
 		}
-		ASSERT(ep->trampoline.breakpoint.address == 0);
+//		ASSERT(ep->trampoline.breakpoint.address == 0);
 	    }
 	}
 	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
@@ -4834,7 +4834,7 @@ freeze_code(LoaderState* stp)
      */
 
     if (stp->on_load) {
-	code_hdr->on_load_function_ptr = codev + stp->on_load;
+	code_hdr->on_load_function_ptr = stp->on_load;
     } else {
 	code_hdr->on_load_function_ptr = NULL;
     }
@@ -4902,6 +4902,8 @@ freeze_code(LoaderState* stp)
     beamasm_embed_rodata(stp->ba,"md5",stp->mod_md5, MD5_SIZE);
 
     beamasm_codegen(stp->ba);
+
+    stp->on_load = beamasm_get_on_load(stp->ba);
 
     CHKBLK(ERTS_ALC_T_CODE,code);
 

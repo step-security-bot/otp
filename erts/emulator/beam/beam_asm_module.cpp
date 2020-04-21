@@ -221,10 +221,10 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     if (functions.size() > 0) {
       // Pad if needed for patching nif load
       Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
-      uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());
+      uint64_t diff = a.offset() - code.labelOffsetFromBase(labels[functions.back()+1]);
 
-      if (diff <= sizeof(padbuff)) {
-        comment("pad for nif load");
+      if (diff < sizeof(padbuff)) {
+        comment("pad for nif load %d -> %d", diff, sizeof(padbuff) - diff);
         a.embed(padbuff, sizeof(padbuff) - diff);
         for (auto l : labels) {
           if (l.second == currLabel) {
@@ -235,7 +235,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
         }
         a.bind(currLabel);
       }
-      ASSERT(a.offset() - code.labelOffsetFromBase(functions.back())
+      ASSERT(a.offset() - code.labelOffsetFromBase(labels[functions.back()+1])
              >= sizeof(padbuff));
     }
 
@@ -270,6 +270,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     /* If the prev_op is a label, then we this is the first label of a new function */
     if (prev_op == op_label_L && I) {
       Label next = a.newLabel();
+      // The u.gen_bp field in ErtsCodeInfo
       a.mov(RET, x86::qword_ptr(currLabel, -4 * 8));
       a.cmp(RET, 0);
       a.je(next);
@@ -282,12 +283,16 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     }
     break;
   }
+  case op_on_load: {
+    on_load = currLabel;
+    break;
+  }
   case op_int_code_end: {
     Uint padbuff[BEAM_NATIVE_MIN_FUNC_SZ] = {0};
-    uint64_t diff = a.offset() - code.labelOffsetFromBase(functions.back());
+    uint64_t diff = a.offset() - code.labelOffsetFromBase(labels[functions.back()+1]);
     if (diff <= sizeof(padbuff))
         a.embed(padbuff, sizeof(padbuff) - diff);
-    ASSERT(a.offset() - code.labelOffsetFromBase(functions.back())
+    ASSERT(a.offset() - code.labelOffsetFromBase(labels[functions.back()+1])
              >= sizeof(padbuff));
 
     /* This label is used by update_gdb_jit_info to figure out the end of the last function */
@@ -422,11 +427,16 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
   BeamCodeHeader *code_hdr = (BeamCodeHeader *)getCode(codeHeader);
 
   memcpy(code_hdr, orig_hdr, sizeof(BeamCodeHeader));
+  code_hdr->on_load_function_ptr = (BeamInstr*)getOnLoad();
 
   for (unsigned i = 0; i < functions.size(); i++) {
     ErtsCodeInfo *ci = (ErtsCodeInfo*)getCode(functions[i]);
     ASSERT(memcmp(&ci->mfa,&orig_hdr->functions[i]->mfa,sizeof(ci->mfa)) == 0);
     code_hdr->functions[i] = ci;
+    if (i > 0) {
+      ASSERT(((BeamInstr*)code_hdr->functions[i] - ((BeamInstr*)(code_hdr->functions[i-1]+1)))
+             >= BEAM_NATIVE_MIN_FUNC_SZ);
+    }
   }
 
   /* FIXME: keep original header alive; we need the line table etc. */
@@ -434,6 +444,13 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
 
   *hdr = code_hdr;
 
+}
+
+BeamInstr BeamModuleAssembler::getOnLoad() {
+  if (on_load.isValid())
+    return (BeamInstr)getCode(on_load);
+  else
+    return 0;
 }
 
 unsigned BeamModuleAssembler::patchCatches() {

@@ -827,7 +827,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                 continue;
             }
 
-            DBG_CHECK_EXPORT(ep, code_ix);
+//            DBG_CHECK_EXPORT(ep, code_ix);
 
             if (ep->trampoline.not_loaded.deferred != 0) {
                     ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;

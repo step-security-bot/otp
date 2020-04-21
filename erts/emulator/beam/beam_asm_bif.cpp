@@ -372,7 +372,7 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
 enum nif_ret {
   RET_NIF_next,
   RET_NIF_handle_error,
-  RET_NIF_do_schedule = RET_do_schedule
+  RET_NIF_context_switch3 = RET_context_switch3
 };
 
 typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
@@ -567,27 +567,28 @@ load_nif(Process *c_p, BeamInstr *I, Eterm *reg) {
     c_p->stop[0] = make_cp(I);
     c_p->current = NULL;
     c_p->arity = 2;
-    return RET_NIF_do_schedule;
+    return RET_NIF_context_switch3;
   }
 }
 
 void BeamModuleAssembler::emit_i_load_nif(Instruction *I) {
-  Label next = a.newLabel(), schedule = a.newLabel();
+  Label entry = a.newLabel(), next = a.newLabel(), schedule = a.newLabel();
+  a.align(kAlignCode, 8);
+  a.bind(entry);
   emit_swapout();
   a.mov(ARG1, c_p);
   a.lea(ARG2, x86::qword_ptr(currLabel));
   a.mov(ARG3, x_reg);
   call((uint64_t)load_nif);
   emit_swapin();
-  a.cmp(RET, RET_NIF_do_schedule);
+  a.cmp(RET, RET_NIF_context_switch3);
   a.je(schedule);
   a.cmp(RET, RET_NIF_next);
   a.je(next);
   static ErtsCodeMFA mfa = {am_erlang, am_load_nif, 2};
   emit_handle_error(currLabel, &mfa);
   a.bind(schedule);
+  a.lea(TMP3, x86::qword_ptr(entry));
   farjmp(ga->get_return());
   a.bind(next);
 }
-
-

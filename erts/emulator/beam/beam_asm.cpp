@@ -185,6 +185,12 @@ extern "C" {
     ba->getCodeHeader(hdr);
     return ba->getCodeSize();
   }
+
+  Uint beamasm_get_on_load(void *instance) {
+    BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
+    return ba->getOnLoad();
+  }
+
   unsigned int beamasm_get_catches(void *instance) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
     return ba->patchCatches();
