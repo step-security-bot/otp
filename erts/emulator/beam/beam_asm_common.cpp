@@ -62,13 +62,13 @@ typedef enum beamasm_ret (*BAFUN)(BeamAsmContext *ctx,Process *c_p, Eterm *reg, 
 static BAFUN beamasm_call_fun;
 
 extern "C" {
-    
+
   extern BeamInstr beam_apply[2];
   extern BeamInstr beam_exit[1];
   extern BeamInstr beam_continue_exit[1];
 
   void beamasm_init() {
-        
+
     if (rt) return;
 
     rt = new JitRuntime();

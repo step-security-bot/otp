@@ -47,7 +47,9 @@
 #include "erl_map.h"
 #include "erl_msacc.h"
 #include "erl_proc_sig_queue.h"
+#ifdef BEAMASM
 #include "beam_asm.h"
+#endif
 
 Export *erts_await_result;
 static Export *await_exit_trap;
@@ -2205,7 +2207,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	break;
     case SEND_YIELD:
 	if (suspend) {
-	    ERTS_BIF_PREP_YIELD3(retval, bif_trap_export[BIF_send_3], p, to, msg, opts);
+	    ERTS_BIF_PREP_YIELD3(retval, BIF_TRAP_EXPORT(BIF_send_3), p, to, msg, opts);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_nosuspend);
 	}
@@ -2322,7 +2324,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	ERTS_BIF_PREP_RET(retval, msg);
 	break;
     case SEND_YIELD:
-	ERTS_BIF_PREP_YIELD2(retval, bif_trap_export[BIF_send_2], p, to, msg);
+	ERTS_BIF_PREP_YIELD2(retval, BIF_TRAP_EXPORT(BIF_send_2), p, to, msg);
 	break;
     case SEND_YIELD_RETURN:
     yield_return:
@@ -2608,7 +2610,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     } else {
         ERTS_BIF_ERROR_TRAPPED1(BIF_P,
                                 BADARG,
-                                bif_trap_export[BIF_iolist_size_1],
+                                BIF_TRAP_EXPORT(BIF_iolist_size_1),
                                 input_list);
     }
 
@@ -2628,7 +2630,7 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     ESTACK_SAVE(s, &context->stack);
     erts_set_gc_state(BIF_P, 0);
     BUMP_ALL_REDS(BIF_P);
-    BIF_TRAP1(bif_trap_export[BIF_iolist_size_1], BIF_P, state_mref);
+    BIF_TRAP1(BIF_TRAP_EXPORT(BIF_iolist_size_1), BIF_P, state_mref);
 }
 
 /**********************************************************************/
@@ -3962,7 +3964,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
 	    erts_halt(pos_int_code);
-	    ERTS_BIF_YIELD2(bif_trap_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
+	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_halt_2), BIF_P, am_undefined, am_undefined);
 	}
 	else {
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -4551,7 +4553,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
                 BIF_RET(am_enabled);
             case ERTS_SCHDLR_SSPND_YIELD_RESTART:
                 ERTS_VBUMP_ALL_REDS(BIF_P);
-                BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
+                BIF_TRAP2(BIF_TRAP_EXPORT(BIF_system_flag_2),
                           BIF_P, BIF_ARG_1, BIF_ARG_2);
             case ERTS_SCHDLR_SSPND_YIELD_DONE:
                 ERTS_BIF_YIELD_RETURN_X(BIF_P, am_enabled,
@@ -4576,7 +4578,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
+	    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_system_flag_2),
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4740,7 +4742,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
 	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP2(bif_trap_export[BIF_system_flag_2],
+	    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_system_flag_2),
 		      BIF_P, BIF_ARG_1, BIF_ARG_2);
 	case ERTS_SCHDLR_SSPND_YIELD_DONE:
 	    ERTS_BIF_YIELD_RETURN_X(BIF_P, make_small(old_no),
@@ -4895,7 +4897,7 @@ BIF_RETTYPE phash2_1(BIF_ALIST_1)
     if (trap_state == THE_NON_VALUE) {
         BIF_RET(make_small(hash & ((1L << 27) - 1)));
     } else {
-        BIF_TRAP1(bif_trap_export[BIF_phash2_1], BIF_P, trap_state);
+        BIF_TRAP1(BIF_TRAP_EXPORT(BIF_phash2_1), BIF_P, trap_state);
     }
 }
 
@@ -4918,7 +4920,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     }
     hash = trapping_make_hash2(BIF_ARG_1, &trap_state, BIF_P);
     if (trap_state != THE_NON_VALUE) {
-        BIF_TRAP2(bif_trap_export[BIF_phash2_2], BIF_P, trap_state, BIF_ARG_2);
+        BIF_TRAP2(BIF_TRAP_EXPORT(BIF_phash2_2), BIF_P, trap_state, BIF_ARG_2);
     }
     if (range) {
 	final_hash = hash % range; /* [0..range-1] */
@@ -4996,33 +4998,40 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
 {
     Export* ep;
     int i;
-    GenOp op;
-
-    op.arity = 1;
-    op.a = op.def_args;
-    op.next = NULL;
-    op.a[0].type = TAG_f;
-    op.a[0].val = (BeamInstr)bif;
 
     ep = erts_alloc(ERTS_ALC_T_EXPORT, sizeof(Export));
     sys_memset((void *) ep, 0, sizeof(Export));
-
-    ep->bif_number = -1;
-
-    ep->info.op = op_i_func_info_IaaI;
-    ep->info.mfa.module = m;
-    ep->info.mfa.function = f;
-    ep->info.mfa.arity = a;
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
         ep->addressv[i] = &ep->trampoline.raw[0];
     }
 
-    ERTS_CT_ASSERT(sizeof(ep->trampoline) >= BEAM_NATIVE_MIN_FUNC_SZ);
-    beamasm_emit_patch(ep->info.mfa.module, op_call_bif_W, &op,
-                       (char*)&ep->trampoline.raw[0],
-                       BEAM_NATIVE_MIN_FUNC_SZ, 0);
+    ep->bif_number = -1;
+    ep->info.op = op_i_func_info_IaaI;
+    ep->info.mfa.module = m;
+    ep->info.mfa.function = f;
+    ep->info.mfa.arity = a;
 
+
+#ifdef BEAMASM
+    {
+        GenOp op;
+
+        op.arity = 1;
+        op.a = op.def_args;
+        op.next = NULL;
+        op.a[0].type = TAG_f;
+        op.a[0].val = (BeamInstr)bif;
+
+        ERTS_CT_ASSERT(sizeof(ep->trampoline) >= BEAM_NATIVE_MIN_FUNC_SZ);
+        beamasm_emit_patch(ep->info.mfa.module, op_call_bif_W, &op,
+                           (char*)&ep->trampoline.raw[0],
+                           BEAM_NATIVE_MIN_FUNC_SZ, 0);
+    }
+#else
+    ep->trampoline.op = BeamOpCodeAddr(op_call_bif_W);
+    ep->trampoline.raw[1] = (BeamInstr)bif;
+#endif
     *epp = ep;
 }
 
@@ -5031,20 +5040,27 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
  */
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
     BifEntry *entry;
-    GenOp op;
-
     ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
     entry = &bif_table[export->bif_number];
 
-    op.arity = 1;
-    op.a = op.def_args;
-    op.next = NULL;
-    op.a[0].type = TAG_f;
-    op.a[0].val = (BeamInstr)entry->f;
+#ifdef BEAMASM
+    {
+        GenOp op;
 
-    beamasm_emit_patch(export->info.mfa.module, op_call_bif_W, &op,
-                       (char*)address,
-                       BEAM_NATIVE_MIN_FUNC_SZ, 0);
+        op.arity = 1;
+        op.a = op.def_args;
+        op.next = NULL;
+        op.a[0].type = TAG_f;
+        op.a[0].val = (BeamInstr)entry->f;
+
+        beamasm_emit_patch(export->info.mfa.module, op_call_bif_W, &op,
+                           (char*)address,
+                           BEAM_NATIVE_MIN_FUNC_SZ, 0);
+    }
+#else
+    address[0] = BeamOpCodeAddr(op_call_bif_W);
+    address[1] = (BeamInstr)entry->f;
+#endif
 }
 
 void erts_init_bif(void)
@@ -5112,7 +5128,12 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, op_call_bif_W,
+				    mfa, pc,
+#ifdef BEAMASM
+                                    op_call_bif_W,
+#else
+                                    BeamOpCodeAddr(op_call_bif_W),
+#endif
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5227,6 +5248,7 @@ erts_schedule_bif(Process *proc,
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
 	}
 
+#ifndef BEAMASM
         if (BeamIsOpCode(*i, op_i_generic_breakpoint)) {
             ErtsCodeInfo *ci;
             GenericBp *bp;
@@ -5235,7 +5257,9 @@ erts_schedule_bif(Process *proc,
             bp = ci->u.gen_bp;
 
             call_instr = bp->orig_instr;
-        } else {
+        } else
+#endif
+        {
             call_instr = *i;
         }
 
@@ -5247,6 +5271,7 @@ erts_schedule_bif(Process *proc,
 	    mfa = &exp->info.mfa;
 	} else /* !! This is part of the if clause below !! */
 #endif
+#ifndef BEAMASM
 	if (BeamIsOpCode(call_instr, op_call_light_bif_be)) {
 	    /* Pointer to bif export in i+2 */
 	    exp = (Export *) i[2];
@@ -5263,7 +5288,9 @@ erts_schedule_bif(Process *proc,
             pc = cp_val(c_p->stop[0]);
 	    mfa = erts_code_to_codemfa(i);
 	}
-	else {
+	else
+#endif
+        {
 	    ERTS_INTERNAL_ERROR("erts_schedule_bif() called "
 				"from unexpected instruction");
 	}

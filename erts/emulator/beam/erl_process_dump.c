@@ -434,13 +434,24 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
     ErtsCodeMFA* cmfa = find_function_from_pc(x);
     if (cmfa == NULL) {
+#ifdef BEAMASM
         if (x == beam_exit[0]) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit[0]) {
             erts_print(to, to_arg, "<continue terminate process>");
         } else if (x == beam_apply[1]) {
             erts_print(to, to_arg, "<terminate process normally>");
-        } else {
+        }
+#else
+        if (x == beam_exit) {
+            erts_print(to, to_arg, "<terminate process>");
+        } else if (x == beam_continue_exit) {
+            erts_print(to, to_arg, "<continue terminate process>");
+        } else if (x == beam_apply+1) {
+            erts_print(to, to_arg, "<terminate process normally>");
+        }
+#endif
+        else {
             erts_print(to, to_arg, "unknown function");
         }
     } else {

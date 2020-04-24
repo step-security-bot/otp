@@ -36,7 +36,7 @@ unsigned beam_catches_cons(BeamInstr* cp, unsigned cdr, BeamInstr ***);
 BeamInstr *beam_catches_car(unsigned i);
 void beam_catches_delmod(unsigned head, BeamInstr* code, unsigned code_bytes,
 			 ErtsCodeIndex);
-
+BeamInstr *beam_catches_car_staging(unsigned i);
 #define catch_pc(x)	beam_catches_car(catch_val((x)))
 
 #endif	/* __BEAM_CATCHES_H */

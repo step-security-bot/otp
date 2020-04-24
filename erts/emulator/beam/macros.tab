@@ -136,26 +136,16 @@ AH(NeedStack, NeedHeap, Live) {
     *E = NIL;
 }
 
+
 //
 // Helpers for call instructions
 //
 
 DISPATCH() {
     BeamInstr dis_next;
-//    ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
 
     dis_next = *I;
     CHECK_ARGS(I);
-
-    /* if (mfa->module == am_atom_put("gb_trees1", 9)) { */
-    /*     int i; */
-    /*     erts_printf("Called %T:%T/%d\n",mfa->module, mfa->function, mfa->arity); */
-    /*     erts_printf("Args: "); */
-    /*     for (i = 0; i < mfa->arity; i++) */
-    /*         erts_printf("%T; ",reg[i]); */
-    /*     erts_printf("\n"); */
-    /* } */
-
 
     if (FCALLS > 0 || FCALLS > neg_o_reds) {
         FCALLS--;
@@ -299,7 +289,7 @@ BIF_ERROR_ARITY_1(Fail, BIF, Op1) {
     }
     reg[0] = $Op1;
     SWAPOUT;
-    I = handle_error(c_p, I, reg, bif_trap_export[$BIF].info.mfa);
+    I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT($BIF)->info.mfa);
     goto post_error_handling;
 }
 
@@ -311,6 +301,6 @@ BIF_ERROR_ARITY_2(Fail, BIF, Op1, Op2) {
     reg[0] = $Op1;
     reg[1] = $Op2;
     SWAPOUT;
-    I = handle_error(c_p, I, reg, bif_trap_export[$BIF].info.mfa);
+    I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT($BIF)->info.mfa);
     goto post_error_handling;
 }

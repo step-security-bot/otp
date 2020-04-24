@@ -49,7 +49,9 @@
 #  include "hipe_stack.h"
 #endif
 
-#include "beam_asm.h"
+#ifdef BEAMASM
+#  include "beam_asm.h"
+#endif
 
 static struct {
     Eterm module;
@@ -146,7 +148,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(bif_trap_export[BIF_code_make_stub_module_3],
+	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_code_make_stub_module_3),
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -281,7 +283,7 @@ finish_loading_1(BIF_ALIST_1)
     int do_commit = 0;
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_trap_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_finish_loading_1), BIF_P, BIF_ARG_1);
     }
 
     /*
@@ -643,7 +645,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_trap_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_delete_module_1), BIF_P, BIF_ARG_1);
     }
 
     {
@@ -770,7 +772,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_trap_export[BIF_finish_after_on_load_2],
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_finish_after_on_load_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
@@ -827,7 +829,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                 continue;
             }
 
-//            DBG_CHECK_EXPORT(ep, code_ix);
+            DBG_CHECK_EXPORT(ep, code_ix);
 
             if (ep->trampoline.not_loaded.deferred != 0) {
                     ep->addressv[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
@@ -837,10 +839,14 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
                     continue;
                 }
 
+#ifdef BEAMASM
                 beamasm_emit_patch(ep->info.mfa.module,
                                    op_call_error_handler, NULL,
                                    (char*)&ep->trampoline.raw[0],
                                    sizeof(ep->trampoline), 0);
+#else
+                ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+#endif
                 ep->addressv[code_ix] = &ep->trampoline.raw[0];
             }
 	}
@@ -1671,7 +1677,7 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
             ASSERT(old_area);
             ERTS_VBUMP_ALL_REDS(BIF_P);
-            BIF_TRAP0(bif_trap_export[BIF_erts_internal_release_literal_area_switch_0],
+            BIF_TRAP0(BIF_TRAP_EXPORT(BIF_erts_internal_release_literal_area_switch_0),
                       BIF_P);
         }
 
@@ -2033,7 +2039,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, BADARG);
 
 	if (!erts_try_seize_code_write_permission(BIF_P)) {
-	    ERTS_BIF_YIELD2(bif_trap_export[BIF_erts_internal_purge_module_2],
+	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_internal_purge_module_2),
 			    BIF_P, BIF_ARG_1, BIF_ARG_2);
 	}
 
@@ -2084,7 +2090,11 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 				    code_ix);
 		literals = modp->old.code_hdr->literal_area;
 		modp->old.code_hdr->literal_area = NULL;
+#ifndef BEAMASM
+		erts_free(ERTS_ALC_T_CODE, (void *) code);
+#else
 // TODO: Fix me		erts_free(ERTS_ALC_T_CODE, (void *) code);
+#endif
 		modp->old.code_hdr = NULL;
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
@@ -2205,6 +2215,7 @@ delete_code(Module* modp)
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->info.mfa.module == module)) {
 	    if (ep->addressv[code_ix] == ep->trampoline.raw) {
+#ifndef BEAMASM
                 if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
@@ -2213,10 +2224,10 @@ delete_code(Module* modp)
 		    erts_clear_export_break(modp, ep);
 		}
 		else {
-            /* FIXME: HACK:
                     ASSERT(BeamIsOpCode(ep->trampoline.op, op_call_error_handler) ||
-                           !erts_initialized); */
+                           !erts_initialized);
                 }
+#endif
             }
 
             if (ep->bif_number != -1 && ep->is_bif_traced) {
@@ -2224,13 +2235,16 @@ delete_code(Module* modp)
                 ep->is_bif_traced = 0;
             }
 
+#ifdef BEAMASM
             beamasm_emit_patch(ep->info.mfa.module,
                                op_call_error_handler, NULL,
                                (char*)&ep->trampoline.raw[0],
                                sizeof(ep->trampoline), 0);
+#else
+            ep->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+#endif
             ep->addressv[code_ix] = &ep->trampoline.raw[0];
-
-        ep->trampoline.not_loaded.deferred = 0;
+            ep->trampoline.not_loaded.deferred = 0;
 	    DBG_TRACE_MFA_P(&ep->info.mfa,
 			    "export invalidation, code_ix=%d", code_ix);
 	}

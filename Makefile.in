@@ -535,7 +535,7 @@ preloaded:
 
 compdb:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) compdb)
-	sed -i -e '1s/^/[\n/' -e '\$s/,$/\n]/' $(ERL_TOP)/compile_commands.json
+	sed -i -e '1s/^/[\n/' -e '$$s/,$$/\n]/' $(ERL_TOP)/compile_commands.json
 
 dep depend:
 	$(make_verbose)

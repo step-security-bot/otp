@@ -106,7 +106,11 @@ typedef struct beam_code_header {
 
 }BeamCodeHeader;
 
-#  define BEAM_NATIVE_MIN_FUNC_SZ 30
+#ifdef BEAMASM
+#  define BEAM_NATIVE_MIN_FUNC_SZ 20
+#else
+#  define BEAM_NATIVE_MIN_FUNC_SZ 4
+#endif
 
 void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);

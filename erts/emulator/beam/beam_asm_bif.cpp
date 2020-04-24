@@ -267,7 +267,7 @@ void BeamModuleAssembler::emit_i_length(ArgVal Fail, ArgVal Live, ArgVal Dst, In
   if (Fail.getValue() == 0) {
     a.bind(error);
     emit_bif_arg_error({ArgVal(ArgVal::x, Live.getValue() + 2)}, entry,
-                       &bif_trap_export[BIF_length_1]->info.mfa);
+                       &BIF_TRAP_EXPORT(BIF_length_1)->info.mfa);
   }
 
   a.bind(next);

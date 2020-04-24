@@ -75,7 +75,36 @@ select_val_bins.select(Fail, NumElements) {
     $JUMP($Fail);
 }
 
-x64.i_select_val_bins(Src, Fail, NumElements);
+i_select_tuple_arity2 := select_val2.src.get_arity.execute;
+i_select_val2 := select_val2.src.execute;
+
+select_val2.head() {
+    Eterm select_val2;
+}
+
+select_val2.src(Src) {
+    select_val2 = $Src;
+}
+
+select_val2.get_arity() {
+    if (ERTS_LIKELY(is_tuple(select_val2))) {
+        select_val2 = *tuple_val(select_val2);
+    } else {
+        select_val2 = NIL;
+    }
+}
+
+select_val2.execute(Fail, T1, T2) {
+    Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
+
+    if (select_val2 == $T1) {
+        $JUMP(jump_tab[0]);
+    } else if (select_val2 == $T2) {
+        $JUMP(jump_tab[1]);
+    } else {
+        $FAIL($Fail);
+    }
+}
 
 i_select_tuple_arity := select_val_lin.fetch.get_arity.execute;
 i_select_val_lins := select_val_lin.fetch.execute;
@@ -121,9 +150,6 @@ select_val_lin.execute(Fail, N) {
     }
 }
 
-x64.i_select_val_lins(Src, Fail, N);
-x64.i_select_tuple_arity(Src, Fail, N);
-
 JUMP_ON_VAL(Fail, Index, N, Base) {
     if (is_small($Index)) {
         $Index = (Uint) (signed_val($Index) - $Base);
@@ -133,6 +159,20 @@ JUMP_ON_VAL(Fail, Index, N, Base) {
         }
     }
     $FAIL($Fail);
+}
+
+i_jump_on_val_zero := jump_on_val_zero.fetch.execute;
+
+jump_on_val_zero.head() {
+    Eterm index;
+}
+
+jump_on_val_zero.fetch(Src) {
+    index = $Src;
+}
+
+jump_on_val_zero.execute(Fail, N) {
+    $JUMP_ON_VAL($Fail, index, $N, 0);
 }
 
 i_jump_on_val := jump_on_val.fetch.execute;
@@ -148,5 +188,3 @@ jump_on_val.fetch(Src) {
 jump_on_val.execute(Fail, N, Base) {
     $JUMP_ON_VAL($Fail, index, $N, $Base);
 }
-
-x64.i_jump_on_val(Src, Fail, N, Base);

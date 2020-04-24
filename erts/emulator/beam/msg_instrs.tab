@@ -50,8 +50,6 @@ i_recv_mark() {
     ERTS_RECV_MARK_SAVE(c_p);
 }
 
-x64.i_recv_mark();
-
 i_recv_set() {
     /*
      * If previously saved recv mark, set peek position to it
@@ -61,8 +59,6 @@ i_recv_set() {
     goto loop_rec_top__;
     //| -no_next
 }
-
-x64.i_recv_set();
 
 i_loop_rec(Dest) {
     //| -no_prefetch
@@ -164,8 +160,6 @@ i_loop_rec(Dest) {
 
     r(0) = ERL_MESSAGE_TERM(msgp);
 }
-
-x64.i_loop_rec(Dest);
 
 remove_message() {
     //| -no_prefetch
@@ -274,8 +268,6 @@ remove_message() {
     PROCESS_MAIN_CHK_LOCKS(c_p);
 }
 
-x64.remove_message();
-
 loop_rec_end(Dest) {
     //| -no_next
     /*
@@ -290,8 +282,6 @@ loop_rec_end(Dest) {
     FCALLS--;
     goto loop_rec__;
 }
-
-x64.loop_rec_end(Dest);
 
 timeout_locked() {
     /*
@@ -313,9 +303,6 @@ timeout() {
     c_p->flags &= ~F_TIMO;
     JOIN_MESSAGE(c_p);
 }
-
-x64.timeout_locked();
-x64.timeout();
 
 TIMEOUT_VALUE() {
     c_p->freason = EXC_TIMEOUT_VALUE;
@@ -416,9 +403,3 @@ wait.execute(JumpTarget) {
     goto do_schedule;
     //| -no_next
 }
-
-x64.wait_locked(JumpTarget);
-x64.wait_unlocked(JumpTarget);
-
-x64.wait_timeout_locked(Src, JumpTarget);
-x64.wait_timeout_unlocked(Src, JumpTarget);

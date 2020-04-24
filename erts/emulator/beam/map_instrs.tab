@@ -38,8 +38,6 @@ new_map(Dst, Live, N) {
     $NEXT($NEXT_INSTRUCTION+$N);
 }
 
-x64.new_map(Dst, Live, N);
-
 i_new_small_map_lit(Dst, Live, Keys) {
     Eterm res;
     Uint n;
@@ -54,8 +52,6 @@ i_new_small_map_lit(Dst, Live, Keys) {
     $NEXT($NEXT_INSTRUCTION+n);
 }
 
-x64.i_new_small_map_lit(Dst, Live, N);
-
 i_get_map_element(Fail, Src, Key, Dst) {
     Eterm res = get_map_element($Src, $Key);
     if (is_non_value(res)) {
@@ -64,8 +60,6 @@ i_get_map_element(Fail, Src, Key, Dst) {
     $Dst = res;
 }
 
-x64.i_get_map_element(Fail, Src, Key, Dst);
-
 i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
      Eterm res = get_map_element_hash($Src, $Key, $Hx);
      if (is_non_value(res)) {
@@ -73,8 +67,6 @@ i_get_map_element_hash(Fail, Src, Key, Hx, Dst) {
      }
      $Dst = res;
 }
-
-x64.i_get_map_element_hash(Fail, Src, Key, Hx, Dst);
 
 i_get_map_elements(Fail, Src, N) {
     Eterm map;
@@ -135,8 +127,6 @@ i_get_map_elements(Fail, Src, N) {
     }
 }
 
-x64.i_get_map_elements(Fail, Src, N);
-
 update_map_assoc := update_map_assoc.fetch.execute;
 
 update_map_assoc.head() {
@@ -160,8 +150,6 @@ update_map_assoc.execute(Dst, Live, N) {
     $Dst = res;
     $NEXT($NEXT_INSTRUCTION+$N);
 }
-
-x64.update_map_assoc(Src, Dst, Live, N);
 
 update_map_exact := update_map_exact.fetch.execute;
 
@@ -189,5 +177,3 @@ update_map_exact.execute(Fail, Dst, Live, N) {
         $FAIL_HEAD_OR_BODY($Fail);
     }
 }
-
-x64.update_map_exact(Src, Fail, Dst, Live, N);

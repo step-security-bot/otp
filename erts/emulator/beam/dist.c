@@ -4137,7 +4137,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
             erts_de_runlock(dep);
             if (obufsize)
                 erts_atomic_add_nob(&dep->qsize, (erts_aint_t) -obufsize);
-            ERTS_BIF_YIELD1(bif_trap_export[BIF_dist_ctrl_get_data_1],
+            ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_dist_ctrl_get_data_1),
                             BIF_P, BIF_ARG_1);
         }
 
@@ -4838,7 +4838,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
      erts_proc_inc_refc(BIF_P);
      erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
      ERTS_BIF_PREP_YIELD3(ret,
-                          bif_trap_export[BIF_erts_internal_create_dist_channel_3],
+                          BIF_TRAP_EXPORT(BIF_erts_internal_create_dist_channel_3),
                           BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
      goto done;
 

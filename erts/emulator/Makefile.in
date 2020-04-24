@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
+BEAMASM_ENABLED=@BEAMASM_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
@@ -34,18 +35,23 @@ LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
-OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
-beam/ops.tab \
-beam/macros.tab \
-beam/instrs.tab \
-beam/arith_instrs.tab \
-beam/bif_instrs.tab \
-beam/bs_instrs.tab \
-beam/float_instrs.tab \
-beam/map_instrs.tab \
-beam/msg_instrs.tab \
-beam/select_instrs.tab \
-beam/trace_instrs.tab
+OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab
+ifdef BEAMASM_ENABLED
+OPCODE_TABLES += beam/ops_asm.tab
+else
+OPCODE_TABLES += beam/ops.tab \
+	beam/macros.tab \
+	beam/instrs.tab \
+	beam/arith_instrs.tab \
+	beam/bif_instrs.tab \
+	beam/bs_instrs.tab \
+	beam/float_instrs.tab \
+	beam/map_instrs.tab \
+	beam/msg_instrs.tab \
+	beam/select_instrs.tab \
+	beam/trace_instrs.tab
+endif
+
 
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
@@ -262,6 +268,7 @@ EMU_CC  = @EMU_CC@
 endif
 WFLAGS  = @WFLAGS@
 CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) $(DEFS) $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS) $(GIT_VSN)
+CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes -Wdeclaration-after-statement,$(CFLAGS))
 HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
@@ -398,8 +405,10 @@ endif
 
 LIBS += @LIBCARBON@
 
+ifdef BEAMASM_ENABLED
 LIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
 DEPLIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
+endif
 
 TTF_DIR=$(TARGET)/$(TYPE)/$(FLAVOR)
 CREATE_DIRS += $(TTF_DIR)
@@ -426,6 +435,7 @@ PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
 
+ifndef BEAMASM_ENABLED
 ifeq ($(PROFILE), generate)
 EMULATOR_EXECUTABLE = $(PROFILE_EXECUTABLE)
 ifeq ($(PROFILE_COMPILER), gcc)
@@ -435,6 +445,8 @@ ifeq ($(PROFILE_COMPILER), clang)
 PROFILE_LDFLAGS = -fprofile-instr-generate
 endif
 endif
+endif
+
 
 # ----------------------------------------------------------------------
 
@@ -573,10 +585,17 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-wordsize @EXTERNAL_WORD_SIZE@ \
 		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
+		$(if $(BEAMASM_ENABLED),-asm,) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
 		-DNO_FPE_SIGNALS=$(if $(filter unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
+
+ifdef BEAMASM_ENABLED
+ASM=yes
+else
+ASM=no
+endif
 
 # bif and atom table
 ATOMS=	beam/atom.names
@@ -610,7 +629,7 @@ $(HIPE_NBIF_FILES) \
 	: $(TTF_DIR)/TABLES-GENERATED
 $(TTF_DIR)/TABLES-GENERATED: $(ATOMS) $(DIRTY_BIFS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TTF_DIR) -include $(TTF_DIR)\
-		-dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
+		-dst $(DS_TEST) -hipe $(HIPE) -asm $(ASM) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
 GENERATE += $(TTF_DIR)/TABLES-GENERATED
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
@@ -667,7 +686,9 @@ $(TTF_DIR)/usr/local/lib/libasmjit.a: asmjit/Makefile
 	cd asmjit && make && make DESTDIR=../$(TTF_DIR) install
 	touch $@
 
+ifdef BEAMASM_ENABLED
 GENERATE += $(TTF_DIR)/usr/local/lib/libasmjit.a
+endif
 
 
 # Preloaded code.
@@ -847,7 +868,7 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
 $(OBJDIR)/%.o: beam/%.cpp beam/beam_asm.hpp $(TTF_DIR)/usr/local/include/asmjit/asmjit.h
-	$(V_CXX) $(CFLAGS) $(CXXFLAGS) --std=gnu++11 $(INCLUDES) -I $(TTF_DIR)/usr/local/include/ -c $< -o $@
+	$(V_CXX) $(CXXFLAGS) --std=gnu++11 $(INCLUDES) -I $(TTF_DIR)/usr/local/include/ -c $< -o $@
 
 # ----------------------------------------------------------------------
 # Specials
@@ -879,17 +900,22 @@ $(ERL_TOP)/lib/%.beam:
 
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
-PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
+PROFILE_OBJS = $(OBJDIR)/erl_process.o
+ifndef BEAMASM_ENABLED
+PROFILE_OBJS += $(OBJDIR)/beam_emu.o
+endif
 
-EMU_OBJS = \
-	$(OBJDIR)/beam_opcodes.o \
-	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
+COMMON_OBJS = \
+	$(OBJDIR)/beam_opcodes.o        $(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
-BEAMASM_OBJS = \
-	$(OBJDIR)/beam_asm.o            $(OBJDIR)/beam_asm_global.o \
+EMU_OBJS = $(OBJDIR)/beam_load.o
+
+ASM_OBJS = \
+	$(OBJDIR)/beam_asm.o            $(OBJDIR)/beam_asm_load.o   \
+	$(OBJDIR)/beam_asm_common.o     $(OBJDIR)/beam_asm_global.o \
 	$(OBJDIR)/beam_asm_module.o     $(OBJDIR)/beam_asm_instr.o  \
 	$(OBJDIR)/beam_asm_arith.o      $(OBJDIR)/beam_asm_bs.o     \
 	$(OBJDIR)/beam_asm_bif.o        $(OBJDIR)/beam_asm_map.o    \
@@ -1088,7 +1114,13 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(BEAMASM_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
+ifdef BEAMASM_ENABLED
+BASE_OBJS = $(ASM_OBJS)
+else
+BASE_OBJS = $(EMU_OBJS)
+endif
+
+BASE_OBJS += $(COMMON_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
 	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS)
 
 PROF_OBJS = $(patsubst %.o,%$(PROFILE_MARKER).o,$(PROFILE_OBJS)) $(BASE_OBJS)

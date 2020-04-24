@@ -234,8 +234,9 @@ extern void** beam_ops;
 #  define BeamSetCodeAddr(InstrWord, Addr) (Addr)
 #endif
 
-//#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
-#define BeamIsOpCode(InstrWord, OpCode) (InstrWord == OpCode)
+#ifndef BEAMASM
+#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
+#else
 
 enum beamasm_ret {
     /* All of these have to be larger that 0 */
@@ -255,5 +256,6 @@ typedef struct BeamAsmContext {
    BeamInstr *I;
    Sint FCALLS;
 } BeamAsmContext;
+#endif
 
 #endif	/* __ERL_VM_H__ */

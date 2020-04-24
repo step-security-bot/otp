@@ -68,9 +68,11 @@ typedef struct export_
                                  * phase of code loading when on_load is
                                  * present. See above. */
 
+#ifdef BEAMASM
             /* FIXME: `deferred` is tested in a lot of places, so we'll keep
              * it out of the way for now */
             BeamInstr __massive_hack__[5];
+#endif
             BeamInstr deferred;
         } not_loaded;
 
@@ -78,13 +80,17 @@ typedef struct export_
             BeamInstr op;       /* op_trace_jump_W */
             BeamInstr address;  /* Address of the traced function */
         } trace;
-
+#ifdef BEAMASM
         BeamInstr raw[5];      /* For use in address comparisons, should not
                                 * be tampered directly. */
+#else
+        BeamInstr raw[2];      /* For use in address comparisons, should not
+                                * be tampered directly. */
+#endif
     } trampoline;
 } Export;
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(BEAMASM)
 #define DBG_CHECK_EXPORT(EP, CX) \
     do { \
         if((EP)->addressv[CX] == (EP)->trampoline.raw) { \

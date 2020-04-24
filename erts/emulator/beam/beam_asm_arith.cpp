@@ -106,7 +106,7 @@ void BeamModuleAssembler::emit_i_plus(ArgVal LHS, ArgVal RHS,
         a.je(labels[Fail.getValue()]);
     } else {
         a.jne(next);
-        emit_bif_arg_error({LHS, RHS}, entry, &bif_trap_export[BIF_splus_2]->info.mfa);
+        emit_bif_arg_error({LHS, RHS}, entry, &BIF_TRAP_EXPORT(BIF_splus_2)->info.mfa);
     }
 
     a.bind(next);
@@ -143,7 +143,7 @@ void BeamModuleAssembler::emit_i_minus(ArgVal LHS, ArgVal RHS,
     } else {
         a.jne(next);
         emit_bif_arg_error({LHS, RHS}, entry,
-                           &bif_trap_export[BIF_sminus_2]->info.mfa);
+                           &BIF_TRAP_EXPORT(BIF_sminus_2)->info.mfa);
     }
 
     a.bind(next);
@@ -206,7 +206,7 @@ void BeamModuleAssembler::emit_i_int_div(ArgVal Fail, ArgVal LHS, ArgVal RHS,
         a.jne(next);
         a.bind(fail);
         emit_bif_arg_error({LHS, RHS}, entry,
-                           &bif_trap_export[BIF_intdiv_2]->info.mfa);
+                           &BIF_TRAP_EXPORT(BIF_intdiv_2)->info.mfa);
     }
 
     a.bind(next);
@@ -230,7 +230,7 @@ void BeamModuleAssembler::emit_i_m_div(ArgVal Fail, ArgVal LHS, ArgVal RHS,
     } else {
         a.jne(next);
         emit_bif_arg_error({LHS, RHS}, entry,
-                           &bif_trap_export[BIF_div_2]->info.mfa);
+                           &BIF_TRAP_EXPORT(BIF_div_2)->info.mfa);
     }
 
     a.bind(next);
@@ -271,9 +271,130 @@ void BeamModuleAssembler::emit_i_times(ArgVal Fail, ArgVal LHS, ArgVal RHS,
     } else {
         a.jne(next);
         emit_bif_arg_error({LHS, RHS}, entry,
-                           &bif_trap_export[BIF_stimes_2]->info.mfa);
+                           &BIF_TRAP_EXPORT(BIF_stimes_2)->info.mfa);
     }
 
     a.bind(next);
     mov(Dst, RET);
+}
+
+
+void BeamModuleAssembler::emit_i_bsr(ArgVal Src1, ArgVal Src2, ArgVal Fail, ArgVal Dest, Instruction *)
+{
+    Label small_bsr = a.newLabel(),
+        small_minus = a.newLabel(),
+        shift = a.newLabel(),
+        tag_next = a.newLabel(),
+        next = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    // TODO: We should specialize these tests for when
+    // the type of one of the operands is known...
+    mov(TMP1,Src1);
+    mov(TMP2,Src2);
+    a.mov(TMP3,TMP1);
+    a.and_(TMP3,TMP2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.je(small_bsr);
+    emit_nyi();
+    comment("signed_val");
+    a.bind(small_bsr);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.sar(TMP2, _TAG_IMMED1_SIZE);
+    comment("check if any is 0");
+    a.cmp(TMP1, 0);
+    a.je(tag_next);
+    a.cmp(TMP2, 0);
+    a.je(tag_next);
+    comment("check max shift of small");
+    a.cmp(TMP2, SMALL_BITS-1);
+    a.jl(shift);
+    a.cmp(TMP1, 0);
+    a.jl(small_minus);
+    mov(Dest, SMALL_ZERO);
+    a.jmp(next);
+
+    a.bind(small_minus);
+    mov(Dest, SMALL_MINUS_ONE);
+    a.jmp(next);
+    comment("do the shift");
+
+    a.bind(shift);
+    a.mov(x86::rcx, TMP2);
+    a.sar(TMP1, x86::cl);
+    a.bind(tag_next);
+    a.sal(TMP1, _TAG_IMMED1_SIZE);
+    a.add(TMP1, _TAG_IMMED1_SMALL);
+    mov(Dest, TMP1);
+    a.bind(next);
+
+}
+
+void BeamModuleAssembler::emit_i_bsl(ArgVal Src1, ArgVal Src2, ArgVal Fail, ArgVal Dest, Instruction *)
+{
+  Label small_bsl = a.newLabel(),
+        shift = a.newLabel(),
+        nyi = a.newLabel(),
+        neg_small = a.newLabel(),
+        tag_next = a.newLabel(),
+        next = a.newLabel();
+
+    comment("is_both_small(X, Y)");
+    // TODO: We should specialize these tests for when
+    // the type of one of the operands is known...
+    mov(TMP1,Src1);
+    mov(TMP2,Src2);
+    a.mov(TMP3,TMP1);
+    a.and_(TMP3,TMP2);
+    a.and_(TMP3,_TAG_IMMED1_MASK);
+    a.cmp(TMP3,_TAG_IMMED1_SMALL);
+    a.je(small_bsl);
+    emit_nyi();
+    comment("signed_val");
+    a.bind(small_bsl);
+    a.sar(TMP1, _TAG_IMMED1_SIZE);
+    a.sar(TMP2, _TAG_IMMED1_SIZE);
+    comment("check if any is 0");
+    a.cmp(TMP1, 0);
+    a.je(tag_next);
+    a.cmp(TMP2, 0);
+    a.je(tag_next);
+    comment("check max shift of small");
+    a.cmp(TMP2, SMALL_BITS-1);
+    a.jge(nyi);
+    comment("((~(Uint)0 << ((SMALL_BITS-1)-shift_left_count))");
+    a.mov(x86::rcx, SMALL_BITS-1);
+    a.sub(x86::rcx, TMP2);
+    a.mov(TMP3, ~(uint64_t)0);
+    a.sal(TMP3, x86::cl);
+    comment("int_res > 0");
+    a.cmp(TMP1, 0);
+    a.jle(neg_small);
+    comment("(TMP3 & int_res) == 0)");
+    a.mov(TMP4, TMP3); // TMP3 is used in neg_small
+    a.and_(TMP4, TMP1);
+    a.cmp(TMP4, 0);
+    a.je(shift);
+    comment("(TMP3 & ~int_res) == 0");
+    a.bind(neg_small);
+    a.mov(TMP4, TMP1);
+    a.not_(TMP4);
+    a.and_(TMP4, TMP3);
+    a.cmp(TMP4, 0);
+    a.je(shift);
+    comment("");
+    a.bind(nyi);
+    emit_nyi();
+
+    comment("do the shift");
+    a.bind(shift);
+    a.mov(x86::rcx, TMP2);
+    a.sal(TMP1, x86::cl);
+    comment("tag contents of TMP1");
+    a.bind(tag_next);
+    a.sal(TMP1, _TAG_IMMED1_SIZE);
+    a.add(TMP1, _TAG_IMMED1_SMALL);
+    mov(Dest, TMP1);
+    a.bind(next);
 }

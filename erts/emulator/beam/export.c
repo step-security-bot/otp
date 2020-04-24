@@ -28,7 +28,9 @@
 #include "export.h"
 #include "hash.h"
 
+#ifdef BEAMASM
 #include "beam_asm.h"
+#endif
 
 #define EXPORT_INITIAL_SIZE   4000
 #define EXPORT_LIMIT  (512*1024)
@@ -134,18 +136,27 @@ export_alloc(struct export_entry* tmpl_e)
         obj->bif_number = -1;
         obj->is_bif_traced = 0;
 
-        {
-            beamasm_emit_patch(obj->info.mfa.module,
-                               op_call_error_handler, NULL,
-                               (char*)&obj->trampoline.raw[0],
-                               sizeof(obj->trampoline), 0);
+#ifdef BEAMASM
 
-            for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-                obj->addressv[ix] = &obj->trampoline.raw[0];
+        beamasm_emit_patch(obj->info.mfa.module,
+                           op_call_error_handler, NULL,
+                           (char*)&obj->trampoline.raw[0],
+                           sizeof(obj->trampoline), 0);
 
-                blob->entryv[ix].slot.index = -1;
-                blob->entryv[ix].ep = &blob->exp;
-            }
+#else
+        memset(&obj->trampoline, 0, sizeof(obj->trampoline));
+
+        if (BeamOpsAreInitialized()) {
+            obj->trampoline.op = BeamOpCodeAddr(op_call_error_handler);
+        }
+
+#endif
+
+        for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
+            obj->addressv[ix] = &obj->trampoline.raw[0];
+
+            blob->entryv[ix].slot.index = -1;
+            blob->entryv[ix].ep = &blob->exp;
         }
 
 	ix = 0;
@@ -261,9 +272,12 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     struct export_entry* ee;
 
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
-    if (ee == NULL ||
-	(ee->ep->addressv[code_ix] == ee->ep->trampoline.raw &&
-	 ! BeamIsOpCode(ee->ep->trampoline.op, op_i_generic_breakpoint))) {
+    if (ee == NULL
+#ifndef BEAMASM
+	|| (ee->ep->addressv[code_ix] == ee->ep->trampoline.raw &&
+	 ! BeamIsOpCode(ee->ep->trampoline.op, op_i_generic_breakpoint))
+#endif
+        ) {
 	return NULL;
     }
     return ee->ep;

@@ -157,7 +157,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_trap_export[BIF_erts_debug_breakpoint_2],
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
     erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
@@ -749,6 +749,24 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += (n+1) / 2;
         }
         break;
+#ifndef BEAMASM
+    case op_i_select_val2_xfcc:
+    case op_i_select_val2_yfcc:
+    case op_i_select_tuple_arity2_xfAA:
+    case op_i_select_tuple_arity2_yfAA:
+        {
+            Sint32* jump_tab = (Sint32 *) ap;
+            BeamInstr* target;
+            int i;
+
+            for (i = 0; i < 2; i++) {
+                target = f_to_addr_packed(addr, op, jump_tab++);
+                erts_print(to, to_arg, "f(" HEXF ") ", target);
+            }
+            size += 1;
+        }
+        break;
+#endif
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{
@@ -763,11 +781,29 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+#ifndef BEAMASM
+    case op_i_jump_on_val_zero_xfI:
+    case op_i_jump_on_val_zero_yfI:
+       {
+           int n = unpacked[-1];
+            Sint32* jump_tab = (Sint32 *) ap;
+
+            size += (n+1) / 2;
+            while (n-- > 0) {
+                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
+               erts_print(to, to_arg, "f(" HEXF ") ", target);
+                jump_tab++;
+           }
+       }
+       break;
     case op_put_tuple2_xI:
     case op_put_tuple2_yI:
     case op_new_map_dtI:
-    case op_update_map_assoc_sdtI:
-    case op_update_map_exact_sjdtI:
+    case op_update_map_assoc_xdtI:
+    case op_update_map_assoc_ydtI:
+    case op_update_map_assoc_cdtI:
+    case op_update_map_exact_xjdtI:
+    case op_update_map_exact_yjdtI:
 	{
 	    int n = unpacked[-1];
 
@@ -787,6 +823,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+#endif
     case op_i_new_small_map_lit_dtq:
         {
             Eterm *tp = tuple_val(unpacked[-1]);

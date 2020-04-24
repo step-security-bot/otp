@@ -131,7 +131,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Uint freason = BADARG;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD3(bif_trap_export[BIF_erts_internal_trace_pattern_3], p, MFA, Pattern, flaglist);
+	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_pattern_3), p, MFA, Pattern, flaglist);
     }
     finish_bp.current = -1;
 
@@ -541,7 +541,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD3(bif_trap_export[BIF_erts_internal_trace_3],
+	ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -791,7 +791,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     Eterm res;
 
     if (!erts_try_seize_code_write_permission(p)) {
-	ERTS_BIF_YIELD2(bif_trap_export[BIF_trace_info_2], p, What, Key);
+	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_trace_info_2), p, What, Key);
     }
 
     if (What == am_on_load) {
@@ -1044,6 +1044,7 @@ static int function_is_traced(Process *p,
     e.info.mfa.module = mfa[0];
     e.info.mfa.function = mfa[1];
     e.info.mfa.arity = mfa[2];
+#ifndef BEAMASM
     if ((ep = export_get(&e)) != NULL) {
 	pc = ep->trampoline.raw;
 	if (ep->addressv[erts_active_code_ix()] == pc &&
@@ -1069,6 +1070,7 @@ static int function_is_traced(Process *p,
 	    return r ? r : FUNC_TRACE_UNTRACED;
 	}
     }
+#endif
     
     /* OK, now look for breakpoint tracing */
     if ((ci = erts_find_local_func(&e.info.mfa)) != NULL) {
@@ -1440,19 +1442,22 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
         }
 
 	if (on && !flags.breakpoint) {
+#ifndef BEAMASM
 	    /* Turn on global call tracing */
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
+
 #ifdef DEBUG
 		ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
-#endif
                 ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
+#endif
                 ep->trampoline.trace.address = (BeamInstr) ep->addressv[code_ix];
 	    }
 	    erts_set_export_trace(ci, match_prog_set, 0);
 	    if (ep->addressv[code_ix] != pc) {
                 ep->trampoline.op = BeamOpCodeAddr(op_i_generic_breakpoint);
 	    }
+#endif
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
 	} else {
@@ -1461,9 +1466,11 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * before turning on breakpoint tracing.
 	     */
 	    erts_clear_export_trace(ci, 0);
+#ifndef BEAMASM
             if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
                 ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
+#endif
 	}
     }
 
@@ -1675,7 +1682,9 @@ uninstall_exp_breakpoints(BpFunctions* f)
             continue;
         }
 
+#ifndef BEAMASM
         ASSERT(BeamIsOpCode(ep->trampoline.op, op_trace_jump_W));
+#endif
         ep->addressv[code_ix] = (BeamInstr *) ep->trampoline.trace.address;
     }
 }
@@ -1695,10 +1704,12 @@ clean_export_entries(BpFunctions* f)
             continue;
         }
 
+#ifndef BEAMASM
         if (BeamIsOpCode(ep->trampoline.op, op_trace_jump_W)) {
             ep->trampoline.op = (BeamInstr) 0;
             ep->trampoline.trace.address = (BeamInstr) 0;
         }
+#endif
     }
 }
 

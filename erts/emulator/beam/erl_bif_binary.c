@@ -2220,11 +2220,11 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 
     pos = 0;
     if (direction == DIRECTION_PREFIX) {
-	trapper = &binary_longest_prefix_trap_export;
+	trapper = binary_longest_prefix_trap_export;
 	res = do_search_forward(cd,&pos,&reds);
     } else {
 	ASSERT(direction == DIRECTION_SUFFIX);
-	trapper = &binary_longest_suffix_trap_export;
+	trapper = binary_longest_suffix_trap_export;
 	res = do_search_backward(cd,&pos,&reds);
     }
     epos = erts_make_integer(pos,p);
@@ -2413,7 +2413,7 @@ HIPE_WRAPPER_BIF_DISABLE_GC(binary_list_to_bin, 1)
 
 BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
 {
-    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, bif_trap_export[BIF_binary_list_to_bin_1]);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1, BIF_TRAP_EXPORT(BIF_binary_list_to_bin_1));
 }
 
 typedef struct {

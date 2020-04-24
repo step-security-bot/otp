@@ -99,8 +99,6 @@ plus.execute(Fail, Dst) {
     $OUTLINED_ARITH_2($Fail, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
 }
 
-x64.i_plus(Op1, Op2, Fail, Dst);
-
 i_minus := minus.fetch.execute;
 
 minus.head() {
@@ -137,8 +135,6 @@ minus.execute(Fail, Dst) {
     }
     $OUTLINED_ARITH_2($Fail, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
 }
-
-x64.i_minus(Op1, Op2, Fail, Dst);
 
 i_increment := increment.fetch.execute;
 
@@ -186,8 +182,6 @@ increment.execute(IncrementVal, Dst) {
     goto find_func_info;
 }
 
-x64.i_increment(Src, Val, Dst);
-
 i_times(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
@@ -209,15 +203,11 @@ i_times(Fail, Op1, Op2, Dst) {
     $OUTLINED_ARITH_2($Fail, mixed_times, BIF_stimes_2, op1, op2, $Dst);
 }
 
-x64.i_times(Fail, Op1, Op2, Dst);
-
 i_m_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
     $OUTLINED_ARITH_2($Fail, mixed_div, BIF_div_2, op1, op2, $Dst);
 }
-
-x64.i_m_div(Fail, Op1, Op2, Dst);
 
 i_int_div(Fail, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
@@ -239,8 +229,6 @@ i_int_div(Fail, Op1, Op2, Dst) {
     }
     $OUTLINED_ARITH_2($Fail, int_div, BIF_intdiv_2, op1, op2, $Dst);
 }
-
-x64.i_int_div(Fail, Op1, Op2, Dst);
 
 i_rem := rem.fetch.execute;
 
@@ -471,130 +459,13 @@ shift.execute(Fail, Dst) {
         reg[1] = Op2;
         SWAPOUT;
         if (IsOpCode(I[0], i_bsl_ssjd)) {
-            I = handle_error(c_p, I, reg, bif_trap_export[BIF_bsl_2]->info.mfa);
+            I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(BIF_bsl_2)->info.mfa);
         } else {
             ASSERT(IsOpCode(I[0], i_bsr_ssjd));
-            I = handle_error(c_p, I, reg, bif_trap_export[BIF_bsr_2]->info.mfa);
+            I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(BIF_bsr_2)->info.mfa);
         }
         goto post_error_handling;
     }
-}
-
-x64.i_bsr(Src1, Src2, Fail, Dest) {
-    Label small_bsr = a.newLabel(),
-        small_minus = a.newLabel(),
-        shift = a.newLabel(),
-        tag_next = a.newLabel(),
-        next = a.newLabel();
-
-    comment("is_both_small(X, Y)");
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    mov(TMP1,$Src1);
-    mov(TMP2,$Src2);
-    a.mov(TMP3,TMP1);
-    a.and_(TMP3,TMP2);
-    a.and_(TMP3,_TAG_IMMED1_MASK);
-    a.cmp(TMP3,_TAG_IMMED1_SMALL);
-    a.je(small_bsr);
-    $NYI();
-    comment("signed_val");
-    a.bind(small_bsr);
-    a.sar(TMP1, _TAG_IMMED1_SIZE);
-    a.sar(TMP2, _TAG_IMMED1_SIZE);
-    comment("check if any is 0");
-    a.cmp(TMP1, 0);
-    a.je(tag_next);
-    a.cmp(TMP2, 0);
-    a.je(tag_next);
-    comment("check max shift of small");
-    a.cmp(TMP2, SMALL_BITS-1);
-    a.jl(shift);
-    a.cmp(TMP1, 0);
-    a.jl(small_minus);
-    mov($Dest, SMALL_ZERO);
-    a.jmp(next);
-
-    a.bind(small_minus);
-    mov($Dest, SMALL_MINUS_ONE);
-    a.jmp(next);
-    comment("do the shift");
-
-    a.bind(shift);
-    a.mov(x86::rcx, TMP2);
-    a.sar(TMP1, x86::cl);
-    a.bind(tag_next);
-    a.sal(TMP1, _TAG_IMMED1_SIZE);
-    a.add(TMP1, _TAG_IMMED1_SMALL);
-    mov($Dest, TMP1);
-    a.bind(next);
-}
-
-x64.i_bsl(Src1, Src2, Fail, Dest) {
-    Label small_bsl = a.newLabel(),
-        shift = a.newLabel(),
-        nyi = a.newLabel(),
-        neg_small = a.newLabel(),
-        tag_next = a.newLabel(),
-        next = a.newLabel();
-
-    comment("is_both_small(X, Y)");
-    // TODO: We should specialize these tests for when
-    // the type of one of the operands is known...
-    mov(TMP1,$Src1);
-    mov(TMP2,$Src2);
-    a.mov(TMP3,TMP1);
-    a.and_(TMP3,TMP2);
-    a.and_(TMP3,_TAG_IMMED1_MASK);
-    a.cmp(TMP3,_TAG_IMMED1_SMALL);
-    a.je(small_bsl);
-    $NYI();
-    comment("signed_val");
-    a.bind(small_bsl);
-    a.sar(TMP1, _TAG_IMMED1_SIZE);
-    a.sar(TMP2, _TAG_IMMED1_SIZE);
-    comment("check if any is 0");
-    a.cmp(TMP1, 0);
-    a.je(tag_next);
-    a.cmp(TMP2, 0);
-    a.je(tag_next);
-    comment("check max shift of small");
-    a.cmp(TMP2, SMALL_BITS-1);
-    a.jge(nyi);
-    comment("((~(Uint)0 << ((SMALL_BITS-1)-shift_left_count))");
-    a.mov(x86::rcx, SMALL_BITS-1);
-    a.sub(x86::rcx, TMP2);
-    a.mov(TMP3, ~(uint64_t)0);
-    a.sal(TMP3, x86::cl);
-    comment("int_res > 0");
-    a.cmp(TMP1, 0);
-    a.jle(neg_small);
-    comment("(TMP3 & int_res) == 0)");
-    a.mov(TMP4, TMP3); // TMP3 is used in neg_small
-    a.and_(TMP4, TMP1);
-    a.cmp(TMP4, 0);
-    a.je(shift);
-    comment("(TMP3 & ~int_res) == 0");
-    a.bind(neg_small);
-    a.mov(TMP4, TMP1);
-    a.not_(TMP4);
-    a.and_(TMP4, TMP3);
-    a.cmp(TMP4, 0);
-    a.je(shift);
-    comment("");
-    a.bind(nyi);
-    $NYI();
-
-    comment("do the shift");
-    a.bind(shift);
-    a.mov(x86::rcx, TMP2);
-    a.sal(TMP1, x86::cl);
-    comment("tag contents of TMP1");
-    a.bind(tag_next);
-    a.sal(TMP1, _TAG_IMMED1_SIZE);
-    a.add(TMP1, _TAG_IMMED1_SMALL);
-    mov($Dest, TMP1);
-    a.bind(next);
 }
 
 i_int_bnot(Fail, Src, Dst) {

@@ -1315,4 +1315,41 @@ void BeamModuleAssembler::emit_raw_raise(Instruction *Inst) {
 void BeamModuleAssembler::emit_i_yield(Instruction *Inst) {
   // Ignore for now... not important
   mov(ArgVal(ArgVal::x, 0), am_true);
-};
+}
+
+void BeamModuleAssembler::emit_i_perf_counter(BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_perf_counter");
+}
+void BeamModuleAssembler::emit_i_hibernate(BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_hibernate");
+}
+void BeamModuleAssembler::emit_i_bs_start_match2(ArgVal, ArgVal, ArgVal, ArgVal, ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_bs_start_match2");
+}
+void BeamModuleAssembler::emit_i_bs_save2(ArgVal, ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("bs_save2");
+}
+void BeamModuleAssembler::emit_i_bs_restore2(ArgVal, ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_bs_restore2");
+}
+void BeamModuleAssembler::emit_i_wait_error_locked(BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_wait_error_locked");
+}
+void BeamModuleAssembler::emit_i_wait_error(BeamModuleAssembler::Instruction*) {
+ emit_nyi("i_wait_error");
+}
+void BeamModuleAssembler::emit_wait_timeout_locked_int(ArgVal, ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("wait_timeout_locked_int");
+}
+void BeamModuleAssembler::emit_wait_timeout_unlocked_int(ArgVal, ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("wait_timeout_unlocked_int");
+}
+void BeamModuleAssembler::emit_ensure_map(ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("ensure_map");
+}
+void BeamModuleAssembler::emit_bs_context_to_binary(ArgVal, BeamModuleAssembler::Instruction*) {
+ emit_nyi("bs_context_to_binary");
+}
+void BeamModuleAssembler::emit_badarg_body(BeamModuleAssembler::Instruction*) {
+ emit_nyi("badarg_body");
+}

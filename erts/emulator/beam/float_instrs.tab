@@ -27,15 +27,11 @@ fload(Reg, Dst) {
     $LOAD_DOUBLE($Reg, $Dst);
 }
 
-x64.fload(Reg, Dst);
-
 fstore(Float, Dst) {
     PUT_DOUBLE(*((FloatDef *) &$Float), HTOP);
     $Dst = make_float(HTOP);
     HTOP += FLOAT_SIZE_OBJECT;
 }
-
-x64.fstore(Reg, Dst);
 
 fconv(Src, Dst) {
     Eterm src = $Src;
@@ -53,8 +49,6 @@ fconv(Src, Dst) {
     }
 }
 
-x64.fconv(Src, Dst);
-
 FLOAT_OP(Src1, OP, Src2, Dst) {
     ERTS_NO_FPE_CHECK_INIT(c_p);
     $Dst = $Src1 $OP $Src2;
@@ -65,25 +59,17 @@ i_fadd(Src1, Src2, Dst) {
     $FLOAT_OP($Src1, +, $Src2, $Dst);
 }
 
-x64.i_fadd(Src1, Src2, Dst);
-
 i_fsub(Src1, Src2, Dst) {
     $FLOAT_OP($Src1, -, $Src2, $Dst);
 }
-
-x64.i_fsub(Src1, Src2, Dst);
 
 i_fmul(Src1, Src2, Dst) {
     $FLOAT_OP($Src1, *, $Src2, $Dst);
 }
 
-x64.i_fmul(Src1, Src2, Dst);
-
 i_fdiv(Src1, Src2, Dst) {
     $FLOAT_OP($Src1, /, $Src2, $Dst);
 }
-
-x64.i_fdiv(Src1, Src2, Dst);
 
 i_fnegate(Src, Dst) {
     ERTS_NO_FPE_CHECK_INIT(c_p);
@@ -91,20 +77,12 @@ i_fnegate(Src, Dst) {
     ERTS_NO_FPE_ERROR(c_p, $Dst, $BADARITH0());
 }
 
-x64.i_fnegate(Src, Dst);
-
 %unless NO_FPE_SIGNALS
-
 fclearerror() {
     ERTS_FP_CHECK_INIT(c_p);
 }
 
-x64.fclearerror();
-
 i_fcheckerror() {
     ERTS_FP_ERROR(c_p, freg[0].fd, $BADARITH0());
 }
-
-x64.i_fcheckerror();
-
 %endif
