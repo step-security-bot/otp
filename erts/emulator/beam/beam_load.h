@@ -107,7 +107,7 @@ typedef struct beam_code_header {
 }BeamCodeHeader;
 
 #ifdef BEAMASM
-#  define BEAM_NATIVE_MIN_FUNC_SZ 20
+#  define BEAM_NATIVE_MIN_FUNC_SZ 30
 #else
 #  define BEAM_NATIVE_MIN_FUNC_SZ 4
 #endif

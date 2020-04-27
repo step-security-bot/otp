@@ -240,6 +240,7 @@ erts_debug_instructions_0(BIF_ALIST_0)
 BIF_RETTYPE
 erts_debug_disassemble_1(BIF_ALIST_1)
 {
+#ifndef BEAMASM
     Process* p = BIF_P;
     Eterm addr = BIF_ARG_1;
     erts_dsprintf_buf_t *dsbufp;
@@ -350,6 +351,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
                  make_small(cmfa->arity));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
+#else
+    BIF_ERROR(BIF_P, am_badarg);
+#endif
 }
 
 BIF_RETTYPE

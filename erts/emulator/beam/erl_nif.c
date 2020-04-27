@@ -4258,9 +4258,10 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2) {
 typedef struct {
     HashBucket bucket;
     ErtsCodeInfo* code_info;
-    ErtsCodeMFA mfa;
+    ErtsCodeInfo info;
 #ifdef BEAMASM
-    BeamInstr beam[8];
+    BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
+    BeamInstr beam[9];
 #else
     BeamInstr beam[4];
 #endif
@@ -4455,7 +4456,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
         lib->mod = module_p;
 
 #ifdef BEAMASM
-        lib->finish = erts_alloc(ERTS_ALC_T_CODE,
+        lib->finish = erts_alloc(ERTS_ALC_T_EXPORT,
                                  sizeof_ErtsNifFinish(entry->num_of_funcs));
 #else
         lib->finish = erts_alloc(ERTS_ALC_T_NIF,
@@ -4500,7 +4501,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 #endif
 
             stub->code_info = ci;
-            stub->mfa = ci->mfa;
+            stub->info = *ci;
             if (hash_put(&erts_nif_call_tab, stub) != stub) {
                 ret = load_nif_error(c_p, bad_lib, "Duplicate NIF entry for %T:%s/%u",
                                      mod_atom, f->name, f->arity);
@@ -4509,33 +4510,23 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             lib->finish->nstubs_hashed++;
 
  #ifdef BEAMASM
-            op.arity = 4;
-            op.next = NULL;
-            op.a = op.def_args;
-
-            if (f->flags) {
-                op.a[2].type = TAG_i;
-                op.a[2].val = f->fptr;
-                op.a[0].type = TAG_i;
-                if (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND)
-                    op.a[0].val = static_schedule_dirty_io_nif;
-                else
-                    op.a[0].val = static_schedule_dirty_cpu_nif;
-            } else {
-                op.a[2].type = TAG_i;
-                op.a[2].val = 0;
-                op.a[0].type = TAG_i;
-                op.a[0].val = f->fptr;
+            {
+                void* normal_fptr, *dirty_fptr;
+                if (f->flags) {
+                    if (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND)
+                        normal_fptr = static_schedule_dirty_io_nif;
+                    else
+                        normal_fptr = static_schedule_dirty_cpu_nif;
+                    dirty_fptr = f->fptr;
+                } else {
+                    dirty_fptr = NULL;
+                    normal_fptr = f->fptr;
+                }
+                beamasm_emit_call_nif(
+                    ci, normal_fptr, lib, dirty_fptr,
+                    &stub->info,
+                    sizeof(stub->info) + sizeof(stub->prologue) + sizeof(stub->beam));
             }
-
-            op.a[1].type = TAG_i;
-            op.a[1].val = lib;
-            op.a[3].type = TAG_i;
-            op.a[3].val = ci;
-
-            beamasm_emit_patch(ci->mfa.module,
-                               op_call_nif_WWW, &op, stub->beam,
-                               sizeof(stub->beam), 0);
 #else
             stub->beam[0] = BeamOpCodeAddr(op_call_nif_WWW);
             stub->beam[2] = (BeamInstr) lib;
@@ -4548,9 +4539,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
             else
                 stub->beam[1] = (BeamInstr) f->fptr;
 #endif
-       }
-
-
+        }
         erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
         ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
     }
@@ -4831,7 +4820,7 @@ static void release_beam_stubs(struct erl_module_nif* lib)
     if (fin) {
         erase_hashed_stubs(fin);
 #ifdef BEAMASM
-        erts_free(ERTS_ALC_T_CODE, fin);
+        erts_free(ERTS_ALC_T_EXPORT, fin);
 #else
         erts_free(ERTS_ALC_T_NIF, fin);
 #endif

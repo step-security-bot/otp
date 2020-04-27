@@ -268,13 +268,13 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
     a.bind(labels[inst.args[0].getValue()]);
     currLabel = labels[inst.args[0].getValue()];
     /* If the prev_op is a label, then we this is the first label of a new function */
-    if (prev_op == op_label_L && I) {
+    if (prev_op == op_label_L) {
       Label next = a.newLabel();
       // The u.gen_bp field in ErtsCodeInfo
       a.mov(RET, x86::qword_ptr(currLabel, -4 * 8));
       a.cmp(RET, 0);
       a.je(next);
-      a.mov(ARG1, x86::qword_ptr(currLabel));
+      a.lea(ARG1, x86::qword_ptr(currLabel));
       a.call(RET);
       prev_op = 0;
       a.align(kAlignCode, 8);

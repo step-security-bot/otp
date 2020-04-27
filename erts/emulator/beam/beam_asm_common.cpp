@@ -137,6 +137,34 @@ extern "C" {
   }
 
   void
+  beamasm_emit_call_nif(ErtsCodeInfo *info,
+                        void *normal_fptr,
+                        void *lib,
+                        void *dirty_fptr,
+                        char *buff, unsigned buff_len) {
+    std::vector<ArgVal> args;
+    BeamModuleAssembler ba(rt, bga, am_erts_internal, 2);
+
+    args.push_back(ArgVal(ArgVal::i, (BeamInstr)normal_fptr));
+    args.push_back(ArgVal(ArgVal::i, (BeamInstr)lib));
+    args.push_back(ArgVal(ArgVal::i, (BeamInstr)dirty_fptr));
+    args.push_back(ArgVal(ArgVal::i, (BeamInstr)info));
+
+    ba.setDebug(false);
+    ba.emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+    ba.emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 1),
+                                  ArgVal(ArgVal::i, info->mfa.module),
+                                  ArgVal(ArgVal::i, info->mfa.function),
+                                  ArgVal(ArgVal::i, info->mfa.arity)
+      });
+    ba.emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+    ba.emit(op_call_nif_WWW, args);
+    ba.codegen();
+    ERTS_ASSERT(ba.getCodeSize() <= buff_len);
+    memcpy(buff, (BeamInstr*)ba.getCode(1), ba.getCodeSize());
+  }
+
+  void
   beamasm_emit_patch(Eterm module, unsigned specific_op, GenOp *op,
                      char *buff, unsigned buff_len, int debug) {
     beamasm_init();

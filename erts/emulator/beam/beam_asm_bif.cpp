@@ -504,7 +504,7 @@ void BeamGlobalAssembler::emit_call_nif(void)
   emit_heavy_swapout();
 
   a.mov(ARG1, c_p);
-  a.mov(qTMP1_MEM, ARG2);
+  a.mov(qTMP1_MEM, ARG2); // Used by emit_bif_nif_epilogue
   // ARG2 set in caller
   a.mov(ARG3, x_reg);
   a.mov(ARG4, x86::qword_ptr(ARG2, 8 + BEAM_ASM_FUNC_PROLOGUE_SIZE));
@@ -540,7 +540,7 @@ void BeamModuleAssembler::emit_call_nif(ArgVal Func, ArgVal NifMod, ArgVal Dirty
   // The real code starts here
   a.bind(entry);
   a.mov(RET,ga->get_call_nif());
-  a.lea(ARG2, x86::qword_ptr(currLabel, -BEAM_ASM_FUNC_PROLOGUE_SIZE));
+  a.lea(ARG2, x86::qword_ptr(currLabel));
   a.jmp(RET);
 }
 

@@ -249,10 +249,11 @@ void BeamGlobalAssembler::emit_i_func_info() {
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
+  a.lea(ARG2, x86::qword_ptr(ARG1, -sizeof(ErtsCodeInfo)));
   a.mov(ARG1, c_p);
-  a.lea(ARG1, x86::qword_ptr(ARG1, -sizeof(ErtsCodeInfo)));
   call((uint64_t)erts_call_nif_early);
-  a.mov(x86::qword_ptr(x86::rsp, -8), RET);
+  /* We patch the return address to jump to the correct place. */
+  a.mov(x86::qword_ptr(x86::rsp), RET);
   a.ret();
 }
 

@@ -73,6 +73,11 @@ void beamasm_patch_literal(void *instance, int index, Eterm lit);
 void beamasm_patch_strings(void *instance, byte *strtab);
 void beamasm_emit_patch(Eterm module, unsigned specific_op, GenOp *op, char *buff,
                         unsigned buf_len, int debug);
+void beamasm_emit_call_nif(ErtsCodeInfo *info,
+                           void *normal_fptr,
+                           void *lib,
+                           void *dirty_fptr,
+                           char *buff, unsigned buff_len);
 Uint beamasm_get_header(void *ba, BeamCodeHeader **);
 BeamInstr beamasm_get_on_load(void *ba);
 
