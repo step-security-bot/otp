@@ -172,6 +172,14 @@ void BeamGlobalAssembler::emit_return() {
     emit_function_postamble(STACK_SLOTS);
 }
 
+void BeamGlobalAssembler::emit_dispatch_return() {
+  // TMP3 contains the place to jump to
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
+  a.mov(RET,RET_context_switch3);
+  farjmp(get_return());
+}
+
 void BeamGlobalAssembler::emit_call_error_handler() {
   emit_heavy_swapout();
   a.mov(ARG1,c_p);
@@ -192,28 +200,56 @@ void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
   farjmp((uint64_t)ga->get_call_error_handler());
 }
 
-void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *mfa) {
+void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *exp) {
     /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
     emit_swapout();
     a.mov(ARG1, c_p);
     /* FIXME: MOV -> LEA */
     a.lea(ARG2, x86::qword_ptr(I));
     a.mov(ARG3, x_reg);
-    a.mov(ARG4, imm(mfa));
+    emit_mfa(ARG4, exp);
     call((uint64_t)handle_error);
     farjmp(ga->get_post_error_handling());
 }
 
-void BeamModuleAssembler::emit_handle_error(Label I, ArgVal exp) {
-    /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
-    emit_swapout();
-    a.mov(ARG1, c_p);
-    /* FIXME: MOV -> LEA */
-    a.lea(ARG2, x86::qword_ptr(I));
-    a.mov(ARG3, x_reg);
-    make_move_patch(ARG4, imports[exp.getValue()].patches, offsetof(Export, info.mfa));
-    call((uint64_t)handle_error);
-    farjmp(ga->get_post_error_handling());
+void BeamGlobalAssembler::emit_yield_error_test() {
+  Label error = a.newLabel();
+  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+  a.jne(error);
+  comment("yield");
+  a.mov(getRef(CP), RET);
+  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+  a.mov(RET,RET_context_switch);
+  farjmp(this->get_return());
+  a.bind(error);
+  comment("error");
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  // ARG2 set in caller
+  a.mov(ARG3, x_reg);
+  // ARG4 set in caller
+  call((uint64_t)handle_error);
+  farjmp(this->get_post_error_handling());
+}
+
+void BeamGlobalAssembler::emit_yield_error_test_only() {
+  Label error = a.newLabel();
+  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
+  a.jne(error);
+  comment("yield");
+
+  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
+  a.mov(RET,RET_context_switch);
+  farjmp(this->get_return());
+  a.bind(error);
+  comment("error");
+  emit_swapout();
+  a.mov(ARG1, c_p);
+  // ARG2 set in caller
+  a.mov(ARG3, x_reg);
+  // ARG4 set in caller
+  call((uint64_t)handle_error);
+  farjmp(this->get_post_error_handling());
 }
 
 // this is an alias for handle_error

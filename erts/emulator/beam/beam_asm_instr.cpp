@@ -91,20 +91,15 @@ void BeamModuleAssembler::emit_dispatch_return(x86::Gp dest) {
 
   // TMP1 holds where to jump to, set in $RETURN
 
-  a.cmp(FCALLS,0);
-  a.jle(yield);
-
-  comment("Do the return");
   a.sub(FCALLS,1);
+  a.jl(yield);
   a.jmp(dest);
 
   a.bind(yield);
   comment("Yield to interpreter");
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 1);
-  a.mov(TMP3, dest);
-  a.mov(RET,RET_context_switch3);
-  farjmp(ga->get_return());
+  if (dest != TMP3)
+    a.mov(TMP3, dest);
+  farjmp(ga->get_dispatch_return());
 }
 
 void BeamModuleAssembler::emit_setup_return(x86::Gp dest) {
@@ -215,8 +210,8 @@ void BeamModuleAssembler::emit_return(Instruction *Inst) {
   /* Validate return address and {x,0} */
   emit_validate(ArgVal(ArgVal::u, 1));
 
-  emit_setup_return(TMP4);
-  emit_dispatch_return(TMP4);
+  emit_setup_return(TMP3);
+  emit_dispatch_return(TMP3);
 }
 
 void BeamModuleAssembler::emit_deallocate(ArgVal Deallocate, Instruction *Inst) {
@@ -429,7 +424,7 @@ x86::Gp BeamModuleAssembler::emit_call_fun(ArgVal Fun) {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_handle_error(entry, nullptr);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(dispatch);
   return RET;
 }
@@ -467,7 +462,7 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
   emit_heavy_swapin();
   a.cmp(RET, 0);
   a.jne(dispatch);
-  emit_handle_error(entry, nullptr);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(dispatch);
   return RET;
 }
@@ -1128,7 +1123,7 @@ void BeamModuleAssembler::emit_badmatch(ArgVal Src, Instruction *Inst) {
   a.bind(entry);
   mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), Src);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), BADMATCH);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_case_end(ArgVal Src, Instruction *Inst) {
@@ -1136,21 +1131,21 @@ void BeamModuleAssembler::emit_case_end(ArgVal Src, Instruction *Inst) {
   a.bind(entry);
   mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), Src);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_CASE_CLAUSE);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_system_limit_body(Instruction *Inst) {
   Label entry = a.newLabel();
   a.bind(entry);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), SYSTEM_LIMIT);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_if_end(Instruction *Inst) {
   Label entry = a.newLabel();
   a.bind(entry);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_IF_CLAUSE);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_catch(ArgVal Y, ArgVal Fail, Instruction *Inst) {
@@ -1229,7 +1224,7 @@ void BeamModuleAssembler::emit_try_case_end(ArgVal Src, Instruction *Inst) {
   a.bind(entry);
   mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), Src);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_TRY_CLAUSE);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_i_raise(Instruction *Inst) {
@@ -1250,7 +1245,7 @@ void BeamModuleAssembler::emit_i_raise(Instruction *Inst) {
 
   a.bind(next);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), TMP1);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 void BeamModuleAssembler::emit_build_stacktrace(Instruction *Inst) {
@@ -1307,7 +1302,7 @@ void BeamModuleAssembler::emit_raw_raise(Instruction *Inst) {
   call((uint64_t)raw_raise);
   a.cmp(RET, 0);
   a.jne(next);
-  emit_handle_error(entry);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(next);
   mov(x0, am_badarg);
 }

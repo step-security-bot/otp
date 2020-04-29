@@ -304,7 +304,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
   case op_line_I:
     break;
   default:
-    emit_nyi(opc[inst.op].name);
+    ERTS_ASSERT(0 && "Invalid instruction");
     break;
   }
   return true;

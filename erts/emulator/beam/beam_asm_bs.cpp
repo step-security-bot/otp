@@ -29,7 +29,7 @@ void BeamModuleAssembler::emit_fail_head_or_body(Label entry, ArgVal Fail) {
   if (Fail.getValue()) {
     a.jmp(labels[Fail.getValue()]);
   } else {
-    emit_handle_error(entry);
+    emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   }
 }
 

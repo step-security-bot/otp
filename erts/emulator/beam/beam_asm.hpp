@@ -305,12 +305,15 @@ class BeamGlobalAssembler : public BeamAssembler {
 
 #define BEAM_GLOBAL_FUNCS(_)                    \
   _(return)                                     \
+  _(dispatch_return)                            \
   _(garbage_collect)                            \
   _(gc_after_bif)                               \
   _(post_error_handling)                        \
   _(error_action_code)                          \
   _(call_error_handler)                         \
   _(i_func_info)                                \
+  _(yield_error_test)                           \
+  _(yield_error_test_only)                      \
   _(dbg)                                        \
   _(call_bif)                                   \
   _(call_nif)                                   \
@@ -463,8 +466,9 @@ private:
 
   template<typename T>
   void emit_yield_error_test(Label entry, T exp, bool only);
-  void emit_handle_error(Label I, ErtsCodeMFA *mfa = nullptr);
-  void emit_handle_error(Label I, ArgVal exp);
+  void emit_mfa(x86::Gp to, ErtsCodeMFA *mfa);
+  void emit_mfa(x86::Gp to, ArgVal exp);
+  void emit_handle_error(Label I, ErtsCodeMFA *exp);
   void emit_validate(ArgVal arity);
   void emit_bs_skip_bits(ArgVal Fail, ArgVal Ctx);
 

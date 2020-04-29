@@ -31,7 +31,7 @@ static x86::Mem getFRef(x86::Gp Base, ArgVal Reg) {
 
 void BeamModuleAssembler::emit_badarith(Label entry) {
   a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_BADARITH);
-  emit_handle_error(entry, nullptr);
+  emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
 }
 
 // x64.fload(Src, Dst);

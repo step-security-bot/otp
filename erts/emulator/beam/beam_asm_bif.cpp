@@ -27,25 +27,32 @@ extern "C" {
   void handle_error(void);
 }
 
+void BeamModuleAssembler::emit_mfa(x86::Gp to, ErtsCodeMFA *mfa) {
+  a.mov(to, imm(mfa));
+}
+
+void BeamModuleAssembler::emit_mfa(x86::Gp to, ArgVal exp) {
+  make_move_patch(to, imports[exp.getValue()].patches, offsetof(Export, info.mfa));
+}
+
 template<typename T>
 void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
   Label next = a.newLabel(), cont, error = a.newLabel();
   comment("check if error or yield");
   a.cmp(RET, THE_NON_VALUE);
   a.jne(next);
-  a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
-  a.jne(error);
-  comment("yield");
-  if (!only) {
+
+  a.lea(ARG2, x86::qword_ptr(entry));
+  emit_mfa(ARG4, exp);
+
+  if (only) {
+    farjmp(ga->get_yield_error_test_only());
+  } else {
     cont = a.newLabel();
     a.lea(RET, x86::qword_ptr(cont));
-    mov(CP, RET);
+    farjmp(ga->get_yield_error_test());
   }
-  a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
-  a.mov(RET,RET_context_switch);
-  farjmp(ga->get_return());
-  a.bind(error);
-  emit_handle_error(entry, exp);
+
   a.bind(next);
   mov(ArgVal(ArgVal::x,0), RET);
   if (only) {
@@ -65,11 +72,11 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.cmp(FCALLS, 1);
   a.jg(execute);
   make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
-  a.mov(TMP3, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
   a.lea(TMP3, x86::qword_ptr(entry));
   a.mov(RET, RET_context_switch3);
+  a.mov(TMP2, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP2);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
   farjmp(ga->get_return());
 
   a.bind(execute);
@@ -299,7 +306,7 @@ void BeamModuleAssembler::emit_send(Instruction *I) {
   emit_proc_lc_require();
   emit_swapin();
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process, fcalls)));
-  emit_yield_error_test(entry, nullptr, false);
+  emit_yield_error_test(entry, (ErtsCodeMFA*)nullptr, false);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
