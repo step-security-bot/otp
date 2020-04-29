@@ -449,12 +449,11 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
   a.mov(TMP1, get_return());
   a.jmp(TMP1);
   a.bind(error);
-  a.mov(ARG1, c_p);
+
   a.mov(ARG2, qTMP1_MEM);
-  a.mov(ARG3, x_reg);
   a.lea(ARG4, x86::qword_ptr(ARG2, -24));
-  call((uint64_t)handle_error);
-  farjmp(get_post_error_handling());
+
+  farjmp(get_handle_error());
 }
 
 void BeamGlobalAssembler::emit_call_bif(void)

@@ -309,7 +309,7 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(dispatch_light_bif)                         \
   _(garbage_collect)                            \
   _(gc_after_bif)                               \
-  _(post_error_handling)                        \
+  _(handle_error)                               \
   _(error_action_code)                          \
   _(call_error_handler)                         \
   _(i_func_info)                                \
@@ -336,8 +336,6 @@ public:
   uint64_t get_##NAME() { ASSERT(NAME##_code); return (uint64_t)NAME##_code; }
   BEAM_GLOBAL_FUNCS(GET_FUNC)
 #undef GET_FUNCS
-
-  uint64_t get_handle_error() { return get_error_action_code(); }
 };
 
 /* When a 32-bit immediate operand is used in a 64-bit instruction, it's

@@ -151,7 +151,7 @@ void BeamGlobalAssembler::emit_return() {
     // Set I to be the return address, the address is stored in TMP3
     //
     // FIXME: This must not be set when handle_error returns NULL. Handle this
-    // in post_error_handling instead.
+    // in handle_error instead.
     a.cmp(TMP3, 0);
     a.je(next);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), TMP3);
@@ -199,7 +199,7 @@ void BeamGlobalAssembler::emit_call_error_handler() {
   call((uint64_t)call_error_handler);
   emit_heavy_swapin();
   a.test(RET,RET);
-  a.je(get_handle_error());
+  a.je(get_error_action_code());
   a.jmp(RET);
 }
 
@@ -211,35 +211,31 @@ void BeamModuleAssembler::emit_call_error_handler(Instruction *I) {
 }
 
 void BeamModuleAssembler::emit_handle_error(Label I, ErtsCodeMFA *exp) {
-    /* TODO: We can change this to only set ARG2 and ARG4 and then jump to global code... */
     emit_swapout();
-    a.mov(ARG1, c_p);
-    /* FIXME: MOV -> LEA */
+
     a.lea(ARG2, x86::qword_ptr(I));
-    a.mov(ARG3, x_reg);
     emit_mfa(ARG4, exp);
-    call((uint64_t)handle_error);
-    farjmp(ga->get_post_error_handling());
+
+    farjmp(ga->get_handle_error());
 }
 
 void BeamGlobalAssembler::emit_yield_error_test() {
   Label error = a.newLabel();
   a.cmp(x86::qword_ptr(c_p, offsetof(Process,freason)), TRAP);
   a.jne(error);
+
   comment("yield");
   a.mov(getRef(CP), RET);
   a.mov(TMP3, x86::qword_ptr(c_p, offsetof(Process, i)));
   a.mov(RET,RET_context_switch);
   farjmp(this->get_return());
+
   a.bind(error);
   comment("error");
   emit_swapout();
-  a.mov(ARG1, c_p);
-  // ARG2 set in caller
-  a.mov(ARG3, x_reg);
-  // ARG4 set in caller
-  call((uint64_t)handle_error);
-  farjmp(this->get_post_error_handling());
+
+  // ARG2 and ARG4 set in caller
+  farjmp(this->get_handle_error());
 }
 
 void BeamGlobalAssembler::emit_yield_error_test_only() {
@@ -254,30 +250,32 @@ void BeamGlobalAssembler::emit_yield_error_test_only() {
   a.bind(error);
   comment("error");
   emit_swapout();
-  a.mov(ARG1, c_p);
-  // ARG2 set in caller
-  a.mov(ARG3, x_reg);
-  // ARG4 set in caller
-  call((uint64_t)handle_error);
-  farjmp(this->get_post_error_handling());
+
+  // ARG2 and ARG4 set in caller
+  farjmp(this->get_handle_error());
 }
 
 // this is an alias for handle_error
 void BeamGlobalAssembler::emit_error_action_code() {
   emit_swapout();
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, 0);
-  a.mov(ARG3, x_reg);
-  a.mov(ARG4, 0);
-  call((uint64_t)handle_error);
-  farjmp(this->get_post_error_handling());
+
+  a.sub(ARG2, ARG2);
+  a.sub(ARG4, ARG4);
+
+  farjmp(this->get_handle_error());
 }
 
-void BeamGlobalAssembler::emit_post_error_handling() {
+void BeamGlobalAssembler::emit_handle_error() {
   Label dispatch = a.newLabel();
-  a.mov(TMP3, RET);
-  a.cmp(TMP3, 0);
+
+  /* ARG2 and ARG4 must be set prior to jumping here! */
+  a.mov(ARG1, c_p);
+  a.mov(ARG3, x_reg);
+  call((uint64_t)handle_error);
+
+  a.test(RET, RET);
   a.jne(dispatch);
+  a.mov(TMP3, RET);
   a.mov(RET, RET_do_schedule);
   farjmp(this->get_return());
   a.bind(dispatch);
@@ -291,7 +289,7 @@ void BeamGlobalAssembler::emit_i_func_info() {
 
   a.mov(x86::qword_ptr(c_p,offsetof(Process,freason)), EXC_FUNCTION_CLAUSE);
   a.mov(x86::qword_ptr(c_p,offsetof(Process,current)), TMP1);
-  farjmp(this->get_handle_error());
+  farjmp(this->get_error_action_code());
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
