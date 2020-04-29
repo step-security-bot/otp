@@ -676,14 +676,25 @@ endif
 
 GENERATE += $(TARGET)/erl_db_insert_list.ycf.h
 
+
 asmjit/CMakeLists.txt:
 	git submodule update --checkout
 
-asmjit/Makefile: asmjit/CMakeLists.txt
-	cd asmjit && cmake -DCMAKE_BUILD_TYPE="Debug" -DASMJIT_STATIC=true .
+$(TTF_DIR)/asmjit:
+	$(gen_verbose)mkdir $(TTF_DIR)/asmjit
 
-$(TTF_DIR)/usr/local/lib/libasmjit.a: asmjit/Makefile
-	cd asmjit && make && make DESTDIR=../$(TTF_DIR) install
+$(TTF_DIR)/asmjit/Makefile: asmjit/CMakeLists.txt $(TTF_DIR)/asmjit
+ifeq ($(TYPE),debug)
+	$(gen_verbose)cd $(TTF_DIR)/asmjit && \
+	cmake -DCMAKE_BUILD_TYPE="Debug" -DASMJIT_STATIC=true ../../../../asmjit
+else
+	$(gen_verbose)cd $(TTF_DIR)/asmjit && \
+	cmake -DCMAKE_BUILD_TYPE="Release" \
+		-DASMJIT_STATIC=true ../../../../asmjit
+endif
+
+$(TTF_DIR)/usr/local/lib/libasmjit.a: $(TTF_DIR)/asmjit/Makefile
+	cd $(TTF_DIR)/asmjit && make && make DESTDIR=../ install
 	touch $@
 
 ifdef BEAMASM_ENABLED
