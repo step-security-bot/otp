@@ -2867,7 +2867,9 @@ if test X${enable_hipe} != Xno; then
               fi
               ;;
         esac
-
+        if test ${enable_hipe} != no; then
+         enable_hipe=yes
+        fi
 fi
 
 dnl Test if BEAMASM can be enabled
@@ -2901,28 +2903,10 @@ if test ${enable_beamasm} != no; then
            fi
            ;;
      esac
+     if test ${enable_beamasm} != no; then
+       enable_beamasm=yes
+     fi
 fi
-
-dnl Check if BEAMASM or HiPE should be enabled
-case "X${enable_beamasm}Y${enable_hipe}" in
-     XyesYyes)
-        AC_MSG_ERROR([Both BEAMASM and HiPE cannot be configured at the same time]);;
-     XautoYauto)
-        enable_beamasm=yes
-        enable_hipe=no;;
-     XautoYno)
-        enable_beamasm=yes
-        enable_hipe=no;;
-     XautoYyes)
-        enable_beamasm=no
-        enable_hipe=yes;;
-     XyesYauto)
-        enable_beamasm=yes
-        enable_hipe=no;;
-     XnoYauto)
-        enable_beamasm=no
-        enable_hipe=yes;;
-esac
 
 if test X${enable_hipe} = Xyes; then
    case $OPSYS in
@@ -2992,7 +2976,6 @@ if test X${enable_hipe} = Xyes; then
 	AC_MSG_WARN([HiPE is not supported in 64-bit builds])
   else
      HIPE_ENABLED=yes
-     AC_DEFINE(HIPE,[1],[Define to enable HiPE])
      HIPE_HELPERS="xmerl syntax_tools edoc"
      ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS hipe"
      AC_MSG_NOTICE([Enable exec_alloc for hipe code allocation])
@@ -3038,17 +3021,19 @@ fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
 BEAMASM_ENABLED=
+FLAVORS=smp
 
 # Enable beamasm
 if test X${enable_beamasm} = Xyes; then
      BEAMASM_ENABLED=yes
-     AC_DEFINE(BEAMASM,[1],[Define to enable BEAMASM])
+     FLAVORS="${FLAVORS} asm"
      ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS beamasm"
      AC_MSG_NOTICE([Enable exec_alloc for beamasm code allocation])
      ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS exec_alloc"
 fi
 
 AC_SUBST(BEAMASM_ENABLED)
+AC_SUBST(FLAVORS)
 
 #
 # Check for working poll().

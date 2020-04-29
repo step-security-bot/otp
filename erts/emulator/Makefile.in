@@ -25,8 +25,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
-HIPE_ENABLED=@HIPE_ENABLED@
 BEAMASM_ENABLED=@BEAMASM_ENABLED@
+HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
 USE_VM_PROBES=@USE_VM_PROBES@
@@ -36,7 +36,22 @@ Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
 OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab
-ifdef BEAMASM_ENABLED
+
+FLAVOR=asm
+ifeq ($(FLAVOR),)
+override FLAVOR=asm
+endif
+
+ifeq ($(FLAVOR),asm)
+ifndef BEAMASM_ENABLED
+$(error "BEAMASM is not supported")
+endif
+else
+undefine BEAMASM_ENABLED
+endif
+
+ifeq ($(FLAVOR),asm)
+undefine HIPE_ENABLED
 OPCODE_TABLES += beam/ops_asm.tab
 else
 OPCODE_TABLES += beam/ops.tab \
@@ -218,9 +233,7 @@ endif
 # NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
 #
 
-override FLAVOR=smp
-
-FLAVOR_MARKER=.smp
+FLAVOR_MARKER=.$(FLAVOR)
 ENABLE_ALLOC_TYPE_VARS += nofrag
 ifeq ($(DIRTY_SCHEDULER_TEST),yes)
 DS_TEST=yes
@@ -268,6 +281,12 @@ EMU_CC  = @EMU_CC@
 endif
 WFLAGS  = @WFLAGS@
 CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) $(DEFS) $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS) $(GIT_VSN)
+ifdef HIPE_ENABLED
+CFLAGS  += -DHIPE=1
+endif
+ifeq ($(FLAVOR),asm)
+CFLAGS  += -DBEAMASM=1
+endif
 CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes -Wdeclaration-after-statement,$(CFLAGS))
 HCC     = @HCC@
 LD      = @LD@
@@ -405,13 +424,13 @@ endif
 
 LIBS += @LIBCARBON@
 
-ifdef BEAMASM_ENABLED
+TTF_DIR=$(TARGET)/$(TYPE)/$(FLAVOR)
+CREATE_DIRS += $(TTF_DIR)
+
+ifeq ($(FLAVOR),asm)
 LIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
 DEPLIBS += $(TTF_DIR)/usr/local/lib/libasmjit.a
 endif
-
-TTF_DIR=$(TARGET)/$(TYPE)/$(FLAVOR)
-CREATE_DIRS += $(TTF_DIR)
 
 # create obj dirs for emulator, pcre and zlib
 
@@ -435,7 +454,7 @@ PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
 
-ifndef BEAMASM_ENABLED
+ifeq ($(FLAVOR),smp)
 ifeq ($(PROFILE), generate)
 EMULATOR_EXECUTABLE = $(PROFILE_EXECUTABLE)
 ifeq ($(PROFILE_COMPILER), gcc)
@@ -572,6 +591,12 @@ ifdef HIPE_ENABLED
 OPCODE_TABLES += hipe/hipe_ops.tab hipe/hipe_instrs.tab
 endif
 
+ifeq ($(FLAVOR),asm)
+ASM=yes
+else
+ASM=no
+endif
+
 $(TTF_DIR)/beam_cold.h \
 $(TTF_DIR)/beam_warm.h \
 $(TTF_DIR)/beam_hot.h \
@@ -585,17 +610,12 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-wordsize @EXTERNAL_WORD_SIZE@ \
 		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
-		$(if $(BEAMASM_ENABLED),-asm,) \
+		-asm $(ASM) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
 		-DNO_FPE_SIGNALS=$(if $(filter unreliable,$(FPE)),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
-ifdef BEAMASM_ENABLED
-ASM=yes
-else
-ASM=no
-endif
 
 # bif and atom table
 ATOMS=	beam/atom.names
@@ -697,7 +717,7 @@ $(TTF_DIR)/usr/local/lib/libasmjit.a: $(TTF_DIR)/asmjit/Makefile
 	cd $(TTF_DIR)/asmjit && make && make DESTDIR=../ install
 	touch $@
 
-ifdef BEAMASM_ENABLED
+ifeq ($(FLAVOR),asm)
 GENERATE += $(TTF_DIR)/usr/local/lib/libasmjit.a
 endif
 

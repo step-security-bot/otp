@@ -48,6 +48,7 @@ CROSS_COMPILING = @CROSS_COMPILING@
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
 TYPES = @TYPES@
+FLAVORS = @FLAVORS@
 
 USE_PGO = @USE_PGO@
 

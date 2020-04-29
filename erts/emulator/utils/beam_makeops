@@ -47,7 +47,7 @@ my $num_file_opcodes = 0;
 my $wordsize = 32;
 my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
-my $asm = 0;
+my $asm = 'no';
 my %defs;                        # Defines (from command line).
 
 # This is shift counts and mask for the packer.
@@ -284,7 +284,7 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($wordsize = shift), next if /^wordsize/;
     ($code_model = shift), next if /^code-model/;
     ($verbose = 1), next if /^v/;
-    ($asm = 1), next if /^asm/;
+    ($asm = shift), next if /^asm/;
     ($defs{$1} = $2), next if /^D(\w+)=(\w+)/;
     die "$0: Bad option: -$_\n";
 }
@@ -600,7 +600,7 @@ sub emulator_output {
             my $pack_spec = '';
             my $size = 0;
 
-            if (!$asm) {
+            if ($asm eq 'no') {
                 ($size, my $code, $pack_spec) = cg_basic(name => $name, args => \@args);
                 if (defined $code) {
                     $code = "OpCase($print_name):\n$code";
@@ -623,11 +623,11 @@ sub emulator_output {
     # code for them.
     #
 
-    if (!$asm) {
+    if ($asm eq 'no') {
         combine_micro_instructions();
     }
 
-    if ($asm) {
+    if ($asm eq 'yes') {
 
         foreach $key (keys %specific_op) {
             foreach (@{$specific_op{$key}}) {

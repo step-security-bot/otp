@@ -186,7 +186,7 @@ static char *plusz_val_switches[] = {
 #define sleep(seconds) Sleep(seconds*1000)
 #endif
 
-#define SMP_SUFFIX	  ".smp"
+#define DEFAULT_SUFFIX	  "asm"
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
@@ -245,8 +245,8 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
-static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
+static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (asm, smp) */
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detachec mode - 
@@ -381,9 +381,10 @@ add_extra_suffixes(char *prog)
        p = write_str(p, ".");
        p = write_str(p, emu_type);
    }
-   if (start_smp_emu) {
-       p = write_str(p, SMP_SUFFIX);
-   }
+
+   p = write_str(p, ".");
+   p = write_str(p, emu_flavor);
+
 #ifdef __WIN32__
    if (dll) {
        p = write_str(p, DLL_EXT);
@@ -535,6 +536,12 @@ int main(int argc, char **argv)
                     usage(argv[i]);
                 }
                 emu_type = argv[i+1];
+                i++;
+	    } else if (strcmp(argv[i], "-emu_flavor") == 0) {
+		if (i + 1 >= argc) {
+                    usage(argv[i]);
+                }
+                emu_flavor = argv[i+1];
                 i++;
 	    }
 	}

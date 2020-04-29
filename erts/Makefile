@@ -34,7 +34,7 @@ ERTSDIRS += start_scripts
 endif
 
 .PHONY: all
-all: smp
+all: $(FLAVORS)
 
 .PHONY: docs
 docs:
@@ -50,9 +50,9 @@ debug opt lcnt clean:
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
 .PHONY: smp
-smp:
+$(FLAVORS):
 	$(V_at)for type in $(TYPES); do \
-		( $(MAKE) $$type ) || exit $$?; \
+		( $(MAKE) FLAVOR=$@ $$type ) || exit $$?; \
 	done
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version

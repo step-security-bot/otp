@@ -75,6 +75,7 @@ GDB=
 GDBBP=
 GDBARGS=
 TYPE=
+FLAVOR=
 debug=
 run_valgrind=no
 run_rr=no
@@ -226,6 +227,12 @@ while [ $# -gt 0 ]; do
             TYPE=.$1
             shift
             ;;
+        "-emu_flavor")
+            shift
+            cargs="$cargs -$1"
+            FLAVOR=$1
+            shift
+            ;;
 	"-rr")
 	    shift
 	    cargs="$cargs -rr"
@@ -256,7 +263,11 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit`
+if [ "x$FLAVOR" = "x" ]; then
+   EMU_NAME=`$EXEC -emu_name_exit`
+else
+    EMU_NAME=`$EXEC -emu_name_exit -emu_flavor $FLAVOR`
+fi
 
 if [ $skip_erlexec = yes ]; then
     emu_xargs=`echo $xargs | sed "s|+|-|g"`
