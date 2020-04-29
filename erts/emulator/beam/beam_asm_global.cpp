@@ -60,42 +60,6 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     emit_function_postamble();
 }
 
-void BeamGlobalAssembler::emit_gc_after_bif() {
-    /* This is a common stub called after a bif call to see if a gc is needed.
-       RET = bif return
-       FCALLS = c_p->mbuf ptr value before bif
-       ARG5 = arity
-     */
-    Label after_gc = a.newLabel(), do_gc = a.newLabel();
-    emit_function_preamble();
-    comment("check if gc is needed");
-    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,stop)));
-    a.sub(TMP1, x86::qword_ptr(c_p, offsetof(Process,htop)));
-    a.sar(TMP1, 3);
-    a.cmp(TMP1, x86::qword_ptr(c_p, offsetof(Process,mbuf_sz)));
-    a.jb(do_gc);
-    // This asm code is taken from what GCC does
-    a.mov(TMP1, x86::qword_ptr(c_p, offsetof(Process,bin_vheap_sz)));
-    a.cmp(x86::qword_ptr(c_p, offsetof(Process,off_heap.overhead)), TMP1);
-    a.mov(x86::edx, x86::dword_ptr(c_p, offsetof(Process,flags)));
-    a.seta(x86::cl);
-    a.shr(x86::edx, 10);
-    a.and_(x86::edx, 1);
-    a.or_(x86::cl, x86::dl);
-    a.jne(do_gc);
-    emit_function_postamble();
-
-    comment("do a gc_after_bif_call");
-    a.bind(do_gc);
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
-    a.mov(ARG3, RET);
-    a.mov(ARG4, x_reg);
-    call((uint64_t)erts_gc_after_bif_call_lhf);
-
-    emit_function_postamble();
-}
-
 #define STACK_SLOTS 12
 
 void BeamGlobalAssembler::emit_call() {
@@ -181,11 +145,11 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 }
 
 void BeamGlobalAssembler::emit_dispatch_light_bif() {
-  // TMP1 contains pointer to ErtsCodeMFA
-  // TMP3 contains the place to jump to
-  a.mov(TMP2, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
+  // ARG3 contains place to jump to, ARG4 contains export entry
+  a.mov(TMP2, x86::qword_ptr(TMP4, offsetof(Export, info.mfa.arity)));
+  a.lea(TMP4, x86::qword_ptr(TMP4, offsetof(Export, info.mfa)));
   a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP2);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP4);
   a.mov(RET, RET_context_switch3);
   farjmp(this->get_return());
 }

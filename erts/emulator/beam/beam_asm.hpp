@@ -308,7 +308,6 @@ class BeamGlobalAssembler : public BeamAssembler {
   _(dispatch_return)                            \
   _(dispatch_light_bif)                         \
   _(garbage_collect)                            \
-  _(gc_after_bif)                               \
   _(handle_error)                               \
   _(error_action_code)                          \
   _(call_error_handler)                         \
@@ -457,6 +456,8 @@ private:
   void emit_fail_head_or_body(Label entry, ArgVal Fail);
   void emit_badarg(Label entry, ArgVal Fail);
   void emit_badarith(Label entry);
+
+  void emit_call_light_bif(ArgVal Bif, ArgVal Exp, bool only);
 
   int emit_bs_get_unchecked_field_size(ArgVal Size, int unit, Label Fail,
     const x86::Gp &out, unsigned max_size = 0);

@@ -27,6 +27,30 @@ extern "C" {
   void handle_error(void);
 }
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+#    define PROCESS_MAIN_CHK_LOCKS(P)                   \
+  do {                                                  \
+    if ((P))                                            \
+      erts_proc_lc_chk_only_proc_main((P));             \
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());   \
+  } while (0)
+#    define ERTS_REQ_PROC_MAIN_LOCK(P)				\
+  do {                                                          \
+    if ((P))                                                    \
+      erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,       \
+                                __FILE__, __LINE__);            \
+  } while (0)
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)                        \
+  do {                                                          \
+    if ((P))                                                    \
+      erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);    \
+  } while (0)
+#else
+#  define PROCESS_MAIN_CHK_LOCKS(P)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P)
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
+#endif
+
 void BeamModuleAssembler::emit_mfa(x86::Gp to, ErtsCodeMFA *mfa) {
   a.mov(to, imm(mfa));
 }
@@ -63,77 +87,71 @@ void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
   }
 }
 
-void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
+static Eterm
+call_light_bif(Process *c_p, Eterm *reg, BeamInstr *I, Export *exp, ErtsBifFunc vbf)
+{
+    ErlHeapFragment *live_hf_end = c_p->mbuf;
+    ErtsCodeMFA *codemfa = &exp->info.mfa;
+    Eterm result;
+
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    {
+        ERTS_CHK_MBUF_SZ(c_p);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+        result = vbf(c_p, reg, I);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+        ERTS_CHK_MBUF_SZ(c_p);
+
+        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+        ERTS_HOLE_CHECK(c_p);
+    }
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+
+    if (ERTS_IS_GC_DESIRED(c_p)) {
+        result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg,
+                                            codemfa->arity);
+    }
+
+    return result;
+}
+
+void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, bool only) {
   Label entry = a.newLabel(), execute = a.newLabel();
   a.align(kAlignCode, 8);
   a.bind(entry);
 
+  a.lea(ARG3, x86::qword_ptr(entry));
+  make_move_patch(ARG4, imports[Exp.getValue()].patches);
+
   // Check if we have run out of reductions before the bif call
   a.dec(FCALLS);
   a.jg(execute);
-  make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
-  a.lea(TMP3, x86::qword_ptr(entry));
   farjmp(ga->get_dispatch_light_bif());
 
   a.bind(execute);
-  emit_swapout();
-  emit_proc_lc_unrequire();
 
+  emit_swapout();
   a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
-  a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
+
+  /* ARG3 and ARG4 have been set earlier. */
+  mov(ARG5, Bif);
   a.mov(ARG1, c_p);
   a.mov(ARG2, x_reg);
-  a.lea(ARG3, x86::qword_ptr(entry));
-  call(Bif);
-
-  make_move_patch(ARG5, imports[Exp.getValue()].patches, offsetof(Export, info.mfa.arity));
-  a.mov(ARG5, x86::qword_ptr(ARG5));
-
-  // We do not want to clobber RET here
-  a.mov(TMP1, ga->get_gc_after_bif());
-  a.call(TMP1);
-
-  emit_proc_lc_require();
-  emit_swapin();
+  call((uint64_t)call_light_bif);
 
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
-  emit_yield_error_test(entry, Exp, true);
+  emit_swapin();
+
+  emit_yield_error_test(entry, Exp, only);
+}
+
+void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instruction *I) {
+  emit_call_light_bif(Bif, Exp, true);
 }
 
 void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instruction *I) {
-  Label entry = a.newLabel(), execute = a.newLabel();
-  a.align(kAlignCode, 8);
-  a.bind(entry);
-
-  // Check if we have run out of reductions before the bif call
-  a.dec(FCALLS);
-  a.jg(execute);
-  make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
-  a.lea(TMP3, x86::qword_ptr(entry));
-  farjmp(ga->get_dispatch_light_bif());
-
-  a.bind(execute);
-  emit_swapout();
-  emit_proc_lc_unrequire();
-
-  a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
-  a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
-  a.mov(ARG1, c_p);
-  a.mov(ARG2, x_reg);
-  a.lea(ARG3, x86::qword_ptr(entry));
-  call(Bif);
-
-  make_move_patch(ARG5, imports[Exp.getValue()].patches, offsetof(Export, info.mfa.arity));
-  a.mov(ARG5, x86::qword_ptr(ARG5));
-
-  a.mov(TMP1, ga->get_gc_after_bif());
-  a.call(TMP1);
-
-  emit_proc_lc_require();
-  emit_swapin();
-
-  a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,fcalls)));
-  emit_yield_error_test(entry, Exp, false);
+  emit_call_light_bif(Bif, Exp, false);
 }
 
 // WARNING: Note that args here HAVE to be given in reverse order as that is the way
@@ -299,32 +317,9 @@ void BeamModuleAssembler::emit_send(Instruction *I) {
   emit_yield_error_test(entry, (ErtsCodeMFA*)nullptr, false);
 }
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#    define PROCESS_MAIN_CHK_LOCKS(P)                   \
-  do {                                                  \
-    if ((P))                                            \
-      erts_proc_lc_chk_only_proc_main((P));             \
-    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());   \
-  } while (0)
-#    define ERTS_REQ_PROC_MAIN_LOCK(P)				\
-  do {                                                          \
-    if ((P))                                                    \
-      erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,       \
-                                __FILE__, __LINE__);            \
-  } while (0)
-#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)                        \
-  do {                                                          \
-    if ((P))                                                    \
-      erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);    \
-  } while (0)
-#else
-#  define PROCESS_MAIN_CHK_LOCKS(P)
-#  define ERTS_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
-#endif
-
 static Eterm
-call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf) {
+call_bif(Process *c_p, Eterm *reg, BeamInstr *I, ErtsBifFunc vbf)
+{
     ErlHeapFragment *live_hf_end;
     ErtsCodeMFA *codemfa;
     Eterm result;
