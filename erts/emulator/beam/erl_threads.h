@@ -411,7 +411,7 @@ ERTS_GLB_INLINE erts_tid_t erts_thr_self(void);
 ERTS_GLB_INLINE int erts_thr_getname(erts_tid_t tid, char *buf, size_t len);
 ERTS_GLB_INLINE int erts_equal_tids(erts_tid_t x, erts_tid_t y);
 ERTS_GLB_INLINE void erts_mtx_init(erts_mtx_t *mtx,
-                                   char *name,
+                                   const char *name,
                                    Eterm extra,
                                    erts_lock_flags_t flags);
 ERTS_GLB_INLINE void erts_mtx_init_locked(erts_mtx_t *mtx,
@@ -1608,7 +1608,7 @@ erts_equal_tids(erts_tid_t x, erts_tid_t y)
 }
 
 ERTS_GLB_INLINE void
-erts_mtx_init(erts_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
+erts_mtx_init(erts_mtx_t *mtx, const char *name, Eterm extra, erts_lock_flags_t flags)
 {
     int res = ethr_mutex_init(&mtx->mtx);
     if (res) {
