@@ -37,7 +37,7 @@ void BeamModuleAssembler::emit_mfa(x86::Gp to, ArgVal exp) {
 
 template<typename T>
 void BeamModuleAssembler::emit_yield_error_test(Label entry, T exp, bool only) {
-  Label next = a.newLabel(), cont, error = a.newLabel();
+  Label next = a.newLabel(), cont;
   comment("check if error or yield");
   a.cmp(RET, THE_NON_VALUE);
   a.jne(next);
@@ -494,8 +494,6 @@ void BeamModuleAssembler::emit_call_bif(ArgVal Func, Instruction *I)
 /* Both dispatch_nif and call_nif will end up in this function */
 void BeamGlobalAssembler::emit_call_nif(void)
 {
-  Label check_trap = a.newLabel(), error = a.newLabel();
-
   a.dec(FCALLS);
   emit_heavy_swapout();
 
