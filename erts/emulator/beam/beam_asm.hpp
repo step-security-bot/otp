@@ -306,6 +306,7 @@ class BeamGlobalAssembler : public BeamAssembler {
 #define BEAM_GLOBAL_FUNCS(_)                    \
   _(return)                                     \
   _(dispatch_return)                            \
+  _(dispatch_light_bif)                         \
   _(garbage_collect)                            \
   _(gc_after_bif)                               \
   _(post_error_handling)                        \

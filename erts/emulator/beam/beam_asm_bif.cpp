@@ -73,11 +73,7 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.jg(execute);
   make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
   a.lea(TMP3, x86::qword_ptr(entry));
-  a.mov(RET, RET_context_switch3);
-  a.mov(TMP2, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP2);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
-  farjmp(ga->get_return());
+  farjmp(ga->get_dispatch_light_bif());
 
   a.bind(execute);
   emit_swapout();
@@ -94,6 +90,7 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   make_move_patch(ARG5, imports[Exp.getValue()].patches, offsetof(Export, info.mfa.arity));
   a.mov(ARG5, x86::qword_ptr(ARG5));
 
+  // We do not want to clobber RET here
   a.mov(TMP1, ga->get_gc_after_bif());
   a.call(TMP1);
 
@@ -113,12 +110,8 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   a.cmp(FCALLS, 1);
   a.jg(execute);
   make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
-  a.mov(TMP3, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP3);
-  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
   a.lea(TMP3, x86::qword_ptr(entry));
-  a.mov(RET, RET_context_switch3);
-  farjmp(ga->get_return());
+  farjmp(ga->get_dispatch_light_bif());
 
   a.bind(execute);
   emit_swapout();

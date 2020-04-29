@@ -180,6 +180,16 @@ void BeamGlobalAssembler::emit_dispatch_return() {
   farjmp(get_return());
 }
 
+void BeamGlobalAssembler::emit_dispatch_light_bif() {
+  // TMP1 contains pointer to ErtsCodeMFA
+  // TMP3 contains the place to jump to
+  a.mov(TMP2, x86::qword_ptr(TMP1, offsetof(ErtsCodeMFA, arity)));
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), TMP2);
+  a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), TMP1);
+  a.mov(RET, RET_context_switch3);
+  farjmp(this->get_return());
+}
+
 void BeamGlobalAssembler::emit_call_error_handler() {
   emit_heavy_swapout();
   a.mov(ARG1,c_p);
