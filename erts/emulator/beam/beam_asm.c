@@ -445,6 +445,10 @@ init_emulator_finish(void)
     install_bifs();
 }
 
+// GDB puts a breakpoint in this function.
+void ERTS_NOINLINE __jit_debug_register_code(void);
+void ERTS_NOINLINE __jit_debug_register_code(void) {}
+
 int
 erts_beam_jump_table(void)
 {

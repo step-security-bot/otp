@@ -334,12 +334,11 @@ struct jit_descriptor {
 
 extern "C" {
 
-// GDB puts a breakpoint in this function.
-void __attribute__((noinline)) __jit_debug_register_code() {}
+  void ERTS_NOINLINE __jit_debug_register_code(void);
 
 // Make sure to specify the version statically, because the
 // debugger may check the version before we can set it.
-struct jit_descriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
+  struct jit_descriptor __jit_debug_descriptor = { 1, JIT_NOACTION, NULL, NULL };
 
 } // extern "C"
 

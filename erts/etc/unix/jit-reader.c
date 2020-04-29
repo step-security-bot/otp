@@ -14,9 +14,11 @@
 
 GDB_DECLARE_GPL_COMPATIBLE_READER
 
+// #define HARD_DEBUG
+
 typedef struct range {
-    void *start;
-    void *end;
+    GDB_CORE_ADDR start;
+    GDB_CORE_ADDR end;
 } range;
 
 typedef struct priv {
@@ -29,8 +31,8 @@ enum gdb_status read_debug_info(struct gdb_reader_funcs *self,
                                 void *memory, long memory_sz) {
     priv *priv = self->priv_data;
     uint64_t num_functions = *(uint64_t*)memory;
-    void *mod_start  = *(void **)(memory + sizeof(uint64_t));
-    void *mod_end  = mod_start + *(uint64_t*)(memory + sizeof(uint64_t)*2);
+    GDB_CORE_ADDR mod_start  = *(GDB_CORE_ADDR *)(memory + sizeof(uint64_t));
+    GDB_CORE_ADDR mod_end  = mod_start + *(uint64_t*)(memory + sizeof(uint64_t)*2);
     char* module = memory + sizeof(uint64_t)*3;
     char* curr = module + strlen(module) + 1;
     int i;
@@ -40,8 +42,9 @@ enum gdb_status read_debug_info(struct gdb_reader_funcs *self,
     priv->ranges[priv->num_ranges-1].start = mod_start;
     priv->ranges[priv->num_ranges-1].end = mod_end;
 
-//    fprintf(stderr,"Add module %s (%p, %p)\r\n", module, mod_start, mod_end);
-
+#ifdef HARD_DEBUG
+   fprintf(stderr,"Add module %s (%lx, %lx)\r\n", module, mod_start, mod_end);
+#endif
 
     for (i = 0; i < num_functions; i++) {
         // get begin and end of code segment
@@ -53,7 +56,9 @@ enum gdb_status read_debug_info(struct gdb_reader_funcs *self,
         const char *name = (const char*)(curr + sizeof(GDB_CORE_ADDR) * 2);
         curr += strlen(name) + 1 + sizeof(GDB_CORE_ADDR) * 2;
 
-//        fprintf(stderr,"Add %s:%s (%p, %p)\r\n", module, name, (void*)begin, (void*)end);
+#ifdef HARD_DEBUG
+        fprintf(stderr,"Add %s:%s (%lx, %lx)\r\n", module, name, begin, end);
+#endif
 
         // returned value has no use
         cb->block_open(cb, symtab, NULL, begin, end, name);
@@ -64,38 +69,46 @@ enum gdb_status read_debug_info(struct gdb_reader_funcs *self,
     return GDB_SUCCESS;
 }
 
-enum gdb_status unwind(struct gdb_reader_funcs *self, struct gdb_unwind_callbacks *cb){
+static void regfree(struct gdb_reg_value *reg) {
+    free(reg);
+}
+
+static enum gdb_status unwind(struct gdb_reader_funcs *self, struct gdb_unwind_callbacks *cb) {
     int i;
     priv *priv = self->priv_data;
-    void *rip = *(void**)cb->reg_get(cb,16)->value;
-    void *rsp = *(void**)cb->reg_get(cb,7)->value;
+    GDB_CORE_ADDR rip = *(GDB_CORE_ADDR*)cb->reg_get(cb,16)->value;
+    GDB_CORE_ADDR rsp = *(GDB_CORE_ADDR*)cb->reg_get(cb,7)->value;
     for (i = 0; i < priv->num_ranges; i++) {
         if (rip >= priv->ranges[i].start && rip <= priv->ranges[i].end) {
-            struct gdb_reg_value *prev_rsp = malloc(sizeof(struct gdb_reg_value) + sizeof(void*)),
-                *prev_rip = malloc(sizeof(struct gdb_reg_value) + sizeof(void*)),
-                *prev_rbp = malloc(sizeof(struct gdb_reg_value) + sizeof(void*));
+            struct gdb_reg_value *prev_rsp = malloc(sizeof(struct gdb_reg_value) + sizeof(char*)),
+                *prev_rip = malloc(sizeof(struct gdb_reg_value) + sizeof(char*)),
+                *prev_rbp = malloc(sizeof(struct gdb_reg_value) + sizeof(char*));
 
-            /* fprintf(stderr,"UNWIND match: rip: %p rsp: %p\r\n", rip, rsp); */
+#ifdef HARD_DEBUG
+            fprintf(stderr,"UNWIND match: rip: %lx rsp: %lx\r\n", rip, rsp);
+#endif
 
-            prev_rsp->free = &free;
+            prev_rsp->free = &regfree;
             prev_rsp->defined = 1;
-            prev_rsp->size = sizeof(void*);
-            ((uint64_t*)prev_rsp->value)[0] = rsp + sizeof(uint64_t) * 12 + sizeof(uint64_t) * 2;
+            prev_rsp->size = sizeof(char*);
+            ((GDB_CORE_ADDR*)prev_rsp->value)[0] = rsp + sizeof(uint64_t) * 12 + sizeof(uint64_t) * 2;
 
-            cb->target_read(rsp + 13 * sizeof(void*), &prev_rip->value, sizeof(void*));
-            prev_rip->free = &free;
+            cb->target_read(rsp + 13 * sizeof(char*), &prev_rip->value, sizeof(char*));
+            prev_rip->free = &regfree;
             prev_rip->defined = 1;
-            prev_rip->size = sizeof(void*);
+            prev_rip->size = sizeof(char*);
 
-            cb->target_read(rsp + 12 * sizeof(void*), &prev_rbp->value, sizeof(void*));
-            prev_rbp->free = &free;
+            cb->target_read(rsp + 12 * sizeof(char*), &prev_rbp->value, sizeof(char*));
+            prev_rbp->free = &regfree;
             prev_rbp->defined = 1;
-            prev_rbp->size = sizeof(void*);
+            prev_rbp->size = sizeof(char*);
 
-            /* fprintf(stderr,"UNWIND prev: rip: %p rsp: %p rbp: %p\r\n", */
-            /*         *(void**)prev_rip->value, */
-            /*         *(void**)prev_rsp->value, */
-            /*         *(void**)prev_rbp->value); */
+#ifdef HARD_DEBUG
+            fprintf(stderr,"UNWIND prev: rip: %lx rsp: %lx rbp: %lx\r\n",
+                    *(GDB_CORE_ADDR*)prev_rip->value,
+                    *(GDB_CORE_ADDR*)prev_rsp->value,
+                    *(GDB_CORE_ADDR*)prev_rbp->value);
+#endif
 
             cb->reg_set(cb, 16, prev_rip);
             cb->reg_set(cb, 7, prev_rsp);
@@ -103,27 +116,31 @@ enum gdb_status unwind(struct gdb_reader_funcs *self, struct gdb_unwind_callback
             return GDB_SUCCESS;
         }
     }
-    /* fprintf(stderr,"UNWIND no match: rip: %p rsp: %p\r\n", rip, rsp); */
+#ifdef HARD_DEBUG
+    fprintf(stderr,"UNWIND no match: rip: %p rsp: %p\r\n", rip, rsp);
+#endif
     return GDB_FAIL;
 }
 
-struct gdb_frame_id get_frame_id(struct gdb_reader_funcs *self, struct gdb_unwind_callbacks *cb){
+static struct gdb_frame_id get_frame_id(struct gdb_reader_funcs *self, struct gdb_unwind_callbacks *cb){
     int i;
     priv *priv = self->priv_data;
     struct gdb_frame_id frame = {0, 0};
-    void *rip = *(void**)cb->reg_get(cb,16)->value;
-    void *rsp = *(void**)cb->reg_get(cb,7)->value;
-//    fprintf(stderr,"FRAME: rip: %p rsp: %p\r\n", rip, rsp);
+    GDB_CORE_ADDR rip = *(GDB_CORE_ADDR*)cb->reg_get(cb,16)->value;
+    GDB_CORE_ADDR rsp = *(GDB_CORE_ADDR*)cb->reg_get(cb,7)->value;
+#ifdef HARD_DEBUG
+    fprintf(stderr,"FRAME: rip: %lx rsp: %lx\r\n", rip, rsp);
+#endif
     for (i = 0; i < priv->num_ranges; i++) {
         if (rip >= priv->ranges[i].start && rip <= priv->ranges[i].end) {
             frame.code_address = priv->ranges[i].start;
-            frame.stack_address = rsp + 14 * sizeof(void*);
+            frame.stack_address = rsp + 14 * sizeof(char*);
         }
     }
     return frame;
 }
 
-void destroy(struct gdb_reader_funcs *self){
+static void destroy(struct gdb_reader_funcs *self){
     free(self);
 }
 
