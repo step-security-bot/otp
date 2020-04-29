@@ -69,7 +69,7 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   a.bind(entry);
 
   // Check if we have run out of reductions before the bif call
-  a.cmp(FCALLS, 1);
+  a.dec(FCALLS);
   a.jg(execute);
   make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
   a.lea(TMP3, x86::qword_ptr(entry));
@@ -79,7 +79,6 @@ void BeamModuleAssembler::emit_call_light_bif_only(ArgVal Bif, ArgVal Exp, Instr
   emit_swapout();
   emit_proc_lc_unrequire();
 
-  a.add(FCALLS, -1);
   a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
   a.mov(ARG1, c_p);
@@ -107,7 +106,7 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   a.bind(entry);
 
   // Check if we have run out of reductions before the bif call
-  a.cmp(FCALLS, 1);
+  a.dec(FCALLS);
   a.jg(execute);
   make_move_patch(TMP1, imports[Exp.getValue()].patches, offsetof(Export, info.mfa));
   a.lea(TMP3, x86::qword_ptr(entry));
@@ -117,7 +116,6 @@ void BeamModuleAssembler::emit_call_light_bif(ArgVal Bif, ArgVal Exp, Instructio
   emit_swapout();
   emit_proc_lc_unrequire();
 
-  a.add(FCALLS, -1);
   a.mov(x86::qword_ptr(c_p, offsetof(Process,fcalls)), FCALLS);
   a.mov(FCALLS, x86::qword_ptr(c_p, offsetof(Process,mbuf))); // Save the previous mbuf for GC call
   a.mov(ARG1, c_p);
@@ -278,7 +276,7 @@ void BeamModuleAssembler::emit_send(Instruction *I) {
   a.bind(entry);
 
   // Check if we have run out of reductions before the bif call
-  a.cmp(FCALLS, 1);
+  a.dec(FCALLS);
   a.jg(execute);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), 2);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), 0);
@@ -290,7 +288,6 @@ void BeamModuleAssembler::emit_send(Instruction *I) {
 
   emit_proc_lc_unrequire();
 
-  a.dec(FCALLS);
   emit_heavy_swapout();
   a.mov(ARG1, c_p);
   mov(ARG2, ArgVal(ArgVal::x, 0));

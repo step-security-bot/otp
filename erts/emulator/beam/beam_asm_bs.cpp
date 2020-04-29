@@ -70,8 +70,7 @@ int BeamModuleAssembler::emit_bs_get_unchecked_field_size(ArgVal Size,
       a.cmp(RET, max_size);
       a.ja(fail);
     } else {
-      a.cmp(RET, 0);
-      a.jl(fail);
+      a.js(fail);
     }
 
     /* Size = (Size) * (Unit) */
@@ -363,7 +362,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(ArgVal Src, ArgVal Fail,
   /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_integer);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -383,7 +382,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_integer(ArgVal Fail, ArgVal Sz, ArgV
     /* Must be last since mov() may clobber ARG1 */
     a.mov(ARG1, EBS);
     call((uint64_t)erts_new_bs_put_integer);
-    a.cmp(RET, 0);
+    a.test(RET,RET);
     a.jne(next);
   }
 
@@ -407,7 +406,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary(ArgVal Fail, ArgVal Sz,
     /* Must be last since mov() may clobber ARG1 */
     a.mov(ARG1, EBS);
     call((uint64_t)erts_new_bs_put_binary);
-    a.cmp(RET, 0);
+    a.test(RET,RET);
     a.jne(next);
   }
 
@@ -425,7 +424,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_all(ArgVal Src, ArgVal Fail,
   /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary_all);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -440,7 +439,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(ArgVal Fail, ArgVal Sz,
   /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, EBS);
   call((uint64_t)erts_new_bs_put_binary);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -460,7 +459,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float(ArgVal Fail, ArgVal Sz, ArgVal
     /* Must be last since mov() may clobber ARG1 */
     a.mov(ARG1, c_p);
     call((uint64_t)erts_new_bs_put_float);
-    a.cmp(RET, 0);
+    a.test(RET,RET);
     a.jne(next);
   }
 
@@ -479,7 +478,7 @@ void BeamModuleAssembler::emit_i_new_bs_put_float_imm(ArgVal Fail, ArgVal Sz, Ar
   /* Must be last since mov() may clobber ARG1 */
   a.mov(ARG1, c_p);
   call((uint64_t)erts_new_bs_put_float);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -539,7 +538,7 @@ void BeamModuleAssembler::emit_i_bs_match_string(ArgVal Ctx, ArgVal Fail, ArgVal
   a.mov(ARG2, Bits.getValue());
   make_move_patch(ARG3, strings, Ptr.getValue());
   call((uint64_t)i_bs_match_string);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.je(labels[Fail.getValue()]);
 }
 
@@ -887,7 +886,7 @@ void BeamModuleAssembler::emit_i_bs_put_utf8(ArgVal Fail, ArgVal Src, Instructio
   a.mov(ARG1, EBS);
   mov(ARG2, Src);
   call((uint64_t)erts_bs_put_utf8);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);
@@ -921,7 +920,7 @@ void BeamModuleAssembler::emit_bs_put_utf16(ArgVal Fail, ArgVal Flags, ArgVal Sr
   mov(ARG2, Src);
   a.mov(ARG1, EBS);
   call((uint64_t)erts_bs_put_utf16);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_badarg(entry, Fail);
   a.bind(next);

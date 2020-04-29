@@ -163,7 +163,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(ArgVal Fail, ArgVal Src, ArgVa
     a.mov(ARG4, (N.getValue() / 3));
     a.lea(ARG5, x86::qword_ptr(data));
     call((uint64_t)i_get_map_elements);
-    a.cmp(RET, 0);
+    a.test(RET,RET);
     a.je(labels[Fail.getValue()]);
 }
 

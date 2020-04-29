@@ -272,7 +272,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, std::vector<ArgVal> args, B
       Label next = a.newLabel();
       // The u.gen_bp field in ErtsCodeInfo
       a.mov(RET, x86::qword_ptr(currLabel, -4 * 8));
-      a.cmp(RET, 0);
+      a.test(RET,RET);
       a.je(next);
       a.lea(ARG1, x86::qword_ptr(currLabel));
       a.call(RET);

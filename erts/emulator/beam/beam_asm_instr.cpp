@@ -337,7 +337,7 @@ x86::Gp BeamModuleAssembler::emit_apply(uint64_t deallocate) {
   a.mov(ARG4, deallocate);
   call((uint64_t)apply);
   emit_heavy_swapin();
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(dispatch);
   emit_handle_error(entry, &apply3_mfa);
   a.bind(dispatch);
@@ -378,13 +378,14 @@ x86::Gp BeamModuleAssembler::emit_apply(ArgVal Arity, uint64_t deallocate) {
   mov(ARG3, Arity);
   if (deallocate) {
     mov(ARG4, Arity);
+    a.mov(ARG5, deallocate);
   } else {
-    a.mov(ARG4, 0);
+    a.sub(ARG4, ARG4);
+    a.sub(ARG5, ARG5);
   }
-  a.mov(ARG5, deallocate);
   call((uint64_t)fixed_apply);
   emit_heavy_swapin();
-  a.cmp(RET, 0);
+  a.test(RET, RET);
   a.jne(dispatch);
   emit_handle_error(entry, &apply3_mfa);
   a.bind(dispatch);
@@ -422,7 +423,7 @@ x86::Gp BeamModuleAssembler::emit_call_fun(ArgVal Fun) {
   a.mov(ARG4, THE_NON_VALUE);
   call((uint64_t)call_fun);
   emit_heavy_swapin();
-  a.cmp(RET, 0);
+  a.test(RET, RET);
   a.jne(dispatch);
   emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(dispatch);
@@ -460,7 +461,7 @@ x86::Gp BeamModuleAssembler::emit_apply_fun() {
   a.mov(ARG4, x_reg);
   call((uint64_t)apply_fun);
   emit_heavy_swapin();
-  a.cmp(RET, 0);
+  a.test(RET, RET);
   a.jne(dispatch);
   emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(dispatch);
@@ -1056,7 +1057,7 @@ void BeamModuleAssembler::emit_cmp_spec(x86::Inst::Id jmpOp, Label Fail, Label n
   a.xor_(ARG3,ARG3);
   a.mov(ARG4,EqOnly);
   call((uint64_t)erts_cmp_compound);
-  a.cmp(RET,0);
+  a.test(RET,RET);
   a.emit(jmpOp, Fail);
   a.jmp(next);
 
@@ -1234,7 +1235,7 @@ void BeamModuleAssembler::emit_i_raise(Instruction *Inst) {
   a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), TMP2);
   a.mov(x86::qword_ptr(c_p, offsetof(Process, ftrace)), ARG1);
   call((uint64_t)get_trace_from_exc);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(primary_exception);
   a.mov(TMP1, EXC_ERROR);
   a.jmp(next);
@@ -1300,7 +1301,7 @@ void BeamModuleAssembler::emit_raw_raise(Instruction *Inst) {
   mov(ARG3, x1);
   a.mov(ARG4, c_p);
   call((uint64_t)raw_raise);
-  a.cmp(RET, 0);
+  a.test(RET,RET);
   a.jne(next);
   emit_handle_error(entry, (ErtsCodeMFA*)nullptr);
   a.bind(next);

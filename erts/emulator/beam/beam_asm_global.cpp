@@ -198,7 +198,7 @@ void BeamGlobalAssembler::emit_call_error_handler() {
   a.mov(ARG4,imm(am_undefined_function));
   call((uint64_t)call_error_handler);
   emit_heavy_swapin();
-  a.cmp(RET,0);
+  a.test(RET,RET);
   a.je(get_handle_error());
   a.jmp(RET);
 }
