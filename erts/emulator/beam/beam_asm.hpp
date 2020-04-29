@@ -407,14 +407,14 @@ public:
   bool emit(unsigned op, std::vector<ArgVal> args, BeamInstr *I = nullptr);
   void *codegen(void);
   void update_gdb_jit_info(void);
-  BeamInstr getCode(unsigned label);
+  BeamInstr *getCode(unsigned label);
   void *getCode(Label label);
   byte *getCode(char *labelName);
   void embed_rodata(char *labelName, char *buff, size_t size);
   Label embed_instr_rodata(Instruction *instr, int index, int count);
   unsigned getCodeSize() { ASSERT(module); return code.codeSize(); }
   void getCodeHeader(BeamCodeHeader **);
-  BeamInstr getOnLoad(void);
+  BeamInstr *getOnLoad(void);
   unsigned patchCatches();
   void patchLiteral(unsigned index, Eterm lit);
   void patchImport(unsigned index, BeamInstr I);

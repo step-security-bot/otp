@@ -94,12 +94,12 @@ BeamModuleAssembler::BeamModuleAssembler(JitRuntime *rt, BeamGlobalAssembler *ga
 
 void *BeamModuleAssembler::getCode(Label label) {
   ASSERT(module);
-  return module + code.labelOffsetFromBase(label);
+  return (char*)module + code.labelOffsetFromBase(label);
 }
 
-BeamInstr BeamModuleAssembler::getCode(unsigned label) {
+BeamInstr *BeamModuleAssembler::getCode(unsigned label) {
   ASSERT(label < labels.size());
-  return (BeamInstr)getCode(labels[label]);
+  return (BeamInstr*)getCode(labels[label]);
 }
 
 byte *BeamModuleAssembler::getCode(char *labelName) {
@@ -115,6 +115,7 @@ void BeamModuleAssembler::embed_rodata(char *labelName, char *buff, size_t size)
       SIZE_MAX,            // Name length if the name is not null terminated (or SIZE_MAX).
       Section::kFlagConst, // Section flags, see Section::Flags.
       8);                  // Section alignment, must be power of 2.
+      ERTS_ASSERT(!err && "Failed to create section rodata");
   }
   a.section(rodata);
   a.bind(label);
@@ -132,6 +133,7 @@ Label BeamModuleAssembler::embed_instr_rodata(Instruction *instr, int index, int
       SIZE_MAX,            // Name length if the name is not null terminated (or SIZE_MAX).
       Section::kFlagConst, // Section flags, see Section::Flags.
       8);                  // Section alignment, must be power of 2.
+    ERTS_ASSERT(!err && "Failed to create section rodaa");
   }
 
   a.section(rodata);
@@ -427,7 +429,7 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
   BeamCodeHeader *code_hdr = (BeamCodeHeader *)getCode(codeHeader);
 
   memcpy(code_hdr, orig_hdr, sizeof(BeamCodeHeader));
-  code_hdr->on_load_function_ptr = (BeamInstr*)getOnLoad();
+  code_hdr->on_load_function_ptr = getOnLoad();
 
   for (unsigned i = 0; i < functions.size(); i++) {
     ErtsCodeInfo *ci = (ErtsCodeInfo*)getCode(functions[i]);
@@ -446,9 +448,9 @@ void BeamModuleAssembler::getCodeHeader(BeamCodeHeader **hdr) {
 
 }
 
-BeamInstr BeamModuleAssembler::getOnLoad() {
+BeamInstr *BeamModuleAssembler::getOnLoad() {
   if (on_load.isValid())
-    return (BeamInstr)getCode(on_load);
+    return (BeamInstr*)getCode(on_load);
   else
     return 0;
 }

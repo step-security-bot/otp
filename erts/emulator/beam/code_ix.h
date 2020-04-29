@@ -82,6 +82,7 @@ typedef struct ErtsCodeInfo_ {
     BeamInstr op;           /* OpCode(i_func_info) */
     union {
         struct generic_bp* gen_bp;     /* Trace breakpoint */
+        BeamInstr *asmcall;            /* Read by beamasm at each func entry */
 #ifdef HIPE
         void (*ncallee)(void);
         struct hipe_call_count* hcc;

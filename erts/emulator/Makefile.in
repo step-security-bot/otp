@@ -920,7 +920,7 @@ COMMON_OBJS = \
 	$(OBJDIR)/beam_opcodes.o        $(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
-	$(OBJDIR)/beam_ranges.o
+	$(OBJDIR)/beam_ranges.o         $(OBJDIR)/beam_common.o
 
 EMU_OBJS = $(OBJDIR)/beam_load.o
 

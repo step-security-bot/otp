@@ -64,7 +64,7 @@ void *beamasm_new_module(Eterm mod, int num_labels, int num_functions);
 void beamasm_codegen(void *ba);
 void beamasm_delete_module(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, GenOp *op, BeamInstr *I);
-BeamInstr beamasm_get_code(void *ba, int label);
+BeamInstr *beamasm_get_code(void *ba, int label);
 byte *beamasm_get_rodata(void *ba, char* label);
 void beamasm_embed_rodata(void *ba, char *labelName, char* buff, size_t size);
 unsigned int beamasm_get_catches(void *ba);
@@ -79,10 +79,9 @@ void beamasm_emit_call_nif(ErtsCodeInfo *info,
                            void *dirty_fptr,
                            char *buff, unsigned buff_len);
 Uint beamasm_get_header(void *ba, BeamCodeHeader **);
-BeamInstr beamasm_get_on_load(void *ba);
+BeamInstr *beamasm_get_on_load(void *ba);
 
 // Number of bytes emitted at first label in order to support trace and nif load
 #  define BEAM_ASM_FUNC_PROLOGUE_SIZE 32
-
 
 extern BeamInstr *beamasm_call_nif_early;

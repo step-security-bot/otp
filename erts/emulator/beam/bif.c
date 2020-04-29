@@ -3865,7 +3865,6 @@ BIF_RETTYPE throw_1(BIF_ALIST_1)
 
 /**********************************************************************/
 
-
 /* 
  * Non-standard, undocumented, dirty BIF, meant for debugging.
  *
@@ -5210,9 +5209,11 @@ erts_schedule_bif(Process *proc,
     }
 
     if (!ERTS_PROC_IS_EXITING(c_p)) {
+#ifndef BEAMASM
 	Export *exp;
-	BifFunction dbif, ibif;
         BeamInstr call_instr;
+#endif
+	BifFunction dbif, ibif;
 	BeamInstr *pc;
 
 	/*
@@ -5258,10 +5259,10 @@ erts_schedule_bif(Process *proc,
 
             call_instr = bp->orig_instr;
         } else
-#endif
         {
             call_instr = *i;
         }
+#endif
 
 #ifdef HIPE
 	if (proc->flags & F_HIPE_MODE) {

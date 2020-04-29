@@ -34,6 +34,8 @@
 #include "erl_term.h"
 #include "erl_nfunc_sched.h"
 
+#include "beam_common.h"
+
 /* *************************************************************************
 ** Macros
 */
@@ -67,11 +69,6 @@
 #define ERTS_BPF_GLOBAL_TRACE      0x80
 
 #define ERTS_BPF_ALL               0xFF
-
-extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
-extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
-extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 erts_atomic32_t erts_active_bp_index;
 erts_atomic32_t erts_staging_bp_index;
@@ -235,6 +232,7 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 void
 erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 {
+#ifndef BEAMASM
     ErtsCodeIndex code_ix = erts_active_code_ix();
     int i;
     int num_exps = export_list_size(code_ix);
@@ -266,7 +264,6 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 
         func = ep->addressv[code_ix];
 
-#ifndef BEAMASM
         if (func == ep->trampoline.raw) {
             if (BeamIsOpCode(*func, op_call_error_handler)) {
                     continue;
@@ -275,7 +272,6 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
         } else if (erts_is_function_native(erts_code_to_codeinfo(func))) {
             continue;
         }
-#endif
 
 	f->matching[ne].ci = &ep->info;
 	f->matching[ne].mod = erts_get_module(ep->info.mfa.module, code_ix);
@@ -284,6 +280,7 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 
     }
     f->matched = ne;
+#endif
 }
 
 void
@@ -407,18 +404,16 @@ erts_commit_staged_bp(void)
 void
 erts_install_breakpoints(BpFunctions* f)
 {
+#ifndef BEAMASM
     Uint i;
     Uint n = f->matched;
-#ifndef BEAMASM
     BeamInstr br = BeamOpCodeAddr(op_i_generic_breakpoint);
-#endif
 
     for (i = 0; i < n; i++) {
 	ErtsCodeInfo* ci = f->matching[i].ci;
 	GenericBp* g = ci->u.gen_bp;
         BeamInstr volatile *pc = erts_codeinfo_to_code(ci);
         BeamInstr instr = *pc;
-#ifndef BEAMASM
 	if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
 	    Module* modp = f->matching[i].mod;
 
@@ -445,8 +440,8 @@ erts_install_breakpoints(BpFunctions* f)
             *pc = instr;
 	    modp->curr.num_breakpoints++;
 	}
-#endif
     }
+#endif
 }
 
 void
@@ -463,8 +458,8 @@ erts_uninstall_breakpoints(BpFunctions* f)
 static void
 uninstall_breakpoint(ErtsCodeInfo *ci)
 {
-    BeamInstr *pc = erts_codeinfo_to_code(ci);
 #ifndef BEAMASM
+    BeamInstr *pc = erts_codeinfo_to_code(ci);
     if (BeamIsOpCode(*pc, op_i_generic_breakpoint)) {
 	GenericBp* g = ci->u.gen_bp;
 	if (g->data[erts_active_bp_ix()].flags == 0) {
@@ -638,11 +633,11 @@ erts_clear_export_break(Module* modp, Export *ep)
  */
 static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
 {
+#ifndef BEAMASM
     Eterm *cpp = c_p->stop;
 
     for (;;) {
         BeamInstr w = *cp_val(*cpp);
-#ifndef BEAMASM
         if (BeamIsOpCode(w, op_return_trace)) {
             cpp += 3;
         } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
@@ -653,10 +648,10 @@ static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
         } else {
             break;
         }
-#endif
     }
     c_p->stop[0] = (Eterm) cp_val(*cpp);
     ASSERT(is_CP(*cpp));
+#endif
 }
 
 BeamInstr
@@ -718,13 +713,13 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	erts_atomic_inc_nob(&bp->count->acount);
     }
 
+#ifndef BEAMASM
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
 	BeamInstr w;
         Eterm* E;
 	ErtsCodeInfo* prev_info = erts_trace_time_call(c_p, info, bp->time);
         E = c_p->stop;
         w = *(BeamInstr*) E[0];
-#ifndef BEAMASM
 	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
 	       BeamIsOpCode(w, op_return_trace) ||
                BeamIsOpCode(w, op_i_return_to_trace)) ) {
@@ -742,10 +737,8 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 	    E[0] = (Eterm) beam_return_time_trace;
 	    c_p->stop = E;
 	}
-#endif
     }
 
-#ifndef BEAMASM
     if (bp_flags & ERTS_BPF_DEBUG) {
 	return BeamOpCodeAddr(op_i_debug_breakpoint);
     } else {

@@ -1035,6 +1035,7 @@ static int function_is_traced(Process *p,
 			      Uint       *count,           /* out */
 			      Eterm      *call_time)       /* out */
 {
+#ifndef BEAMASM
     Export e;
     Export* ep;
     BeamInstr* pc;
@@ -1044,7 +1045,6 @@ static int function_is_traced(Process *p,
     e.info.mfa.module = mfa[0];
     e.info.mfa.function = mfa[1];
     e.info.mfa.arity = mfa[2];
-#ifndef BEAMASM
     if ((ep = export_get(&e)) != NULL) {
 	pc = ep->trampoline.raw;
 	if (ep->addressv[erts_active_code_ix()] == pc &&
@@ -1070,7 +1070,6 @@ static int function_is_traced(Process *p,
 	    return r ? r : FUNC_TRACE_UNTRACED;
 	}
     }
-#endif
     
     /* OK, now look for breakpoint tracing */
     if ((ci = erts_find_local_func(&e.info.mfa)) != NULL) {
@@ -1086,6 +1085,7 @@ static int function_is_traced(Process *p,
 	
 	return r ? r : FUNC_TRACE_UNTRACED;
     } 
+#endif
     return FUNC_TRACE_NOEXIST;
 }
 
@@ -1419,6 +1419,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 		       int on, struct trace_pattern_flags flags,
 		       ErtsTracer meta_tracer, int is_blocking)
 {
+#ifndef BEAMASM
     const ErtsCodeIndex code_ix = erts_active_code_ix();
     int matches = 0;
     int i;
@@ -1442,7 +1443,6 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
         }
 
 	if (on && !flags.breakpoint) {
-#ifndef BEAMASM
 	    /* Turn on global call tracing */
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
@@ -1457,7 +1457,6 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	    if (ep->addressv[code_ix] != pc) {
                 ep->trampoline.op = BeamOpCodeAddr(op_i_generic_breakpoint);
 	    }
-#endif
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
 	} else {
@@ -1466,11 +1465,9 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * before turning on breakpoint tracing.
 	     */
 	    erts_clear_export_trace(ci, 0);
-#ifndef BEAMASM
             if (BeamIsOpCode(ep->trampoline.op, op_i_generic_breakpoint)) {
                 ep->trampoline.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
-#endif
 	}
     }
 
@@ -1529,6 +1526,9 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	matches += finish_bp.e.matched;
     }
     return matches;
+#else
+    return 0;
+#endif
 }
 
 int

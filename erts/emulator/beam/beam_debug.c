@@ -51,11 +51,13 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
+#ifndef BEAMASM
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
 static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap);
 static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap);
 static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes);
+#endif
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -359,6 +361,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 BIF_RETTYPE
 erts_debug_interpreter_size_0(BIF_ALIST_0)
 {
+#ifndef BEAMASM
     int i;
     BeamInstr low, high;
 
@@ -370,6 +373,9 @@ erts_debug_interpreter_size_0(BIF_ALIST_0)
         }
     }
     return erts_make_integer(high - low, BIF_P);
+#else
+    return make_small(0);
+#endif
 }
 
 void
@@ -410,6 +416,7 @@ dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg)
     }
 }
 
+#ifndef BEAMASM
 static int
 print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 {
@@ -753,7 +760,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += (n+1) / 2;
         }
         break;
-#ifndef BEAMASM
     case op_i_select_val2_xfcc:
     case op_i_select_val2_yfcc:
     case op_i_select_tuple_arity2_xfAA:
@@ -770,7 +776,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += 1;
         }
         break;
-#endif
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{
@@ -785,7 +790,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-#ifndef BEAMASM
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
        {
@@ -827,7 +831,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-#endif
     case op_i_new_small_map_lit_dtq:
         {
             Eterm *tp = tuple_val(unpacked[-1]);
@@ -916,6 +919,7 @@ static void print_byte_string(fmtfn_t to, void *to_arg, byte* str, Uint bytes)
         erts_print(to, to_arg, "%02X", str[i]);
     }
 }
+#endif
 
 /*
  * Dirty BIF testing.

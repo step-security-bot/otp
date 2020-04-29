@@ -52,6 +52,7 @@
 #include "erl_check_io.h"
 #include "erl_poll.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 
 #define ERTS_CHECK_TIME_REDS CONTEXT_REDS
 #define ERTS_DELAYED_WAKEUP_INFINITY (~(Uint64) 0)
@@ -133,10 +134,6 @@ runq_got_work_to_execute(ErtsRunQueue *rq)
 }
 
 const Process erts_invalid_process = {{ERTS_INVALID_PID}};
-
-extern BeamInstr beam_apply[];
-extern BeamInstr beam_exit[];
-extern BeamInstr beam_continue_exit[];
 
 int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
@@ -9984,12 +9981,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    ERTS_PTMR_CLEAR(p);
 	}
 
-#ifndef BEAMASM
         /* if exiting, we *shall* exit... */
         ASSERT(!(state & ERTS_PSFLG_EXITING)
                || p->i == (BeamInstr *) beam_exit
                || p->i == (BeamInstr *) beam_continue_exit);
-#endif
 
 #ifdef DEBUG
         if (is_normal_sched) {
@@ -11851,13 +11846,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = &p->u.initial;
 
-#ifdef BEAMASM
-    p->i = (BeamInstr *) beam_apply[0];
-    p->stop[0] = make_cp(beam_apply[1]);
-#else
-    p->i = (BeamInstr *) beam_apply;
-    p->stop[0] = make_cp(beam_apply + 1);
-#endif
+    p->i = BeamCodeApply();
+    p->stop[0] = make_cp(BeamCodeNormalExit());
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -12664,11 +12654,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
     c_p->freason = EXTAG_EXIT;
     KILL_CATCHES(c_p);
-#ifdef BEAMASM
-    c_p->i = (BeamInstr *) beam_exit[0];
-#else
     c_p->i = (BeamInstr *) beam_exit;
-#endif
 
     /* Always active when exiting... */
     ASSERT(state & ERTS_PSFLG_ACTIVE);
@@ -13863,11 +13849,7 @@ restart:
         p->scheduler_data->free_process = p;
     }
 
-#ifdef BEAMASM
-    p->i = (BeamInstr *) beam_continue_exit[0];
-#else
     p->i = (BeamInstr *) beam_continue_exit;
-#endif
 
     /* Why is this lock take??? */
     if (!(curr_locks & ERTS_PROC_LOCK_STATUS)) {
@@ -13988,23 +13970,13 @@ print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
     ErtsCodeMFA *cmfa = find_function_from_pc(x);
     if (cmfa == NULL) {
-#ifdef BEAMASM
-        if (x == (BeamInstr*)beam_exit[0]) {
-            erts_print(to, to_arg, "<terminate process>");
-        } else if (x == (BeamInstr*)beam_continue_exit[0]) {
-            erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == (BeamInstr*)beam_apply[1]) {
-            erts_print(to, to_arg, "<terminate process normally>");
-        }
-#else
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
             erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_apply+1) {
+        } else if (x == BeamCodeNormalExit()) {
             erts_print(to, to_arg, "<terminate process normally>");
         }
-#endif
 	else if (x == 0) {
             erts_print(to, to_arg, "invalid");
         } else {

@@ -283,7 +283,7 @@ typedef struct LoaderState {
     unsigned loaded_size;	/* Final size of code when loaded. */
     byte mod_md5[MD5_SIZE];	/* MD5 for module code. */
     int may_load_nif;           /* true if NIFs may later be loaded for this module */  
-    BeamInstr on_load;		/* Index in the code for the on_load function
+    BeamInstr *on_load;		/* Index in the code for the on_load function
 				 * (or 0 if there is no on_load function)
 				 */
     int otp_20_or_higher;       /* Compiled with OTP 20 or higher */
@@ -497,8 +497,6 @@ static int read_line_table(LoaderState* stp);
 static int read_code_header(LoaderState* stp);
 static void init_label(Label* lp);
 static int load_code(LoaderState* stp);
-static GenOp* gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
-			  GenOpArg Tuple, GenOpArg Dst);
 static GenOp* gen_split_values(LoaderState* stp, GenOpArg S,
 			       GenOpArg TypeFail, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
@@ -2904,8 +2902,6 @@ load_code(LoaderState* stp)
 	case op_on_load:
 	    ci--;		/* Get rid of the instruction */
 
-	    /* Remember offset for the on_load function. */
-	    stp->on_load = ci;
 	    break;
 	case op_bs_put_string_WW:
 	case op_i_bs_match_string_xfWW:
@@ -3702,100 +3698,6 @@ smp_already_locked(LoaderState* stp, GenOpArg L)
 {
     ASSERT(L.type == TAG_u);
     return stp->labels[L.val].looprec_targeted;
-}
-
-/*
- * Generate a timeout instruction for a literal timeout.
- */
-
-static GenOp*
-gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
-{
-    GenOp* op;
-    Sint timeout;
-
-    NEW_GENOP(stp, op);
-    GENOP_NAME_ARITY(op, wait_timeout_unlocked_int, 2);
-    op->next = NULL;
-    op->a[0].type = TAG_u;
-    op->a[1] = Fail;
-
-    if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64)
-	(timeout >> 32) == 0
-#else
-	1
-#endif
-	) {
-	op->a[0].val = timeout;
-#if !defined(ARCH_64)
-    } else if (Time.type == TAG_q) {
-	Eterm big;
-
-	big = stp->literals[Time.val].term;
-	if (is_not_big(big)) {
-	    goto error;
-	}
-	if (big_arity(big) > 1 || big_sign(big)) {
-	    goto error;
-	} else {
-	    Uint u;
-	    (void) term_to_Uint(big, &u);
-	    op->a[0].val = (BeamInstr) u;
-	}
-#endif
-    } else {
-#if !defined(ARCH_64)
-    error:
-#endif
-	GENOP_NAME_ARITY(op, i_wait_error, 0);
-    }
-    return op;
-}
-
-static GenOp*
-gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
-{
-    GenOp* op;
-    Sint timeout;
-
-    NEW_GENOP(stp, op);
-    GENOP_NAME_ARITY(op, wait_timeout_locked_int, 2);
-    op->next = NULL;
-    op->a[0].type = TAG_u;
-    op->a[1] = Fail;
-
-    if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64)
-	(timeout >> 32) == 0
-#else
-	1
-#endif
-	) {
-	op->a[0].val = timeout;
-#if !defined(ARCH_64)
-    } else if (Time.type == TAG_q) {
-	Eterm big;
-
-	big = stp->literals[Time.val].term;
-	if (is_not_big(big)) {
-	    goto error;
-	}
-	if (big_arity(big) > 1 || big_sign(big)) {
-	    goto error;
-	} else {
-	    Uint u;
-	    (void) term_to_Uint(big, &u);
-	    op->a[0].val = (BeamInstr) u;
-	}
-#endif
-    } else {
-#if !defined(ARCH_64)
-    error:
-#endif
-        GENOP_NAME_ARITY(op, i_wait_error_locked, 0);
-    }
-    return op;
 }
 
 /*
@@ -4896,10 +4798,10 @@ freeze_code(LoaderState* stp)
      * Place the string table and, optionally, attributes here.
      */
     sys_memcpy(str_table, stp->chunks[STR_CHUNK].start, strtab_size);
-    beamasm_embed_rodata(stp->ba,"str",stp->chunks[STR_CHUNK].start, strtab_size);
-    beamasm_embed_rodata(stp->ba,"attr",stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
-    beamasm_embed_rodata(stp->ba,"compile",stp->chunks[COMPILE_CHUNK].start, stp->chunks[COMPILE_CHUNK].size);
-    beamasm_embed_rodata(stp->ba,"md5",stp->mod_md5, MD5_SIZE);
+    beamasm_embed_rodata(stp->ba,"str",(char*)stp->chunks[STR_CHUNK].start, strtab_size);
+    beamasm_embed_rodata(stp->ba,"attr",(char*)stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
+    beamasm_embed_rodata(stp->ba,"compile",(char*)stp->chunks[COMPILE_CHUNK].start, stp->chunks[COMPILE_CHUNK].size);
+    beamasm_embed_rodata(stp->ba,"md5",(char*)stp->mod_md5, MD5_SIZE);
 
     beamasm_codegen(stp->ba);
 
@@ -5090,11 +4992,7 @@ static void
 final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 {
     unsigned int i;
-    int on_load = stp->on_load;
-    unsigned catches;
-    Uint index;
-    BeamInstr* codev = stp->codev;
-    BeamInstr *imports;
+    int on_load = !!stp->on_load;
     int staging_ix;
 
     staging_ix = erts_staging_code_ix();
@@ -5149,8 +5047,6 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
         Eterm func;
         Uint arity;
         BeamInstr import;
-        Uint current;
-        Uint next;
 
         mod = stp->import[i].module;
         func = stp->import[i].function;

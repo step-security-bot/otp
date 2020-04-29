@@ -21,8 +21,8 @@
 #include "beam_asm.hpp"
 
 extern "C" {
-#include "erl_binary.h"
-#include "erl_bits.h"
+  #include "erl_binary.h"
+  #include "erl_bits.h"
 }
 
 void BeamModuleAssembler::emit_fail_head_or_body(Label entry, ArgVal Fail) {

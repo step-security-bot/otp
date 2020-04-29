@@ -25,17 +25,8 @@ extern "C" {
 }
 
 extern "C" {
-#include "beam_catches.h"
-  BeamInstr *apply(Process* p, Eterm* reg, BeamInstr *I, Uint offs);
-  BeamInstr *fixed_apply(Process* p, Eterm* reg, BeamInstr *I, Uint offs);
-  void get_trace_from_exc(void);
-  void add_stacktrace(void);
-  Eterm *get_freason_ptr_from_exc(Eterm);
-  Eterm call_fun(void);
-  Eterm apply_fun(void);
-  Eterm new_fun(void);
-
-  BeamInstr* handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa);
+  #include "beam_catches.h"
+  #include "beam_common.h"
 
   extern erts_atomic32_t the_active_code_index;
 }
@@ -644,7 +635,6 @@ void BeamModuleAssembler::emit_is_atom(ArgVal Fail, ArgVal Src, Instruction *Ins
 }
 
 void BeamModuleAssembler::emit_is_boolean(ArgVal Fail, ArgVal Src, Instruction *Inst) {
-  Label next = a.newLabel();
 
   /* Since am_true and am_false differ by a single bit, we can simplify the
    * check by clearing said bit and comparing against the lesser one. */
@@ -1258,39 +1248,6 @@ void BeamModuleAssembler::emit_build_stacktrace(Instruction *Inst) {
   emit_swapin();
 
   mov(x0, RET);
-}
-
-static bool raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p) {
-  Eterm* freason_ptr;
-
-  /*
-   * Note that the i_raise instruction will override c_p->freason
-   * with the freason field stored inside the StackTrace struct in
-   * ftrace. Therefore, we must take care to store the class both
-   * inside the StackTrace struct and in c_p->freason (important if
-   * the class is different from the class of the original
-   * exception).
-   */
-  freason_ptr = get_freason_ptr_from_exc(stacktrace);
-
-  if (exc_class == am_error) {
-    *freason_ptr = c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
-    c_p->fvalue = value;
-    c_p->ftrace = stacktrace;
-    return false;
-  } else if (exc_class == am_exit) {
-    *freason_ptr = c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
-    c_p->fvalue = value;
-    c_p->ftrace = stacktrace;
-    return false;
-  } else if (exc_class == am_throw) {
-    *freason_ptr = c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
-    c_p->fvalue = value;
-    c_p->ftrace = stacktrace;
-    return false;
-  } else {
-    return true;
-  }
 }
 
 void BeamModuleAssembler::emit_raw_raise(Instruction *Inst) {

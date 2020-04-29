@@ -22,6 +22,9 @@
 #include <assert.h>
 
 #include "beam_asm.hpp"
+extern "C" {
+  #include "beam_common.h"
+}
 
 using namespace asmjit;
 
@@ -56,16 +59,15 @@ void BeamAssembler::emit_heavy_swapout() {
 
 static JitRuntime *rt = nullptr;
 static BeamGlobalAssembler *bga;
-static BeamModuleAssembler *apply, *bma_exit, *continue_exit, *call_error_handler, *call_bif;
+static BeamModuleAssembler *bma_apply, *bma_exit, *bma_continue_exit,
+  *bma_call_error_handler;
 
-typedef enum beamasm_ret (*BAFUN)(BeamAsmContext *ctx,Process *c_p, Eterm *reg, FloatDef *fref, ERL_BITS_DECLARE_STATEP, Sint FCALLS);
+typedef enum beamasm_ret (*BAFUN)(BeamAsmContext *ctx,Process *c_p,
+                                  Eterm *reg, FloatDef *fref,
+                                  ERL_BITS_DECLARE_STATEP, Sint FCALLS);
 static BAFUN beamasm_call_fun;
 
 extern "C" {
-
-  extern BeamInstr beam_apply[2];
-  extern BeamInstr beam_exit[1];
-  extern BeamInstr beam_continue_exit[1];
 
   void beamasm_init() {
 
@@ -75,18 +77,18 @@ extern "C" {
     bga = new BeamGlobalAssembler(rt);
     beamasm_call_fun = (BAFUN)bga->get_call();
 
-    apply = new BeamModuleAssembler(rt, bga, am_erts_internal, 3);
-    apply->setDebug(false);
-    apply->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    apply->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_apply), ArgVal(ArgVal::i, 3)});
-    apply->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
-    apply->emit(op_i_apply, {});
-    apply->emit(op_label_L, {ArgVal(ArgVal::i, 3)});
-    apply->emit(op_normal_exit, {});
-    apply->emit(op_int_code_end, {});
-    apply->codegen();
-    beam_apply[0] = apply->getCode(2);
-    beam_apply[1] = apply->getCode(3);
+    bma_apply = new BeamModuleAssembler(rt, bga, am_erts_internal, 3);
+    bma_apply->setDebug(false);
+    bma_apply->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+    bma_apply->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_apply), ArgVal(ArgVal::i, 3)});
+    bma_apply->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+    bma_apply->emit(op_i_apply, {});
+    bma_apply->emit(op_label_L, {ArgVal(ArgVal::i, 3)});
+    bma_apply->emit(op_normal_exit, {});
+    bma_apply->emit(op_int_code_end, {});
+    bma_apply->codegen();
+    beam_apply = bma_apply->getCode(2);
+    beam_normal_exit = bma_apply->getCode(3);
 
     bma_exit = new BeamModuleAssembler(rt, bga, am_erts_internal, 2);
     bma_exit->setDebug(false);
@@ -96,28 +98,29 @@ extern "C" {
     bma_exit->emit(op_error_action_code, {});
     bma_exit->emit(op_int_code_end, {});
     bma_exit->codegen();
-    beam_exit[0] = bma_exit->getCode(2);
+    beam_exit = bma_exit->getCode(2);
 
-    continue_exit = new BeamModuleAssembler(rt, bga, am_erts_internal, 2);
-    continue_exit->setDebug(false);
-    continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    continue_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_continue_exit), ArgVal(ArgVal::i, 3)});
-    continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
-    continue_exit->emit(op_continue_exit, {});
-    continue_exit->emit(op_int_code_end, {});
-    continue_exit->codegen();
-    beam_continue_exit[0] = continue_exit->getCode(2);
+    bma_continue_exit = new BeamModuleAssembler(rt, bga, am_erts_internal, 2);
+    bma_continue_exit->setDebug(false);
+    bma_continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+    bma_continue_exit->emit(op_i_func_info_IaaI, {ArgVal(ArgVal::i, 2),ArgVal(ArgVal::i, am_erts_internal),ArgVal(ArgVal::i, am_continue_exit), ArgVal(ArgVal::i, 3)});
+    bma_continue_exit->emit(op_label_L, {ArgVal(ArgVal::i, 2)});
+    bma_continue_exit->emit(op_continue_exit, {});
+    bma_continue_exit->emit(op_int_code_end, {});
+    bma_continue_exit->codegen();
+    beam_continue_exit = bma_continue_exit->getCode(2);
 
-    call_error_handler = new BeamModuleAssembler(rt, bga, am_erts_internal, 1);
-    call_error_handler->setDebug(false);
-    call_error_handler->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
-    call_error_handler->emit(op_call_error_handler, {});
-    call_error_handler->codegen();
+    bma_call_error_handler = new BeamModuleAssembler(rt, bga, am_erts_internal, 1);
+    bma_call_error_handler->setDebug(false);
+    bma_call_error_handler->emit(op_label_L, {ArgVal(ArgVal::i, 1)});
+    bma_call_error_handler->emit(op_call_error_handler, {});
+    bma_call_error_handler->codegen();
 
   }
 
   enum beamasm_ret
-  beamasm_call(BeamAsmContext *ctx,Process *c_p, Eterm *reg, FloatDef *freg, ERL_BITS_DECLARE_STATEP,  Sint FCALLS) {
+  beamasm_call(BeamAsmContext *ctx,Process *c_p, Eterm *reg, FloatDef *freg,
+               ERL_BITS_DECLARE_STATEP,  Sint FCALLS) {
     return beamasm_call_fun(ctx, c_p, reg, freg, EBS, FCALLS);
   }
 
@@ -169,8 +172,9 @@ extern "C" {
                      char *buff, unsigned buff_len, int debug) {
     beamasm_init();
     if (specific_op == op_call_error_handler) {
-      ERTS_ASSERT(call_error_handler->getCodeSize() <= buff_len);
-      memcpy(buff, (BeamInstr*)call_error_handler->getCode(1), call_error_handler->getCodeSize());
+      ERTS_ASSERT(bma_call_error_handler->getCodeSize() <= buff_len);
+      memcpy(buff, (BeamInstr*)bma_call_error_handler->getCode(1),
+             bma_call_error_handler->getCodeSize());
     } else {
       BeamModuleAssembler ba(rt, bga, am_erts_internal, 1);
       ba.setDebug(debug);
@@ -187,7 +191,7 @@ extern "C" {
     delete ba;
   }
 
-  BeamInstr beamasm_get_code(void *instance, int label) {
+  BeamInstr *beamasm_get_code(void *instance, int label) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
     return ba->getCode(label);
   }
@@ -214,7 +218,7 @@ extern "C" {
     return ba->getCodeSize();
   }
 
-  Uint beamasm_get_on_load(void *instance) {
+  BeamInstr *beamasm_get_on_load(void *instance) {
     BeamModuleAssembler *ba = static_cast<BeamModuleAssembler*>(instance);
     return ba->getOnLoad();
   }

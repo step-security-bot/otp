@@ -373,7 +373,6 @@ static Eterm
 call_nif(Process *c_p, BeamInstr *I, Eterm *reg, NifF *fp, struct erl_module_nif *NifMod) {
     Eterm nif_bif_result;
     Eterm bif_nif_arity;
-    BifFunction vbf = (void*)fp;
     ErlHeapFragment *live_hf_end;
     ErtsCodeMFA *codemfa;
 
@@ -385,7 +384,6 @@ call_nif(Process *c_p, BeamInstr *I, Eterm *reg, NifF *fp, struct erl_module_nif
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
     {
-        typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
         struct enif_environment_t env;
         ASSERT(c_p->scheduler_data);
         live_hf_end = c_p->mbuf;

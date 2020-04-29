@@ -633,7 +633,7 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 
 /* Some special erts_exit() codes: */
 #define ERTS_INTR_EXIT	-1		/* called from signal handler */
