@@ -16,7 +16,7 @@ BEGIN{n=-1;}
 }
 END{
     printf "average";
-    for (i = 0; i < length(sums); i++)
+    for (i = 0; i in sums; i++)
         printf " %f", sums[i]/n;
     printf "\n";
 }
