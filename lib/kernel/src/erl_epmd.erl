@@ -111,17 +111,7 @@ port_please1(Node, HostName, Timeout) ->
            end,
   case inet:gethostbyname(HostName, Family, Timeout) of
       {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
-          case get_port(Node, EpmdAddr, Timeout) of
-              noport ->
-                  case listen_port_please(Node, HostName) of
-                      {ok, 0} ->
-                          noport;
-                      {ok, Prt} ->
-                          {port, Prt, 5}
-                  end;
-               Reply ->
-                  Reply
-          end;
+          get_port(Node, EpmdAddr, Timeout);
       _Else ->
           ?port_please_failure2(_Else),
           noport
@@ -225,6 +215,10 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
     case State#state.socket of
 	P when P < 0 ->
 	    case do_register_node(Name, PortNo, Family) of
+                noepmd ->
+                    {reply, {ok, -1}, State#state{ socket = -1,
+                                                   port_no = PortNo,
+                                                   name = Name} };
 		{alive, Socket, Creation} ->
 		    S = State#state{socket = Socket,
 				    port_no = PortNo,
@@ -336,7 +330,12 @@ do_register_node(NodeName, TcpPort, Family) ->
                     Error
             end;
 	Error ->
-	    Error
+            case init:get_argument(erl_epmd_port) of
+                {ok, _} ->
+                    noepmd;
+                _ ->
+                    Error
+            end
     end.
 
 epmd_dist_high() ->
@@ -416,9 +415,14 @@ get_port(Node, EpmdAddress, Timeout) ->
 		    ?port_please_failure2(_Error),
 		    noport
 	    end;
-	_Error -> 
-	    ?port_please_failure2(_Error),
-	    noport
+	_Error ->
+            case listen_port_please(Node, EpmdAddress) of
+                {ok, 0} ->
+                    ?port_please_failure2(_Error),
+                    noport;
+                {ok, Prt} ->
+                    {port, Prt, 5}
+            end
     end.
 
 
