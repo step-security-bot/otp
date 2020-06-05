@@ -340,7 +340,7 @@ run_scheduler_wall_time_test(Type) ->
                                 scheduler_wall_time ->
                                     Schedulers + DirtyCPUSchedulers
                         end,
-                            
+
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
         %% Empty load
@@ -384,11 +384,11 @@ run_scheduler_wall_time_test(Type) ->
         end,
 
         %% 100% load
-        LastHogs = [StartHog() || _ <- lists:seq(1, Schedulers div 2)],
+        LastHogs = [StartHog() || _ <- lists:seq(1, (Schedulers+1) div 2)],
         LastDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
-                            || _ <- lists:seq(1, DirtyCPUSchedulers div 2)],
+                            || _ <- lists:seq(1, (DirtyCPUSchedulers+1) div 2)],
         LastDirtyIOHogs = [StartDirtyHog(dirty_io)
-                           || _ <- lists:seq(1, DirtyIOSchedulers div 2)],
+                           || _ <- lists:seq(1, (DirtyIOSchedulers+1) div 2)],
         FullScheds = get_load(Type),
         {false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
         FullLoad = lists:sum(FullScheds) div TotLoadSchedulers,
@@ -420,7 +420,26 @@ get_load(Type) ->
     Start = erlang:statistics(Type),
     timer:sleep(1500),
     End = erlang:statistics(Type),
-    lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
+
+    lists:reverse(
+      lists:sort(load_percentage(online_statistics(Start),online_statistics(End)))).
+
+%% We are only interested in schedulers that are online to remove all
+%% offline normal and dirty cpu schedulers (dirty io cannot be offline)
+online_statistics(Stats) ->
+    Schedulers = erlang:system_info(schedulers),
+    SchedulersOnline = erlang:system_info(schedulers_online),
+    DirtyCPUSchedulers = erlang:system_info(dirty_cpu_schedulers),
+    DirtyCPUSchedulersOnline = erlang:system_info(dirty_cpu_schedulers_online),
+    DirtyIOSchedulersOnline = erlang:system_info(dirty_io_schedulers),
+    SortedStats = lists:sort(Stats),
+    SchedulersStats =
+        lists:sublist(SortedStats, 1, SchedulersOnline),
+    DirtyCPUSchedulersStats =
+        lists:sublist(SortedStats, Schedulers+1, DirtyCPUSchedulersOnline),
+    DirtyIOSchedulersStats =
+        lists:sublist(SortedStats, Schedulers + DirtyCPUSchedulers+1, DirtyIOSchedulersOnline),
+    SchedulersStats ++ DirtyCPUSchedulersStats ++ DirtyIOSchedulersStats.
 
 load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|load_percentage(Ss, Ps)];
