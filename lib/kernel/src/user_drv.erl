@@ -128,7 +128,7 @@ server1(Iport, Oport, Shell) ->
                             %% are running using "-sname undefined".
                             _ = net_kernel:start([undefined, shortnames]),
                             NodeName = append_hostname(Node, net_kernel:nodename()),
-                            net_kernel:connect_node(NodeName),
+                            true = net_kernel:connect_node(NodeName),
                             NodeName;
                         true ->
                             append_hostname(Node, node())
@@ -157,7 +157,7 @@ append_hostname(Node, LocalNode) ->
         nomatch ->
             list_to_atom(Node ++ string:find(atom_to_list(LocalNode),"@"));
         _ ->
-            Node
+            list_to_atom(Node)
     end.
 
 rem_sh_opts(Node) ->

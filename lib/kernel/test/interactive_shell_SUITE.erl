@@ -24,7 +24,8 @@
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,stop_during_init/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
-         get_columns_and_rows_escript/1]).
+         get_columns_and_rows_escript/1,
+         remsh/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
@@ -44,7 +45,8 @@ all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init].
+     ctrl_keys, stop_during_init,
+     remsh].
 
 groups() -> 
     [].
@@ -397,10 +399,25 @@ wordRight(Chars) ->
     [{putline,"world"++Home++"\"hello "++Chars++"\"."},
      {getline,"\"hello world\""}].
 
+%% Test that -remsh works
+remsh(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell,Config) of
+        old -> {skip,"Not supported in old shell"};
+        new ->
+            NodeStr = atom_to_list(node()),
+            rtnode([{kill_emulator_command,[4]},
+                    {putline,""},
+                    {putline,"node()."},
+                    {getline,NodeStr}],
+                   [], [],
+                   " -remsh " ++ NodeStr)
+    end.
 
 rtnode(C,N) ->
     rtnode(C,N,[]).
 rtnode(Commands,Nodename,ErlPrefix) ->
+    rtnode(Commands,Nodename,ErlPrefix,[]).
+rtnode(Commands,Nodename,ErlPrefix,Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
@@ -411,7 +428,7 @@ rtnode(Commands,Nodename,ErlPrefix) ->
 		Tempdir ->
 		    SPid =
 			start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
-					  Tempdir,Nodename),
+					  Tempdir,Nodename,Args),
 		    CPid = start_toerl_server(ToErl,Tempdir),
 		    erase(getline_skipped),
 		    Res =
@@ -483,6 +500,13 @@ get_and_put(CPid, [{sleep, X}|T],N) ->
     receive
     after X ->
 	    get_and_put(CPid,T,N+1)
+    end;
+get_and_put(CPid, [{kill_emulator_command, Cmd}|T],N) ->
+    ?dbg({kill_emulator_command, Match}),
+    CPid ! {self(), {kill_emulator_command, Cmd}},
+    receive
+        {kill_emulator_command,_Res} ->
+            get_and_put(CPid,T,N)
     end;
 get_and_put(CPid, [{getline, Match}|T],N) ->
     ?dbg({getline, Match}),
@@ -662,7 +686,7 @@ create_nodename(X) ->
     end.
 
 
-start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
+start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
 	       [] ->
 		   [];
@@ -671,11 +695,13 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 				   true -> Nodename
 				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end,
+	   end ++ Args,
     spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
-    os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"").
+    FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
+    ct:pal("~s",[FullCmd]),
+    os:cmd(FullCmd).
 
 start_toerl_server(ToErl,Tempdir) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
@@ -767,8 +793,17 @@ toerl_loop(Port,Acc) ->
 	    Port ! {self(),{command, Data7++"\n"}},
 	    Pid ! {send_line, ok},
 	    toerl_loop(Port,Acc);
+        {Pid, {kill_emulator_command, Cmd}} ->
+            put(kill_emulator_command, Cmd),
+            Pid ! {kill_emulator_command, ok},
+	    toerl_loop(Port,Acc);
 	{_Pid, kill_emulator} ->
-	    Port ! {self(),{command, "init:stop().\n"}},
+            Cmd = case get(kill_emulator_command) of
+                      undefined -> "init:stop().\n";
+                      Else -> Else
+                  end,
+            erlang:display({kill,Cmd}),
+	    Port ! {self(),{command, Cmd}},
 	    Timeout1 = timeout(long),
 	    receive
 		{Port,eof} ->
@@ -817,15 +852,16 @@ get_data_within(Port, Timeout, Acc) ->
     end.
 
 get_default_shell() ->
-    try
-	rtnode([{putline,""},
-		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
-	old
-    catch _E:_R ->
-	    ?dbg({_E,_R}),
-	    new
-    end.
+    new.
+    %% try
+    %%     rtnode([{putline,""},
+    %%     	{putline, "whereis(user_drv)."},
+    %%     	{getline, "undefined"}],[]),
+    %%     old
+    %% catch _E:_R ->
+    %%         ?dbg({_E,_R}),
+    %%         new
+    %% end.
 
 atom2list(A) ->
     lists:flatten(io_lib:format("~s", [A])).
