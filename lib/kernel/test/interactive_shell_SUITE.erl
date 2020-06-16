@@ -495,7 +495,9 @@ rtnode(Commands,Nodename,ErlPrefix,Args) ->
             erase(getline_skipped),
             Res = (catch get_and_put(CPid, Commands, 1)),
             rtstop(RTState),
-            ok = Res
+            ok = Res;
+        Skip ->
+            Skip
     end.
 
 rtstart(Args) ->
