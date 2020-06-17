@@ -579,7 +579,7 @@ get_and_put(CPid, [{getline, Match}|T],N) ->
     CPid ! {self(), {get_line, timeout(normal)}},
     receive
 	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
+	    error_logger:error_msg("~p: getline timeout waiting for \"~ts\" "
 				   "(command number ~p, skipped: ~p)~n",
 				   [?MODULE, Match,N,get(getline_skipped)]),
 	    {error, timeout};
@@ -766,7 +766,7 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
     FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
-    ct:pal("~s",[FullCmd]),
+    ct:pal("~ts",[FullCmd]),
     os:cmd(FullCmd).
 
 start_toerl_server(ToErl,Tempdir) ->
