@@ -47,6 +47,9 @@
 #include "erl_map.h"
 #include "erl_msacc.h"
 #include "erl_proc_sig_queue.h"
+#ifdef BEAMASM
+#include "beam_asm.h"
+#endif
 
 Export *erts_await_result;
 static Export *await_exit_trap;
@@ -1462,11 +1465,14 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                    /* Executed via BIF call.. */
                via_bif:
 
+/* BEAMASM doesn't use negative reductions for save_calls */
+#ifndef BEAMASM
                    /* Adjust fcalls to match save calls setting... */
                    if (i == 0)
                        c_p->fcalls += CONTEXT_REDS; /* disabled it */
                    else
                        c_p->fcalls -= CONTEXT_REDS; /* enabled it */
+#endif
 
                    ERTS_VBUMP_ALL_REDS(c_p);
                }
@@ -1489,7 +1495,6 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                        *redsp = 1;
                    }
                    else {
-                       ErtsSchedulerData *esdp;
                        ASSERT(state & ERTS_PSFLG_RUNNING);
 
                        /*
@@ -1512,12 +1517,23 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                         * out the process...
                         */
 
-                       esdp = erts_get_scheduler_data();
 
-                       if (i == 0)
-                           esdp->virtual_reds += CONTEXT_REDS; /* disabled it */
-                       else
-                           esdp->virtual_reds -= CONTEXT_REDS; /* enabled it */
+/* BEAMASM doesn't use negative reductions for save_calls */
+#ifndef BEAMASM
+                        {
+                            ErtsSchedulerData *esdp;
+
+                            esdp = erts_get_scheduler_data();
+
+                            if (i == 0) {
+                                /* disabled it */
+                                esdp->virtual_reds += CONTEXT_REDS;
+                            } else {
+                                /* enabled it */
+                                esdp->virtual_reds -= CONTEXT_REDS;
+                            }
+                        }
+#endif
 
                        *redsp = -1;
                    }
@@ -2995,11 +3011,13 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
     res = integer_to_list(BIF_P, BIF_ARG_1, 10);
 
     if (is_non_value(res)) {
+        ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_integer_to_list_1)->info.mfa;
         Eterm args[1];
         args[0] = BIF_ARG_1;
         return erts_schedule_bif(BIF_P,
                                  args,
                                  BIF_I,
+                                 mfa,
                                  integer_to_list_1,
                                  ERTS_SCHED_DIRTY_CPU,
                                  am_erlang,
@@ -3027,12 +3045,14 @@ BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
     res = integer_to_list(BIF_P, BIF_ARG_1, base);
 
     if (is_non_value(res)) {
+        ErtsCodeMFA *mfa = &BIF_TRAP_EXPORT(BIF_integer_to_list_2)->info.mfa;
         Eterm args[2];
         args[0] = BIF_ARG_1;
         args[1] = BIF_ARG_2;
         return erts_schedule_bif(BIF_P,
                                  args,
                                  BIF_I,
+                                 mfa,
                                  integer_to_list_2,
                                  ERTS_SCHED_DIRTY_CPU,
                                  am_erlang,
@@ -3858,7 +3878,6 @@ BIF_RETTYPE throw_1(BIF_ALIST_1)
 
 /**********************************************************************/
 
-
 /* 
  * Non-standard, undocumented, dirty BIF, meant for debugging.
  *
@@ -3922,6 +3941,10 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 
 
 /* stop the system with exit code and flags */
+#if defined(BEAMASM) && defined(BEAMASM_DUMP_SIZES)
+void beamasm_dump_sizes(void);
+#endif
+
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
     Uint code;
@@ -3950,6 +3973,10 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     }
     if (is_not_nil(optlist))
 	goto error;
+
+#if defined(BEAMASM) && defined(BEAMASM_DUMP_SIZES)
+    beamasm_dump_sizes();
+#endif
 
     if (term_to_Uint_mask(BIF_ARG_1, &code)) {
 	int pos_int_code = (int) (code & INT_MAX);
@@ -5004,8 +5031,19 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
 
-    ep->trampoline.op = BeamOpCodeAddr(op_call_bif_W);
+#ifdef BEAMASM
+    {
+        ep->addressv[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+
+        beamasm_emit_call_bif(
+            &ep->info, bif,
+            (char*)&ep->info,
+            sizeof(ep->info) + sizeof(ep->trampoline));
+    }
+#else
+    ep->trampoline.common.op = BeamOpCodeAddr(op_call_bif_W);
     ep->trampoline.raw[1] = (BeamInstr)bif;
+#endif
     *epp = ep;
 }
 
@@ -5013,12 +5051,16 @@ void erts_init_trap_export(Export** epp, Eterm m, Eterm f, Uint a,
  * Writes a BIF call wrapper to the given address.
  */
 void erts_write_bif_wrapper(Export *export, BeamInstr *address) {
+#ifndef BEAMASM
     BifEntry *entry;
     ASSERT(export->bif_number >= 0 && export->bif_number < BIF_SIZE);
     entry = &bif_table[export->bif_number];
 
     address[0] = BeamOpCodeAddr(op_call_bif_W);
     address[1] = (BeamInstr)entry->f;
+#else
+    ERTS_ASSERT(0 && "Not called from beamasm");
+#endif
 }
 
 void erts_init_bif(void)
@@ -5086,7 +5128,12 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, BeamOpCodeAddr(op_call_bif_W),
+				    mfa, pc,
+#ifdef BEAMASM
+                                    op_call_bif_W,
+#else
+                                    BeamOpCodeAddr(op_call_bif_W),
+#endif
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5141,6 +5188,7 @@ BIF_RETTYPE
 erts_schedule_bif(Process *proc,
 		  Eterm *argv,
 		  BeamInstr *i,
+		  ErtsCodeMFA *mfa,
 		  ErtsBifFunc bif,
 		  ErtsSchedType sched_type,
 		  Eterm mod,
@@ -5148,7 +5196,6 @@ erts_schedule_bif(Process *proc,
 		  int argc)
 {
     Process *c_p, *dirty_shadow_proc;
-    ErtsCodeMFA *mfa;
 
     if (proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	dirty_shadow_proc = proc;
@@ -5163,10 +5210,7 @@ erts_schedule_bif(Process *proc,
     }
 
     if (!ERTS_PROC_IS_EXITING(c_p)) {
-	Export *exp;
 	BifFunction dbif, ibif;
-        BeamInstr call_instr;
-	BeamInstr *pc;
 
 	/*
 	 * dbif - direct bif
@@ -5201,46 +5245,6 @@ erts_schedule_bif(Process *proc,
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
 	}
 
-        if (BeamIsOpCode(*i, op_i_generic_breakpoint)) {
-            ErtsCodeInfo *ci;
-            GenericBp *bp;
-    
-            ci = erts_code_to_codeinfo(i);
-            bp = ci->u.gen_bp;
-
-            call_instr = bp->orig_instr;
-        } else {
-            call_instr = *i;
-        }
-
-#ifdef HIPE
-	if (proc->flags & F_HIPE_MODE) {
-	    /* Pointer to bif export in i */
-	    exp = (Export *) i;
-            pc = cp_val(c_p->stop[0]);
-	    mfa = &exp->info.mfa;
-	} else /* !! This is part of the if clause below !! */
-#endif
-	if (BeamIsOpCode(call_instr, op_call_light_bif_be)) {
-	    /* Pointer to bif export in i+2 */
-	    exp = (Export *) i[2];
-	    pc = i;
-	    mfa = &exp->info.mfa;
-	}
-	else if (BeamIsOpCode(call_instr, op_call_light_bif_only_be)) {
-	    /* Pointer to bif export in i+2 */
-	    exp = (Export *) i[2];
-	    pc = i;
-	    mfa = &exp->info.mfa;
-	}
-	else if (BeamIsOpCode(call_instr, op_call_bif_W)) {
-            pc = cp_val(c_p->stop[0]);
-	    mfa = erts_code_to_codemfa(i);
-	}
-	else {
-	    ERTS_INTERNAL_ERROR("erts_schedule_bif() called "
-				"from unexpected instruction");
-	}
 	ASSERT(bif);
 
 	if (argc < 0) { /* reschedule original call */
@@ -5249,7 +5253,7 @@ erts_schedule_bif(Process *proc,
 	    argc = (int) mfa->arity;
 	}
 
-	schedule(c_p, dirty_shadow_proc, mfa, pc, dbif, ibif,
+	schedule(c_p, dirty_shadow_proc, mfa, i, dbif, ibif,
 		 mod, func, argc, argv);
     }
 
@@ -5315,7 +5319,7 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 
     nep->func = ERTS_SCHED_BIF_TRAP_MARKER;
 
-    bf = (ErtsBifFunc) I[1];
+    bf = (ErtsBifFunc) nep->trampoline.dfunc;
 
     erts_atomic32_read_band_mb(&c_p->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
 						  | ERTS_PSFLG_DIRTY_IO_PROC));

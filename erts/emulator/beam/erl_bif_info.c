@@ -101,6 +101,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [dirty-schedulers-TEST]"
 #endif
 				     " [async-threads:%d]"
+#ifdef BEAMASM
+				     " [jit:beamasm]"
+#endif
 #ifdef HIPE
 				     " [hipe]"
 #endif	
@@ -5241,7 +5244,7 @@ exported_from_module(Process* p, ErtsCodeIndex code_ix, Eterm mod)
             Eterm tuple;
 
             if (ep->addressv[code_ix] == ep->trampoline.raw &&
-                BeamIsOpCode(ep->trampoline.op, op_call_error_handler)) {
+                BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
                 /* There is a call to the function, but it does not exist. */ 
                 continue;
             }

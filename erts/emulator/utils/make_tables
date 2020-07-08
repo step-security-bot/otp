@@ -60,6 +60,7 @@ my @bif;
 my @bif_info;
 my $dirty_schedulers_test = 'no';
 my $hipe = 'no';
+my $asm = 'no';
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -79,6 +80,10 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$hipe = shift;
 	die "No -hipe argument specified"
 	    unless defined $hipe;
+    } elsif($opt eq '-asm') {
+	$asm = shift;
+	die "No -asm argument specified"
+	    unless defined $asm;
     } else {
 	usage("bad option: $opt");
     }
@@ -252,8 +257,14 @@ extern const ErtsUBif erts_u_bifs[];
 #define BIF_SIZE $bif_size
 
 EOF
-print "#define BIF_TRAP_EXPORT(BIF_NAME) (bif_trap_exports[BIF_NAME])\n";
-print "extern Export *bif_trap_exports[];\n";
+if ($asm eq 'yes' || 1) {
+    print "#define BIF_TRAP_EXPORT(BIF_NAME) (bif_trap_exports[BIF_NAME])\n";
+    print "extern Export *bif_trap_exports[];\n";
+} else {
+    print "#define BIF_TRAP_EXPORT(BIF_NAME) (&bif_trap_exports[BIF_NAME])\n";
+    print "extern Export bif_trap_exports[];\n";
+}
+
 print "\n";
 
 my $i;
@@ -289,7 +300,11 @@ my $i;
 includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h", "erl_atom_table.h");
 
-print "\nExport *bif_trap_exports[BIF_SIZE];\n";
+if ($asm eq 'yes' || 1) {
+    print "\nExport *bif_trap_exports[BIF_SIZE];\n";
+} else {
+    print "\nExport bif_trap_exports[BIF_SIZE];\n";
+}
 
 print "BifEntry bif_table[] = {\n";
 for ($i = 0; $i < @bif; $i++) {
@@ -335,6 +350,7 @@ print <<EOF;
 Eterm $bif_info[$i]->[2](Process *c_p, Eterm *regs, BeamInstr *I)
 {
     return erts_reschedule_bif(c_p, regs, I,
+                               &BIF_TRAP_EXPORT($i)->info.mfa,
                                $bif_info[$i]->[3], $dtype);
 }
 

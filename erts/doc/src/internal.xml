@@ -41,4 +41,5 @@
   <xi:include href="PortSignals.xml"/>
   <xi:include href="ProcessManagementOptimizations.xml"/>
   <xi:include href="SuperCarrier.xml"/>
+  <xi:include href="BeamAsm.xml"/>
 </internal>

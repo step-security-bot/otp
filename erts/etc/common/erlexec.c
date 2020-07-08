@@ -186,7 +186,7 @@ static char *plusz_val_switches[] = {
 #define sleep(seconds) Sleep(seconds*1000)
 #endif
 
-#define SMP_SUFFIX	  ".smp"
+#define DEFAULT_SUFFIX	  "smp"
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
@@ -245,8 +245,8 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
-static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
+static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, asm or emu) */
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detached mode -
@@ -381,9 +381,10 @@ add_extra_suffixes(char *prog)
        p = write_str(p, ".");
        p = write_str(p, emu_type);
    }
-   if (start_smp_emu) {
-       p = write_str(p, SMP_SUFFIX);
-   }
+
+   p = write_str(p, ".");
+   p = write_str(p, emu_flavor);
+
 #ifdef __WIN32__
    if (dll) {
        p = write_str(p, DLL_EXT);
@@ -521,6 +522,12 @@ int main(int argc, char **argv)
                     usage(argv[i]);
                 }
                 emu_type = argv[i+1];
+                i++;
+	    } else if (strcmp(argv[i], "-emu_flavor") == 0) {
+		if (i + 1 >= argc) {
+                    usage(argv[i]);
+                }
+                emu_flavor = argv[i+1];
                 i++;
 	    }
 	}
@@ -849,6 +856,15 @@ int main(int argc, char **argv)
                           break;
                       }
                       usage(argv[i]);
+                      break;
+                  case 'J':
+                      if (i + 1 >= argc) {
+                          usage(argv[i]);
+                      }
+                      argv[i][0] = '-';
+                      add_Eargs(argv[i]);
+                      add_Eargs(argv[i+1]);
+                      i++;
                       break;
 		  case 'S':
 		      if (argv[i][2] == 'P') {
@@ -1180,7 +1196,7 @@ usage_aux(void)
 #endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
-	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
+	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+J[Pperf] JIT_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "

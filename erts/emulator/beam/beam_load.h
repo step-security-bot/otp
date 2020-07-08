@@ -47,7 +47,11 @@ extern const GenOpEntry gen_opc[];
 
 typedef struct LoaderState_ LoaderState;
 
+#ifdef BEAMASM
+#include "asm/load.h"
+#else
 #include "emu/load.h"
+#endif
 
 int beam_load_prepared_dtor(Binary *magic);
 void beam_load_prepared_free(Binary *magic);

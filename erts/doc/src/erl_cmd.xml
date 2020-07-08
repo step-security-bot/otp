@@ -865,6 +865,15 @@
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
         </p>
       </item>
+      <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
+      <item>
+        <p>Enables or disables support for the `perf` profiler when running
+          with the JIT on Linux. Defaults to false.</p>
+        <p>For more details about how to run perf see the
+          <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
+          section in the BeamAsm internal documentation.
+        </p>
+      </item>
       <tag><c><![CDATA[+l]]></c></tag>
       <item>
         <p>Enables autoload tracing, displaying information while loading
