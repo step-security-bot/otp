@@ -314,8 +314,9 @@ platform(Vars) ->
     AsyncThreads = async_threads(),
     OffHeapMsgQ = off_heap_msgq(),
     Debug = debug(),
+    BeamAsm = beam_asm(),
     CpuBits = word_size(),
-    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,LinuxDist,
+    Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,BeamAsm,LinuxDist,
 			   Schedulers,BindType,KP,IOTHR,LC,MT,AsyncThreads,
 			   OffHeapMsgQ,Debug,ExtraLabel]),
     PlatformId = lists:concat([ErlType, " ", Version, Common]),
@@ -407,7 +408,12 @@ bind_type() ->
 	no_spread -> "/sbtns";
 	_ -> ""
     end.
-					
+
+beam_asm() ->
+    case string:find(erlang:system_info(system_version), "jit:beamasm") of
+	nomatch -> "";
+	_ -> "/BeamAsm"
+    end.
 
 debug() ->
     case string:find(erlang:system_info(system_version), "debug") of

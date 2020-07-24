@@ -4,7 +4,7 @@ BeamAsm provides load-time conversion of Erlang BEAM instructions into
 native code on x86-64. This allows the loader to eliminate any instruction
 dispatching overhead and also specialize each instruction on their argument types.
 
-BeamAsm does not do any cross instruction optimizations and the x and y
+BeamAsm does hardly any cross instruction optimizations and the x and y
 register arrays work the same as when interpreting BEAM instructions.
 This allows the Erlang run-time system to be largely unchanged except for
 places that need to work with loaded BEAM instructions like code loading,
@@ -57,7 +57,10 @@ ABIs which means that BeamAsm never has to spill any of these when making C
 function calls.
 
 The caller save registers are used as scratch registers within instructions but
-never to carry information between them.
+usually do not carry information between them. For some frequent instruction
+sequences such as tuple matching cross instruction optimization *are* done to avoid
+fetching the base address of the tuple in every `get_tuple_element` instruction.
+
 
 ### Reducing code size and load time
 
@@ -70,7 +73,7 @@ higher cache hit-rate.
 In BeamAsm we need to achieve something similar since the load-time of a module
 scales almost linearly with the amount of memory it uses. Early BeamAsm prototypes
 used about double the amount of memory for code as the interpreter, while current
-versions use somewhere between 10-20% more. How was this achieved?
+versions use about 10% more. How was this achieved?
 
 In BeamAsm we heavily use shared code fragments to try to emit as much code as
 possible as global shared fragments instead of duplicating the code unnecessarily.
@@ -277,6 +280,13 @@ There are many different transformations that you can do to make the graph show
 you what you want.
 
 ## FAQ
+
+### Is the interpreter still available?
+
+Yes, you can still build the interpreter if you want to. In fact, it is what is used
+on platforms where BeamAsm does not yet work. You can either completely disable
+BeamAsm by passing `--disable-beamasm` to configure. Or you can build the
+interpreter using `make FLAVOR=emu` and then run it using `erl -emu_flavor emu`.
 
 ### How much of a speedup should I expect from BeamAsm compared to the interpreter?
 
