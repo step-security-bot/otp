@@ -2944,7 +2944,7 @@ if test ${enable_beamasm} != no; then
            enable_beamasm=no
            cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
-                 BEAMASM JIT disable due to lack of compiler with C++17 support
+                 BEAMASM JIT disabled due to lack of compiler with C++17 support
 EOF
            AC_MSG_WARN([BEAMASM JIT disable due to lack of C++ compiler with C++17 support])
         fi
@@ -2973,7 +2973,7 @@ EOF
                enable_beamasm=no
                cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
-                 BEAMASM JIT disable due to mprotect(WRITE|EXEC) not working
+                 BEAMASM JIT disabled due to mprotect(WRITE|EXEC) not working
 EOF
                AC_MSG_WARN([BEAMASM JIT disable due to mprotect(WRITE|EXEC) not working])
             fi
