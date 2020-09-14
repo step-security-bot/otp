@@ -6,8 +6,7 @@ ENV ERL_COMPILER_OPTIONS=ssalint
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
         ERLC_USE_SERVER=yes \
-        ERL_TOP=/buildroot/otp \
-        PATH=/buildroot/otp/bin:$PATH
+        ERL_TOP=/buildroot/otp
 
 ARG ARCHIVE=./otp.tar.gz
 COPY $ARCHIVE /buildroot/otp.tar.gz
@@ -15,7 +14,7 @@ RUN cd /buildroot && tar xzf ./otp.tar.gz
 
 WORKDIR /buildroot/otp/
 
-RUN ./configure --prefix=/otp && make && make install
+RUN ./configure && make && make install
 
 RUN TESTSUITE_ROOT=/tests ./otp_build tests
 

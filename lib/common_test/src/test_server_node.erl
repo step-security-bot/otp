@@ -398,11 +398,12 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
                 _ ->
                     io:format(user,"No crash dump found~n",[])
             end,
-            case os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'") of
+            case string:strip(os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'")) of
                 [] ->
                     io:format(user,"~s~n",[os:cmd("ps aux")]);
                 Pid ->
-                    case file:read_file("/tmp/dist_dbg." ++ string:trim(Pid)) of
+                    os:cmd("kill -ABRT " ++ Pid),
+                    case file:read_file("/tmp/dist_dbg." ++ Pid) of
                         {ok, Dbg} ->
                             io:format(user,"~s~n",[Dbg]);
                         _ ->
