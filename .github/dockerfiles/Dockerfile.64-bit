@@ -3,6 +3,8 @@ FROM docker.pkg.github.com/erlang/otp/ubuntu-base
 ## We do a SSA lint check here
 ENV ERL_COMPILER_OPTIONS=ssalint
 
+RUN apt-get install gdb
+
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
         ERLC_USE_SERVER=yes \

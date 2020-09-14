@@ -402,7 +402,7 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
                 [] ->
                     io:format(user,"~s~n",[os:cmd("ps aux")]);
                 Pid ->
-                    os:cmd("kill -ABRT " ++ Pid),
+                    io:format(user,"~s~n",[os:cmd("kill -ABRT " ++ Pid)]),
                     case file:read_file("/tmp/dist_dbg." ++ Pid) of
                         {ok, Dbg} ->
                             io:format(user,"~s~n",[Dbg]);
@@ -411,8 +411,7 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
                             io:format(user,"Looking for \"/tmp/dist_dbg." ++ Pid ++ "\"~n",[]),
                             io:format(user,"~s~n",[os:cmd("ps aux")]),
                             io:format(user,"~s~n",[os:cmd("ps aux | grep time_SUITE")]),
-                            io:format(user,"~s~n",[os:cmd("ps aux | grep time_SUITE | grep -v grep")]),
-                            io:format(user,"~s~n",[os:cmd("ls /tmp/dist_dbg*")])
+                            io:format(user,"~s~n",[os:cmd("ps aux | grep time_SUITE | grep -v grep")])
                     end
             end
     end,
