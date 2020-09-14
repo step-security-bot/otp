@@ -402,12 +402,15 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
                 [] ->
                     io:format(user,"~s~n",[os:cmd("ps aux")]);
                 Pid ->
-                    case file:read_file("/tmp/dist_dbg." ++ Pid) of
+                    case file:read_file("/tmp/dist_dbg." ++ string:trim(Pid)) of
                         {ok, Dbg} ->
                             io:format(user,"~s~n",[Dbg]);
                         _ ->
                             io:format(user,"No dist dbg found~n",[]),
+                            io:format(user,"Looking for \"/tmp/dist_dbg." ++ Pid ++ "\"~n",[]),
                             io:format(user,"~s~n",[os:cmd("ps aux")]),
+                            io:format(user,"~s~n",[os:cmd("ps aux | grep time_SUITE")]),
+                            io:format(user,"~s~n",[os:cmd("ps aux | grep time_SUITE | grep -v grep")]),
                             io:format(user,"~s~n",[os:cmd("ls /tmp/dist_dbg*")])
                     end
             end
