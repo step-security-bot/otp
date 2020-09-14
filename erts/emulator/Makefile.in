@@ -25,7 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
-JIT_ENABLED=@JIT_ENABLED@
+BEAMASM_ENABLED=@BEAMASM_ENABLED@
 HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
 DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
@@ -41,28 +41,28 @@ OPCODE_TABLES = \
     beam/generators.tab
 
 ifeq ($(FLAVOR),)
-ifeq ($(JIT_ENABLED),yes)
-override FLAVOR=jit
+ifeq ($(BEAMASM_ENABLED),yes)
+override FLAVOR=asm
 else
 override FLAVOR=emu
 endif
 endif
 
-ifeq ($(FLAVOR),jit)
-ifneq ($(JIT_ENABLED),yes)
-$(error "JIT is not supported")
+ifeq ($(FLAVOR),asm)
+ifneq ($(BEAMASM_ENABLED),yes)
+$(error "BEAMASM is not supported")
 endif
 else
-JIT_ENABLED=no
+BEAMASM_ENABLED=no
 endif
 
-ifeq ($(FLAVOR),jit)
+ifeq ($(FLAVOR),asm)
 HIPE_ENABLED=no
 OMIT_OMIT_FP=no
 OPCODE_TABLES += \
-    beam/jit/ops.tab \
-    beam/jit/predicates.tab \
-    beam/jit/generators.tab
+    beam/asm/ops.tab \
+    beam/asm/predicates.tab \
+    beam/asm/generators.tab
 else
 OMIT_OMIT_FP=no
 OPCODE_TABLES += \
@@ -298,7 +298,7 @@ ifeq ($(HIPE_ENABLED),yes)
 CFLAGS  += -DHIPE=1
 ENABLE_ALLOC_TYPE_VARS += hipe exec_alloc
 endif
-ifeq ($(FLAVOR),jit)
+ifeq ($(FLAVOR),asm)
 CFLAGS  += -DBEAMASM=1
 ENABLE_ALLOC_TYPE_VARS += beamasm exec_alloc
 endif
@@ -450,7 +450,7 @@ CREATE_DIRS += $(OBJDIR) \
 	pcre/obj/$(TARGET)/$(TYPE) \
 	$(ZLIB_OBJDIR)
 
-ifeq ($(FLAVOR),jit)
+ifeq ($(FLAVOR),asm)
 CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/x86
 CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/x86
 endif
@@ -623,7 +623,7 @@ $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 		-wordsize @EXTERNAL_WORD_SIZE@ \
 		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
-		-jit $(if $(filter jit,$(FLAVOR)),yes,no) \
+		-asm $(if $(filter asm,$(FLAVOR)),yes,no) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
 		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
 GENERATE += $(TTF_DIR)/OPCODES-GENERATED
@@ -661,7 +661,7 @@ $(HIPE_NBIF_FILES) \
 	: $(TTF_DIR)/TABLES-GENERATED
 $(TTF_DIR)/TABLES-GENERATED: $(ATOMS) $(DIRTY_BIFS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TTF_DIR) -include $(TTF_DIR)\
-		-dst $(DS_TEST) -hipe $(HIPE) -jit $(if $(filter jit,$(FLAVOR)),yes,no)\
+		-dst $(DS_TEST) -hipe $(HIPE) -asm $(if $(filter asm,$(FLAVOR)),yes,no)\
 		$(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
 GENERATE += $(TTF_DIR)/TABLES-GENERATED
 
@@ -714,7 +714,7 @@ ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) $(wildcard asmjit/x86/*.cpp)
 ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/x86/*.h)
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
-ifeq ($(FLAVOR),jit)
+ifeq ($(FLAVOR),asm)
 GENERATE+=$(ASMJIT_TTF_H)
 endif
 
@@ -883,7 +883,7 @@ $(OBJDIR)/%.o: beam/%.c
 $(OBJDIR)/%.o: beam/emu/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/%.o: beam/jit/%.c
+$(OBJDIR)/%.o: beam/asm/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(OBJDIR)/%.o: $(TARGET)/%.c
@@ -921,7 +921,7 @@ ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_JIT=1 -DASMJIT_N
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.h.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.h
 
-$(OBJDIR)/%.o: beam/jit/%.cpp beam/jit/beam_asm.hpp $(ASMJIT_PCH_OBJ)
+$(OBJDIR)/%.o: beam/asm/%.cpp beam/asm/beam_asm.hpp $(ASMJIT_PCH_OBJ)
 	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
           $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
@@ -984,7 +984,7 @@ $(ERL_TOP)/lib/%.beam:
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
 PROFILE_OBJS = $(OBJDIR)/erl_process.o
-ifneq ($(JIT_ENABLED),yes)
+ifneq ($(BEAMASM_ENABLED),yes)
 PROFILE_OBJS += $(OBJDIR)/beam_emu.o
 endif
 
@@ -1004,7 +1004,7 @@ COMMON_OBJS = \
 
 ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
-JIT_OBJS = \
+ASM_OBJS = \
 	$(OBJDIR)/asm_load.o \
 	$(OBJDIR)/beam_asm.o \
 	$(OBJDIR)/beam_asm_global.o \
@@ -1221,8 +1221,8 @@ ifeq ($(HIPE_ENABLED),yes)
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-ifeq ($(JIT_ENABLED),yes)
-BASE_OBJS = $(JIT_OBJS)
+ifeq ($(BEAMASM_ENABLED),yes)
+BASE_OBJS = $(ASM_OBJS)
 else
 BASE_OBJS = $(EMU_OBJS)
 endif
@@ -1335,7 +1335,7 @@ $(BINDIR)/$(FLAVOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(STATIC_DRIVER_LIBS) $(LIBS)
 
 else
-ifeq ($(FLAVOR),jit)
+ifeq ($(FLAVOR),asm)
 EMU_LD=$(CXX)
 else
 EMU_LD=$(CC)
@@ -1390,7 +1390,7 @@ BEAM_SRC=$(wildcard beam/*.c)
 ifeq ($(FLAVOR),emu)
 BEAM_SRC+=$(wildcard beam/emu/*.c)
 else
-BEAM_CPP_SRC=$(wildcard beam/*.cpp) $(wildcard beam/jit/*.cpp)
+BEAM_CPP_SRC=$(wildcard beam/*.cpp) $(wildcard beam/asm/*.cpp)
 endif
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
@@ -1481,7 +1481,7 @@ $(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
 		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
-ifeq ($(JIT_ENABLED),yes)
+ifeq ($(BEAMASM_ENABLED),yes)
 	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 endif
@@ -1510,7 +1510,7 @@ compdb:
 	cat $(TTF_DIR)/*.json > $(ERL_TOP)/compile_commands.json
 
 clang_format:
-	clang-format -i beam/jit/*.cpp beam/jit/*.hpp beam/jit/*.c beam/jit/*.h
+	clang-format -i beam/asm/*.cpp beam/asm/*.hpp beam/asm/*.c beam/asm/*.h
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)

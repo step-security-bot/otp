@@ -246,7 +246,7 @@ static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
-static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, jit or emu) */
+static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, asm or emu) */
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detached mode -
