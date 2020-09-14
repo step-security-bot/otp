@@ -388,6 +388,30 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
 	    {error,Reason} -> {{error,Reason},undefined,undefined};
 	    Host0 -> do_start_node_slave(Host0,SlaveName,Args,Prog,Cleanup)
 	end,
+    if
+        element(1,element(1,Ret)) == ok ->
+            ok;
+        true ->
+            case file:read_file(CrashFile) of
+                {ok, F} ->
+                    io:format(user,"~s~n",[F]);
+                _ ->
+                    io:format(user,"No crash dump found~n",[])
+            end,
+            case os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'") of
+                [] ->
+                    io:format(user,"~s~n",[os:cmd("ps aux")]);
+                Pid ->
+                    case file:read_file("/tmp/dist_dbg." ++ Pid) of
+                        {ok, Dbg} ->
+                            io:format(user,"~s~n",[Dbg]);
+                        _ ->
+                            io:format(user,"No dist dbg found~n",[]),
+                            io:format(user,"~s~n",[os:cmd("ps aux")]),
+                            io:format(user,"~s~n",[os:cmd("ls /tmp/dist_dbg*")])
+                    end
+            end
+    end,
     gen_server:reply(From,Ret).
 
 

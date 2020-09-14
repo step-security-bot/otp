@@ -271,6 +271,7 @@ one_way_link(Master, Slave) ->
 	{'EXIT', Slave, _Reason} ->
 	    unlink(Master);
 	_Other ->
+            io:format(user,"Debug: ~p~n",[_Other]),
 	    one_way_link(Master, Slave)
     end.
 

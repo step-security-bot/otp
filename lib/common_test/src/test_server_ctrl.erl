@@ -5111,38 +5111,38 @@ get_target_info() ->
 
 start_node(Name, Type, Options) ->
     T = 10 * ?ACCEPT_TIMEOUT * test_server:timetrap_scale_factor(),
-    format(minor, "Attempt to start ~w node ~tp with options ~tp",
+    io:format(user, "Attempt to start ~w node ~tp with options ~tp~n",
 	   [Type, Name, Options]),
     case controller_call({start_node,Name,Type,Options}, T) of
 	{{ok,Nodename}, Host, Cmd, Info, Warning} ->
-	    format(minor,
-		   "Successfully started node ~w on ~tp with command: ~ts",
+	    io:format(user,
+		   "Successfully started node ~w on ~tp with command: ~ts~n",
 		   [Nodename, Host, Cmd]),
-	    format(major, "=node_start    ~w", [Nodename]),
+	    io:format(user, "=node_start    ~w~n", [Nodename]),
 	    case Info of
 		[] -> ok;
-		_ -> format(minor, Info)
+		_ -> io:format(user, Info)
 	    end,
 	    case Warning of
 		[] -> ok;
 		_ ->
 		    format(1, Warning),
-		    format(minor, Warning)
+		    io:format(user, Warning)
 	    end,
 	    {ok, Nodename};
 	{fail,{Ret, Host, Cmd}}  ->
-	    format(minor,
+	    io:format(user,
 		   "Failed to start node ~tp on ~tp with command: ~ts~n"
-		   "Reason: ~tp",
+		   "Reason: ~tp~n",
 		   [Name, Host, Cmd, Ret]),
 	    {fail,Ret};
 	{Ret, undefined, undefined} ->
-	    format(minor, "Failed to start node ~tp: ~tp", [Name,Ret]),
+	    io:format(user, "Failed to start node ~tp: ~tp~n", [Name,Ret]),
 	    Ret;
 	{Ret, Host, Cmd} ->
-	    format(minor,
+	    io:format(user,
 		   "Failed to start node ~tp on ~tp with command: ~ts~n"
-		   "Reason: ~tp",
+		   "Reason: ~tp~n",
 		   [Name, Host, Cmd, Ret]),
 	    Ret
     end.

@@ -457,8 +457,8 @@ time_warp_modes(Config) when is_list(Config) ->
     end.
 
 check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
-    io:format("~n~n~n***** Testing TimeCorrection=~p TimeWarpMode=~p *****~n",
-	      [TimeCorrection, TimeWarpMode]),
+    ct:pal("~n~n~n***** Testing TimeCorrection=~p TimeWarpMode=~p *****~n",
+           [TimeCorrection, TimeWarpMode]),
     Mon = erlang:monitor(time_offset, clock_service),
     _ = erlang:time_offset(),
     Start = erlang:monotonic_time(1000),
@@ -994,6 +994,7 @@ bad_dates() ->
      {{1996, 4, 30}, {12, 0, 60}}].
 
 start_node(Config, Args) ->
+    timer:sleep(1000),
     TestCase = proplists:get_value(testcase, Config),
     PA = filename:dirname(code:which(?MODULE)),
     ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
