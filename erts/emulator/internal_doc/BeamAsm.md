@@ -96,11 +96,11 @@ the amount of code that has to be emitted for each module.
 
 ## Running Erlang code
 
-Running BeamAsm code is very similar to running the interpreter, only that
+Running BeamAsm code is very similar to running the interpreter, except that
 native code is executed instead of interpreted code.
 
-However, we had to tweak the way the stack works since we execute native
-instructions on the Erlang stack. While the interpreter uses a stack slot for
+We had to tweak the way the Erlang stack works in order to execute native
+instructions on it. While the interpreter uses a stack slot for
 the current frame's return address (setting it to `[]` when unused), the
 native code merely reserves enough space for it as the x86 `call` and `ret`
 instructions bump the stack pointer when executed.
