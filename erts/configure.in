@@ -112,7 +112,7 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	with_ssl=no
 	with_ssl_zlib=no
 	enable_hipe=no
-        enable_beamasm=no
+        enable_jit=no
 	enable_sctp=no
   fi
 ])
@@ -189,14 +189,14 @@ AC_ARG_ENABLE(native-libs,
 AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
 
-AC_ARG_ENABLE(beamasm,
-AS_HELP_STRING([--enable-beamasm], [enable beamasm support])
-AS_HELP_STRING([--disable-beamasm], [disable beamasm support]),
+AC_ARG_ENABLE(jit,
+AS_HELP_STRING([--enable-jit], [enable JIT support])
+AS_HELP_STRING([--disable-jit], [disable JIT support]),
   [ case "$enableval" in
-    no) enable_beamasm=no ;;
-    *)  enable_beamasm=yes ;;
+    no) enable_jit=no ;;
+    *)  enable_jit=yes ;;
   esac
-],enable_beamasm=auto)
+],enable_jit=auto)
 
 AC_ARG_ENABLE(fp-exceptions,
 AS_HELP_STRING([--enable-fp-exceptions],
@@ -2904,22 +2904,22 @@ if test X${enable_hipe} != Xno; then
         esac
 fi
 
-dnl Test if BEAMASM can be enabled
-if test ${enable_beamasm} != no; then
+dnl Test if JIT can be enabled
+if test ${enable_jit} != no; then
    case "$ARCH" in
         amd64)
            ;;
         *)
-           if test ${enable_beamasm} = yes; then
-             AC_MSG_ERROR([BEAMASM only works on x86 64-bit])
+           if test ${enable_jit} = yes; then
+             AC_MSG_ERROR([JIT only works on x86 64-bit])
            else
-             enable_beamasm=no
-             AC_MSG_WARN([BEAMASM disabled due to lack to support on $ARCH-$OPSYS])
+             enable_jit=no
+             AC_MSG_WARN([JIT disabled due to lack to support on $ARCH-$OPSYS])
            fi
            ;;
    esac
 
-   if test ${enable_beamasm} != no; then
+   if test ${enable_jit} != no; then
        if test "$CXX" != false; then
           AC_LANG_PUSH(C++)
           old_CXXFLAGS=$CXXFLAGS
@@ -2938,20 +2938,20 @@ if test ${enable_beamasm} != no; then
           AC_LANG_POP()
        fi
        if test "$CXX" = false -o "$HAVE_CXX17" = false; then
-         if test ${enable_beamasm} = yes; then
-           AC_MSG_ERROR([BEAMASM needs a C++ compiler with C++17 support])
+         if test ${enable_jit} = yes; then
+           AC_MSG_ERROR([JIT needs a C++ compiler with C++17 support])
          else
-           enable_beamasm=no
+           enable_jit=no
            cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
-                 BEAMASM JIT disabled due to lack of compiler with C++17 support
+                 JIT disabled due to lack of compiler with C++17 support
 EOF
-           AC_MSG_WARN([BEAMASM JIT disable due to lack of C++ compiler with C++17 support])
+           AC_MSG_WARN([JIT disable due to lack of C++ compiler with C++17 support])
         fi
      fi
    fi
 
-   if test ${enable_beamasm} != no -a "$OPSYS" != win32; then
+   if test ${enable_jit} != no -a "$OPSYS" != win32; then
       AC_MSG_CHECKING([for mprotect with PROT_WRITE|PROT_EXEC support]);
       if test "$cross_compiling" != yes; then
          AC_TRY_RUN(
@@ -2967,15 +2967,15 @@ EOF
                 }
                ], [AC_MSG_RESULT(yes); have_prot_exec=yes], [AC_MSG_RESULT(no)])
          if test "$have_prot_exec" != yes; then
-            if test ${enable_beamasm} = yes; then
-               AC_MSG_ERROR([BEAMASM needs mprotect(WRITE|EXEC) to work])
+            if test ${enable_jit} = yes; then
+               AC_MSG_ERROR([JIT needs mprotect(WRITE|EXEC) to work])
             else
-               enable_beamasm=no
+               enable_jit=no
                cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
-                 BEAMASM JIT disabled due to mprotect(WRITE|EXEC) not working
+                 JIT disabled due to mprotect(WRITE|EXEC) not working
 EOF
-               AC_MSG_WARN([BEAMASM JIT disable due to mprotect(WRITE|EXEC) not working])
+               AC_MSG_WARN([JIT disable due to mprotect(WRITE|EXEC) not working])
             fi
         fi
       else
@@ -2983,8 +2983,8 @@ EOF
       fi
    fi
 
-   if test ${enable_beamasm} != no; then
-     enable_beamasm=yes
+   if test ${enable_jit} != no; then
+     enable_jit=yes
    fi
 fi
 
@@ -3118,17 +3118,17 @@ EOF
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
-BEAMASM_ENABLED=
-FLAVORS="emu asm"
-# Enable beamasm
-if test X${enable_beamasm} = Xyes; then
-     BEAMASM_ENABLED=yes
-     PRIMARY_FLAVOR=asm
+JIT_ENABLED=
+FLAVORS="emu jit"
+# Enable jit
+if test X${enable_jit} = Xyes; then
+     JIT_ENABLED=yes
+     PRIMARY_FLAVOR=jit
 else
      PRIMARY_FLAVOR=emu
 fi
 
-AC_SUBST(BEAMASM_ENABLED)
+AC_SUBST(JIT_ENABLED)
 AC_SUBST(PRIMARY_FLAVOR)
 AC_SUBST(FLAVORS)
 

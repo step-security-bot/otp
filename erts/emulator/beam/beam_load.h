@@ -48,7 +48,7 @@ extern const GenOpEntry gen_opc[];
 typedef struct LoaderState_ LoaderState;
 
 #ifdef BEAMASM
-#include "asm/load.h"
+#include "jit/load.h"
 #else
 #include "emu/load.h"
 #endif

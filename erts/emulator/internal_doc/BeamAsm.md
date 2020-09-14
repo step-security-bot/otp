@@ -333,8 +333,10 @@ we have found useful:
 
 Yes, you can still build the interpreter if you want to. In fact, it is what is used
 on platforms where BeamAsm does not yet work. You can either completely disable
-BeamAsm by passing `--disable-beamasm` to configure. Or you can build the
+BeamAsm by passing `--disable-jit` to configure. Or you can build the
 interpreter using `make FLAVOR=emu` and then run it using `erl -emu_flavor emu`.
+
+It is possible to have both the JIT and interpreter available at the same time.
 
 ### How much of a speedup should I expect from BeamAsm compared to the interpreter?
 

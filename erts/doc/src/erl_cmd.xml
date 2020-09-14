@@ -239,6 +239,14 @@
       <item>
         <p>Useful for debugging. Prints the arguments sent to the emulator.</p>
       </item>
+      <tag><c><![CDATA[-emu_flavor Flavor]]></c></tag>
+      <item>
+        <p>Start an emulator of a different flavor. The current available flavors
+          are: <c>emu</c> and <c>jit</c>. You can combine this flag with
+          <c>--emu_type</c>. (The emulator with this flavor must be built. You can
+          build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
+          Erlang/OTP source repository.)</p>
+      </item>
       <tag><c><![CDATA[-emu_type Type]]></c></tag>
       <item>
         <p>Start an emulator of a different type. For example, to start

@@ -23,7 +23,7 @@ use vars qw($BEAM_FORMAT_NUMBER $GC_REGEXP);
 use constant COLD => 0;
 use constant WARM => 1;
 use constant HOT => 2;
-use constant ASM => 3;
+use constant JIT => 3;
 
 # Instructions for packing
 use constant PACK_JUMP => 1;
@@ -47,7 +47,7 @@ my $num_file_opcodes = 0;
 my $wordsize = 32;
 my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
-my $asm = 'no';
+my $jit = 'no';
 my %defs;                        # Defines (from command line).
 
 # This is shift counts and mask for the packer.
@@ -300,7 +300,7 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($wordsize = shift), next if /^wordsize/;
     ($code_model = shift), next if /^code-model/;
     ($verbose = 1), next if /^v/;
-    ($asm = shift), next if /^asm/;
+    ($jit = shift), next if /^jit/;
     ($defs{$1} = $2), next if /^D(\w+)=(\w+)/;
     die "$0: Bad option: -$_\n";
 }
@@ -593,7 +593,7 @@ foreach my $key (keys %specific_op) {
 	for my $arg (@args) {
 	    my $cleaned_arg = $arg;
 	    $cleaned_arg =~ s/[?]$//;
-	    if ($asm ne 'no' and $cleaned_arg eq 'r') {
+	    if ($jit ne 'no' and $cleaned_arg eq 'r') {
 		warn "specific instruction '$name @args' uses type 'r' which is is not supported for BeamAsm\n";
 		$any_errors = 1;
 	    } elsif ($forbidden_type{$cleaned_arg}) {
@@ -643,7 +643,7 @@ sub emulator_output {
 	}
     }
 
-    if ($asm eq 'no') {
+    if ($jit eq 'no') {
 	#
 	# Generate code and meta information for all instructions.
 	#
@@ -675,7 +675,7 @@ sub emulator_output {
 	# code for them.
 	#
         combine_micro_instructions();
-    } elsif ($asm eq 'yes') {
+    } elsif ($jit eq 'yes') {
 	#
 	# Generate the code for the BeamAsm glue files.
 	#
@@ -700,14 +700,14 @@ sub emulator_output {
 		}
 
                 $body .= ");";
-                push @generated_code, [ASM,"case op_$print_name: {\n$body\n\tbreak;\n}\n\n",($print_name)];
+                push @generated_code, [JIT,"case op_$print_name: {\n$body\n\tbreak;\n}\n\n",($print_name)];
             }
         }
 
         $name = "$outdir/beamasm_emit.h";
         open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
         comment('C');
-        print_code(ASM);
+        print_code(JIT);
 
         $name = "$outdir/beamasm_protos.h";
         open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
@@ -823,7 +823,7 @@ sub emulator_output {
             my $size = $info->{'size'};
             my $pack_spec = $info->{'pack_spec'};
             my $sign = join '', @args;
-	    if ($asm eq 'no') {
+	    if ($jit eq 'no') {
 		init_item($print_name, $init, $involves_r, $size, $adj, $pack_spec, $sign);
 	    } else {
 		init_item($print_name, $init, $sign);
@@ -1019,7 +1019,7 @@ sub emulator_output {
     #
     # Implementation of operations for emulator.
     #
-    if ($asm eq 'no') {
+    if ($jit eq 'no') {
 	$name = "$outdir/beam_hot.h";
 	open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
 	comment('C');
