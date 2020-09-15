@@ -12,6 +12,8 @@ fi
 
 erl -noshell -s ts install -s ts smoke_test batch -s init stop
 
+find / -name 'core.*'
+
 if grep -q '=failed *[1-9]' ct_run.test_server@*/*/run.*/suite.log; then
     echo "One or more tests failed."
     exit 1

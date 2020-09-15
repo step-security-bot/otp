@@ -75,9 +75,11 @@ jobs:
       - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'
         name: Run smoke test
         run: |
-          echo 'core.%p' > /proc/sys/kernel/core_pattern
+          sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
+          docker run --ulimit core=-1 otp \
+            "erl -eval 'erlang:halt(abort)' || ls"
           docker run --ulimit core=-1 -v $PWD/scripts:/scripts otp \
-            cat /proc/sys/kernel/core_pattern && \
+            "cat /proc/sys/kernel/core_pattern && \
             cd /tests && /scripts/run-smoke-tests"
 
         ## Documentation checks
