@@ -245,18 +245,21 @@ wait_for_slave(Parent, Host, Name, Node, Args, LinkTo, Prog) ->
 			_ ->
 			    ok
 		    end,
-		    Parent ! {result, {error, timeout}}
+		    Parent ! {result, {error, timeout}},
+                    flush(infinity)
 	    end;
 	Other ->
 	    Parent ! {result, Other}
     end.
 
 flush() ->
+    flush(0).
+flush(Tmo) ->
     receive
         M ->
             io:format(user,"~p~n",[M]),
-            flush()
-    after 0 ->
+            flush(Tmo)
+    after Tmo ->
             ok
     end.
 
