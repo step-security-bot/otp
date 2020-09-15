@@ -75,7 +75,8 @@ jobs:
       - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'
         name: Run smoke test
         run: |
-          docker run -v $PWD/scripts:/scripts otp "cd /tests && /scripts/run-smoke-tests"
+          docker run --ulimit core=-1 -v $PWD/scripts:/scripts otp \
+            "cat /proc/sys/kernel/core_pattern && cd /tests && /scripts/run-smoke-tests"
 
         ## Documentation checks
       - if: matrix.type == 'documentation'

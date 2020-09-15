@@ -393,7 +393,7 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
             ok;
         true ->
             ppcmd("ps aux | grep time_SUITE | grep -v grep"),
-            case string:strip(os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'")) of
+            case string:trim(os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'")) of
                 [] ->
                     ppcmd("ps aux");
                 Pid ->
