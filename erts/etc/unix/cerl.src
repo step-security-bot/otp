@@ -470,6 +470,8 @@ set height 0
 set verbose off
 
 source $ROOTDIR/erts/etc/unix/etp-commands
+etp-processes
+etp-schedulers
 thread apply all bt
 " > $cmdfile
 	    exec gdb --batch --command=$cmdfile $EMU_NAME $core
