@@ -234,6 +234,7 @@ wait_for_slave(Parent, Host, Name, Node, Args, LinkTo, Prog) ->
 		    unregister(Waiter),
 		    slave_started(Parent, LinkTo, SlavePid)
 	    after 32000 ->
+                    flush(),
 		    %% If it seems that the node was partially started,
 		    %% try to kill it.
 		    Node = list_to_atom(lists:concat([Name, "@", Host])),
@@ -248,6 +249,15 @@ wait_for_slave(Parent, Host, Name, Node, Args, LinkTo, Prog) ->
 	    end;
 	Other ->
 	    Parent ! {result, Other}
+    end.
+
+flush() ->
+    receive
+        M ->
+            io:format(user,"~p~n",[M]),
+            flush()
+    after 0 ->
+            ok
     end.
 
 slave_started(ReplyTo, no_link, Slave) when is_pid(Slave) ->
