@@ -392,11 +392,12 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
         element(1,element(1,Ret)) == ok ->
             ok;
         true ->
+            ppcmd("ps aux | grep time_SUITE | grep -v grep"),
             case string:strip(os:cmd("ps aux | grep time_SUITE | grep -v grep | awk '{print $2}'")) of
                 [] ->
-                    io:format(user,"~s~n",[os:cmd("ps aux")]);
+                    ppcmd("ps aux");
                 Pid ->
-                    io:format(user,"~s~n",[os:cmd("kill -USR2 " ++ Pid)]),
+                    ppcmd("kill -USR1 " ++ Pid),
                     timer:sleep(1000),
                     case file:read_file(CrashFile) of
                         {ok, F} ->
@@ -404,7 +405,7 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
                         _ ->
                             io:format(user,"No crash dump found~n",[])
                     end,
-                    io:format(user,"~s~n",[os:cmd("kill -ABRT " ++ Pid)]),
+                    ppcmd("kill -ABRT " ++ Pid),
                     case file:read_file("/tmp/dist_dbg." ++ Pid) of
                         {ok, Dbg} ->
                             io:format(user,"~s~n",[Dbg]);
@@ -419,6 +420,11 @@ start_node_slave(SlaveName, OptList, From, _TI) ->
     end,
     gen_server:reply(From,Ret).
 
+ppcmd(Cmd) ->
+    io:format(user,"~s~n",[Cmd]),
+    Ret = os:cmd(Cmd),
+    io:format(user,"~s~n",[Ret]),
+    Ret.
 
 do_start_node_slave(Host0, SlaveName, Args, Prog, Cleanup) ->
     Host =
