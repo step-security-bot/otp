@@ -244,7 +244,7 @@
         <p>Start an emulator of a different flavor. The current available flavors
           are: <c>emu</c> and <c>jit</c>. You can combine this flag with
           <c>--emu_type</c>. You can get the current flavor at run-time using
-          <seeerl marker="erlang#system_info_build_flavor">
+          <seeerl marker="erlang#system_info_emu_flavor">
             <c>erlang:system_info(build_flavor)</c></seeerl>.
           (The emulator with this flavor must be built. You can
           build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
@@ -255,7 +255,7 @@
         <p>Start an emulator of a different type. For example, to start
 	  the lock-counter emulator, use <c>-emu_type lcnt</c>.
           You can get the current type at run-time using
-          <seeerl marker="erlang#system_info_build_type">
+          <seeerl marker="erlang#system_info_emu_type">
             <c>erlang:system_info(build_type)</c></seeerl>.
           (The emulator of this type must already be built.
           Use the <c>configure</c> option <c>--enable-lock-counter</c> to
