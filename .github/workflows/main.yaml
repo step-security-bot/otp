@@ -134,11 +134,11 @@ jobs:
       - run: |
           tar xzf otp_src.tar.gz
           mv otp otp_src_${{ steps.tag.outputs.vsn }}
-          tar czf ${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
+          tar czf otp_src_${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
       - name: Upload pre-built tar archive
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.tag.outputs.vsn }}.tar.gz
+          files: otp_src_${{ steps.tag.outputs.vsn }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
