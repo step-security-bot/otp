@@ -84,6 +84,27 @@ jobs:
       - if: matrix.type == 'documentation'
         name: Run html link check
         run: docker run -v $PWD/scripts:/scripts otp "/scripts/otp_html_check /otp doc/index.html"
+      - if: matrix.type == 'documentation'
+        name: Release docs to publish
+        run: |
+          docker run -v $PWD/:/github otp "make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
+          sudo chown -R `whoami` docs
+          cd docs
+          tar czf ../otp_doc_man.tar.gz man
+          rm -rf man
+          tar czf ../otp_doc_html.tar.gz *
+      - if: matrix.type == 'documentation'
+        name: Upload html documentation archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_doc_html
+          path: otp_doc_html.tar.gz
+      - if: matrix.type == 'documentation'
+        name: Upload man documentation archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: otp_doc_man
+          path: otp_doc_man.tar.gz
 
         ## Run dialyzer
       - if: matrix.type == '64-bit'
@@ -126,32 +147,45 @@ jobs:
       
       - uses: actions/checkout@v2
 
-      ## Publish the pre-built archive
+      ## Publish the pre-built archive and docs
       - name: Download source archive
         uses: actions/download-artifact@v2
         with:
           name: otp_prebuilt
-      - run: |
-          tar xzf otp_src.tar.gz
-          mv otp otp_src_${{ steps.tag.outputs.vsn }}
-          tar czf otp_src_${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
-      - name: Upload pre-built tar archive
-        uses: softprops/action-gh-release@v1
+      - name: Download html docs
+        uses: actions/download-artifact@v2
         with:
-          files: otp_src_${{ steps.tag.outputs.vsn }}.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: otp_doc_html
+      - name: Download man docs
+        uses: actions/download-artifact@v2
+        with:
+          name: otp_doc_man
 
-      ## Publish the Erlang/OTP bundle
+      ## We add the correct version name into the file names
+      ## and create the MD5 file for all assets
+      - name: Create pre-build and doc archives
+        run: |
+          mkdir artifacts
+          tar -xzf otp_src.tar.gz
+          mv otp otp_src_${{ steps.tag.outputs.vsn }}
+          tar -czf artifacts/otp_src_${{ steps.tag.outputs.vsn }}.tar.gz otp_src_${{ steps.tag.outputs.vsn }}
+          mv otp_doc_man.tar.gz artifacts/otp_doc_man_${{ steps.tag.outputs.vsn }}.tar.gz
+          mv otp_doc_html.tar.gz artifacts/otp_doc_html_${{ steps.tag.outputs.vsn }}.tar.gz
+
       - name: Build OTP Bundle
-        run: scripts/bundle-otp ${{ steps.tag.outputs.tag }}
-      - name: Upload OTP Bundle
-        uses: softprops/action-gh-release@v1
-        ## Only provide bundle at major and minor releases
         if: steps.tag.outputs.release == 'true'
+        run: |
+          scripts/bundle-otp ${{ steps.tag.outputs.tag }}
+
+      ## Create md5sum
+      - name: Create pre-build and doc archives
+        run: (cd artifacts && md5sum {*.tar.gz,*.txt} > MD5.txt)
+
+      - name: Upload pre-built and doc tar archives
+        uses: softprops/action-gh-release@v1
         with:
           files: |
-            ${{ steps.tag.outputs.tag }}.0-bundle.txt
-            ${{ steps.tag.outputs.tag }}.0-bundle.tar.gz
+            artifacts/*.tar.gz
+            artifacts/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
