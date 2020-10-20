@@ -21,8 +21,8 @@
 
 %%% Purpose: Implements the qlc Parse Transform.
 
--export([parse_transform/2, transform_from_evaluator/2, 
-         transform_expression/2]).
+-export([parse_transform/2, parse_transform_info/0,
+         transform_from_evaluator/2, transform_expression/2]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -117,6 +117,11 @@ parse_transform(Forms0, Options) ->
     after
         true = ets:delete(NodeInfo)
     end.
+
+-spec parse_transform_info() -> #{'error_location' => 'column'}.
+
+parse_transform_info() ->
+    #{error_location => column}.
 
 -spec(transform_from_evaluator(LC, Bs) -> Return when
       LC :: erl_parse:abstract_expr(),
