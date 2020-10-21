@@ -17,32 +17,333 @@
 %% 
 %% %CopyrightEnd%
 %%
-{application, erts, [
-	{description, "ERTS  CXC 138 10"},
-	{vsn, "%VSN%"},
-	{modules, [
-		%% preloaded
-		erlang,
-		erl_prim_loader,
-		erts_internal,
-		init,
-		erl_init,
-		erts_code_purger,
-		prim_buffer,
-		prim_eval,
-		prim_file,
-		prim_inet,
-		prim_zip,
-                atomics,
-                counters,
-                persistent_term,
-		%ESOCK_MODS%
-		zlib
+{application, erts,
+ [
+  {description, "Erlang run-time system"},
+  {vsn, "%VSN%"},
+  {modules, [
+             %% preloaded
+             erlang,
+             erl_prim_loader,
+             erts_internal,
+             init,
+             erl_init,
+             erts,
+             erts_code_purger,
+             prim_buffer,
+             prim_eval,
+             prim_file,
+             prim_inet,
+             prim_zip,
+             atomics,
+             counters,
+             persistent_term,
+             %ESOCK_MODS%
+             zlib
 	    ]},
-	{registered, []},
-	{applications, []},
-	{env, []},
-	{runtime_dependencies, ["stdlib-3.13", "kernel-7.0", "sasl-3.3"]}
-    ]}.
+  {registered, []},
+  {applications, []},
+  {mod, {erts, []}},
+  {env,[{config_format, 24}]},
+  {config,
+   #{
+     async =>
+         #{
+           %% +A
+           size => {integer, 1, 1024},
+           %% +a
+           stacksize => {integer, 16, 8192}
+          },
+     %% +B
+     break => {atom, [disable, ignore]},
+     time => #{
+               %% +c
+               correction => boolean,
+               %% +C
+               warp_mode => {atom,
+                             [no_time_warp,
+                              single_time_warp,
+                              multi_time_warp]},
+               %% +T
+               timing => {integer, 0, 9}
+              },
+
+     %% +d
+     coredump => boolean,
+
+     %% +rg
+     scalability => #{ reader_groups => {integer, 1, 256} },
+
+     unicode =>
+         #{
+           %% +fnl/u/a
+           filename => #{ encoding => {atom, [latin1, unicode, automatic]},
+                          error => {atom, [warn, ignore, error]} },
+           %% +pc
+           printable_characters => #{ encoding => {atom, [latin1, unicode]} }
+          },
+
+     ets =>
+         #{
+           %% +e
+           limit => integer,
+           %% +ec
+           compressed => boolean,
+           %% +r
+           always_realloc => boolean
+          },
+     processes =>
+         #{
+           %% +P
+           limit => {integer, 1024, 134217727},
+           heap =>
+               #{ term =>
+                      #{
+                        %% +hms
+                        min => integer,
+                        max =>
+                            #{
+                              %% +hmax
+                              size => integer,
+                              %% +hmaxel
+                              error_logger => boolean,
+                              %% +hmaxk
+                              kill => boolean
+                             }
+                       },
+                  %% +hmbs
+                  binary => #{ min => integer },
+                  %% +hmqd
+                  message_queue => {atom, [on_heap, off_heap]}
+                },
+           %% +hpds
+           dictionary => #{ size => integer }
+          },
+
+     %% +Q
+     ports => #{ limit => integer },
+
+     %% +t
+     atoms => #{ limit  => integer },
+
+     io =>
+         #{
+           %% +IOp
+           pollsets => {integer, 1, 1024},
+           %% +IOt
+           pollthreads => {integer, 1, 1024}
+          },
+
+     dist =>
+         #{
+           %% +R
+           compatability => {integer, 22, 24},
+           %% +zdbbl
+           buffer_busy_limit => {integer, 1, 2097151},
+           %% +zdntgc
+           delayed_node_table_gc => {integer, 0, 100000000}
+          },
+
+     memory =>
+         #{
+           util =>
+               #{
+                 %% +Mue
+                 enabled => boolean,
+
+                 migration =>
+                     #{ abandon_carrier =>
+                            #{
+                              %% +Muacul
+                              utilization_limit => {integer, 0, 100},
+                              %% +Mucfml
+                              free_block_min_limit => integer,
+                              %% +Muacnl
+                              limit => integer
+                             }
+                      },
+                 %% +Muas, we can probably make this more intuitive...
+                 allocation_strategy => {atom, [bf, aobf, aoff, aoffcbf, aoffcaobf,
+                                                ageffcaoff, ageffcbf, ageffcaobf,
+                                                gf, af]},
+                 %% maybe break it into block vs carrier?
+                 %% allocation_strategy => #{ block => {atom, [bf, aobf, aoff, ageff, gf, af]},
+                 %%                           carrier => {atom, [bf, aoff]},
+
+                 goodfit => #{ max_block_search_depth => integer },
+
+                 singleblock =>
+                     #{
+                       absolute_carrier_shrink_threshold => integer,
+                       %% +Mummsbc
+                       max_mseg_carriers => integer,
+                       %% +Mursbcmt
+                       relative_carrier_move_threshold => integer,
+                       %% +Mursbcst
+                       relative_carrier_shrink_threshold => integer,
+                       %% +Musbct
+                       carrier_threshold => integer
+                      },
+                 multiblock =>
+                     #{
+                       %% +Mummbcs
+                       main_carrier_size => integer,
+                       %% +Musmbc
+                       min_carrier_size => integer,
+                       %% +Mulmbc
+                       max_carrier_size => integer,
+                       %% +Mumbcgs
+                       growth_stages => integer,
+                       %% +Mummmbc
+                       max_mseg_carriers => integer,
+                       %% +Murmbcmt
+                       relative_carrier_move_threshold => integer
+                      },
+                 %% +Muramv
+                 realloc_always_moves => boolean,
+                 %% +Mut
+                 global => boolean
+                },
+           %% +MB
+           binary_alloc => {alias, [memory, util]},
+           %% +MD
+           std_alloc => {alias, [memory, util]},
+           %% +ME
+           ets_alloc => {alias, [memory, util]},
+           %% +MF
+           fix_alloc => {alias, [memory, util]},
+           %% +MH
+           eheap_alloc => {alias, [memory, util]},
+           %% +ML
+           ll_alloc => {alias, [memory, util]},
+           %% +MR
+           driver_alloc => {alias, [memory, util]},
+           %% +MS
+           sl_alloc => {alias, [memory, util]},
+           %% +MT
+           temp_alloc => {alias, [memory, util]},
+           cache =>
+               #{
+                 %% +MMamcbf
+                 absolute_max_bad_fit => integer,
+                 %% +MMrmcbf
+                 relative_max_bad_fit => integer,
+                 %% +MMmcs
+                 max_segments => {integer, 0, 30}
+                },
+           super_carrier =>
+               #{
+                 %% +MMsco
+                 only => boolean,
+                 %% +MMscrfsd
+                 reserved_free_segment_desciptors => integer,
+                 %% +MMscrpm
+                 reserve_physical_memory => boolean,
+                 %% +MMscs
+                 size => integer
+                },
+           sys_alloc =>
+               #{
+                 %% +MYe
+                 enabled => boolean,
+                 %% +MYm
+                 malloc_library => {atom, [libc]},
+                 %% +MYtt
+                 trim_threshold_size => integer,
+                 %% +MYtp
+                 top_pad_size => integer
+                },
+           literal_alloc =>
+               #{
+                 %% +MIscs
+                 super_carrier_size => integer
+                },
+           config => {atom, [min, max, r9c, r10b, r11b, config]},
+           alloc_util =>
+               #{
+                 %% +Muycs
+                 sys_alloc_carrier_size => integer,
+                 %% +Mummc
+                 max_mseg_alloc_carriers => integer,
+                 %% +Musac
+                 use_sys_alloc => boolean
+                }
+          },
+
+     schedulers =>
+         #{
+           normal =>
+               #{
+                 %% +S
+                 online => {integer, 1, 1024},
+                 %% +S :N
+                 available => {integer, 1, 1024},
+                 %% +sbwt
+                 busy_wait_threashold => {atom, [none, very_short, short,
+                                                 medium, long, very_long]},
+                 %% +sss
+                 stacksize => {integer, 20, 8192},
+                 %% +swt
+                 wakeup_threashold => {atom, [very_low, low, medium,
+                                              high, very_high]}
+                },
+           dirty =>
+               #{
+                 io =>
+                     #{
+                       %% +SDio
+                       online => {integer, 1, 1024},
+                       %% +sbwtdio
+                       busy_wait_threashold => {atom, [none, very_short, short,
+                                                       medium, long, very_long]},
+                       %% +sssdio
+                       stacksize => {integer, 20, 8192},
+                       %% +swtio
+                       wakeup_threashold => {atom, [very_low, low, medium,
+                                                    high, very_high]} },
+                 cpu =>
+                     #{
+                       %% +SDcpu
+                       online => {integer, 1, 1024},
+                       %% +SDcpu :N
+                       available => {integer, 1, 1024},
+                       %% +sbwtdcpu
+                       busy_wait_threashold => {alias, [schedulers, normal,
+                                                        busy_wait_threashold]},
+                       %% +sssdcpu
+                       stacksize => {integer, 20, 8192},
+                       %% +swtcpu
+                       wakeup_threashold => {atom, [very_low, low, medium,
+                                                    high, very_high]} }
+                },
+           %% +sbt
+           bind_type =>
+               {atom,
+                [default_bind, no_node_processor_spread,
+                 no_node_thread_spread, no_spread,
+                 processor_spread, spread, thread_spread,
+                 thread_no_node_processor_spread, unbound]},
+           load =>
+               #{
+                 %% +scl
+                 compact => boolean,
+                 %% +sub
+                 utilization => boolean
+                },
+           %% +sct
+           topology => string,
+           %% +sfwi
+           forced_wakeup_interval => integer,
+           %% +spp
+           port_parallelism => boolean,
+           %% +swct
+           wake_cleanup_threashold => {atom, [very_eager, eager, medium, lazy, very_lazy]},
+           %% +sws
+           wakeup_strategy => {atom, [default, legacy]}
+          }
+    }
+  },
+  {runtime_dependencies, ["stdlib-3.13", "kernel-7.0", "sasl-3.3"]}
+ ]}.
 
 %% vim: ft=erlang

@@ -48,8 +48,8 @@
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
 static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs);
-static char **convert_args(Eterm);
-static void free_args(char **);
+char **convert_args(Eterm);
+void free_args(char **);
 
 char *erts_default_arg0 = "default";
 
@@ -1094,7 +1094,7 @@ static int merge_global_environment(erts_osenv_t *env, Eterm key_value_pairs) {
 }
 
 /* Arguments can be given i unicode and as raw binaries, convert filename is used to convert */
-static char **convert_args(Eterm l)
+char **convert_args(Eterm l)
 {
     char **pp;
     char *b;
@@ -1127,7 +1127,7 @@ static char **convert_args(Eterm l)
     return pp;
 }
 
-static void free_args(char **av)
+void free_args(char **av)
 {
     int i;
     if (av == NULL)

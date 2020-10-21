@@ -18,5 +18,6 @@
 %% %CopyrightEnd%
 %%
 {release, {"Erlang/OTP","%SYS_VSN%"}, {erts, "%ERTS_VSN%"},
- [{kernel,"%KERNEL_VSN%"},
+ [{erts,"%ERTS_VSN%"},
+  {kernel,"%KERNEL_VSN%"},
   {stdlib,"%STDLIB_VSN%"}]}.

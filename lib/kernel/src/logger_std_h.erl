@@ -152,7 +152,7 @@ check_h_config(Type,[{type,Type} | Config]) when Type =:= standard_io;
     check_h_config(Type,Config);
 check_h_config({device,Device},[{type,{device,Device}} | Config]) ->
     check_h_config({device,Device},Config);
-check_h_config(file,[{file,File} | Config]) when is_list(File) ->
+check_h_config(file,[{file,File} | Config]) when is_list(File); is_binary(File) ->
     check_h_config(file,Config);
 check_h_config(file,[{modes,Modes} | Config]) when is_list(Modes) ->
     check_h_config(file,Config);
@@ -586,7 +586,7 @@ rotate_files(FileName,0,_Compress) ->
     _ = file:delete(FileName),
     ok;
 rotate_files(FileName,1,Compress) ->
-    FileName0 = FileName++".0",
+    FileName0 = [FileName,".0"],
     _ = file:rename(FileName,FileName0),
     if Compress -> compress_file(FileName0);
        true -> ok
@@ -598,13 +598,13 @@ rotate_files(FileName,Count,Compress) ->
     rotate_files(FileName,Count-1,Compress).
 
 rot_file_name(FileName,Count,false) ->
-    FileName ++ "." ++ integer_to_list(Count);
+    [FileName,".",integer_to_list(Count)];
 rot_file_name(FileName,Count,true) ->
-    rot_file_name(FileName,Count,false) ++ ".gz".
+    [rot_file_name(FileName,Count,false),".gz"].
 
 compress_file(FileName) ->
     {ok,In} = file:open(FileName,[read,binary]),
-    {ok,Out} = file:open(FileName++".gz",[write]),
+    {ok,Out} = file:open([FileName,".gz"],[write]),
     Z = zlib:open(),
     zlib:deflateInit(Z, default, deflated, 31, 8, default),
     compress_data(Z,In,Out),

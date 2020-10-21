@@ -120,6 +120,11 @@ MODULES= \
 	supervisor_bridge \
 	sys \
 	timer \
+	tomerl \
+	tomerl_convert \
+	tomerl_datetime \
+	tomerl_lexer \
+	tomerl_parser \
 	unicode \
 	unicode_util \
 	uri_string \

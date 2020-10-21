@@ -60,6 +60,7 @@ MODULES = \
 	auth \
 	code \
 	code_server \
+	config_config_parser \
 	disk_log \
 	disk_log_1 \
 	disk_log_server \
@@ -146,6 +147,7 @@ MODULES = \
 	raw_file_io_deflate \
 	raw_file_io_delayed \
 	raw_file_io_list \
+	toml_config_parser \
 	wrap_log_reader
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \

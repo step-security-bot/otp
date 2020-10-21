@@ -590,6 +590,7 @@ Erlang code.
                        | af_type_decl()
                        | af_function_spec()
                        | af_wild_attribute()
+                       | af_wild_decl()
                        | af_function_decl().
 
 -type af_module() :: {'attribute', anno(), 'module', module()}.
@@ -629,6 +630,9 @@ Erlang code.
                          {type_name(), abstract_type(), [af_variable()]}}.
 
 -type type_attr() :: 'opaque' | 'type'.
+
+-type af_wild_decl() :: {'attribute', anno(), atom(),
+                         {type_name(), abstract_type(), [af_variable()]}}.
 
 -type af_function_spec() :: {'attribute', anno(), spec_attr(),
                              {{function_name(), arity()},
@@ -1086,8 +1090,7 @@ build_typed_attribute({atom,Aa,record},
 		      {typed_record, {atom,_An,RecordName}, RecTuple}) ->
     {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
 build_typed_attribute({atom,Aa,Attr},
-                      {type_def, {call,_,{atom,_,TypeName},Args}, Type})
-  when Attr =:= 'type' ; Attr =:= 'opaque' ->
+                      {type_def, {call,_,{atom,_,TypeName},Args}, Type}) ->
     lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
                      (_)             -> ok
                   end, Args),

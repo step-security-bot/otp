@@ -2559,3 +2559,42 @@ __decl_noreturn void __noreturn erts_flush_async_exit(int n, char *fmt, ...)
     va_end(args2);
     va_end(args1);
 }
+
+
+char **convert_args(Eterm l);
+void free_args(char **av);
+
+BIF_RETTYPE erts_internal_exec_3(BIF_ALIST_3) {
+    unsigned char *bytes, *temp_alloc;
+    char **av = convert_args(BIF_ARG_1);
+    int fd[2], pid;
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_3, &temp_alloc);
+    if (!av) BIF_ERROR(BIF_P, BADARG);
+    /* erts_fprintf(stderr,"%T\r\n",BIF_ARG_1); */
+    /* erts_fprintf(stderr,"%T\r\n",BIF_ARG_3); */
+    if (pipe(fd) == -1) {
+        perror("pipe failed ");
+    }
+    erts_thr_progress_block();
+    pid = fork();
+    if (pid != 0) {
+        int i = 4;
+        if (dup2(fd[0], 3) == -1)
+            perror("dup2 failed ");
+        for (i = 4; i < sys_max_files(); i++)
+            close(i);
+        /* parent */
+        if (execv(av[1],av+1) == -1) {
+            perror("execv failed: ");
+        }
+    } else {
+        /* child */
+        Sint sz = binary_size(BIF_ARG_3), written = 0;
+        do {
+            int res = write(fd[1], bytes + written, sz - written);
+            if (res > 0) written += res;
+        } while(written != sz);
+        _exit(0);
+    }
+    BIF_RET(am_ok);
+}

@@ -20,8 +20,8 @@
 -module(application).
 
 -export([ensure_all_started/1, ensure_all_started/2, start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1, 
-	 load/1, load/2, unload/1, takeover/2,
+	 start_boot/1, start_boot/2, stop/1,
+	 load/1, load/2, load_config/0, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
 -export([ensure_started/1, ensure_started/2]).
@@ -30,6 +30,7 @@
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
+-export([parse_transform/2, check_env/2, check_env/3]).
 
 -export_type([start_type/0]).
 
@@ -107,6 +108,15 @@ load1(Application, DistNodes) ->
 	    end;
 	Else ->
 	    Else
+    end.
+
+load_config() ->
+    case application_controller:load_application_config() of
+        ok ->
+            ok;
+        {error,Str} ->
+            logger:error(error,Str),
+            exit({error,Str})
     end.
 
 -spec unload(Application) -> 'ok' | {'error', Reason} when
@@ -351,7 +361,8 @@ get_env(Key) ->
       Par :: atom(),
       Val :: term().
 
-get_env(Application, Key) -> 
+get_env(Application, Key) ->
+%    erlang:display({Application,Key}),
     application_controller:get_env(Application, Key).
 
 -spec get_env(Application, Par, Def) -> Val when
@@ -438,3 +449,220 @@ start_type() ->
 %% Internal
 get_appl_name(Name) when is_atom(Name) -> Name;
 get_appl_name({application, Name, _}) when is_atom(Name) -> Name.
+
+attributes(AST) ->
+    lists:foldl(
+      fun(T, Acc) ->
+              case erl_syntax:type(T) of
+                  attribute ->
+                      Name = erl_syntax:attribute_name(T),
+                      ConcreteName = erl_syntax:concrete(Name),
+%                      ConcreteArgs = [erl_syntax:concrete(C) || C <- erl_syntax:attribute_arguments(T)],
+                      Vals = maps:get(ConcreteName, Acc, []),
+                      Acc#{ ConcreteName => erl_syntax:attribute_arguments(T) ++ Vals };
+                  _ ->
+                      Acc
+              end
+      end, #{}, AST).
+
+resolve_alias(Types) ->
+    resolve_alias(Types, Types).
+
+resolve_alias(Types, S) when is_map(Types) ->
+    maps:map(fun(_Key, Value) ->
+                     resolve_alias(Value, S)
+             end, Types);
+resolve_alias({alias, Path}, S) ->
+    resolve_alias(maps:get(Path, S));
+resolve_alias({union, Union}, S) ->
+    {atom, lists:flatten(
+             lists:map(
+               fun(A) ->
+                       case resolve_alias(A, S) of
+                           {atom, Atoms} -> Atoms;
+                           Else -> Else
+                       end
+               end, Union))};
+resolve_alias(Type, _S) ->
+    Type.
+
+flatten_type({type, _, map, Assocs}) ->
+    lists:foldl(
+      fun({type, _, map_field_assoc, [Key, Value]}, Acc) ->
+              Acc#{ erl_syntax:concrete(Key) => flatten_type(Value) }
+      end, #{}, Assocs);
+flatten_type({type, _, boolean, []}) ->
+    {atom,[true,false]};
+flatten_type({type, _, Basic, []}) when Basic =:= integer;
+                                        Basic =:= term;
+                                        Basic =:= string ->
+              Basic;
+flatten_type({type, _, range, [Start, Stop]}) ->
+    {integer,erl_syntax:concrete(Start),erl_syntax:concrete(Stop)};
+flatten_type({type, _, union, Atoms}) ->
+    case lists:usort([erl_syntax:type(A) || A <- Atoms]) of
+        [_] ->
+            {atom,[erl_syntax:concrete(A) || A <- Atoms]};
+        _Types ->
+            {union,[flatten_type(T) || T <- Atoms]}
+    end;
+flatten_type({user_type, _, Name, []}) ->
+    {alias,Name};
+flatten_type(Basic) ->
+    erl_syntax:concrete(Basic).
+
+flatten_types(Types) ->
+    resolve_alias(
+      lists:foldl(
+        fun(Type, Acc) ->
+                tuple = erl_syntax:type(Type),
+                [Name, Value, _Nil] = erl_syntax:tuple_elements(Type),
+                Acc#{ erl_syntax:concrete(Name) => flatten_type(erl_syntax:concrete(Value)) }
+        end, #{}, Types)).
+
+parse_transform(AST, _Opts) ->
+    Attrs = attributes(AST),
+    FlatTypes = flatten_types(maps:get(type, Attrs, [])),
+
+    Env = lists:foldl(
+            fun({Key,0}, Acc) ->
+                   Acc#{ Key => maps:get(Key, FlatTypes) }
+            end, #{}, erl_syntax:concrete(hd(maps:get(env, Attrs, [])))),
+
+    EnvFunc =
+        case maps:get(env_function, Attrs, undefined) of
+            [Mod] ->
+                erl_syntax:concrete(Mod);
+            undefined ->
+                check_env
+        end,
+
+    %% io:format("Attrs: ~p~n",[Attrs]),
+    %% io:format("FlatTypes: ~p~n",[FlatTypes]),
+    %% io:format("Env: ~p~n",[Env]),
+    %% io:format("AST: ~p~n",[AST]),
+    %% io:format("EnvFunc: ~p~n",[EnvFunc]),
+
+    CheckFunction2 =
+        erl_syntax:revert(
+          erl_syntax:function(
+            erl_syntax:atom(EnvFunc),
+            [erl_syntax:clause(
+               [erl_syntax:variable("Config")],
+               [],
+               [erl_syntax:application(
+                  erl_syntax:atom(application),
+                  erl_syntax:atom(check_env),
+                  [erl_syntax:variable("Config"),
+                   erl_syntax:abstract(Env)]
+                 )]
+              )]
+           )
+         ),
+
+    CheckFunction3 =
+        erl_syntax:revert(
+          erl_syntax:function(
+            erl_syntax:atom(EnvFunc),
+            [erl_syntax:clause(
+               [erl_syntax:variable("Config"),
+                erl_syntax:variable("Cb")],
+               [],
+               [erl_syntax:application(
+                  erl_syntax:atom(application),
+                  erl_syntax:atom(check_env),
+                  [erl_syntax:variable("Config"),
+                   erl_syntax:abstract(Env),
+                   erl_syntax:variable("Cb")]
+                 )]
+              )]
+           )
+         ),
+
+    lists:flatmap(
+      fun(Tree) ->
+              case erl_syntax:type(Tree) =:= attribute andalso
+                  erl_syntax:concrete(erl_syntax:attribute_name(Tree)) =:= module of
+                  true ->
+                      [Tree, erl_syntax:revert(
+                               erl_syntax:attribute(
+                                 erl_syntax:atom(export),
+                                 [erl_syntax:list(
+                                    [erl_syntax:arity_qualifier(
+                                       erl_syntax:atom(EnvFunc),
+                                       erl_syntax:integer(1)),
+                                    erl_syntax:arity_qualifier(
+                                       erl_syntax:atom(EnvFunc),
+                                       erl_syntax:integer(2))])]))];
+                  false ->
+                      [Tree]
+              end
+      end, AST) ++ [CheckFunction2, CheckFunction3].
+
+check_env(Config, Model) ->
+    check_env(Config, Model, fun(_,_) -> [] end).
+check_env(Config, Model, ExtraFun) ->
+    case check_env(Config, Model, ExtraFun, []) of
+        [] ->
+            ok;
+        Errors ->
+            Errors
+    end.
+check_env(Config, Model, ExtraFun, Path) ->
+    maps:fold(
+      fun(Key, Value, Errors) ->
+              InvalidKey =
+                  fun() ->
+                          io_lib:format("invalid key: ~p.~n  Valid keys are: ~p",
+                                        [Key, maps:keys(Model)])
+                  end,
+              case maps:find(Key, Model) of
+                  error ->
+                      [{error, invalid_key, InvalidKey, lists:reverse([Key | Path])} | Errors];
+                  {ok, ModelValue} when is_map(ModelValue), not is_map(Value) ->
+                      [{error, invalid_key, InvalidKey, lists:reverse([Value, Key | Path])} | Errors];
+                  {ok, ModelValue} when is_map(ModelValue) ->
+                      check_env(Value, ModelValue, ExtraFun, [Key | Path]) ++ Errors;
+                  {ok, ModelCheck} ->
+                      case do_check(Value, ModelCheck, [Key | Path]) of
+                          [] ->
+                              ExtraFun(Value, lists:reverse([Key | Path])) ++ Errors;
+                          Err ->
+                              Err ++ Errors
+                      end
+              end
+      end, [], Config).
+
+do_check(Value, atom, Path) ->
+    if is_atom(Value) ->
+            [];
+       true ->
+            invalid_value("",[],Path)
+    end;
+do_check(Value, {atom,Atoms}, Path) ->
+    case lists:member(Value, Atoms) of
+        true ->
+            [];
+        false ->
+            invalid_value("invalid value: ~p.~n  Valid values are: ~p",
+                          [Value, Atoms],Path)
+    end;
+do_check(Value, integer, Path) ->
+    if is_integer(Value) ->
+            [];
+       true ->
+            invalid_value("invalid value: ~p. Must be an integer.",
+                          [Value],Path)
+    end;
+do_check(Value, {integer, Min, Max}, Path) ->
+    if Min =< Value, Value =< Max ->
+            [];
+       not is_integer(Value) ->
+            do_check(Value, integer, Path);
+       true ->
+            invalid_value("invalid value: ~p. Must be ~p =< Value =< ~p.",
+                          [Value, Min, Max],Path)
+    end.
+
+invalid_value(Format,Args,Path) ->
+    [{error,invalid_value, fun() -> io_lib:format(Format,Args) end, lists:reverse(Path)}].

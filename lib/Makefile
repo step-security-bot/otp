@@ -83,7 +83,7 @@ endif
 
 # Any applications listed in SKIP-APPLICATIONS should be skipped
 SKIP_FILE := $(wildcard SKIP-APPLICATIONS)
-SKIP_APPLICATIONS := $(if $(SKIP_FILE),$(shell cat $(SKIP_FILE)))
+SKIP_APPLICATIONS := $(if $(SKIP_FILE),$(shell cat $(SKIP_FILE))) erts
 SUB_DIRECTORIES := $(filter-out $(SKIP_APPLICATIONS),$(SUB_DIRECTORIES))
 
 # ----------------------------------------------------------------------

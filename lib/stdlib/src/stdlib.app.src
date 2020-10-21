@@ -19,7 +19,7 @@
 %% %CopyrightEnd%
 %%
 {application, stdlib,
- [{description, "ERTS  CXC 138 10"},
+ [{description, "Erlang standard library"},
   {vsn, "%VSN%"},
   {modules, [array,
 	     base64,

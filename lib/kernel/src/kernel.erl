@@ -20,10 +20,24 @@
 -module(kernel).
 
 -behaviour(supervisor).
+-compile({parse_transform,application}).
+-env([logger_level/0,logger_sasl_compatible/0,
+      shell_docs_ansi/0,dist_auto_connect/0,shell_history/0]).
+-export_type([logger_level/0,logger_sasl_compatible/0,
+              shell_docs_ansi/0,dist_auto_connect/0,shell_history/0]).
+
+-type level() :: emergency | alert | critical | error |
+                 warning | notice | info | debug.
+-type logger_level() :: level() | all | none.
+
+-type logger_sasl_compatible() :: boolean().
+-type shell_docs_ansi() :: auto | boolean().
+-type dist_auto_connect() :: boolean().
+-type shell_history() :: enabled | disabled.
 
 %% External exports
 -export([start/2, init/1, stop/1]).
--export([config_change/3]).
+-export([config_change/3, set_env/2]).
 
 %%%-----------------------------------------------------------------
 %%% The kernel is the first application started.
@@ -50,6 +64,33 @@ config_change(Changed, New, Removed) ->
     do_distribution_change(Changed, New, Removed),
     do_global_groups_change(Changed, New, Removed),
     ok.
+
+set_env(logger, #{ } = Logger) ->
+    try maps:fold(fun(Key, Value, Acc) ->
+                          translate_logger_env(Key, Value) ++ Acc
+                  end, [], Logger) of
+        NewLogger -> {ok, NewLogger}
+    catch throw:Reason ->
+            {error, Reason}
+    end;
+set_env(_Key, _Value) ->
+    ok.
+
+translate_logger_env(handler, [H|T]) ->
+    [{handler, maps:get(id, H), maps:get(module, H),
+      maps:from_list(
+        lists:filtermap(fun({Key, _}) when Key =:= id; Key =:= module ->
+                                true;
+                           ({Key, Value}) ->
+                                {true, {Key, translate_logger_env(Key, Value)}}
+                        end, maps:to_list(H)))}
+     | translate_logger_env(handler, T)];
+translate_logger_env(filters, [H | T]) ->
+    [{maps:get(id, H), {maps:get('fun',H), maps:get(arg, H)}} | translate_logger_env(filters, T)];
+translate_logger_env(_, []) ->
+    [];
+translate_logger_env(config, Config) ->
+    Config.
 
 %%%-----------------------------------------------------------------
 %%% The process structure in kernel is as shown in the figure.

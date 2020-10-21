@@ -180,12 +180,17 @@ display({report,Report}) when is_map(Report) ->
 display({report,Report}) ->
     display_report(Report);
 display({F, A}) when is_list(F), is_list(A) ->
-    erlang:display_string(F ++ "\n"),
-    [begin
-	 erlang:display_string("\t"),
-	 erlang:display(Arg)
-     end || Arg <- A],
-    ok.
+    case erlang:module_loaded(io_lib) of
+        sfalse ->
+            erlang:display_string(F ++ "\n"),
+            [begin
+                 erlang:display_string("\t"),
+                 erlang:display(Arg)
+             end || Arg <- A],
+            ok;
+        _true ->
+            erlang:display_string(io_lib:format(F,A))
+    end.
 
 display_report(Atom, A) when is_atom(Atom) ->
     %% The widest atom seems to be 'supervisor_report' at 17.

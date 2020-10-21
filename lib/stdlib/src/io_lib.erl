@@ -254,9 +254,14 @@ build_text(FormatList, Options) ->
 %% test_modules_loaded/3.
 test_modules_loaded(_C, _R, _S) ->
     Modules = [io_lib_format, io_lib_pretty, string, unicode],
-    case code:ensure_modules_loaded(Modules) of
-        ok -> ok;
-        Error -> erlang:error(Error)
+    case whereis(code_server) of
+        undefined ->
+            [M:module_info() || M <- Modules];
+        _ ->
+            case code:ensure_modules_loaded(Modules) of
+                ok -> ok;
+                Error -> erlang:error(Error)
+            end
     end.
 
 -spec print(Term) -> chars() when

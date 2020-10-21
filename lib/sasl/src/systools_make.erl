@@ -1202,6 +1202,7 @@ generate_script(Output, Release, Appls, Flags) ->
 	      [{path, create_path(Appls, PathFlag, Variables)}] ++
 		  create_kernel_procs(Appls) ++
 		  create_load_appls(Appls) ++
+		  [{apply,{application,load_config,[]}}] ++
 		  create_start_appls(Appls) ++
 		  script_end(lists:member(no_dot_erlang, Flags))
 	     },
@@ -1293,6 +1294,16 @@ create_load_appls([{_,A}|T]) ->
      create_load_appls(T)];
 create_load_appls([]) ->
     [{progress, applications_loaded}].
+
+
+%% %%______________________________________________________________________
+%% %% Load all application config.
+
+%% create_load_config(Apps) ->
+%%     [{apply, {application, load_config,
+%%               [[A#application.name ||
+%%                   {_, A} <- Apps, A#application.type =/= none]]}},
+%%      {progress, applications_configured}].
 
 %%______________________________________________________________________
 %% The final part of the script.
@@ -1457,9 +1468,9 @@ strip_name_ebin(Dir, Name, Vsn) ->
 	_                   -> false
     end.
 
-%% Create the path to the kernel and stdlib applications.
+%% Create the path to the erts, kernel and stdlib applications.
 create_mandatory_path(Appls, PathFlag, Variables) ->
-    Dirs = [kernel, stdlib],
+    Dirs = [erts, kernel, stdlib],
     make_set(map(fun({{Name,Vsn}, A}) ->
 			 case lists:member(Name, Dirs) of
 			     true ->

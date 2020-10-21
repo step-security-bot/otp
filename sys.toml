@@ -1,0 +1,21 @@
+[erts]
+# schedulers.normal = 4
+# schedulers.dirty.cpu = 4
+schedulers.dirty.io.online = 10235
+# schedulers.bind_type = "default_bind"
+
+# [kernel]
+# logger_level = "all"
+# dist_auto_connect = false
+
+# [[kernel.logger.handler]]
+# id = "file"
+# module = "logger_std_h"
+# config.file = "log/erlang.log"
+# config.max_no_files = 5
+# config.max_no_bytes = 4096
+
+# [[kernel.logger.handler.filters]]
+# id = "remote_gl"
+# fun = "@fun logger_filters:remote_gl/2"
+# arg = "stop"

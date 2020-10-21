@@ -1464,14 +1464,14 @@ check_env(V) ->
 	    error_logger:info_report(lists:flatten(Txt))
     end.
 	    
-set_env(App, Name, Val, Default) ->
-    Prev = case application:get_env(App, Name) of
+set_env(App, Name, Val, Default) when App =:= stdlib ->
+    Prev = case application:get_env(stdlib, Name) of
 	       undefined ->
 		   Default;
 	       {ok, Old} ->
 		   Old
     end,
-    application_controller:set_env(App, Name, Val),
+    application_controller:set_env(stdlib, Name, Val),
     Prev.
 
 -spec history(N) -> non_neg_integer() when

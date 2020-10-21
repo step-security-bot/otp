@@ -21,7 +21,7 @@
 %%
 {application, kernel,
  [
-  {description, "ERTS  CXC 138 10"},
+  {description, "Erlang kernel"},
   {vsn, "%VSN%"},
   {modules, [application,
 	     application_controller,
@@ -148,10 +148,11 @@
                 inet_db,
                 pg,
                 pg2]},
-  {applications, []},
+  {applications, [erts]},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false},
-         {shell_docs_ansi,auto}
+         {shell_docs_ansi,auto},
+         {dist_auto_connect,true}
         ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-11.0", "stdlib-3.13", "sasl-3.0"]}

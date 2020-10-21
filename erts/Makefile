@@ -64,6 +64,7 @@ $(FLAVORS):
 # in the same directory...
 .PHONY: local_setup
 local_setup:
+	@mkdir -p $(ERL_TOP)/lib/erts && cp -r $(ERL_TOP)/erts/preloaded/ebin $(ERL_TOP)/lib/erts/
 	@cd start_scripts && $(MAKE)
 	$(V_colon)@echo `ls $(ERL_TOP)/bin/`
 	@rm -f $(ERL_TOP)/bin/erl $(ERL_TOP)/bin/erlc $(ERL_TOP)/bin/cerl \

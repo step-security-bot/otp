@@ -911,6 +911,8 @@ check_logger_config(_,[]) ->
     ok;
 check_logger_config(App,[{handler,_,_,_}|Env]) ->
     check_logger_config(App,Env);
+check_logger_config(App,[#{handler := _}|Env]) ->
+    check_logger_config(App,Env);
 check_logger_config(kernel,[{handler,default,undefined}|Env]) ->
     check_logger_config(kernel,Env);
 check_logger_config(kernel,[{filters,_,_}|Env]) ->

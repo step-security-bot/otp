@@ -112,6 +112,8 @@
 
 -export([prepare_loading/2, beamfile_chunk/2, beamfile_module_md5/1]).
 
+-export([exec/3]).
+
 %%
 %% Await result of send to port
 %%
@@ -946,3 +948,7 @@ beamfile_chunk(_Bin, _Chunk) ->
 -spec beamfile_module_md5(binary()) -> binary() | undefined.
 beamfile_module_md5(_Bin) ->
     erlang:nif_error(undefined).
+
+exec(_ExecArgs, _Fd, _Config) ->
+    erlang:nif_error(undefined).
+    

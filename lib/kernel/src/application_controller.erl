@@ -22,6 +22,7 @@
 %% External exports
 -export([start/1, 
 	 load_application/1, unload_application/1, 
+         load_application_config/0,
 	 start_application/2, start_boot_application/2, stop_application/1,
 	 control_application/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
@@ -158,7 +159,7 @@
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
 
--record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, apps}).
+-record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, apps, env = []}).
 
 %%-----------------------------------------------------------------
 %% Func: start/1
@@ -212,6 +213,16 @@ load_application(Application) ->
 
 unload_application(AppName) ->
     gen_server:call(?AC, {unload_application, AppName}, infinity).
+
+%%-----------------------------------------------------------------
+%% Func: load_application/1
+%% Args: Application = appl_descr() | atom()
+%% Purpose: Loads an application.  Currently just inserts the
+%%          application's env.
+%% Returns: ok | {error, Reason}
+%%-----------------------------------------------------------------
+load_application_config() ->
+    gen_server:call(?AC, load_application_config, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_application/2
@@ -491,42 +502,21 @@ init(Init, Kernel) ->
     put('$ancestors', [Init]), % OTP-5811, for gen_server compatibility
     put('$initial_call', {application_controller, start, 1}),
 
-    case catch check_conf() of
-	{ok, ConfData} ->
-	    %% Actually, we don't need this info in an ets table anymore.
-	    %% This table was introduced because starting applications
-	    %% should be able to get som info from AC (e.g. loaded_apps).
-	    %% The new implementation makes sure the AC process can be
-	    %% called during start-up of any app.
-	    case check_conf_data(ConfData) of
-		ok ->
-		    _ = ets:new(ac_tab, [set, public, named_table,
-                                         {read_concurrency,true}]),
-		    S = #state{conf_data = ConfData},
-		    {ok, KAppl} = make_appl(Kernel),
-		    case catch load(S, KAppl) of
-			{'EXIT', LoadError} ->
-			    Reason = {'load error', LoadError},
-			    Init ! {ack, self(), {error, to_string(Reason)}};
-                        {error, Error} ->
-                            Init ! {ack, self(), {error, to_string(Error)}};
-			{ok, NewS} ->
-			    Init ! {ack, self(), ok},
-			    gen_server:enter_loop(?MODULE, [], NewS,
-						  {local, ?AC})
-		    end;
-		{error, ErrorStr} ->
-		    Str = lists:flatten(io_lib:format("invalid config data: ~ts", [ErrorStr])),
-		    Init ! {ack, self(), {error, to_string(Str)}}
-	    end;
-	{error, {File, Line, Str}} ->
-	    ReasonStr =
-		lists:flatten(io_lib:format("error in config file "
-					    "~tp (~w): ~ts",
-					    [File, Line, Str])),
-	    Init ! {ack, self(), {error, to_string(ReasonStr)}}
+    _ = ets:new(ac_tab, [set, public, named_table,
+                         {read_concurrency,true}]),
+    S = #state{conf_data = []},
+    {ok, KAppl} = make_appl(Kernel),
+    case catch load(S, KAppl) of
+        {'EXIT', LoadError} ->
+            Reason = {'load error', LoadError},
+            Init ! {ack, self(), {error, to_string(Reason)}};
+        {error, Error} ->
+            Init ! {ack, self(), {error, to_string(Error)}};
+        {ok, NewS} ->
+            Init ! {ack, self(), ok},
+            gen_server:enter_loop(?MODULE, [], NewS,
+                                  {local, ?AC})
     end.
-
 
 %% Check the syntax of the .config file
 %%  [{ApplicationName, [{Parameter, Value}]}].
@@ -536,12 +526,12 @@ check_conf_data([]) ->
 check_conf_data(ConfData) when is_list(ConfData) ->
     [Application | ConfDataRem] = ConfData,
     case Application of
-	{AppName, List} when is_atom(AppName), is_list(List) ->
+	{AppName, Map} when is_atom(AppName), is_map(Map) ->
 	    case lists:keymember(AppName, 1, ConfDataRem) of
 		true ->
 		    {error, "duplicate application config: " ++ atom_to_list(AppName)};
 		false ->
-		    case check_para(List, AppName) of
+		    case check_para(maps:to_list(Map), AppName) of
 			ok -> check_conf_data(ConfDataRem);
 			Error -> Error
 		    end
@@ -561,28 +551,34 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 		++ lists:flatten(io_lib:format("~tp",[Else])),
 	    {error, ErrMsg}
     end;
+check_conf_data(ConfData) when is_map(ConfData) ->
+    check_conf_data(maps:to_list(ConfData));
 check_conf_data(_ConfData) ->
-    {error, "configuration must be a list ended by <dot><whitespace>"}.
+    {error, lists:flatten(
+              io_lib:format("configuration must be a list ended by <dot><whitespace> ~tp",[_ConfData]))}.
 
 
-check_para([], _AppName) ->
+check_para(Params, AppName) ->
+    check_para(Params, AppName, []).
+
+check_para([], _AppName,_Found) ->
     ok;
-check_para([{Para, Val} | ParaList], AppName) when is_atom(Para) ->
-    case lists:keymember(Para, 1, ParaList) of
+check_para([{Para, Val} | ParaList], AppName, Found) when is_atom(Para) ->
+    case lists:member(Para, Found) of
 	true ->
 	    ErrMsg =  "application: " ++ atom_to_list(AppName)
 		++ "; duplicate parameter: " ++ atom_to_list(Para),
 	    {error, ErrMsg};
 	false ->
 	    case check_para_value(Para, Val, AppName) of
-		ok -> check_para(ParaList, AppName);
+		ok -> check_para(ParaList, AppName, [Para | Found]);
 		{error, _} = Error -> Error
 	    end
     end;
-check_para([{Para, _Val} | _ParaList], AppName) ->
+check_para([{Para, _Val} | _ParaList], AppName, _Found) ->
     {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter name: " ++
      lists:flatten(io_lib:format("~tp",[Para]))};
-check_para([Else | _ParaList], AppName) ->
+check_para([Else | _ParaList], AppName, _Found) ->
     {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter: " ++
      lists:flatten(io_lib:format("~tp",[Else]))}.
 
@@ -602,9 +598,9 @@ check_distributed(_Else) ->
     {error, "application: kernel; erroneous parameter: distributed"}.
 
 
--type calls() :: 'info' | 'prep_config_change' | 'which_applications'
-               | {'config_change' | 'control_application' |
-		  'load_application' | 'start_type' | 'stop_application' |
+-type calls() :: 'info' | 'prep_config_change' | 'which_applications' | 'load_application_config'
+               | {'config_change' | 'control_application' | 'load_application' |
+                  'start_type' | 'stop_application' |
 		  'unload_application', term()}
                | {'change_application_data', _, _}
                | {'permit_application', atom() | {'application',atom(),_},_}
@@ -644,6 +640,59 @@ handle_call({unload_application, AppName}, _From, S) ->
 		false ->
 		    {reply, {error, {not_loaded, AppName}}, S}
 	    end
+    end;
+
+handle_call(load_application_config, _From, S) ->
+    
+    case catch read_conf() of
+	{ok, ConfData} ->
+	    case check_conf_data(unannotate_env(ConfData)) of
+		ok ->
+                    lists:foreach(
+                      fun(#appl{ name = Name, env = ApplEnv,
+                                 appl_data = #appl_data{ mod = AppMod } }) ->
+                              ConfEnv =
+                                  case lists:search(fun({{Key,_Anno},_}) -> Key == Name end,
+                                                    ConfData) of
+                                      {value, {{Name,_},V}} -> V;
+                                      false -> #{}
+                                  end,
+                              NewEnv = merge_app_env(ApplEnv, ConfEnv),
+                              CmdLineEnv = get_cmd_env(Name),
+                              NewEnv2 = merge_app_env(NewEnv, CmdLineEnv),
+                              StrippedNewEnv2 = unannotate_env(NewEnv2),
+                              Env =
+                                  case AppMod of
+                                      {Mod, _State} ->
+                                          try Mod:check_env(StrippedNewEnv2) of
+                                              ok -> StrippedNewEnv2;
+                                              Errors ->
+                                                  handle_check_env_errors(Name, Errors, NewEnv2)
+                                          catch error:undef:ST ->
+                                                  case {ST,erlang:module_loaded(Mod)} of
+                                                      {[{Mod,check_env,[StrippedNewEnv2],_}|_],true} ->
+                                                          StrippedNewEnv2;
+                                                      _ ->
+                                                          erlang:raise(error,undef,ST)
+                                                  end
+                                          end;
+                                      [] ->
+                                          StrippedNewEnv2
+                                  end,
+                              add_env(Name, maps:to_list(Env))
+                      end, ets:select(ac_tab,[{{{loaded,'_'}, '$1'},[],['$1']}])),
+                    [erlang:halt(1) || get(exit) =/= undefined],
+                    {reply, ok, S#state{ conf_data = ConfData }};
+                {error, ErrorStr} ->
+		    Str = lists:flatten(io_lib:format("invalid config data: ~ts", [ErrorStr])),
+		    {reply, {error, to_string(Str)}, S}
+	    end;
+	{error, {File, Line, Str}} ->
+	    ReasonStr =
+		lists:flatten(io_lib:format("error in config file "
+					    "~tp (~w): ~ts",
+					    [File, Line, Str])),
+	    {reply, {error, to_string(ReasonStr)}, S}
     end;
 
 handle_call({start_application, AppName, RestartType}, From, S) ->
@@ -863,13 +912,14 @@ handle_call({set_env, Config, Opts}, _From, S) ->
 
     case proplists:get_value(persistent, Opts, false) of
 	true ->
-	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
+	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data,
+                                                      annotate_env(Config, "set_env"))}};
 	false ->
 	    {reply, ok, S}
     end;
 
 handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
-    ets:insert(ac_tab, {{env, AppName, Key}, Val}),
+    add_env(AppName, Key, Val),
     case proplists:get_value(persistent, Opts, false) of
 	true ->
 	    Fun = fun(Env) -> lists:keystore(Key, 1, Env, {Key, Val}) end,
@@ -879,7 +929,7 @@ handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
     end;
 
 handle_call({unset_env, AppName, Key, Opts}, _From, S) ->
-    ets:delete(ac_tab, {env, AppName, Key}),
+    del_env(AppName, Key),
     case proplists:get_value(persistent, Opts, false) of
 	true ->
 	    Fun = fun(Env) -> lists:keydelete(Key, 1, Env) end,
@@ -1273,13 +1323,9 @@ do_load_application(Application, S) ->
 %load(S, {ApplData, ApplEnv, IncApps, Descr, Vsn, Apps}) ->
 load(S, {ApplData, ApplEnv, IncApps, Descr, Id, Vsn, Apps}) ->
     Name = ApplData#appl_data.name,
-    ConfEnv = get_env_i(Name, S),
-    NewEnv = merge_app_env(ApplEnv, ConfEnv),
-    CmdLineEnv = get_cmd_env(Name),
-    NewEnv2 = merge_app_env(NewEnv, CmdLineEnv),
-    add_env(Name, NewEnv2),
     Appl = #appl{name = Name, descr = Descr, id = Id, vsn = Vsn, 
-		 appl_data = ApplData, inc_apps = IncApps, apps = Apps},
+		 appl_data = ApplData, inc_apps = IncApps, apps = Apps,
+                 env = ApplEnv},
     ets:insert(ac_tab, {{loaded, Name}, Appl}),
     NewS =
 	foldl(fun(App, S1) ->
@@ -1454,15 +1500,15 @@ make_appl(Name) when is_atom(Name) ->
 	FullName ->
 	    case prim_consult(FullName) of
 		{ok, [Application]} ->
-		    {ok, make_appl_i(Application)};
-		{error, Reason} -> 
+		    {ok, make_appl_i(Application, FName)};
+		{error, Reason} ->
 		    {error, {file:format_error(Reason), FName}};
                 error ->
                     {error, "bad encoding"}
 	    end
     end;
 make_appl(Application) ->
-    {ok, make_appl_i(Application)}.
+    {ok, make_appl_i(Application,"boot file")}.
 
 prim_consult(FullName) ->
     case erl_prim_loader:get_file(FullName) of
@@ -1502,7 +1548,7 @@ prim_parse(Tokens, Acc) ->
 	    end
     end.
 
-make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
+make_appl_i({application, Name, Opts}, File) when is_atom(Name), is_list(Opts) ->
     Descr = get_opt(description, Opts, ""),
     Id = get_opt(id, Opts, ""),
     Vsn = get_opt(vsn, Opts, ""),
@@ -1516,18 +1562,18 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
 	    Other -> throw({error, {badstartspec, Other}})
 	end,
     Phases = get_opt(start_phases, Opts, undefined),
-    Env = get_opt(env, Opts, []),
+    Env = annotate_env(normalize_env1(get_opt(env, Opts, [])), File),
     MaxP = get_opt(maxP, Opts, infinity),
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),
     {#appl_data{name = Name, regs = Regs, mod = Mod, phases = Phases,
 		mods = Mods, maxP = MaxP, maxT = MaxT},
      Env, IncApps, Descr, Id, Vsn, Apps};
-make_appl_i({application, Name, Opts}) when is_list(Opts) ->
+make_appl_i({application, Name, Opts}, _File) when is_list(Opts) ->
     throw({error,{invalid_name,Name}});
-make_appl_i({application, _Name, Opts}) ->
+make_appl_i({application, _Name, Opts}, _File) ->
     throw({error,{invalid_options, Opts}});
-make_appl_i(Appl) -> throw({error, {bad_application, Appl}}).
+make_appl_i(Appl, _File) -> throw({error, {bad_application, Appl}}).
 
 
 %%-----------------------------------------------------------------
@@ -1545,7 +1591,7 @@ do_change_apps(Applications, Config, OldAppls) ->
     %% May now contain names of other .config files as well as
     %% configuration parameters.
     %% Therefore read and merge contents.
-    {ok, SysConfig, Errors} = check_conf_sys(Config),
+    {ok, SysConfig, Errors} = config_config_parser:check_conf_sys(Config),
 
     %% Report errors, but do not terminate
     %% (backwards compatible behaviour)
@@ -1587,15 +1633,18 @@ do_change_appl({ok, {ApplData, Env, IncApps, Descr, Id, Vsn, Apps}},
     NewEnv2 = merge_app_env(NewEnv1, CmdLineEnv),
 
     %% Update ets table with new application env
-    del_env(AppName),
-    add_env(AppName, NewEnv2),
+    del_env(OldAppl),
 
-    OldAppl#appl{appl_data=ApplData,
+    NewAppl = OldAppl#appl{appl_data=ApplData,
 		 descr=Descr,
 		 id=Id,
 		 vsn=Vsn,
 		 inc_apps=IncApps,
-		 apps=Apps};
+		 apps=Apps},
+
+    add_env(NewAppl, NewEnv2),
+
+    NewAppl;
 do_change_appl({error, _R} = Error, _Appl, _ConfData) ->
     throw(Error).
 
@@ -1608,13 +1657,15 @@ get_opt(Key, List, Default) ->
 get_cmd_env(Name) ->
     case init:get_argument(Name) of
 	{ok, Args} ->
-	   foldl(fun(List, Res) -> conv(List) ++ Res end, [], Args);
-	_ -> []
+	   annotate_env(
+             foldl(fun(List, Res) -> maps:merge(conv(List),Res) end, #{}, Args),
+             "command line");
+	_ -> #{}
     end.
 
 conv([Key, Val | T]) ->
-    [{make_term(Key), make_term(Val)} | conv(T)];
-conv(_) -> [].
+    (conv(T))#{make_term(Key) => make_term(Val)};
+conv(_) -> #{}.
 
 make_term(Str) -> 
     case erl_scan:string(Str) of
@@ -1635,13 +1686,6 @@ handle_make_term_error(Mod, Reason, Str) ->
                #{error_logger=>#{tag=>error}}),
     throw({error, {bad_environment_value, Str}}).
 
-get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
-    case lists:keyfind(Name, 1, ConfData) of
-	{_Name, Env} -> Env;
-	_ -> []
-    end;
-get_env_i(_Name, _) -> [].
-
 %% Merges envs for all apps.  Env2 overrides Env1
 merge_env(Env1, Env2) ->
     merge_env(Env1, Env2, []).
@@ -1657,6 +1701,64 @@ merge_env([{App, AppEnv1} | T], Env2, Res) ->
 merge_env([], Env2, Res) ->
     Env2 ++ Res.
 
+%% We create maps of all tree like configuration except the top
+%% level that we keep as a 2-tuple list.
+normalize_env(Env) ->
+    maps:to_list(normalize_env1(Env)).
+normalize_env1(Env) when is_map(Env) ->
+    normalize_env1(maps:to_list(Env));
+normalize_env1(Env) ->
+    case is_kv_list(Env) of
+        true ->
+            maps:from_list(
+              lists:map(
+                fun({Key, Value}) ->
+                        {Key, normalize_env1(Value)}
+                end,Env));
+        false ->
+            Env
+    end.
+
+annotate_env(Env, File) ->
+    Anno = erl_anno:set_file(File,erl_anno:new(0)),
+    map_env(
+      fun(Key, Value, _Path) ->
+              {{Key,Anno}, {Value, Anno}}
+      end, fun(Key) -> Key end, Env).
+
+unannotate_env(Env) ->
+    map_env(
+      fun({Key,_}, {Value, _}, _Path) ->
+              {Key, Value};
+         ({Key,_}, Map, _Path) when is_map(Map) ->
+              {Key, Map}
+      end, fun({Key,_Anno}) -> Key end, Env).
+
+map_env(Fun, KeyFun, KV) ->
+    map_env(Fun, KV, KeyFun, []).
+map_env(Fun, KV, KeyFun, Path) when is_map(KV) ->
+    map_env(Fun, maps:to_list(KV), KeyFun, Path);
+map_env(Fun, KV, KeyFun, Path) ->
+    case is_kv_list(KV) of
+        true ->
+            maps:from_list(
+              lists:map(
+                fun({Key, Value}) ->
+                        Fun(Key, map_env(Fun, Value, KeyFun, [KeyFun(Key) | Path]), Path)
+                end, KV));
+        false ->
+            KV
+    end.
+
+is_kv_list(KV) when is_list(KV) ->
+    lists:all(
+      fun(Tup) ->
+              is_tuple(Tup) andalso
+                  tuple_size(Tup) =:= 2
+      end, KV);
+is_kv_list(_) ->
+    false.
+
 %% Changes the environment for the given application
 %% If there is no application, an empty one is created
 change_app_env(Env, App, Fun) ->
@@ -1669,33 +1771,58 @@ change_app_env(Env, App, Fun) ->
 
 %% Merges envs for an application.  Env2 overrides Env1
 merge_app_env(Env1, Env2) ->
-    merge_app_env(Env1, Env2, []).
-
-merge_app_env([{Key, Val} | T], Env2, Res) ->
-    case get_env_key(Key, Env2) of
-	{value, NewVal, RestEnv} ->
-	    merge_app_env(T, RestEnv, [{Key, NewVal}|Res]);
-	_ ->
-	    merge_app_env(T, Env2, [{Key, Val} | Res])
-    end;
-merge_app_env([], Env2, Res) ->
-    Env2 ++ Res.
+    merge_app_env(fun({Key,_}) -> Key end, Env1, Env2).
+merge_app_env(KeyFun, Env1, Env2) ->
+    {NewEnv, RemainEnv2} =
+        lists:mapfoldl(
+          fun({KA1, Value1}, Acc) ->
+                  Key1 = KeyFun(KA1),
+                  case maps:fold(
+                         fun(KA2, Value2, {Res, M}) ->
+                                 Key2 = KeyFun(KA2),
+                                 if Key1 =:= Key2 ->
+                                         {{KA2,Value2}, M};
+                                    true ->
+                                         {Res, M#{ KA2 => Value2 } }
+                                 end
+                         end, {undefined,#{}} , Acc) of
+                      {undefined, Acc} ->
+                          {{KA1, Value1}, Acc};
+                      {{NewKA, NewValue}, NewAcc} when is_map(Value1), is_map(NewValue) ->
+                          {{NewKA, merge_app_env(Value1, NewValue)}, NewAcc};
+                      {{NewKA, NewValue}, NewAcc} ->
+                          {{NewKA, NewValue}, NewAcc}
+                  end
+          end, Env2, maps:to_list(Env1)),
+    maps:merge(maps:from_list(NewEnv), RemainEnv2).
 
 get_env_key(Key, Env) -> get_env_key(Env, Key, []).
-get_env_key([{Key, Val} | T], Key, Res) ->
+get_env_key([{{Key,_}, Val} | T], {Key, _}, Res) ->
     {value, Val, T ++ Res};
 get_env_key([H | T], Key, Res) ->
     get_env_key(T, Key, [H | Res]);
 get_env_key([], _Key, Res) -> Res.
 
-add_env(Name, Env) ->
-    foreach(fun({Key, Value}) ->
-			  ets:insert(ac_tab, {{env, Name, Key}, Value})
-		  end,
-		  Env).
+add_env(Appl, Env) ->
+    foreach(
+      fun({Key, Value}) ->
+              add_env(Appl, Key, Value)
+      end,
+      Env).
 
-del_env(Name) ->
+%% Actually, we don't need this info in an ets table anymore.
+%% This table was introduced because starting applications
+%% should be able to get som info from AC (e.g. loaded_apps).
+%% The new implementation makes sure the AC process can be
+%% called during start-up of any app.
+add_env(AppName, Key, Value) ->
+    ets:insert(ac_tab, {{env, AppName, Key}, Value}).
+
+del_env(#appl{ name = Name }) ->
     ets:match_delete(ac_tab, {{env, Name, '_'}, '_'}).
+
+del_env(#appl{ name = Name }, Key) ->
+    ets:delete(ac_tab, {env, Name, Key}).
 
 check_user() ->
     case whereis(user) of
@@ -1802,127 +1929,137 @@ do_config_diff([{Env, Value} | AppEnvNow], AppEnvBefore, {Changed, New}) ->
 %%-----------------------------------------------------------------
 %% Read the .config files.
 %%-----------------------------------------------------------------
-check_conf() ->
-    case init:get_argument(config) of
-	{ok, Files} ->
-	    {ok, lists:foldl(
-		   fun(File, Env) ->
-			   BFName = filename:basename(File,".config"),
-			   FName = filename:join(filename:dirname(File),
-						 BFName ++ ".config"),
-			   case load_file(FName) of
-			       {ok, NewEnv} ->
-				   %% OTP-4867
-				   %% sys.config may now contain names of
-				   %% other .config files as well as
-				   %% configuration parameters.
-				   %% Therefore read and merge contents.
-				   if
-				       BFName =:= "sys" ->
-					   DName = filename:dirname(FName),
-					   {ok, SysEnv, Errors} =
-					       check_conf_sys(NewEnv, [], [], DName),
+read_conf() ->
+    GetFileName =
+        fun(File) ->
+                DirName = filename:dirname(File),
+                BaseName = filename:basename(File),
+                case filename:extension(BaseName) of
+                    [] -> filename:join(DirName, BaseName ++ ".config");
+                    _ -> filename:join(DirName, BaseName)
+                end
+        end,
+    Config =
+        lists:flatmap(
+          fun({config,Files}) ->
+                  lists:map(
+                    fun(File) ->
+                            FName = GetFileName(File),
+                            [$. | Ext] = filename:extension(FName),
+                            ConfigParser = list_to_atom(Ext ++ "_config_parser"),
+                            case erl_prim_loader:get_file(FName) of
+                                {ok, Data, _} ->
+                                    {ConfigParser, unicode:characters_to_list(Data, utf8), FName};
+                                {error, Reason} ->
+                                    Str = io_lib:format("Could not file: ~p",[Reason]),
+                                    throw({error,{File, -1, Str}})
+                            end
+                    end, Files);
+             ({fdconfig,Fds}) ->
+                  lists:map(
+                    fun(Fd) ->
+                            FName = GetFileName(Fd),
+                            [$. | Ext] = filename:extension(FName),
+                            ConfigParser = list_to_atom(Ext ++ "_config_parser"),
+                            try list_to_integer(filename:rootname(filename:basename(FName))) of
+                                FdNo ->
+                                    Prt = open_port({fd,FdNo,FdNo},[]),
+                                    Data = (fun F() ->
+                                                    receive
+                                                        {Prt,{data,D}} ->
+                                                            [D | F()];
+                                                        {'EXIT',Prt,normal} ->
+                                                            []
+                                                    after 1000 ->
+                                                            receive
+                                                                M -> throw({unexpected_msg, M})
+                                                            after 0 ->
+                                                                    port_close(Prt),
+                                                                    []
+                                                            end
+                                                    end
+                                            end)(),
+                                    {ConfigParser, Data, "fd " ++ filename:basename(FName)}
+                            catch E:R:ST ->
+                                    Str = io_lib:format("Could not read fd: ~p~p~p",[E,R,ST]),
+                                    throw({error,{Fd, -1, Str}})
+                            end
+                    end, Fds);
+             (_) ->
+                  []
+          end, init:get_arguments()),
+    {ok, lists:foldl(
+           fun({ConfigParser, Data, File}, Env) ->
+                   try ConfigParser:parse(Data, File) of
+                       {ok, NewEnv} ->
+                           merge_env(Env, normalize_env(NewEnv));
+                       {error, {Line, _Mod, Str}} ->
+                           throw({error, {File, Line, Str}})
+                   catch error:undef:ST ->
+                           case ST of
+                               [{ConfigParser,parse,[Data, File],_}|_] ->
+                                   throw({error, {File, 0, "Could not find config parse module"}});
+                               _ ->
+                                   erlang:raise(error,undef,ST)
+                           end
+                   end
+           end, [], Config)}.
 
-					   %% Report first error, if any, and
-					   %% terminate
-					   %% (backwards compatible behaviour)
-					   case Errors of
-					       [] ->
-						   merge_env(Env, SysEnv);
-					       [{error, {SysFName, Line, Str}}|_] ->
-						   throw({error, {SysFName, Line, Str}})
-					   end;
-				       true ->
-					   merge_env(Env, NewEnv)
-				   end;
-			       {error, {Line, _Mod, Str}} ->
-				   throw({error, {FName, Line, Str}})
-			   end
-		   end, [], lists:append(Files))};
-	_ -> {ok, []}
+handle_check_env_errors(ApplName, Errors, Env) ->
+    %% erlang:display(Env),
+
+    ErrorStrings =
+        lists:map(
+          fun({error,What,Fun,Path}) ->
+                  %% erlang:display(Path),
+                  %% erlang:display(get_env_path(Path, Env)),
+                  {Key, Val} = get_env_path(Path, Env),
+
+                  Anno =
+                      case What of
+                          invalid_key ->
+                              element(2,Key);
+                          invalid_value ->
+                              element(2,Val)
+                      end,
+                  AnnoLineStr =
+                      case erl_anno:line(Anno) of
+                          0 -> "";
+                          No -> integer_to_list(No)
+                      end,
+                  PathStr = lists:join(".",[atom_to_list(A) || A <- [ApplName|Path]]),
+                  Error = io_lib:format("~ts:~ts [~ts] ~ts~n",
+                                        [erl_anno:file(Anno),
+                                         AnnoLineStr, PathStr, Fun()]),
+                  {Anno, Error}
+          end, Errors),
+    Sorted =
+        lists:sort(
+          fun({Anno1,_},{Anno2,_}) ->
+                  case erl_anno:file(Anno1) == erl_anno:file(Anno2) of
+                      true ->
+                          erl_anno:line(Anno1) =< erl_anno:line(Anno2);
+                      false ->
+                          erl_anno:file(Anno1) < erl_anno:file(Anno2)
+                  end
+          end, ErrorStrings),
+    lists:foreach(
+      fun({_Anno,Str}) ->
+              erlang:display_string(lists:flatten(Str))
+      end, Sorted),
+    put(exit, 1),
+    #{}.
+
+get_env_path([Key|T], Env) ->
+    case lists:search(
+           fun({{K,_Anno},_V}) ->
+                   K =:= Key
+           end, maps:to_list(Env)) of
+        {value,{_,V}} when T =/= [] ->
+            get_env_path(T,V);
+        {value,KV} ->
+            KV
     end.
-
-check_conf_sys(Env) ->
-    check_conf_sys(Env, [], [], []).
-
-check_conf_sys([File|T], SysEnv, Errors, DName) when is_list(File),is_list(DName) ->
-    BFName = filename:basename(File, ".config"),
-    FName = filename:join(filename:dirname(File), BFName ++ ".config"),
-    LName = case filename:pathtype(FName) of
-               relative when (DName =/= []) ->
-                  % Check if relative to sys.config dir otherwise use legacy mode,
-                  % i.e relative to cwd.
-                  RName = filename:join(DName, FName),
-                  case erl_prim_loader:read_file_info(RName) of
-                     {ok, _} -> RName ;
-                     error   -> FName
-                  end;
-		_          -> FName
-	    end,
-    case load_file(LName) of
-	{ok, NewEnv} ->
-	    check_conf_sys(T, merge_env(SysEnv, NewEnv), Errors, DName);
-	{error, {Line, _Mod, Str}} ->
-	    check_conf_sys(T, SysEnv, [{error, {LName, Line, Str}}|Errors], DName)
-    end;
-check_conf_sys([Tuple|T], SysEnv, Errors, DName) ->
-    check_conf_sys(T, merge_env(SysEnv, [Tuple]), Errors, DName);
-check_conf_sys([], SysEnv, Errors, _) ->
-    {ok, SysEnv, lists:reverse(Errors)}.
-
-load_file(File) ->
-    %% We can't use file:consult/1 here. Too bad.
-    case erl_prim_loader:get_file(File) of
-	{ok, Bin, _FileName} ->
-	    %% Make sure that there is some whitespace at the end of the string
-	    %% (so that reading a file with no NL following the "." will work).
-            case file_binary_to_list(Bin) of
-                {ok, String} ->
-                    scan_file(String ++ " ");
-                error ->
-                    {error, {none, scan_file, "bad encoding"}}
-            end;
-	error ->
-	    {error, {none, open_file, "configuration file not found"}}
-    end.
-
-scan_file(Str) ->
-    case erl_scan:tokens([], Str, 1) of
-	{done, {ok, Tokens, _}, Left} ->
-	    case erl_parse:parse_term(Tokens) of
-		{ok,L}=Res when is_list(L) ->
-		    case only_ws(Left) of
-			true ->
-			    Res;
-			false ->
-			    %% There was trailing garbage found after the list.
-			    config_error()
-		    end;
-		{ok,_} ->
-		    %% Parsing succeeded but the result is not a list.
-		    config_error();
-		Error ->
-		    Error
-	    end;
-	{done, Result, _} ->
-	    {error, {none, parse_file, tuple_to_list(Result)}};
-	{more, _} ->
-	    {error, {none, load_file, "no ending <dot> found"}}
-    end.
-
-only_ws([C|Cs]) when C =< $\s -> only_ws(Cs);
-only_ws([$%|Cs]) -> only_ws(strip_comment(Cs));   % handle comment
-only_ws([_|_]) -> false;
-only_ws([]) -> true.
-    
-strip_comment([$\n|Cs]) -> Cs;
-strip_comment([_|Cs]) -> strip_comment(Cs);
-strip_comment([]) -> [].
-
-config_error() ->
-    {error,
-     {none, load_file,
-      "configuration file must contain ONE list ended by <dot>"}}.
 
 %%-----------------------------------------------------------------
 %% Info messages sent to logger
