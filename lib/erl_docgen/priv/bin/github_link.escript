@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
+%%! +A 1 +SDio 1 +S 1 -mode minimal
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2010-2018. All Rights Reserved.
