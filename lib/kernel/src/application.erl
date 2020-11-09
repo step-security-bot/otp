@@ -30,7 +30,7 @@
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
--export([parse_transform/2, check_env/2, check_env/3]).
+-export([parse_transform/2, check_env/2, check_env/3, build_parameter_model/1]).
 
 -export_type([start_type/0]).
 
@@ -457,7 +457,6 @@ attributes(AST) ->
                   attribute ->
                       Name = erl_syntax:attribute_name(T),
                       ConcreteName = erl_syntax:concrete(Name),
-%                      ConcreteArgs = [erl_syntax:concrete(C) || C <- erl_syntax:attribute_arguments(T)],
                       Vals = maps:get(ConcreteName, Acc, []),
                       Acc#{ ConcreteName => erl_syntax:attribute_arguments(T) ++ Vals };
                   _ ->
@@ -520,27 +519,42 @@ flatten_types(Types) ->
                 Acc#{ erl_syntax:concrete(Name) => flatten_type(erl_syntax:concrete(Value)) }
         end, #{}, Types)).
 
-parse_transform(AST, _Opts) ->
+build_parameter_model(Module) when is_atom(Module) ->
+    {ok,{Module,[{"Dbgi",BT}]}} = beam_lib:chunks(code:which(Module),["Dbgi"]),
+    {debug_info_v1,erl_abstract_code,{AST, _Opts}} = binary_to_term(BT),
+    build_parameter_model(AST);
+build_parameter_model(AST) ->
     Attrs = attributes(AST),
     FlatTypes = flatten_types(maps:get(type, Attrs, [])),
 
-    Env = lists:foldl(
-            fun({Key,0}, Acc) ->
-                   Acc#{ Key => maps:get(Key, FlatTypes) }
-            end, #{}, erl_syntax:concrete(hd(maps:get(env, Attrs, [])))),
+    %% io:format("Attrs: ~p~n",[Attrs]),
+    %% io:format("FlatTypes: ~p~n",[FlatTypes]),
+    %% io:format("AST: ~p~n",[AST]),
+
+    case maps:find(env, Attrs) of
+        {ok, [Value]} ->
+            {ok, lists:foldl(
+                   fun({Key,0}, Acc) ->
+                           Acc#{ Key => maps:get(Key, FlatTypes) }
+                   end, #{}, erl_syntax:concrete(Value))};
+        {ok, _} ->
+            {error, too_many_env_attributes};
+        _ ->
+            no_env
+    end.
+
+parse_transform(AST, _Opts) ->
+    {ok, Env} = build_parameter_model(AST),
 
     EnvFunc =
-        case maps:get(env_function, Attrs, undefined) of
+        case maps:get(env_function, attributes(AST), undefined) of
             [Mod] ->
                 erl_syntax:concrete(Mod);
             undefined ->
                 check_env
         end,
 
-    %% io:format("Attrs: ~p~n",[Attrs]),
-    %% io:format("FlatTypes: ~p~n",[FlatTypes]),
     %% io:format("Env: ~p~n",[Env]),
-    %% io:format("AST: ~p~n",[AST]),
     %% io:format("EnvFunc: ~p~n",[EnvFunc]),
 
     CheckFunction2 =
@@ -584,16 +598,25 @@ parse_transform(AST, _Opts) ->
               case erl_syntax:type(Tree) =:= attribute andalso
                   erl_syntax:concrete(erl_syntax:attribute_name(Tree)) =:= module of
                   true ->
-                      [Tree, erl_syntax:revert(
-                               erl_syntax:attribute(
-                                 erl_syntax:atom(export),
-                                 [erl_syntax:list(
-                                    [erl_syntax:arity_qualifier(
-                                       erl_syntax:atom(EnvFunc),
-                                       erl_syntax:integer(1)),
-                                    erl_syntax:arity_qualifier(
-                                       erl_syntax:atom(EnvFunc),
-                                       erl_syntax:integer(2))])]))];
+                      [Tree,
+                       erl_syntax:revert(
+                         erl_syntax:attribute(
+                           erl_syntax:atom(export),
+                           [erl_syntax:list(
+                              [erl_syntax:arity_qualifier(
+                                 erl_syntax:atom(EnvFunc),
+                                 erl_syntax:integer(1)),
+                               erl_syntax:arity_qualifier(
+                                 erl_syntax:atom(EnvFunc),
+                                 erl_syntax:integer(2))])])),
+                       erl_syntax:revert(
+                         erl_syntax:attribute(
+                           erl_syntax:atom(export_type),
+                           [erl_syntax:list(
+                              maps:fold(
+                                fun(Key,_, Acc) ->
+                                        [erl_syntax:abstract({Key,0})|Acc]
+                                end, [], Env))]))];
                   false ->
                       [Tree]
               end

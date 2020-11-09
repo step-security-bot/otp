@@ -100,3 +100,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
+
+$(EBIN)/systools_make.beam: systools.hrl
+$(EBIN)/systools_rc.beam: systools.hrl
+$(EBIN)/systools_relup.beam: systools.hrl

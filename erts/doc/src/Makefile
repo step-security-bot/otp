@@ -67,6 +67,8 @@ XML_REF3_FILES = \
 	$(XML_REF3_EFILES) \
 	$(XML_REF3_CREF)
 
+XML_REF6_FILES = erts_app.xml
+
 XML_PART_FILES = \
 	part.xml internal.xml
 
@@ -110,7 +112,9 @@ IMAGE_FILES = \
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) $(XML_APPLICATION_FILES)
+	$(XML_PART_FILES) $(XML_REF3_FILES) \
+	$(XML_REF6_FILES) $(XML_REF1_FILES) \
+	$(XML_APPLICATION_FILES)
 
 HTML_EXTRA_FILES = $(ERL_TOP)/erts/example/time_compat.erl \
 	$(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \

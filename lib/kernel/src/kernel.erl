@@ -23,8 +23,6 @@
 -compile({parse_transform,application}).
 -env([logger_level/0,logger_sasl_compatible/0,
       shell_docs_ansi/0,dist_auto_connect/0,shell_history/0]).
--export_type([logger_level/0,logger_sasl_compatible/0,
-              shell_docs_ansi/0,dist_auto_connect/0,shell_history/0]).
 
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.

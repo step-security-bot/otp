@@ -31,12 +31,6 @@
       schedulers/0]).
 -env_function(check).
 
--export_type([async/0, break/0, time/0, coredump/0,
-              scalability/0, unicode/0, ets/0,
-              processes/0, ports/0, atoms/0,
-              io/0, dist/0, memory/0,
-              schedulers/0]).
-
 -type async() ::
         #{
           %% +A

@@ -31,6 +31,7 @@
   </header>
   <description>
   </description>
+  <xi:include href="erts_app.xml"/>
   <xi:include href="atomics.xml"/>
   <xi:include href="counters.xml"/>
   <xi:include href="driver_entry.xml"/>

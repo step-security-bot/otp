@@ -74,8 +74,8 @@ usage() ->
 modapp(TopDir) ->
     AppDirs = filelib:wildcard(filename:join([TopDir,"lib","*"])),
     AM = [appmods(D) || D <- AppDirs],
-    ERTS = [preloaded(TopDir) || lists:keyfind("erts", 1, AM) =:= false],
-    lists:keysort(1, [{M,A} || {A,Ms} <- ERTS++AM, M <- Ms]).
+    ERTS = [preloaded(TopDir) | lists:keydelete("erts", 1, AM)],
+    lists:keysort(1, [{M,A} || {A,Ms} <- ERTS, M <- Ms]).
 
 preloaded(TopDir) ->
     {"preloaded",Mods} = appmods(filename:join([TopDir,"erts","preloaded"])),
