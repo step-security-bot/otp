@@ -1,5 +1,86 @@
 # Modernize configurations
 
+## To be implemented
+
+### Implement -fdconfig
+* -fdconfig that reads config from an FD (would normally be stdin), but can be anything else.
+* init:restart/0 needs to work
+* the heart command will have to take care of when the VM crashes
+* What do we do on release upgrades that require a restart? Do we
+  pipe the previous config into the new release, or is this the job of heart?
+  * Heart will have to manage this. If -fdconfig is used then the called
+    [start_prg](https://erlang.org/doc/man/sasl_app.html#configuration)
+    has to be able to handle that.
+
+### Allow other configuration formats
+
+* The ending of the config file. i.e. -config sys.toml will call the `toml_config_parser` module.
+* `-config_parser toml mytoml_config_parser` can be used to set a custom config parser.
+* Release upgrades should be possible to be done with a sys.toml, which means that release_handler
+  should check the extension.
+  * You cannot change the format of the config in a running system.
+  * `release_handler:new_emulator_make_hybrid_config` will create a config in
+    `.config` format which is based on the what you get from `sys.toml`.
+
+```
+-type anno_config_key() :: {atom(),erl_anno:anno()}.
+-type anno_config_value() :: {term(),erl_anno:anno()}.
+-type anno_config() :: #{ anno_config_key() => anno_config_value() | anno_config() } |
+                         [{ anno_config_key(), anno_config_value() | anno_config() }].
+-type anno_app_config() :: {AppName :: anno_config_key(),
+                            Config :: anno_config()}.
+
+-spec parse(Data :: unicode:chardata(), Anno :: erl_anno:anno()) ->
+          {ok, AppConfig :: [anno_app_config()], MoreFiles :: [file:name()]} |
+          {error, Where :: erl_anno:anno(), Reason :: unicode:chardata()}.
+```
+
+### Applications should configure the merge strategy
+
+* Options: flat vs deep
+  * Flat is the backwards compatible way
+  * Deep does a tree merge of values.
+    * Need to figure out a way to delete values. Overwrite with `undefined`?
+* If an application wants to work with both old and new configuration it should
+  use the legacy merge way.
+* If kernel does a live upgrade from OTP-23 to OTP-24, then the old merge will
+  be used, as no other method i known to OTP-23.
+
+* We cannot let the application decide how to merge as that will not work
+  in emulator upgrade scenarios. In emulator upgrade scenarios it is the
+  old emulator that needs to do the merge.
+
+
+### Allow application to check the configuration
+
+* Callback that validates the config of application
+* Failure to validate should stop start of application
+  * Add option to warn or ignore such miss-configurations
+* The configuration check should be done when loading the
+  application.
+  * Except for erts, stdlib and kernel, which should be done
+    after each of the previous have been loaded.
+
+```
+-type config_key() :: atom().
+-type config() :: #{ config_key() => config() | term() }.
+
+-spec check_env(Env) ->
+          ok | {error, [Location]} when
+      Env :: config(),
+      Reason :: fun(() -> unicode:chardata()),
+      Path :: [config_key()],
+      Location :: {invalid_value | invalid_key, Reason, Path}.
+```
+
+## To maybe be implemented
+
+### Allow multiple -config for release upgrades
+
+* The main problem here is that it should probably be possible to add and remove
+  `-config` statements which would mean that we have to parse ERL_FLAGS and any
+  `vm.args` files in order to do that and that may be difficult...
+
 ## Requirements
 
 * Both per application and per system configurations
