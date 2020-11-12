@@ -8,19 +8,26 @@
 * the heart command will have to take care of when the VM crashes
 * What do we do on release upgrades that require a restart? Do we
   pipe the previous config into the new release, or is this the job of heart?
-  * Heart will have to manage this. If -fdconfig is used then the called
+  * Heart will have to manage this. If `-fdconfig` is used then the called
     [start_prg](https://erlang.org/doc/man/sasl_app.html#configuration)
     has to be able to handle that.
 
 ### Allow other configuration formats
 
-* The ending of the config file. i.e. -config sys.toml will call the `toml_config_parser` module.
+* The ending of the config file. i.e. `-config sys.toml` will call the `toml_config_parser` module.
 * `-config_parser toml mytoml_config_parser` can be used to set a custom config parser.
-* Release upgrades should be possible to be done with a sys.toml, which means that release_handler
+* Release upgrades should be possible to be done with a `sys.toml`, which means that release_handler
   should check the extension.
   * You cannot change the format of the config in a running system.
   * `release_handler:new_emulator_make_hybrid_config` will create a config in
     `.config` format which is based on the what you get from `sys.toml`.
+* The parsing of external formats needs to be done before any application is started.
+  This means that at the earliest it can be done when the AC is starts, at the latest when
+  `{progress,application_loaded}` happens in the boot script.
+  * The config needs to be parsed that early because we need to run the `check_conf/1`
+    callback before any application is started.
+  * This means that if using an Elixir parser, the code will be loaded, but no processes
+    will be started. 
 
 ```
 -type anno_config_key() :: {atom(),erl_anno:anno()}.
@@ -41,6 +48,11 @@
   * Flat is the backwards compatible way
   * Deep does a tree merge of values.
     * Need to figure out a way to delete values. Overwrite with `undefined`?
+  * Does this config need to be on a per key level? i.e.
+    `{env_config,[#{ replace => [AllLegacyKeys] }]}`
+    The problem here is `logger` in kernel. It is a map, where we want legacy
+    config to work (though give a warning). But we want to re-use the same key
+    in the new config scheme where we want the deepmerge strategy....
 * If an application wants to work with both old and new configuration it should
   use the legacy merge way.
 * If kernel does a live upgrade from OTP-23 to OTP-24, then the old merge will
@@ -49,7 +61,7 @@
 * We cannot let the application decide how to merge as that will not work
   in emulator upgrade scenarios. In emulator upgrade scenarios it is the
   old emulator that needs to do the merge.
-
+* 
 
 ### Allow application to check the configuration
 
