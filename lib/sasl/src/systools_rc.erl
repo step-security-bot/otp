@@ -33,6 +33,8 @@
 %% {load_module, Mod, PrePurge, PostPurge, [Mod]}
 %% {add_module, Mod}
 %% {add_module, Mod, [Mod]}
+%% {delete_module, Mod}
+%% {delete_module, Mod, [Mod]}
 %% {restart_application, Appl}
 %% {add_application, Appl, Type}
 %% {remove_application, Appl}
@@ -350,8 +352,7 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 			  Mods = RemApplication#application.modules,
 
 			  [{apply, {application, stop, [Appl]}}] ++
-			      [{remove, {M, brutal_purge, brutal_purge}}
-			       || M <- Mods] ++
+			      [{delete_module, M, []} || M <- Mods] ++
 			      [{purge, Mods},
 			       {apply, {application, unload, [Appl]}}];
 		      false ->
@@ -375,8 +376,7 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 				      end,
 
 				  [{apply, {application, stop, [Appl]}}] ++
-				      [{remove, {M, brutal_purge, brutal_purge}}
-				       || M <- PreMods] ++
+				      [{delete_module, M, []} || M <- PreMods] ++
 				      [{purge, PreMods}] ++
 				      [{add_module, M, []} || M <- PostMods] ++
 				      Apply;

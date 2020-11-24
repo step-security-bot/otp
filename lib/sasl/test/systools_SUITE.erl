@@ -73,7 +73,7 @@ groups() ->
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
-       replace_app_relup
+       replace_app_relup, replace_app_purge_relup
       ]},
      {hybrid, [], [normal_hybrid,hybrid_no_old_sasl,hybrid_no_new_sasl]},
      {options, [], [otp_6226_outdir,app_file_defaults]}].
@@ -1951,35 +1951,74 @@ replace_app_relup(Config) when is_list(Config) ->
     ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
 			     [{path, P}]),
 
-    check_start_stop_order([{start,gh},{stop,fe}], [{start,fe},{stop,gh}]),
+    check_order([{apply,{application,start,[gh,permanent]}},
+                 {apply,{application,stop,[fe]}}],
+                [{apply,{application,start,[fe,permanent]}},
+                 {apply,{application,stop,[ge]}}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_relup: Replace an application dependency with another
+%%   AND the appup of the upgraded app contains dependencies to
+%%   modules in both the removed and added application.
+replace_app_purge_relup(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir,LatestName}   = create_script(replace_app0,Config),
+    {_LatestDir1,LatestName1} = create_script(replace_app1,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_replace_app_purge, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    ok = systools:make_relup(LatestName, [LatestName1], [LatestName1],
+			     [{path, P}]),
+
+    check_order([{suspend,[db2,db1]},
+                 {load,{gh1,brutal_purge,brutal_purge}},
+                 {resume,[db1,db2]}],
+                [{suspend,[db2,db1]},
+                 {load,{fe1,brutal_purge,brutal_purge}},
+                 {resume,[db1,db2]}]),
 
     ok = file:set_cwd(OldDir),
     ok.
 
 
-check_start_stop_order(UpOrder, DownOrder) ->
+check_order(UpOrder, DownOrder) ->
 
     {ok, [{_V0, [{_V1, [], Up}],
                 [{_V1, [], Down}]
             }]} = file:consult(relup),
 
-    GetAppStartStop = fun(Instr) ->
-        [{Action,App} || {apply,{application,Action,[App|_]}} <- Instr,
-                lists:member(Action,[start,stop])]
+    case lists:foldl(
+            fun(Instr, [Instr | Rest]) ->
+                Rest;
+                (_Instr, Rest) ->
+                Rest
+            end, UpOrder, Up) of
+        [] -> ok;
+        NotFoundUp ->
+          ct:fail("Up order mismatch: ~p~nExpected: ~p~nActual: ~p~n",
+                  [NotFoundUp, UpOrder, Up])
     end,
 
-    case GetAppStartStop(Up) of
-        UpOrder -> ok;
-        ActualUpOrder ->
-          ct:fail("Incorrect upgrade order.~nExpected: ~p~nGot:~p",
-                  [UpOrder,ActualUpOrder])
-    end,
-
-    case GetAppStartStop(Down) of
-        DownOrder -> ok;
-        ActualDownOrder ->
-          ct:fail("Incorrect down order.~nExpected: ~p~nGot:~p",
-                  [DownOrder,ActualDownOrder])
+    case lists:foldl(
+            fun(Instr, [Instr | Rest]) ->
+                Rest;
+                (_Instr, Rest) ->
+                Rest
+            end, DownOrder, Down) of
+        [] -> ok;
+        NotFoundDown ->
+          ct:fail("Down order mismatch: ~p~nExpected: ~p~nActual: ~p~n",
+                  [NotFoundDown, UpOrder, Up])
     end,
 
     ok.
