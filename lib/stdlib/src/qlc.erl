@@ -458,7 +458,7 @@ info(QH, Options) ->
                     abstract_code ->
                         abstract_code(AbstractCode);
                     string ->
-                        Hook = fun({special, _Line, String}, _I, _P, _F) ->
+                        Hook = fun({special, _Anno, String}, _I, _P, _F) ->
                                        String
                                end,
                         lists:flatten(erl_pp:expr(AbstractCode, 0, Hook));
@@ -679,7 +679,7 @@ string_to_handle(Str, Options, Bindings) when is_list(Str) ->
                         {error, ErrorInfo} ->
                             error(ErrorInfo)
                     end;
-                {error, ErrorInfo, _EndLine} ->
+                {error, ErrorInfo, _EndLocation} ->
                     error(ErrorInfo)
             end
     end;
@@ -778,7 +778,7 @@ name_suffix(A, Suff) ->
     list_to_atom(lists:concat([A, Suff])).
 
 vars(E) ->
-    var_ufold(fun({var,_L,V}) -> V end, E).
+    var_ufold(fun({var,_A,V}) -> V end, E).
 
 var_ufold(F, E) ->
     ordsets:from_list(var_fold(F, [], E)).
@@ -1036,7 +1036,7 @@ listify(T) ->
 -record(simple_qlc,
         {p,         % atom(), pattern variable
          le,
-         line :: erl_anno:anno(),
+         anno :: erl_anno:anno(),
          init_value,
          optz       % #optz
          }).
@@ -1152,8 +1152,8 @@ wait_for_request(Parent, MonRef, Post) ->
 
 %%% End of cursor process functions.
 
-abstract_code({special, Line, String}) ->
-    {string, Line, String};
+abstract_code({special, Anno, String}) ->
+    {string, Anno, String};
 abstract_code(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(abstract_code(tuple_to_list(Tuple)));
 abstract_code([H | T]) ->
@@ -1299,48 +1299,48 @@ abstract_term(Term) ->
 abstract_term(Term, Line) ->
     abstr_term(Term, anno(Line)).
 
-abstr_term(Tuple, Line) when is_tuple(Tuple) ->
-    {tuple,Line,[abstr_term(E, Line) || E <- tuple_to_list(Tuple)]};
-abstr_term([_ | _]=L, Line) ->
+abstr_term(Tuple, Anno) when is_tuple(Tuple) ->
+    {tuple,Anno,[abstr_term(E, Anno) || E <- tuple_to_list(Tuple)]};
+abstr_term([_ | _]=L, Anno) ->
     case io_lib:char_list(L) of
         true ->
-            erl_parse:abstract(L, erl_anno:line(Line));
+            erl_parse:abstract(L, erl_anno:line(Anno));
         false ->
-            abstr_list(L, Line)
+            abstr_list(L, Anno)
     end;
-abstr_term(Fun, Line) when is_function(Fun) ->
+abstr_term(Fun, Anno) when is_function(Fun) ->
     case erl_eval:fun_data(Fun) of
         {fun_data, _Bs, Cs} ->
-            {'fun', Line, {clauses, Cs}};
+            {'fun', Anno, {clauses, Cs}};
         {named_fun_data, _Bs, Name, Cs} ->
-            {named_fun, Line, Name, Cs};
+            {named_fun, Anno, Name, Cs};
         false ->
             {name, Name} = erlang:fun_info(Fun, name),
             {arity, Arity} = erlang:fun_info(Fun, arity),
             case erlang:fun_info(Fun, type) of
                 {type, external} ->
                     {module, Module} = erlang:fun_info(Fun, module),
-                    {'fun', Line, {function,
-				   {atom,Line,Module},
-				   {atom,Line,Name},
-				   {integer,Line,Arity}}};
+                    {'fun', Anno, {function,
+				   {atom,Anno,Module},
+				   {atom,Anno,Name},
+				   {integer,Anno,Arity}}};
                 {type, local} ->
-                    {'fun', Line, {function,Name,Arity}}
+                    {'fun', Anno, {function,Name,Arity}}
             end
     end;
-abstr_term(PPR, Line) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
-    {special, Line, lists:flatten(io_lib:write(PPR))};    
-abstr_term(Map, Line) when is_map(Map) ->
-    {map,Line,
-     [{map_field_assoc,Line,abstr_term(K, Line),abstr_term(V, Line)} ||
+abstr_term(PPR, Anno) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
+    {special, Anno, lists:flatten(io_lib:write(PPR))};
+abstr_term(Map, Anno) when is_map(Map) ->
+    {map,Anno,
+     [{map_field_assoc,Anno,abstr_term(K, Anno),abstr_term(V, Anno)} ||
          {K,V} <- maps:to_list(Map)]};
-abstr_term(Simple, Line) ->
-    erl_parse:abstract(Simple, erl_anno:line(Line)).
+abstr_term(Simple, Anno) ->
+    erl_parse:abstract(Simple, erl_anno:line(Anno)).
 
-abstr_list([H | T], Line) ->
-    {cons, Line, abstr_term(H, Line), abstr_list(T, Line)};
-abstr_list(T, Line) ->
-    abstr_term(T, Line).
+abstr_list([H | T], Anno) ->
+    {cons, Anno, abstr_term(H, Anno), abstr_list(T, Anno)};
+abstr_list(T, Anno) ->
+    abstr_term(T, Anno).
 
 %% Since generator pattern variables cannot be used in list
 %% expressions, it is OK to flatten out QLCs using temporary
@@ -1479,9 +1479,9 @@ monitor_request(Pid, Req) ->
 %%          | {unique, boolean()} | unique
 %% FilterDesc = PatternDesc = TemplateDesc = binary()
 
-le_info(#prepared{qh = #simple_qlc{le = LE, p = P, line = L, optz = Optz}},
+le_info(#prepared{qh = #simple_qlc{le = LE, p = P, anno = Anno, optz = Optz}},
         InfOpt) ->
-    QVar = term_to_binary({var, L, P}),
+    QVar = term_to_binary({var, Anno, P}),
     {qlc, QVar, [{generate, QVar, le_info(LE, InfOpt)}], opt_info(Optz)};
 le_info(#prepared{qh = #qlc{codef = CodeF, qdata = Qdata, optz = Optz}},
         InfOpt) ->
@@ -1878,7 +1878,7 @@ may_create_simple(#qlc_opt{unique = Unique, cache = Cache} = Opt,
             Prep
     end.
 
-prep_simple_qlc(PVar, Line, LE, Opt) ->
+prep_simple_qlc(PVar, Anno, LE, Opt) ->
     check_join_option(Opt),
     #prepared{is_cached = IsCached, 
               sort_info = SortInfo, sorted = Sorted,
@@ -1891,7 +1891,7 @@ prep_simple_qlc(PVar, Line, LE, Opt) ->
              end,
     Optz = #optz{unique = Unique and not IsUnique, 
                  cache = Cachez, opt = Opt},
-    QLC = #simple_qlc{p = PVar, le = LE, line = Line, 
+    QLC = #simple_qlc{p = PVar, le = LE, anno = Anno,
                       init_value = not_a_list, optz = Optz},
     %% LE#prepared.join is not copied
     #prepared{qh = QLC, is_unique_objects = IsUnique or Unique, 
