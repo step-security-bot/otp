@@ -84,7 +84,7 @@ ERL_COMPILE_FLAGS += -Werror
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
+debug opt: $(TARGET_FILES) $(ERL_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
@@ -117,3 +117,5 @@ release_spec: opt
 	$(INSTALL_DATA) $(CSS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
+
+xref_parser.erl: xref_parser.yrl
