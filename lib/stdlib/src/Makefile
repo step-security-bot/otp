@@ -162,14 +162,14 @@ ERL_COMPILE_FLAGS += -I../include -I../../kernel/include -Werror
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) 
+debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
 	rm -f core
 	rm -f erl_parse.erl
 
-docs:
+docs: $(ERL_FILES)
 
 # This is a trick so that the preloaded files will get the correct type
 # specifications.
