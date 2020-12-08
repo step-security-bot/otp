@@ -276,14 +276,14 @@ expr({'receive',_,Cs}, Bs, Lf, Ef, RBs) ->
 expr({'receive',_, Cs, E, TB}, Bs0, Lf, Ef, RBs) ->
     {value,T,Bs} = expr(E, Bs0, Lf, Ef, none),
     receive_clauses(T, Cs, {TB,Bs}, Bs0, Lf, Ef, RBs);
-expr({'fun',_Line,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
+expr({'fun',_Anno,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
     {[Mod,Name,Arity],Bs} = expr_list([Mod0,Name0,Arity0], Bs0, Lf, Ef),
     F = erlang:make_fun(Mod, Name, Arity),
     ret_expr(F, Bs, RBs);    
-expr({'fun',_Line,{function,Name,Arity}}, _Bs0, _Lf, _Ef, _RBs) -> % R8
+expr({'fun',_Anno,{function,Name,Arity}}, _Bs0, _Lf, _Ef, _RBs) -> % R8
     %% Don't know what to do...
     erlang:raise(error, undef, [{?MODULE,Name,Arity}|?STACKTRACE]);
-expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
+expr({'fun',Anno,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
     {Ex1, _} = hide_calls(Ex, 0),
@@ -326,12 +326,12 @@ expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
         20 -> fun (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
            eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T], Info) end;
 	_Other ->
-            L = erl_anno:location(Line),
+            L = erl_anno:location(Anno),
 	    erlang:raise(error, {'argument_limit',{'fun',L,to_terms(Cs)}},
 			 ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
-expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
+expr({named_fun,Anno,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
     {Ex1, _} = hide_calls(Ex, 0),
@@ -379,7 +379,7 @@ expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
            eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],
                           RF, Info) end;
         _Other ->
-            L = erl_anno:location(Line),
+            L = erl_anno:location(Anno),
             erlang:raise(error, {'argument_limit',
                                  {named_fun,L,Name,to_terms(Cs)}},
                          ?STACKTRACE)
@@ -1183,16 +1183,16 @@ match1({op,_,'++',{cons,Li,{char,L2,C},T},R}, Term, Bs, BBs) ->
     match1({cons,Li,{char,L2,C},{op,Li,'++',T,R}}, Term, Bs, BBs);
 match1({op,_,'++',{string,Li,L},R}, Term, Bs, BBs) ->
     match1(string_to_conses(L, Li, R), Term, Bs, BBs);
-match1({op,Line,Op,A}, Term, Bs, BBs) ->
-    case partial_eval({op,Line,Op,A}) of
-	{op,Line,Op,A} ->
+match1({op,Anno,Op,A}, Term, Bs, BBs) ->
+    case partial_eval({op,Anno,Op,A}) of
+	{op,Anno,Op,A} ->
 	    throw(invalid);
 	X ->
 	    match1(X, Term, Bs, BBs)
     end;
-match1({op,Line,Op,L,R}, Term, Bs, BBs) ->
-    case partial_eval({op,Line,Op,L,R}) of
-	{op,Line,Op,L,R} ->
+match1({op,Anno,Op,L,R}, Term, Bs, BBs) ->
+    case partial_eval({op,Anno,Op,L,R}) of
+	{op,Anno,Op,L,R} ->
 	    throw(invalid);
 	X ->
 	    match1(X, Term, Bs, BBs)
@@ -1566,10 +1566,10 @@ ev_expr({tuple,_,Es}) ->
     list_to_tuple([ev_expr(X) || X <- Es]);
 ev_expr({nil,_}) -> [];
 ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
-%%ev_expr({call,Line,{atom,_,F},As}) ->
+%%ev_expr({call,Anno,{atom,_,F},As}) ->
 %%    true = erl_internal:guard_bif(F, length(As)),
 %%    apply(erlang, F, [ev_expr(X) || X <- As]);
-%%ev_expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
+%%ev_expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
 %%    true = erl_internal:guard_bif(F, length(As)),
 %%    apply(erlang, F, [ev_expr(X) || X <- As]);
 
