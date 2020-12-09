@@ -1108,7 +1108,15 @@ alloc_dist_obufs(byte **extp, TTBEncodeContext *ctx,
     obsz = sizeof(ErtsDistOutputBuf)*fragments;
 
     iov_sz = erts_ttb_iov_size(0, vlen, fragments);
-    
+    /* We allocate one binary that contains:
+        * obufs
+        * iovs
+          * SysIoV[]
+          * Binary[]
+          * ErlIOVec[]
+        * ctl data
+        * msg data
+    */
     bin = erts_bin_drv_alloc(obsz + iov_sz + data_size);
     ctx->result_bin = bin;
     ptr = (char *) &bin->orig_bytes[0];
@@ -3021,6 +3029,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                             * ERTS_DIST_FRAGMENT_HEADER_SIZE),
                                          ctx->fragments,
                                          ctx->vlen);
+            ERTS_ASSERT(ctx->obuf->bin == ctx->u.ec.result_bin);
             ctx->alloced_fragments = ctx->fragments;
 	    /* Encode internal version of dist header */
             ctx->dhdrp = ctx->extp;
@@ -3030,6 +3039,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                                            ctx->acmp,
                                                            ctx->fragments,
                                                            ctx->from);
+            ERTS_ASSERT(ctx->obuf->bin == ctx->u.ec.result_bin);
             ctx->dhdr_ext_size = ctx->extp - ctx->dhdrp;
             while (1) {
                 Sint reds = CONTEXT_REDS;
@@ -3038,6 +3048,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                                ctx->dflags, ctx->acmp,
                                                &ctx->u.ec, &ctx->fragments,
                                                &reds);
+                ERTS_ASSERT(ctx->obuf->bin == ctx->u.ec.result_bin);
                 ctx->reds -= CONTEXT_REDS - reds;
                 if (res == 0)
                     break;
@@ -3064,6 +3075,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                                                &ctx->u.ec,
                                                &ctx->fragments,
                                                redsp);
+                ERTS_ASSERT(ctx->obuf->bin == ctx->u.ec.result_bin);
                 if (!ctx->no_trap) {
                     if (res == 0)
                         break;
@@ -3086,18 +3098,18 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             ErlIOVec *eiov;
             Sint fix;
     
-            ASSERT(fid >= 1);
-            ASSERT(ctx->alloced_fragments >= ctx->fragments);
+            ERTS_ASSERT(fid >= 1);
+            ERTS_ASSERT(ctx->alloced_fragments >= ctx->fragments);
 
             eiov = obuf[0].eiov;
-            ASSERT(eiov);
-            ASSERT(eiov->vsize >= 3);
-            ASSERT(!eiov->iov[0].iov_base);
-            ASSERT(!eiov->iov[0].iov_len);
-            ASSERT(!eiov->binv[0]);
-            ASSERT(!eiov->iov[1].iov_base);
-            ASSERT(!eiov->iov[1].iov_len);
-            ASSERT(!eiov->binv[1]);
+            ERTS_ASSERT(eiov);
+            ERTS_ASSERT(eiov->vsize >= 3);
+            ERTS_ASSERT(!eiov->iov[0].iov_base);
+            ERTS_ASSERT(!eiov->iov[0].iov_len);
+            ERTS_ASSERT(!eiov->binv[0]);
+            ERTS_ASSERT(!eiov->iov[1].iov_base);
+            ERTS_ASSERT(!eiov->iov[1].iov_len);
+            ERTS_ASSERT(!eiov->binv[1]);
 
             if (ctx->alloced_fragments > 1) {
                 ASSERT(get_int64(ctx->dhdrp + 1 + 1 + 8) == ctx->alloced_fragments);
@@ -3135,7 +3147,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 obuf[fix].next = &obuf[fix+1];
             }
             obuf[fix-1].next = NULL;
-            ASSERT(fid == 1);
+            ERTS_ASSERT(fid == 1);
             /* If the initial fragment calculation was incorrect we free the
                remaining output buffers. */
             for (; fix < ctx->alloced_fragments; fix++) {
