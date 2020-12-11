@@ -145,12 +145,12 @@ do_recv(Sock, Bs) ->
         <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
           using
           <seemfa marker="#send/2"><c>send/2</c></seemfa>.
-          Packets sent from the peer are delivered as messages (unless
-          <c>{active, false}</c> is specified in the option list for the
-          listening socket, in which case packets are retrieved by calling
-          <seemfa marker="#recv/2"><c>recv/2</c></seemfa>):</p>
+          Packets sent from the peer are delivered as messages:</p>
         <code type="none">
 {tcp, Socket, Data}</code>
+        <p>Unless <c>{active, false}</c> is specified in the option list for the
+          listening socket, in which case packets are retrieved by calling
+          <seemfa marker="#recv/2"><c>recv/2</c></seemfa></p>
         <note>
           <p>The <c>accept</c> call does
             <em>not</em> have to be issued from the socket owner
