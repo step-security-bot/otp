@@ -702,7 +702,7 @@ remove_uses(Var, Use, [Constr|Constrs]) ->
               end,
   [NewConstr|remove_uses(Var, Use, Constrs)].
 
-remove_use({var, L, V}, V) -> {var, L, '_'};
+remove_use({var, Anno, V}, V) -> {var, Anno, '_'};
 remove_use(T, V) when is_tuple(T) ->
   list_to_tuple(remove_use(tuple_to_list(T), V));
 remove_use([E|Es], V) ->
