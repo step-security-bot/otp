@@ -114,6 +114,7 @@ MODULES= \
 	shell_default \
 	shell_docs \
 	shell_docs_man \
+	shell_docs_markdown \
 	slave \
 	sofs \
 	string \
@@ -258,6 +259,7 @@ $(EBIN)/qlc_pt.beam: ../include/ms_transform.hrl
 $(EBIN)/shell.beam: ../../kernel/include/file.hrl
 $(EBIN)/shell_docs.beam: shell_docs.hrl ../../kernel/include/eep48.hrl
 $(EBIN)/shell_docs_man.beam: shell_docs.hrl ../../kernel/include/eep48.hrl
+$(EBIN)/shell_docs_markdown.beam: shell_docs.hrl ../../kernel/include/eep48.hrl
 $(EBIN)/supervisor.beam: ../../kernel/include/logger.hrl
 $(EBIN)/supervisor_bridge.beam: ../../kernel/include/logger.hrl
 $(EBIN)/zip.beam: ../include/zip.hrl ../../kernel/include/file.hrl

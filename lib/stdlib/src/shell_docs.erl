@@ -194,9 +194,15 @@ normalize_trim([],_Trim) ->
 %% For non-inline elements we just need to make sure that any
 %% leading or trailing spaces are stripped.
 normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
-    [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
+    {TrimmedTab, _} = trim_last(Content, $\t),
+    [{Pre,Attr,trim_first_and_last(TrimmedTab,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
-    [{Block,Attr,normalize_space(Content)} | normalize_space(T)];
+    case normalize_space(Content) of
+        [] ->
+            normalize_space(T);
+        NewContent ->
+            [{Block,Attr,NewContent} | normalize_space(T)]
+    end;
 normalize_space([]) ->
     [];
 normalize_space(Elems) ->
@@ -599,7 +605,7 @@ render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
     lists:flatmap(
       fun(Sig) ->
-              [{h2,[],[<<"  "/utf8,Sig/binary>>]}|render_meta(Meta)]
+              [{hsig,[],[<<Sig/binary>>]}|render_meta(Meta)]
       end, Sigs).
 
 render_meta(M) ->
@@ -620,12 +626,11 @@ render_meta_(_) ->
 render_headers_and_docs(Headers, DocContents, D, Config) ->
     render_headers_and_docs(Headers, DocContents, init_config(D, Config)).
 render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
-    ["\n",render_docs(
+    [render_docs(
        lists:flatmap(
          fun(Header) ->
                  [{br,[],[]},Header]
          end,Headers), Config),
-     "\n",
      render_docs(DocContents, Config)].
 
 %%% Functions for rendering type/callback documentation

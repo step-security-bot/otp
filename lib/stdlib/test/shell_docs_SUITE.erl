@@ -92,6 +92,7 @@ render(_Config) ->
                                 exit(R)
                         end
                 end, [#{},
+                      #{ type => markdown },
                       #{ ansi => false },
                       #{ ansi => true },
                       #{ columns => 5 },
