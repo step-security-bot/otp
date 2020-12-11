@@ -143,7 +143,7 @@ render_element({em,_,Content},State,Pos,Ind,D) ->
 render_element({pre,_,Content},State,Pos,Ind,D) ->
     %% For pre we make sure to respect the newlines in pre
     {Docs, _} = trimnl(render_docs(Content, [pre|State], Pos, Ind, D)),
-    {["```erlang\n",Docs,"```\n\n"], 0};
+    trimnlnl(["```erlang\n",Docs,"```"]);
 
 render_element({ul,[{class,<<"types">>}],Content},State,_Pos,Ind,D) ->
     {Docs, _} = render_docs(Content, [types|State], 0, Ind, D),
@@ -173,9 +173,9 @@ render_element({li,Attr,Content},[types|_] = State,Pos,Ind,C) ->
         end,
     trimnl(Doc);
 render_element({ul,[],Content},State,Pos,Ind,D) ->
-    render_docs(Content, [ul|State], Pos, Ind,D);
+    trimnlnl(render_docs(Content, [ul|State], Pos, Ind,D));
 render_element({ol,[],Content},State,Pos,Ind,D) ->
-    render_docs(Content, [ol|State], Pos, Ind,D);
+    trimnlnl(render_docs(Content, [ol|State], Pos, Ind,D));
 render_element({li,[],Content},[ul | _] = State, Pos, Ind,D) ->
     {Docs, _NewPos} = render_docs(Content, [li | State], Pos + 2,Ind + 2, D),
     trimnl(["* ",Docs]);

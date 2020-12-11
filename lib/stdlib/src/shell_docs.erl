@@ -631,6 +631,7 @@ render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
          fun(Header) ->
                  [{br,[],[]},Header]
          end,Headers), Config),
+     "\n",
      render_docs(DocContents, Config)].
 
 %%% Functions for rendering type/callback documentation
