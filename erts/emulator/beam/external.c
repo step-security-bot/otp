@@ -5244,7 +5244,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 Uint csz = result - ctx->last_result;
                 ASSERT(dflags & DFLAG_BIT_BINARIES);
                 /* potentially multiple elements leading up to binary */
-                vlen += csz/MAX_SYSIOVEC_IOVLEN;
+                vlen += (csz + MAX_SYSIOVEC_IOVLEN - 1)/MAX_SYSIOVEC_IOVLEN;
+
                 vlen++; /* hopefull prolog */
                 /*
                  * Size for hopefull prolog is max of
