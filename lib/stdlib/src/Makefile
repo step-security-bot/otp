@@ -103,6 +103,7 @@ MODULES= \
 	ordsets \
 	re \
 	pool \
+	proc_ctx \
 	proc_lib \
 	proplists \
 	qlc \

@@ -31,7 +31,8 @@
          start_monitor/3, start_monitor/4, start_monitor/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
-	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
+	 init_p/3,init_p/5,init_pctx/4,%init_pctx/6,
+         format/1,format/2,format/3,report_cb/2,
 	 initial_call/1,
          translate_initial_call/1,
 	 stop/1, stop/3]).
@@ -76,7 +77,12 @@
 spawn(F) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    erlang:spawn(?MODULE, init_p, [Parent,Ancestors,F]).
+    case proc_ctx:get() of
+        undefined ->
+            erlang:spawn(?MODULE, init_p, [Parent,Ancestors,F]);
+        Ctx ->
+            erlang:spawn(?MODULE, init_pctx, [Parent,Ancestors,Ctx,F])
+    end.
 
 -spec spawn(Module, Function, Args) -> pid() when
       Module :: module(),
@@ -213,6 +219,11 @@ init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
 	Class:Reason:Stacktrace ->
 	    exit_p(Class, Reason, Stacktrace)
     end.
+
+-spec init_pctx(pid(), [pid()], proc_ctx:ctx(), function()) -> term().
+init_pctx(Parent, Ancestors, Ctx, Fun)  ->
+    proc_ctx:put(Ctx),
+    init_p(Parent, Ancestors, Fun).
 
 -spec init_p(pid(), [pid()], atom(), atom(), [term()]) -> term().
 

@@ -211,10 +211,19 @@ do_call(Process, Label, Request, infinity)
     %% Local without timeout; no need to use alias since we unconditionally
     %% will wait for either a reply or a down message which corresponds to
     %% the process being terminated (as opposed to 'noconnection')...
-    Process ! {Label, {self(), Mref}, Request},
+    case proc_ctx:get() of
+        undefined ->
+            Process ! {Label, {self(), Mref}, Request};
+        Ctx ->
+            Process ! {Label, {self(), Mref}, Request, Ctx}
+    end,
     receive
         {Mref, Reply} ->
             erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {Mref, Reply, RecvCtx} ->
+            erlang:demonitor(Mref, [flush]),
+            proc_ctx:put(RecvCtx),
             {ok, Reply};
         {'DOWN', Mref, _, _, Reason} ->
             exit(Reason)
@@ -230,11 +239,20 @@ do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
     %% we still use 'noconnect' on send in order to try to send on the
     %% monitored connection, and not trigger a new auto-connect.
     %%
-    erlang:send(Process, {Label, {self(), Tag}, Request}, [noconnect]),
+    case proc_ctx:get() of
+        undefined ->
+            erlang:send(Process, {Label, {self(), Tag}, Request}, [noconnect]);
+        Ctx ->
+            erlang:send(Process, {Label, {self(), Tag}, Request, Ctx}, [noconnect])
+    end,
 
     receive
         {[alias | Mref], Reply} ->
             erlang:demonitor(Mref, [flush]),
+            {ok, Reply};
+        {[alias | Mref], Reply, RecvCtx} ->
+            erlang:demonitor(Mref, [flush]),
+            proc_ctx:put(RecvCtx),
             {ok, Reply};
         {'DOWN', Mref, _, _, noconnection} ->
             Node = get_node(Process),

@@ -297,10 +297,20 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
 reply({To, [alias|Alias] = Tag}, Reply) when is_pid(To), is_reference(Alias) ->
-    Alias ! {Tag, Reply},
+    case proc_ctx:get() of
+        undefined ->
+            Alias ! {Tag, Reply};
+        Ctx ->
+            Alias ! {Tag, Reply, Ctx}
+    end,
     ok;
 reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply},
+    case proc_ctx:get() of
+        undefined ->
+            catch To ! {Tag, Reply};
+        Ctx ->
+            catch To ! {Tag, Reply, Ctx}
+    end,
     ok.
 
 %% ----------------------------------------------------------------- 
@@ -749,6 +759,9 @@ try_terminate(Mod, Reason, State) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
+handle_msg({'$gen_call', From, Msg, Ctx}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
+    proc_ctx:put(Ctx),
+    handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout);
 handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of
