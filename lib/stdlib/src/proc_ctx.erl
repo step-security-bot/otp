@@ -1,6 +1,6 @@
 -module(proc_ctx).
 
--export([put/1, put/2, get/0, get/1, clear/1]).
+-export([put/1, put/2, get/0, get/1, clear/0, clear/1]).
 -compile({no_auto_import,[get/0]}).
 -define(PDTAG,'$proc_ctx').
 
@@ -21,5 +21,7 @@ get() ->
 get(Key) ->
     maps:get(Key, get()).
 
+clear() ->
+    erlang:erase(?PDTAG).
 clear(Key) ->
     maps:remove(Key, erlang:get(?PDTAG)).

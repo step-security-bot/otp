@@ -233,18 +233,19 @@ do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
 
     Tag = [alias | Mref],
 
-    %% OTP-24:
-    %% Using alias to prevent responses after 'noconnection' and timeouts.
-    %% We however still may call nodes responding via process identifier, so
-    %% we still use 'noconnect' on send in order to try to send on the
-    %% monitored connection, and not trigger a new auto-connect.
-    %%
     case proc_ctx:get() of
         undefined ->
             erlang:send(Process, {Label, {self(), Tag}, Request}, [noconnect]);
         Ctx ->
             erlang:send(Process, {Label, {self(), Tag}, Request, Ctx}, [noconnect])
     end,
+
+    %% OTP-24:
+    %% Using alias to prevent responses after 'noconnection' and timeouts.
+    %% We however still may call nodes responding via process identifier, so
+    %% we still use 'noconnect' on send in order to try to send on the
+    %% monitored connection, and not trigger a new auto-connect.
+    %%
 
     receive
         {[alias | Mref], Reply} ->

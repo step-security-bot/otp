@@ -759,10 +759,20 @@ try_terminate(Mod, Reason, State) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
-handle_msg({'$gen_call', From, Msg, Ctx}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
-    proc_ctx:put(Ctx),
-    handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout);
-handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTimeout) ->
+handle_msg(Message, Parent, Name, State, Mod, HibernateAfterTimeout)
+  when element(1, Message) =:= '$gen_call',
+       tuple_size(Message) =:= 3 orelse tuple_size(Message) =:= 4 ->
+
+    From = element(2, Message),
+    Msg = element(3, Message),
+
+    if
+        tuple_size(Message) =:= 4 ->
+            proc_ctx:put(element(4, Message));
+        true ->
+            proc_ctx:clear()
+    end,
+
     Result = try_handle_call(Mod, Msg, From, State),
     case Result of
 	{ok, {reply, Reply, NState}} ->
