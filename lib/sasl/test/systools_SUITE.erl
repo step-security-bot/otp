@@ -1954,7 +1954,7 @@ replace_app_relup(Config) when is_list(Config) ->
     check_order([{apply,{application,start,[gh,permanent]}},
                  {apply,{application,stop,[fe]}}],
                 [{apply,{application,start,[fe,permanent]}},
-                 {apply,{application,stop,[ge]}}]),
+                 {apply,{application,stop,[gh]}}]),
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -2018,7 +2018,7 @@ check_order(UpOrder, DownOrder) ->
         [] -> ok;
         NotFoundDown ->
           ct:fail("Down order mismatch: ~p~nExpected: ~p~nActual: ~p~n",
-                  [NotFoundDown, UpOrder, Up])
+                  [NotFoundDown, DownOrder, Down])
     end,
 
     ok.
