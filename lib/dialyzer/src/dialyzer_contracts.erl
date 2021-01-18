@@ -25,6 +25,7 @@
 	 %% get_contract_signature/1,
 	 is_overloaded/1,
 	 process_contract_remote_types/1,
+         process_contracts/2,
 	 store_tmp_contract/6]).
 
 -export_type([file_contract/0, plt_contracts/0]).

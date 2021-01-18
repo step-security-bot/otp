@@ -214,9 +214,10 @@ explain_reason(function_clause, error, [{F,A}], _PF, _S, _Enc, _CL) ->
     %% Shell commands
     FAs = io_lib:fwrite(<<"~w/~w">>, [F, A]),
     [<<"no function clause matching call to ">> | FAs];
-explain_reason(function_clause, error=Cl, [{M,F,As,Loc}], PF, S, Enc, CL) ->
+explain_reason(function_clause = Reason, error=Cl, [{M,F,As,Loc}] = ST, PF, S, Enc, CL) ->
     Str = <<"no function clause matching ">>,
-    [format_errstr_call(Str, Cl, {M,F}, As, PF, S, Enc, CL),$\s|location(Loc)];
+    [format_errstr_call(Str, Cl, {M,F}, As, PF, S, Enc, CL),$\s|location(Loc)] ++
+        call_format_error(Reason, ST, "");
 explain_reason(if_clause, error, [], _PF, _S, _Enc, _CL) ->
     <<"no true branch found when evaluating an if expression">>;
 explain_reason(noproc, error, [], _PF, _S, _Enc, _CL) ->
@@ -332,12 +333,39 @@ get_extended_error(Reason, M, Info, StackTrace) ->
             catch
                 error:_ ->
                     %% Silently ignore all errors.
-                    #{}
+                    get_ast_error_info(Reason, M, StackTrace)
             end;
         _ ->
             %% There is no extended error information available.
+            get_ast_error_info(Reason, M, StackTrace)
+    end.
+
+get_ast_error_info(function_clause, M, [{M,F,As,_Info}|_]) ->
+    {ok,{M,[{"Dbgi",BT}]}} = beam_lib:chunks(code:which(M),["Dbgi"]),
+    {debug_info_v1,erl_abstract_code,{AST, _Opts}} = binary_to_term(BT),
+    case lists:search(
+           fun(Node) ->
+                   case erl_syntax:type(Node) of
+                       attribute ->
+                           case erl_syntax_lib:analyze_attribute(Node) of
+                               {spec,{spec,{{F,Arity},_SpecNode}}}
+                                 when Arity =:= length(As) ->
+                                   true;
+                               _ ->
+                                   false
+                           end;
+                       _ ->
+                           false
+                   end
+           end, AST) of
+        {value, SpecAttr} ->
+            get_spec_error_info(SpecAttr, As);
+        false ->
             #{}
     end.
+
+get_spec_error_info(_Spec, _Args) ->
+    #{}.
 
 format_arg_errors(ArgNum, [_|As], ErrorMap) ->
     case ErrorMap of
