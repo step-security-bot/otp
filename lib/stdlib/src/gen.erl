@@ -211,12 +211,9 @@ do_call(Process, Label, Request, infinity)
     %% Local without timeout; no need to use alias since we unconditionally
     %% will wait for either a reply or a down message which corresponds to
     %% the process being terminated (as opposed to 'noconnection')...
-    case proc_ctx:get() of
-        undefined ->
-            Process ! {Label, {self(), Mref}, Request};
-        Ctx ->
-            Process ! {Label, {self(), Mref}, Request, Ctx}
-    end,
+
+    Process ! append_ctx({Label, {self(), Mref}, Request}, call),
+
     receive
         {Mref, Reply} ->
             erlang:demonitor(Mref, [flush]),
@@ -233,12 +230,7 @@ do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
 
     Tag = [alias | Mref],
 
-    case proc_ctx:get() of
-        undefined ->
-            erlang:send(Process, {Label, {self(), Tag}, Request}, [noconnect]);
-        Ctx ->
-            erlang:send(Process, {Label, {self(), Tag}, Request, Ctx}, [noconnect])
-    end,
+    erlang:send(Process, append_ctx({Label, {self(), Tag}, Request}, call), [noconnect]),
 
     %% OTP-24:
     %% Using alias to prevent responses after 'noconnection' and timeouts.
@@ -250,24 +242,41 @@ do_call(Process, Label, Request, Timeout) when is_atom(Process) =:= false ->
     receive
         {[alias | Mref], Reply} ->
             erlang:demonitor(Mref, [flush]),
+            proc_ctx:process('receive'),
             {ok, Reply};
         {[alias | Mref], Reply, RecvCtx} ->
             erlang:demonitor(Mref, [flush]),
             proc_ctx:put(RecvCtx),
+            proc_ctx:process('receive'),
             {ok, Reply};
         {'DOWN', Mref, _, _, noconnection} ->
+            proc_ctx:process('DOWN'),
             Node = get_node(Process),
             exit({nodedown, Node});
         {'DOWN', Mref, _, _, Reason} ->
+            proc_ctx:process('DOWN'),
             exit(Reason)
     after Timeout ->
             erlang:demonitor(Mref, [flush]),
             receive
                 {[alias | Mref], Reply} ->
+                    {ok, Reply};
+                {[alias | Mref], Reply, RecvCtx} ->
+                    proc_ctx:put(RecvCtx),
+                    proc_ctx:process('receive'),
                     {ok, Reply}
             after 0 ->
+                    proc_ctx:process('timeout'),
                     exit(timeout)
             end
+    end.
+
+append_ctx(Msg, What) ->
+    case proc_ctx:get() of
+        undefined ->
+            Msg;
+        Ctx ->
+            erlang:append_element(Msg, proc_ctx:process(Ctx, What))
     end.
 
 get_node(Process) ->
@@ -299,7 +308,8 @@ send_request(Process, Label, Request) ->
 
 do_send_request(Process, Label, Request) ->
     Mref = erlang:monitor(process, Process, [{alias, demonitor}]),
-    erlang:send(Process, {Label, {self(), [alias|Mref]}, Request}, [noconnect]),
+    erlang:send(Process, append_ctx({Label, {self(), [alias|Mref]}, Request}, request),
+                [noconnect]),
     Mref.
 
 %%
@@ -311,11 +321,19 @@ do_send_request(Process, Label, Request) ->
 wait_response(Mref, Timeout) when is_reference(Mref) ->
     receive
         {[alias|Mref], Reply} ->
+            proc_ctx:process('response'),
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
+        {[alias|Mref], Reply, RecvCtx} ->
+            erlang:demonitor(Mref, [flush]),
+            proc_ctx:put(RecvCtx),
+            proc_ctx:process('response'),
+            {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
+            proc_ctx:process('DOWN'),
             {error, {Reason, Object}}
     after Timeout ->
+            proc_ctx:process('timeout'),
             timeout
     end.
 
@@ -324,16 +342,29 @@ wait_response(Mref, Timeout) when is_reference(Mref) ->
 receive_response(Mref, Timeout) when is_reference(Mref) ->
     receive
         {[alias|Mref], Reply} ->
+            proc_ctx:process('response'),
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
+        {[alias|Mref], Reply, RecvCtx} ->
+            erlang:demonitor(Mref, [flush]),
+            proc_ctx:put(RecvCtx),
+            proc_ctx:process('response'),
+            {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
+            proc_ctx:process('DOWN'),
             {error, {Reason, Object}}
     after Timeout ->
             erlang:demonitor(Mref, [flush]),
             receive
                 {[alias|Mref], Reply} ->
+                    proc_ctx:process('DOWN'),
+                    {reply, Reply};
+                {[alias|Mref], Reply, RecvCtx} ->
+                    proc_ctx:put(RecvCtx),
+                    proc_ctx:process('response'),
                     {reply, Reply}
             after 0 ->
+                    proc_ctx:process('timeout'),
                     timeout
             end
     end.
