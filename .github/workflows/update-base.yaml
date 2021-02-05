@@ -30,7 +30,7 @@ jobs:
         id: base
         run: .github/scripts/base-tag "${{ matrix.type }}"
       - name: Build base image
-        run: >-
+        run: >
           docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }}
             --cache-from ${{ steps.base.outputs.BASE_TAG }}
             --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }}

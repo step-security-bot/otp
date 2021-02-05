@@ -83,13 +83,13 @@ jobs:
       - name: Pull BASE image
         run: docker pull ${{ steps.base.outputs.BASE_TAG }}
       - name: Build BASE image
-        run: >-
+        run: >
           docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }}
             --cache-from ${{ steps.base.outputs.BASE_TAG }}
             --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }}
             --build-arg BASE=${{ steps.base.outputs.BASE }} .
       - name: Build ${{ matrix.type }} image
-        run: >-
+        run: >
           docker build --tag otp --file .github/dockerfiles/Dockerfile.${{ matrix.type }}
             --build-args ARCHIVE=otp_src.tar.gz .
 
