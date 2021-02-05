@@ -13,7 +13,7 @@ case "$1" in
         ;;
     *ubuntu-base)
         BASE="ubuntu"
-        BASE_TYPE=debian-base
+        BASE_TYPE=ubuntu-base
         ;;
 esac
 echo "::set-output name=BASE::${BASE}"
