@@ -84,9 +84,9 @@ jobs:
           tags: docker.pkg.github.com/garazdawi/otp/${{ steps.base.output.BASE_TYPE }}
           cache-from: docker.pkg.github.com/garazdawi/otp/${{ steps.base.output.BASE_TYPE }}
           file: .github/dockerfiles/Dockerfile.${{ matrix.type }}
-          build-args:
-            - BASE=${{ steps.base.outputs.BASE }}
-            - BUILDKIT_INLINE_CACHE=1
+          build-args: |
+            BASE=${{ steps.base.outputs.BASE }}
+            BUILDKIT_INLINE_CACHE=1
       - name: Build ${{ matrix.type }} image
         uses: docker/build-push-action@v2
         with:
