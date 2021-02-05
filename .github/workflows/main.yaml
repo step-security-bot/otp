@@ -81,9 +81,9 @@ jobs:
         with:
           context: .
           pull: true
-          tags: docker.pkg.github.com/garazdawi/otp/${{ steps.base.outputs.BASE_TYPE }}
-          cache-from: docker.pkg.github.com/garazdawi/otp/${{ steps.base.outputs.BASE_TYPE }}
-          file: .github/dockerfiles/Dockerfile.${{ matrix.type }}
+          tags: ${{ steps.base.outputs.BASE_TAG }}
+          cache-from: ${{ steps.base.outputs.BASE_TAG }}
+          file: .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }}
           build-args: |
             BASE=${{ steps.base.outputs.BASE }}
             BUILDKIT_INLINE_CACHE=1
