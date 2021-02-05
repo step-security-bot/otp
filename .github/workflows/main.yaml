@@ -81,8 +81,8 @@ jobs:
         with:
           context: .
           pull: true
-          tags: docker.pkg.github.com/erlang/otp/${{ steps.base.output.BASE_TYPE }}
-          cache-from: docker.pkg.github.com/erlang/otp/${{ steps.base.output.BASE_TYPE }}
+          tags: docker.pkg.github.com/garazdawi/otp/${{ steps.base.output.BASE_TYPE }}
+          cache-from: docker.pkg.github.com/garazdawi/otp/${{ steps.base.output.BASE_TYPE }}
           file: .github/dockerfiles/Dockerfile.${{ matrix.type }}
           build-args:
             - BASE=${{ steps.base.outputs.BASE }}

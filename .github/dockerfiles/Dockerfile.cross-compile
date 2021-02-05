@@ -1,7 +1,7 @@
 ##
 ## This docker file will build Erlang on 32-bit to 64-bit x86
 ##
-FROM docker.pkg.github.com/erlang/otp/i386-debian-base as build
+FROM docker.pkg.github.com/garazdawi/otp/i386-debian-base as build
 
 ARG HOST_ARCH=amd64
 ARG HOST_TRIP=x86_64-linux-gnu

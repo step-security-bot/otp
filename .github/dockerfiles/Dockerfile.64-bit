@@ -1,4 +1,4 @@
-FROM docker.pkg.github.com/erlang/otp/ubuntu-base
+FROM docker.pkg.github.com/garazdawi/otp/ubuntu-base
 
 ## We do a SSA lint check here
 ENV ERL_COMPILER_OPTIONS=ssalint
