@@ -80,8 +80,8 @@ jobs:
           BASE_TAG=$(grep "^FROM" .github/dockerfiles/Dockerfile.${{ matrix.type }} | head -1 | awk '{print $2}')
           echo "::set-output name=BASE_TAG::${BASE_TAG}"
           .github/scripts/base-tag "${BASE_TAG}"
-      # - name: Pull BASE image
-      #   run: docker pull ${{ steps.base.outputs.BASE_TAG }}
+      - name: Pull BASE image
+        run: docker pull ${{ steps.base.outputs.BASE_TAG }}
       - name: Build BASE image
         run: |
           docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
@@ -91,7 +91,7 @@ jobs:
       - name: Build ${{ matrix.type }} image
         run: |
           docker build --tag otp --file .github/dockerfiles/Dockerfile.${{ matrix.type }} \
-            --build-args ARCHIVE=otp_src.tar.gz .
+            --build-arg ARCHIVE=otp_src.tar.gz .
 
         ## Smoke build tests
       - if: matrix.type == '32-bit' || matrix.type == '64-bit' || matrix.type == 'cross-compile'
