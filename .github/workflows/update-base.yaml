@@ -40,5 +40,7 @@ jobs:
           file: .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE  }}
           pull: true
           push: true
-          build-args: BASE=${{ steps.base.outputs.BASE }}
+          build-args:
+            - BASE=${{ steps.base.outputs.BASE }}
+            - BUILDKIT_INLINE_CACHE=1
           tags: docker.pkg.github.com/${{ github.repository }}/${{ matrix.type }}:latest
