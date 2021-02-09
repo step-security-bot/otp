@@ -2,13 +2,13 @@
 
 ## To be implemented
 
-### Implement -fdconfig
-* -fdconfig that reads config from an FD (would normally be stdin), but can be anything else.
-* init:restart/0 needs to work
-* the heart command will have to take care of when the VM crashes
+### Implement -configfd
+* `-configfd` that reads config from an FD (would normally be stdin), but can be anything else.
+* init:restart/0 needs to work.
+* the `HEART_COMMAND` will have to take care of when the VM crashes
 * What do we do on release upgrades that require a restart? Do we
   pipe the previous config into the new release, or is this the job of heart?
-  * Heart will have to manage this. If `-fdconfig` is used then the called
+  * Heart will have to manage this. If `-configfd` is used then the called
     [start_prg](https://erlang.org/doc/man/sasl_app.html#configuration)
     has to be able to handle that.
 
@@ -22,12 +22,12 @@
   * `release_handler:new_emulator_make_hybrid_config` will create a config in
     `.config` format which is based on the what you get from `sys.toml`.
 * The parsing of external formats needs to be done before any application is started.
-  This means that at the earliest it can be done when the AC is starts, at the latest when
+  This means that at the earliest it can be done when the AC starts, at the latest when
   `{progress,application_loaded}` happens in the boot script.
   * The config needs to be parsed that early because we need to run the `check_conf/1`
-    callback before any application is started.
+    callback before the application is started.
   * This means that if using an Elixir parser, the code will be loaded, but no processes
-    will be started. 
+    will be started.
 
 ```
 -type anno_config_key() :: {atom(),erl_anno:anno()}.
@@ -42,6 +42,9 @@
           {error, Where :: erl_anno:anno(), Reason :: unicode:chardata()}.
 ```
 
+Problems:
+  * What if we want to write a config parser in elixir? POSTPONE
+
 ### Applications should configure the merge strategy
 
 * Options: flat vs deep
@@ -53,15 +56,18 @@
     The problem here is `logger` in kernel. It is a map, where we want legacy
     config to work (though give a warning). But we want to re-use the same key
     in the new config scheme where we want the deepmerge strategy....
+    NOTE: logger in kernel works as it should, I remembered incorrectly.
 * If an application wants to work with both old and new configuration it should
   use the legacy merge way.
 * If kernel does a live upgrade from OTP-23 to OTP-24, then the old merge will
-  be used, as no other method i known to OTP-23.
+  be used, as no other method is known to OTP-23.
 
 * We cannot let the application decide how to merge as that will not work
   in emulator upgrade scenarios. In emulator upgrade scenarios it is the
-  old emulator that needs to do the merge.
-* 
+  old emulator that needs to do the merge (for erts, stdlib, kernel, sasl).
+
+* Add API `application:get_env(App,[erts,schedulers,online])` and
+  `application:set_env(App,[erts,schedulers,online],Value)`.
 
 ### Allow application to check the configuration
 
@@ -80,18 +86,44 @@
 -spec check_env(Env) ->
           ok | {error, [Location]} when
       Env :: config(),
-      Reason :: fun(() -> unicode:chardata()),
+      Reason :: unicode:chardata(),
       Path :: [config_key()],
       Location :: {invalid_value | invalid_key, Reason, Path}.
 ```
+
+### Migrate all Erlang/OTP configuration to use new config system
+
+* This includes all command line and environment variable options.
+* Create an erts application used to configure erts
+  * Move erts source code to lib/erts and update preloaded from there
+* erts config needs special handling...
+  * needs to be restarted with new parameters for those that are read-only
+  * For windows we will build a special run_erl that first starts an emulator
+    which can then start a new emulator if needed.
+    * The new emulator started could just be the original process.
+
+### Support read-only configuration parameters
+
+* `application:set_env(Key,Value,[{mode,read_only}])`.
+* This is configured on a per application basis.
+  * Or possibly on a per primary key basis.
+
+### Support testing of config
+
+* erl -configcheck
+  * Do a dry-run that calls check_env of all applications in .boot file.
 
 ## To maybe be implemented
 
 ### Allow multiple -config for release upgrades
 
 * The main problem here is that it should probably be possible to add and remove
-  `-config` statements which would mean that we have to parse ERL_FLAGS and any
-  `vm.args` files in order to do that and that may be difficult...
+  `-config` statements during upgrade/downgrade which would mean that we have to
+  parse ERL_FLAGS and any `vm.args` files in order to do that and that may be difficult...
+
+### Implement -type spec style verification of config data
+
+https://gist.github.com/garazdawi/5e80f16cc20de20550c1d6b958a12017
 
 ## Requirements
 

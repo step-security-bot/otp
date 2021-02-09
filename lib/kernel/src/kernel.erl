@@ -27,11 +27,12 @@
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -type logger_level() :: level() | all | none.
-
 -type logger_sasl_compatible() :: boolean().
 -type shell_docs_ansi() :: auto | boolean().
 -type dist_auto_connect() :: boolean().
 -type shell_history() :: enabled | disabled.
+
+-type logger() :: #{ }.
 
 %% External exports
 -export([start/2, init/1, stop/1]).

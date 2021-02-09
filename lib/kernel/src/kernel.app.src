@@ -149,11 +149,46 @@
                 pg,
                 pg2]},
   {applications, [erts]},
-  {env, [{logger_level, notice},
-         {logger_sasl_compatible, false},
-         {shell_docs_ansi,auto},
-         {dist_auto_connect,true}
-        ]},
+  {env,
+   [#{
+      logger =>
+          #{ level => notice,
+             sasl_compatible => false,
+             handlers =>
+                 #{
+                   default =>
+                       #{ module => logger_std_h,
+                          level => all,
+                          config => #{ {id} => undefined },
+                          filters => #{ default => stop,
+                                        {id} => undefined },
+                          formatter =>
+                              #{ module => logger_formatter,
+                                 config => #{ {key} => undefined }
+                               }
+                        },
+                   {id} =>
+                       #{ module => logger_std_h,
+                          level => all,
+                          config => #{ {key} => undefined },
+                          filters => #{ default => stop,
+                                        {id} => undefined },
+                          formatter =>
+                              #{ module => logger_formatter,
+                                 config => #{ {key} => undefined }
+                               }
+                        }
+                  }
+           },
+      shell => #{ ansi => auto },
+      dist => #{ auto_connect => true },
+
+      %% Kept for backwards-compatibility
+      logger_level => undefined,
+      logger_sasl_compatible => undefined,
+      shell_docs_ansi => undefined,
+      dist_auto_connect => undefined
+     }]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-11.0", "stdlib-3.13", "sasl-3.0"]}
  ]

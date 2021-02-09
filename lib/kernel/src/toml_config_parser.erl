@@ -22,6 +22,16 @@
 %% External exports
 -export([parse/2]).
 
+-type anno_config_key() :: {atom(),erl_anno:anno()}.
+-type anno_config_value() :: {term(),erl_anno:anno()}.
+-type anno_config() :: #{ anno_config_key() => anno_config_value() | anno_config() } |
+                         [{ anno_config_key(), anno_config_value() | anno_config() }].
+-type anno_app_config() :: {AppName :: anno_config_key(),
+                            Config :: anno_config()}.
+
+-spec parse(Data :: unicode:chardata(), Anno :: erl_anno:anno()) ->
+          {ok, AppConfig :: [anno_app_config()], MoreFiles :: [file:name()]} |
+          {error, erl_anno:anno(), Reason :: unicode:chardata()}.
 parse(Data, FName) ->
     case tomerl:parse(Data) of
         {ok, Config} ->

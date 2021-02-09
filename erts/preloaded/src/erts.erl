@@ -23,7 +23,7 @@
 
 -export([start/2, stop/1, check_env/1]).
 
--compile({parse_transform,application}).
+%% -compile({parse_transform,application}).
 -env([async/0, break/0, time/0, coredump/0,
       scalability/0, unicode/0, ets/0,
       processes/0, ports/0, atoms/0,
@@ -334,6 +334,16 @@ start(_, []) ->
 
 stop(_State) ->
     ok.
+
+-type config_key() :: atom().
+-type config() :: #{ config_key() => config() | term() }.
+-spec check_env(Env) ->
+          ok | {error, [Location]} when
+      Env :: config(),
+      Reason :: fun(() -> unicode:chardata()),
+      Path :: [config_key()],
+      Location :: {invalid_value | invalid_key, Reason, Path}.
+      
 
 check_env(Env) ->
     check(Env, fun(Value, Path) -> check_env(Env, Value, Path) end).
