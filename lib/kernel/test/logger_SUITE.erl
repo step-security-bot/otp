@@ -918,9 +918,18 @@ process_metadata(_Config) ->
     logger:notice(S3=?str,#{custom=>func}),
     check_logged(notice,S3,#{time=>Time,line=>0,custom=>func}),
 
-    ok = logger:update_primary_config(#{metadata=>#{custom=>global,global=>added}}),
+    %% Test that primary metadata is overwritten by process metadata
+    ok = logger:update_primary_config(
+           #{metadata=>#{time=>Time,custom=>global,global=>added,line=>1}}),
     logger:notice(S4=?str),
-    check_logged(notice,S4,#{time=>Time,line=>1,custom=>proc,global=>added}),
+    check_logged(notice,S4,#{time=>Time,line=>0,custom=>proc,global=>added}),
+
+    %% Test that primary metadata is overwritten by func metadata
+    %% and that primary overwrites location metadata.
+    ok = logger:unset_process_metadata(),
+    logger:notice(S5=?str,#{custom=>func}),
+    check_logged(notice,S5,#{time=>Time,line=>1,custom=>func,global=>added}),
+    ok = logger:set_process_metadata(ProcMeta),
     ok = logger:update_primary_config(#{metadata=>#{}}),
 
     ProcMeta = logger:get_process_metadata(),

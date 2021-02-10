@@ -108,7 +108,7 @@
 -type filter_arg() :: term().
 -type filter_return() :: stop | ignore | log_event().
 -type primary_config() :: #{level => level() | all | none,
-                            metadata => map(),
+                            metadata => metadata(),
                             filter_default => log | stop,
                             filters => [{filter_id(),filter()}]}.
 -type handler_config() :: #{id => handler_id(),
@@ -1079,40 +1079,52 @@ log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
                          [{Fun,FunArgs},{C,R}]},
                         Meta)
     end;
-log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
+log_allowed(Location,Level,Msg,LogCallMeta) when is_map(LogCallMeta) ->
+
+    Tid = tid(),
+
+    {ok,PrimaryConfig} = logger_config:get(Tid,primary),
+
     %% Metadata priorities are:
-    %% Location (added in API macros) - will be overwritten by process
-    %% metadata (set by set_process_metadata/1), which in turn will be
+    %% Location (added in API macros) - will be overwritten by
+    %% Default Metadata (added by logger:primary_config/1) - will be overwritten by
+    %% process metadata (set by set_process_metadata/1), which in turn will be
     %% overwritten by the metadata given as argument in the log call
     %% (function or macro).
+
     Meta = add_default_metadata(
-             maps:merge(Location,maps:merge(proc_meta(),Meta0))),
+             maps:merge(
+               Location,
+               maps:merge(
+                 maps:get(metadata,PrimaryConfig),
+                 maps:merge(proc_meta(),LogCallMeta)))),
+
     case node(maps:get(gl,Meta)) of
         Node when Node=/=node() ->
             log_remote(Node,Level,Msg,Meta);
         _ ->
             ok
     end,
-    do_log_allowed(Level,Msg,Meta,tid()).
+    do_log_allowed(Level,Msg,Meta,Tid,PrimaryConfig).
 
-do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
+do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_FORMAT(Format),
        is_list(Args),
        is_map(Meta) ->
-    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid);
-do_log_allowed(Level,Report,Meta,Tid)
+    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid,Config);
+do_log_allowed(Level,Report,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_REPORT(Report),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{report,Report},meta=>Meta},
-                               Tid);
-do_log_allowed(Level,String,Meta,Tid)
+                               Tid,Config);
+do_log_allowed(Level,String,Meta,Tid,Config)
   when ?IS_LEVEL(Level),
        ?IS_STRING(String),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{string,String},meta=>Meta},
-                               Tid).
+                               Tid,Config).
 tid() ->
     ets:whereis(?LOGGER_TABLE).
 

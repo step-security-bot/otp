@@ -200,9 +200,9 @@
             <c>logger:set_primary_config(level, Level)</c></seemfa>.</p>
 	<p>Defaults to <c>notice</c>.</p>
       </item>
-      <tag><marker id="logger_default_metadata"/><c>logger_default_metadata = Metadata</c></tag>
+      <tag><marker id="logger_metadata"/><c>logger_metadata = Metadata</c></tag>
       <item>
-	<p>Specifies default value of process metadata for log events.</p>
+	<p>Specifies primary metadata for log events.</p>
 	<p><c>Metadata = map()</c></p>
 	<p>Defaults to <c>#{}</c>.</p>
       </item>

@@ -199,17 +199,23 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  <item><c>file => ?FILE</c></item>
 	  <item><c>line => ?LINE</c></item>
 	</list>
-	<p>You can add custom metadata, either by specifying a map as
-	  the last parameter to any of the log macros or the API
-	  functions, or by setting process metadata
-	  with <seemfa marker="#set_process_metadata/1">
+	<p>You can add custom metadata, either by:</p>
+        <list>
+          <item>specifying a map as the last parameter to any of the
+            log macros or the logger API functions.</item>
+          <item>setting process metadata with <seemfa marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c></seemfa>
-	  or <seemfa marker="#update_process_metadata/1">
-	    <c>update_process_metadata/1</c></seemfa>.</p>
+	    or <seemfa marker="#update_process_metadata/1">
+	  <c>update_process_metadata/1</c></seemfa>.</item>
+          <item>setting primary metadata with <seemfa marker="#set_primary_config/1">
+            <c>set_primary_config/1</c></seemfa> or through the kernel
+            configuration parameter <seeapp marker="kernel_app#logger_metadata">
+            logger_metadata</seeapp></item>
+        </list>
 	<p>Logger merges all the metadata maps before forwarding the
 	  log event to the handlers. If the same keys occur, values
-	  from the log call overwrite process metadata, which in turn
-	  overwrite values set by Logger.</p>
+	  from the log call overwrite process metadata, which overwrites
+          the primary metadata, which in turn overwrite values set by Logger.</p>
 	<p>The following custom metadata keys have special meaning:</p>
 	<taglist>
 	  <tag><c>domain</c></tag>
