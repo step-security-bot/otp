@@ -54,14 +54,14 @@
  * which go on the line. Enabling this may make some testcases
  * fail. Especially the broken dist testcases in distribution_SUITE.
  */
-#if 0
+#if 1
 #define ERTS_DIST_MSG_DBG
 #endif
 #if 0
 /* Enable this to print the dist debug messages to a file instead */
 #define ERTS_DIST_MSG_DBG_FILE "/tmp/dist_dbg.%d"
 #endif
-#if 0
+#if 1
 /* Enable this to print the raw bytes sent and received */
 #define ERTS_RAW_DIST_MSG_DBG
 #endif

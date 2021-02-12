@@ -164,7 +164,11 @@ SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 # Targets
 # ----------------------------------------------------
 
-gen_tcp_dist.erl: ../examples/gen_tcp_dist/src/gen_tcp_dist.erl
+%.erl: ../examples/gen_tcp_dist/src/%.erl
+	cp $< $@
+%.erl: ../examples/uds_dist/src/%.erl
+	cp $< $@
+erl_distribution_SUITE_data/uds_drv.c: ../examples/uds_dist/c_src/uds_drv.c
 	cp $< $@
 
 make_emakefile: $(ERL_FILES)
@@ -173,7 +177,7 @@ make_emakefile: $(ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	>> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests debug opt: make_emakefile erl_distribution_SUITE_data/uds_drv.c
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -194,7 +198,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 
-release_tests_spec: make_emakefile
+release_tests_spec: tests
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) "$(RELSYSDIR)"

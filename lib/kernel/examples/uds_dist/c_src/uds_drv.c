@@ -211,7 +211,7 @@ ErlDrvEntry uds_driver_entry = {
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
-    0,	/* ERL_DRV_FLAGs */
+    ERL_DRV_FLAG_SOFT_BUSY,	/* ERL_DRV_FLAGs */
     NULL,
     NULL,                  /* process_exit */
     uds_stop_select

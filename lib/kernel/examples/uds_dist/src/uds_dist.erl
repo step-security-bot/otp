@@ -21,11 +21,11 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([childspecs/0, listen/1, accept/1, accept_connection/5,
-	 setup/4, close/1, select/1, is_node_name/1]).
+	 setup/5, close/1, select/1, is_node_name/1]).
 
 %% internal exports
 
--export([accept_loop/2,do_accept/6,do_setup/5, getstat/1,tick/1]).
+-export([accept_loop/2,do_accept/6,do_setup/6, getstat/1,tick/1]).
 
 -import(error_logger,[error_msg/2]).
 
@@ -140,11 +140,7 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 	      this_node = MyNode,
 	      socket = Socket,
 	      timer = Timer,
-	      this_flags = ?DFLAG_PUBLISHED bor
-	      ?DFLAG_ATOM_CACHE bor
-	      ?DFLAG_EXTENDED_REFERENCES bor
-	      ?DFLAG_DIST_MONITOR bor
-	      ?DFLAG_FUN_TAGS,
+	      this_flags = 0,
 	      allowed = Allowed,
 	      f_send = fun(S,D) -> uds:send(S,D) end,
 	      f_recv = fun(S,N,T) -> uds:recv(S) 
@@ -184,14 +180,15 @@ get_remote_id(Socket, Node) ->
 %% Performs the handshake with the other side.
 %% ------------------------------------------------------------
 
-setup(Node, MyNode, LongOrShortNames,SetupTime) ->
+setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     spawn_link(?MODULE, do_setup, [self(),
 				   Node,
+                                   Type,
 				   MyNode,
 				   LongOrShortNames,
 				   SetupTime]).
 
-do_setup(Kernel, Node, MyNode, LongOrShortNames,SetupTime) ->
+do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     process_flag(priority, max),
     ?trace("~p~n",[{uds_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Node, LongOrShortNames),
@@ -207,12 +204,9 @@ do_setup(Kernel, Node, MyNode, LongOrShortNames,SetupTime) ->
 		      this_node = MyNode,
 		      socket = Socket,
 		      timer = Timer,
-		      this_flags = ?DFLAG_PUBLISHED bor
-		      ?DFLAG_ATOM_CACHE bor
-		      ?DFLAG_EXTENDED_REFERENCES bor
-		      ?DFLAG_DIST_MONITOR bor
-		      ?DFLAG_FUN_TAGS,
-		      other_version = 1,
+		      this_flags = 0,
+		      other_version = 5,
+                      request_type = Type,
 		      f_send = fun(S,D) -> 
 				       uds:send(S,D) 
 			       end,
