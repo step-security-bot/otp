@@ -244,10 +244,10 @@ init_per_group(benchmark, Config) ->
                     total_throughput_set,
                     nr_of_ordered_set_benchmarks,
                     total_throughput_ordered_set],
-    lists:foreach(fun(CtrName) ->
-                          ets:insert(Tab, {CtrName, 0.0})
-                  end,
-                  CounterNames),
+    lists:foreach(
+      fun(CtrName) ->
+              ets:insert(Tab, {CtrName, 0.0})
+      end, CounterNames),
     [{ets_benchmark_result_summary_tab, Tab},
      {ets_benchmark_result_summary_tab_process, EtsProcess} | Config];
 init_per_group(_GroupName, Config) ->
