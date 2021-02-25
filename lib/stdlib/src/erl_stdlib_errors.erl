@@ -160,23 +160,49 @@ format_binary_error(replace, [Subject, Pattern, Replacement, _Options], Cause) -
     end.
 
 format_lists_error(keyfind, [_Key, Pos, List]) ->
-    PosError = if
-                   is_integer(Pos) ->
-                       if Pos < 1 -> range;
-                          true -> []
-                       end;
-                   true ->
-                       not_integer
-               end,
-    [[], PosError, must_be_list(List)];
+    [[], must_be_integer(Pos, 1, infinity), must_be_list(List)];
 format_lists_error(keymember, Args) ->
     format_lists_error(keyfind, Args);
 format_lists_error(keysearch, Args) ->
     format_lists_error(keyfind, Args);
 format_lists_error(member, [_Key, List]) ->
     [[], must_be_list(List)];
-format_lists_error(reverse, [List, _Acc]) ->
-    [must_be_list(List)].
+format_lists_error(reverse, [List | _Acc]) ->
+    [must_be_list(List)];
+format_lists_error(append, [ListOfLists]) ->
+    [must_be_list(ListOfLists)];
+format_lists_error(nth, [N, List]) ->
+    if
+        List =:= [] ->
+            %% lists:nth(2,[1])
+            [<<"index is larger than list">>,[]];
+        true ->
+            [must_be_integer(N, 1, infinity), must_be_list(List)]
+    end;
+format_lists_error(nthtail, [N, List]) ->
+    if
+        List =:= [] ->
+            %% lists:nthtail(2,[1])
+            [<<"index is larger than list">>,[]];
+        true ->
+            [must_be_non_neg_integer(N), must_be_list(List)]
+    end;
+format_lists_error(prefix, [Prefix, List]) ->
+    [must_be_list(Prefix), must_be_list(List)];
+format_lists_error(suffix, [Suffix, List]) ->
+    [must_be_list(Suffix), must_be_list(List)];
+format_lists_error(droplast, [L]) ->
+    [must_be_list(L)];
+format_lists_error(last, [L]) ->
+    [must_be_list(L)];
+format_lists_error(last, [_, L]) ->
+    [[],must_be_list(L)].
+%% format_lists_error(seq, [First, Last]) ->
+%%     if
+%%         is_integer(First), is_integer(Last) ->
+            
+
+
 
 format_maps_error(filter, Args) ->
     format_maps_error(map, Args);

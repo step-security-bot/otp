@@ -42,6 +42,10 @@
          search/2, splitwith/2,split/2,
 	 join/2]).
 
+%% We must inline these functions so that the stacktrace points to
+%% the correct function.
+-compile({inline, [badarg_with_info/1]}).
+
 %%% BIFs
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
 
@@ -124,8 +128,9 @@ append(L1, L2) -> L1 ++ L2.
       T :: term().
 
 append([E]) -> E;
-append([H|T]) -> H ++ append(T);
-append([]) -> [].
+append([H|T]) when is_list(H) -> H ++ append(T);
+append([]) -> [];
+append(Args) -> badarg_with_info([Args]).
 
 %% subtract(List1, List2) subtract elements in List2 form List1.
 
@@ -151,7 +156,9 @@ reverse([_] = L) ->
 reverse([A, B]) ->
     [B, A];
 reverse([A, B | L]) ->
-    lists:reverse(L, [B, A]).
+    lists:reverse(L, [B, A]);
+reverse(List) -> badarg_with_info([List]).
+
 
 %reverse([H|T], Y) ->
 %    reverse(T, [H|Y]);
@@ -168,8 +175,10 @@ reverse([A, B | L]) ->
       T :: term().
 
 nth(1, [H|_]) -> H;
-nth(N, [_|T]) when N > 1 ->
-    nth(N - 1, T).
+nth(N, [_|T]) when is_integer(N), N > 1 ->
+    nth(N - 1, T);
+nth(N, L) -> badarg_with_info([N, L]).
+
 
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
@@ -178,9 +187,10 @@ nth(N, [_|T]) when N > 1 ->
       T :: term().
 
 nthtail(1, [_|T]) -> T;
-nthtail(N, [_|T]) when N > 1 ->
+nthtail(N, [_|T]) when is_integer(N), N > 1 ->
     nthtail(N - 1, T);
-nthtail(0, L) when is_list(L) -> L.
+nthtail(0, L) when is_list(L) -> L;
+nthtail(N, L) -> badarg_with_info([N, L]).
 
 %% prefix(Prefix, List) -> (true | false)
 
@@ -192,7 +202,8 @@ nthtail(0, L) when is_list(L) -> L.
 prefix([X|PreTail], [X|Tail]) ->
     prefix(PreTail, Tail);
 prefix([], List) when is_list(List) -> true;
-prefix([_|_], List) when is_list(List) -> false.
+prefix([_|_], List) when is_list(List) -> false;
+prefix(Prefix, List) -> badarg_with_info([Prefix, List]).
 
 %% suffix(Suffix, List) -> (true | false)
 
@@ -202,7 +213,12 @@ prefix([_|_], List) when is_list(List) -> false.
       T :: term().
 
 suffix(Suffix, List) ->
-    Delta = length(List) - length(Suffix),
+    Delta =
+        try
+            length(List) - length(Suffix)
+        catch _:_ ->
+                badarg_with_info([Suffix, List])
+        end,
     Delta >= 0 andalso nthtail(Delta, List) =:= Suffix.
 
 %% droplast(List) returns the list dropping its last element
@@ -216,7 +232,8 @@ suffix(Suffix, List) ->
 %% reverse(tl(reverse(L))) is faster on average,
 %% but creates more garbage.
 droplast([_T])  -> [];
-droplast([H|T]) -> [H|droplast(T)].
+droplast([H|T]) -> [H|droplast(T)];
+droplast(L) -> badarg_with_info([L]).
 
 %% last(List) returns the last element in a list.
 
@@ -225,10 +242,12 @@ droplast([H|T]) -> [H|droplast(T)].
       Last :: T,
       T :: term().
 
-last([E|Es]) -> last(E, Es).
+last([E|Es]) -> last(E, Es);
+last(L) -> badarg_with_info([L]).
 
 last(_, [E|Es]) -> last(E, Es);
-last(E, []) -> E.
+last(E, []) -> E;
+last(E, L) -> badarg_with_info([E, L]).
 
 %% seq(Min, Max) -> [Min,Min+1, ..., Max]
 %% seq(Min, Max, Incr) -> [Min,Min+Incr, ..., Max]
@@ -2855,3 +2874,6 @@ rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
             lists:reverse(T1, [H1, H2M | M])
     end.
 
+
+badarg_with_info(Args) ->
+    erlang:error(badarg, Args, [{error_info, #{ module => erl_stdlib_errors }}]).
