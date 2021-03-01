@@ -166,6 +166,8 @@ history_status() ->
     %% Don't run for user proc or if the emulator's tearing down
     Skip = is_user() orelse not init_running(),
     case application:get_env(kernel, shell_history) of
+        {ok, force_disabled} ->
+            disabled;
         {ok, Atom} when not Skip, is_atom(Atom) ->
             Atom;
         undefined when not Skip ->
@@ -387,13 +389,13 @@ show_custom_provider_crash(Provider, Class, Reason, StackTrace) ->
 show_custom_provider_faulty_load_return(Provider, Return) ->
     show('$#erlang-history-custom-return',
          "The configured custom shell_history provider ~p:load/0 did not return a list.~n"
-         "It returned ~p~n",
+         "It returned ~p.~n",
         [Provider, Return]).
 
 show_custom_provider_faulty_add_return(Provider, Return) ->
     show('$#erlang-history-custom-return',
          "The configured custom shell_history provider ~p:add/1 did not return ok.~n"
-         "It returned ~p~n",
+         "It returned ~p.~n",
         [Provider, Return]).
 
 show(Key, Format, Args) ->
