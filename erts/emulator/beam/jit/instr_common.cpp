@@ -316,8 +316,16 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
         comment("(moving head and tail together)");
         x86::Mem dst_ptr = getArgRef(Hd, 16);
         x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        if (!hasCpuFeature(x86::Features::kAVX)) {
+            a.movups(x86::xmm0, src_ptr);
+            a.movups(dst_ptr, x86::xmm0);
+        } else {
+            /* If we have AVX then use it so we don't get
+               AVX any switch penalty compared to
+               reverse_consecutive */
+            a.vmovups(x86::xmm0, src_ptr); /* Load */
+            a.vmovups(dst_ptr, x86::xmm0);
+        }
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -490,8 +498,13 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgVal &Src,
     switch (ArgVal::register_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, element_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        if (!hasCpuFeature(x86::Features::kAVX)) {
+            a.movups(x86::xmm0, element_ptr);
+            a.movups(dst_ptr, x86::xmm0);
+        } else {
+            a.vmovups(x86::xmm0, element_ptr);
+            a.vmovups(dst_ptr, x86::xmm0);
+        }
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -624,8 +637,13 @@ void BeamModuleAssembler::emit_move_two_words(const ArgVal &Src1,
     switch (ArgVal::register_relation(Dst1, Dst2)) {
     case ArgVal::Relation::consecutive: {
         x86::Mem dst_ptr = getArgRef(Dst1, 16);
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        if (!hasCpuFeature(x86::Features::kAVX)) {
+            a.movups(x86::xmm0, src_ptr);
+            a.movups(dst_ptr, x86::xmm0);
+        } else {
+            a.vmovups(x86::xmm0, src_ptr);
+            a.vmovups(dst_ptr, x86::xmm0);
+        }
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -691,8 +709,13 @@ void BeamModuleAssembler::emit_put_cons(const ArgVal &Hd, const ArgVal &Tl) {
         x86::Mem src_ptr = getArgRef(Hd, 16);
         x86::Mem dst_ptr = x86::xmmword_ptr(HTOP, 0);
         comment("(put head and tail together)");
-        a.movups(x86::xmm0, src_ptr);
-        a.movups(dst_ptr, x86::xmm0);
+        if (!hasCpuFeature(x86::Features::kAVX)) {
+            a.movups(x86::xmm0, src_ptr);
+            a.movups(dst_ptr, x86::xmm0);
+        } else {
+            a.vmovups(x86::xmm0, src_ptr);
+            a.vmovups(dst_ptr, x86::xmm0);
+        }
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -752,8 +775,13 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgVal &Dst,
 
                 comment("(moving two elements at once)");
                 dst_ptr.setSize(16);
-                a.movups(x86::xmm0, src_ptr);
-                a.movups(dst_ptr, x86::xmm0);
+                if (!hasCpuFeature(x86::Features::kAVX)) {
+                    a.movups(x86::xmm0, src_ptr);
+                    a.movups(dst_ptr, x86::xmm0);
+                } else {
+                    a.vmovups(x86::xmm0, src_ptr);
+                    a.vmovups(dst_ptr, x86::xmm0);
+                }
                 i++;
                 break;
             }
@@ -1726,9 +1754,17 @@ void BeamModuleAssembler::emit_try_case(const ArgVal &Y) {
     mov_imm(RET, NIL);
     mov_arg(Y, RET);
     a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), RET);
-    a.movups(x86::xmm0, x86::xmmword_ptr(registers, 1 * sizeof(Eterm)));
+    if (!hasCpuFeature(x86::Features::kAVX)) {
+        a.movups(x86::xmm0, x86::xmmword_ptr(registers, 1 * sizeof(Eterm)));
+    } else {
+        a.vmovups(x86::xmm0, x86::xmmword_ptr(registers, 1 * sizeof(Eterm)));
+    }
     a.mov(RET, getXRef(3));
-    a.movups(x86::xmmword_ptr(registers, 0 * sizeof(Eterm)), x86::xmm0);
+    if (!hasCpuFeature(x86::Features::kAVX)) {
+        a.movups(x86::xmmword_ptr(registers, 0 * sizeof(Eterm)), x86::xmm0);
+    } else {
+        a.vmovups(x86::xmmword_ptr(registers, 0 * sizeof(Eterm)), x86::xmm0);
+    }
     a.mov(getXRef(2), RET);
 }
 

@@ -783,7 +783,11 @@ protected:
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
             }
             a.punpcklqdq(x86::xmm0, x86::xmm1);
-            a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+            if (!hasCpuFeature(x86::Features::kAVX)) {
+                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+            } else {
+                a.vmovups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+            }
         } else {
             if ((Spec & Update::eStack)) {
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
