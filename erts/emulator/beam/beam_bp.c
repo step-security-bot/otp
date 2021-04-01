@@ -133,6 +133,7 @@ static void uninstall_breakpoint(ErtsCodeInfo *ci);
     } while(0)
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n);
+static ERTS_INLINE Uint bp_hash(Uint hval, Uint n);
 static void bp_hash_rehash(bp_time_hash_t *hash, Uint n);
 static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
 static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
@@ -1123,6 +1124,15 @@ static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
     }
 }
 
+static ERTS_INLINE Uint bp_hash(Uint hval, Uint n) {
+    ASSERT((hval & (n-1)) == (hval % n));
+#ifdef ARCH_64
+    return (UWORD_CONSTANT(11400714819323198485) * hval) & (n-1);
+#else
+    return (UWORD_CONSTANT(2654435769) * hval) & (n-1);
+#endif
+}
+
 static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
     bp_data_time_item_t *item = NULL;
     Uint size = sizeof(bp_data_time_item_t)*n;
@@ -1144,10 +1154,10 @@ static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
     for( ix = 0; ix < hash->n; ix++) {
 	if (hash->item[ix].pid != NIL) {
 
-	    hval = ((hash->item[ix].pid) >> 4) % n; /* new n */
+	    hval = bp_hash((hash->item[ix].pid) >> 4, n); /* new n */
 
 	    while (item[hval].pid != NIL) {
-		hval = (hval + 1) % n;
+		hval = bp_hash(hval + 1, n);
 	    }
 	    item[hval].pid     = hash->item[ix].pid;
 	    item[hval].count   = hash->item[ix].count;
@@ -1161,14 +1171,14 @@ static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
 }
 static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem) {
     Eterm pid = sitem->pid;
-    Uint hval = (pid >> 4) % hash->n;
+    Uint hval = bp_hash(pid >> 4, hash->n);
     bp_data_time_item_t *item = NULL;
 
     item = hash->item;
 
     while (item[hval].pid != pid) {
 	if (item[hval].pid == NIL) return NULL;
-	hval = (hval + 1) % hash->n;
+	hval = bp_hash(hval + 1, hash->n);
     }
 
     return &(item[hval]);
@@ -1184,17 +1194,17 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_da
 
     r = hash->used / (float) hash->n;
 
-    if (r > 0.7f) {
-	bp_hash_rehash(hash, hash->n * 2);
+    if (r > 0.5f) {
+	bp_hash_rehash(hash, hash->n * 4);
     }
     /* Do hval after rehash */
-    hval = (sitem->pid >> 4) % hash->n;
+    hval = bp_hash(sitem->pid >> 4, hash->n);
 
     /* find free slot */
     item = hash->item;
 
     while (item[hval].pid != NIL) {
-	hval = (hval + 1) % hash->n;
+	hval = bp_hash(hval + 1, hash->n);
     }
     item = &(hash->item[hval]);
 
