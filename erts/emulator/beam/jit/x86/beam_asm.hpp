@@ -1053,6 +1053,9 @@ class BeamModuleAssembler : public BeamAssembler {
     /* All functions that have been seen so far */
     std::vector<BeamLabel> functions;
 
+    typedef std::map<unsigned, unsigned> LineInfoMap;
+    LineInfoMap lineInfo;
+
     BeamGlobalAssembler *ga;
 
     /* Used by emit to populate the labelToMFA map */

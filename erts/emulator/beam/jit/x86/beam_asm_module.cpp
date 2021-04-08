@@ -407,12 +407,13 @@ void BeamModuleAssembler::emit_int_code_end() {
     emit_nyi("int_code_end");
 }
 
-void BeamModuleAssembler::emit_line(const ArgVal &) {
+void BeamModuleAssembler::emit_line(const ArgVal &Loc) {
     /*
      * There is no need to align the line instruction. In the loaded
      * code, the type of the pointer will be void* and that pointer
      * will only be used in comparisons.
      */
+    lineInfo[a.offset()] = Loc.getValue();
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgVal &Loc) {

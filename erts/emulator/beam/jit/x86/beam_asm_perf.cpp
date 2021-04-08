@@ -30,6 +30,9 @@ class JitPerfDump {
     FILE *file = nullptr;
     Uint64 code_index = 0;
 
+    /**
+     * See https://elixir.bootlin.com/linux/v5.11.11/source/tools/perf/Documentation/jitdump-specification.txt for details
+     **/
     enum PerfDumpId {
         JIT_CODE_LOAD = 0, /* record describing a jitted function */
         JIT_CODE_MOVE = 1, /* record describing an already jitted function which
@@ -69,6 +72,19 @@ class JitPerfDump {
         Uint32 id;
         Uint32 total_size;
         Uint64 timestamp;
+    };
+
+    struct JitDebugInfoRecord {
+        Uint64 code_addr;
+        Uint64 nr_entry;
+        /* JitDebugInfoEntry[n] */
+    };
+
+    struct JitDebugInfoEntry {
+        Uint64 code_addr;
+        Uint32 line;
+        Uint32 column = 0;
+        /* Null terminated source filename */
     };
 
     struct JitCodeLoadRecord {
