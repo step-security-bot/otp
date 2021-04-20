@@ -9592,6 +9592,27 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		empty_runq(rq);
 	    }
 
+            if (is_normal_sched && prepare_for_sys_schedule()) {
+                ErtsMonotonicTime current_time;
+
+                ERTS_MSACC_PUSH_STATE_CACHED_M();
+
+                erts_runq_unlock(rq);
+
+                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+
+                erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT, 0);
+                ERTS_MSACC_POP_STATE_M();
+
+                current_time = erts_get_monotonic_time(esdp);
+                if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
+                    erts_bump_timers(esdp->timer_wheel, current_time);
+
+                erts_runq_lock(rq);
+                fcalls = 0;
+                clear_sys_scheduling();
+            }
+
 	    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_EXEC);
 	    scheduler_wait(&fcalls, esdp, rq);
 	    flags = ERTS_RUNQ_FLGS_SET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
