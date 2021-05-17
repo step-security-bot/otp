@@ -275,7 +275,10 @@ void erts_alcu_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 #  if 0
 #    define ERTS_ALLOC_UTIL_HARD_DEBUG
 #  endif
+#define ERTS_ALLOC_UTIL_FENCES
 #endif
+
+#define ERTS_ALLOC_UTIL_FENCES
 
 #define FLOOR(X, I) (((X)/(I))*(I))
 #define CEILING(X, I)  ((((X) - 1)/(I) + 1)*(I))

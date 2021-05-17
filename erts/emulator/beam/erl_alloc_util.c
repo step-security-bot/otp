@@ -8235,7 +8235,7 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x023: return (UWord) cpool_is_empty((Allctr_t *) a1);
     case 0x024: return (UWord) cpool_dbg_is_in_pool((Allctr_t *) a1, (Carrier_t *) a2);
     case 0x025: /* UMEM2BLK_TEST*/
-#ifdef DEBUG
+#ifdef ERTS_ALLOC_UTIL_FENCES
 # ifdef HARD_DEBUG
 	return (UWord)UMEM2BLK(a1-3*sizeof(UWord));
 # else

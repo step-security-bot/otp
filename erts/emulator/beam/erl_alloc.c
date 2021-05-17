@@ -81,7 +81,7 @@
 #define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC
 
 
-#ifdef DEBUG
+#ifdef ERTS_ALLOC_UTIL_FENCES
 static Uint install_debug_functions(void);
 #if 0
 #define HARD_DEBUG
@@ -862,7 +862,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     init_aireq_alloc();
 
-#ifdef DEBUG
+#ifdef ERTS_ALLOC_UTIL_FENCES
     extra_block_size += install_debug_functions();
 #endif
     adjust_fix_alloc_sizes(extra_block_size);
@@ -3676,7 +3676,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
     return ~((UWord) 0);
 }
 
-#ifdef DEBUG
+#ifdef ERTS_ALLOC_UTIL_FENCES
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Debug stuff                                                               *
 \*                                                                           */
