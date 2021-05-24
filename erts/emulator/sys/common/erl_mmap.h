@@ -199,7 +199,7 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
         VALGRIND_MAKE_MEM_UNDEFINED(ptr, size);
     }
-#elif defined(DEBUG)
+#elif defined(ERTS_ALLOC_UTIL_FENCES)
     /* Try to provoke crashes by filling the discard region with garbage. It's
      * extremely hard to find bugs where we've discarded too much, as the
      * region often retains its old contents if it's accessed before the OS

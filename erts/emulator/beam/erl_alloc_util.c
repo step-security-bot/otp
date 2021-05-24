@@ -40,6 +40,8 @@
 #  include "config.h"
 #endif
 
+#define ERTS_ALLOC_UTIL_FENCES
+
 #include "global.h"
 #include "big.h"
 #include "erl_mmap.h"
