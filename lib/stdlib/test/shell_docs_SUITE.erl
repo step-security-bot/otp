@@ -115,6 +115,7 @@ update_render(DataDir) ->
 render_smoke(_Config) ->
     docsmap(
       fun(Mod, #docs_v1{ docs = Docs } = D) ->
+              ct:print("Compiling module: ~p",[Mod]),
               lists:foreach(
                 fun(Config) ->
                         try
