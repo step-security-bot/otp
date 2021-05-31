@@ -3595,7 +3595,7 @@ convert_to_down_message(Process *c_p,
 
         tag = save_heap_frag_eterm(c_p, mp, &mdep->u.name);
 
-        ERTS_ASSERT(size_object(tag) > 0);
+        ERTS_ASSERT(size_object(tag) >= 0);
         
         /* Restore to normal monitor */
         ASSERT(mdep->u.name == NIL);
