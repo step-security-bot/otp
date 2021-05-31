@@ -212,8 +212,12 @@ erts_port_task_alloc_p2p_sig_data(void)
 ErtsProc2PortSigData *
 erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr)
 {
+#if !defined(VALGRIND) && !defined(ADDRESS_SANITIZER)
     ErtsPortTask *ptp = erts_alloc(ERTS_ALC_T_PORT_TASK,
                                    sizeof(ErtsPortTask) + extra);
+#else
+    ErtsPortTask *ptp = malloc(sizeof(ErtsPortTask) + extra);
+#endif
 
     *extra_ptr = ptp+1;
 
