@@ -824,6 +824,7 @@ mk_heap_fragment_eterm(Eterm value)
     ErlHeapFragment *bp = new_message_buffer(hsz);
     Eterm *hp = &bp->mem[1];
     bp->mem[0] = copy_struct(value, hsz-1, &hp, &bp->off_heap);
+    ERTS_ASSERT(size_object(bp->mem[0]) > 0);
     return make_cp((void*)bp);
 }
 
