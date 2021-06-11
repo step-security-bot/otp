@@ -116,7 +116,7 @@ loop(#server_state{parent = Parent} = State,
 %%--------------------------------------------------------------------
 
 analysis_start(Parent, Analysis, LegalWarnings) ->
-  CServer = dialyzer_codeserver:new(),
+  CServer = dialyzer_codeserver:new(Analysis#analysis.persistent_term),
   Plt = Analysis#analysis.plt,
   State = #analysis_state{codeserver = CServer,
 			  analysis_type = Analysis#analysis.type,

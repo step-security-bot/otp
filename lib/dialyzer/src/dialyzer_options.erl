@@ -213,6 +213,8 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     native_cache ->
       %% Ignored since Erlang/OTP 24.0.
       build_options(Rest, Options);
+    persistent_term when is_boolean(Value) ->
+      build_options(Rest, Options#options{persistent_term = Value});
     _ ->
       bad_option("Unknown dialyzer command line option", Term)
   end;

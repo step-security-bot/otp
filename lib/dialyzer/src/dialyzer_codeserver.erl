@@ -53,7 +53,7 @@
 	 lookup_mod_contracts/2,
 	 lookup_mfa_contract/2,
          lookup_meta_info/2,
-	 new/0,
+	 new/0, new/1,
 	 set_next_core_label/2,
 	 store_temp_records/3,
          translate_fake_file/3]).
@@ -79,7 +79,7 @@
                           | {module(), [dial_warn_tag()]}].
 
 -record(codeserver, {next_core_label = 0 :: label(),
-		     code		 :: dict_ets(),
+		     code		 :: 'persistent_term' | dict_ets(),
                      exported_types      :: 'clean' | set_ets(), % set(mfa())
 		     records             :: 'clean' | map_ets(),
 		     contracts           :: map_ets(),
@@ -129,8 +129,18 @@ ets_set_to_set(Table) ->
 -spec new() -> codeserver().
 
 new() ->
-  CodeOptions = [compressed, public, {read_concurrency, true}],
-  Code = ets:new(dialyzer_codeserver_code, CodeOptions),
+  new(false).
+
+-spec new(UsePersistentTerm :: boolean()) -> codeserver().
+
+new(UsePersistentTerm) ->
+  Code = case UsePersistentTerm of
+           false ->
+             CodeOptions = [compressed, public, {read_concurrency, true}],
+             ets:new(dialyzer_codeserver_code, CodeOptions);
+           true ->
+             persistent_term
+         end,
   ReadOptions = [compressed, {read_concurrency, true}],
   [Contracts, Callbacks, Records, ExportedTypes] =
     [ets:new(Name, ReadOptions) ||
@@ -162,24 +172,48 @@ new() ->
 -spec delete(codeserver()) -> 'ok'.
 
 delete(CServer) ->
-  lists:foreach(fun(Table) -> true = ets:delete(Table) end, tables(CServer)).
+  lists:foreach(fun(Table) -> true = ets:delete(Table) end, tables(CServer)),
+  case CServer#codeserver.code of
+    persistent_term ->
+      %% This can be very slow.
+      _ = [persistent_term:erase(Key) ||
+            {{?MODULE, _}=Key, _} <- persistent_term:get()],
+      ok;
+    _ ->
+      ok
+  end.
 
 -spec insert(atom(), cerl:c_module(), codeserver()) -> codeserver().
 
 insert(Mod, ModCode, CS) ->
+  Code = CS#codeserver.code,
   Name = cerl:module_name(ModCode),
   Exports = cerl:module_exports(ModCode),
   Attrs = cerl:module_attrs(ModCode),
   Defs = cerl:module_defs(ModCode),
-  {Files, SmallDefs} = compress_file_anno(Defs),
+  {Files, SmallDefs} =
+    case Code =:= persistent_term of
+      true ->
+        {[], Defs};
+      false ->
+        compress_file_anno(Defs)
+    end,
   As = cerl:get_ann(ModCode),
   Funs =
     [{{Mod, cerl:fname_id(Var), cerl:fname_arity(Var)},
       Val, {Var, cerl_trees:get_label(Fun)}} || Val = {Var, Fun} <- SmallDefs],
   Keys = [Key || {Key, _Value, _Label} <- Funs],
   ModEntry = {Mod, {Name, Exports, Attrs, Keys, As}},
-  ModFileEntry = {{mod, Mod}, Files},
-  true = ets:insert(CS#codeserver.code, [ModEntry, ModFileEntry|Funs]),
+  case Code =:= persistent_term of
+    true ->
+      %% Reduce the number of persistent_term keys by using a map().
+      KVs = [{element(1, Tuple), Tuple} || Tuple <- [ModEntry|Funs]],
+      %% Cannot catch allocation failure.
+      ok = persistent_term:put({?MODULE, Mod}, maps:from_list(KVs));
+    false ->
+      ModFileEntry = {{mod, Mod}, Files},
+      true = ets:insert(Code, [ModEntry, ModFileEntry|Funs])
+  end,
   CS.
 
 -spec get_temp_exported_types(codeserver()) -> sets:set(mfa()).
@@ -238,17 +272,17 @@ finalize_exported_types(Set,
 -spec lookup_mod_code(atom(), codeserver()) -> cerl:c_module().
 
 lookup_mod_code(Mod, CS) when is_atom(Mod) ->
-  table__lookup(CS#codeserver.code, Mod).
+  table__lookup(CS#codeserver.code, Mod, Mod).
 
 -spec lookup_mfa_code(mfa(), codeserver()) -> {cerl:c_var(), cerl:c_fun()}.
 
-lookup_mfa_code({_M, _F, _A} = MFA, CS) ->
-  table__lookup(CS#codeserver.code, MFA).
+lookup_mfa_code({M, _F, _A} = MFA, CS) ->
+  table__lookup(CS#codeserver.code, M, MFA).
 
 -spec lookup_mfa_var_label(mfa(), codeserver()) -> {cerl:c_var(), label()}.
 
-lookup_mfa_var_label({_M, _F, _A} = MFA, CS) ->
-  ets:lookup_element(CS#codeserver.code, MFA, 3).
+lookup_mfa_var_label({M, _F, _A} = MFA, CS) ->
+  code_lookup(CS#codeserver.code, M, MFA, 3).
 
 -spec get_next_core_label(codeserver()) -> label().
 
@@ -410,7 +444,7 @@ tables(#codeserver{code = Code,
   [Table ||  Table <- [Code, FunMetaInfo, Exports, TempExpTypes,
                        TempRecords, TempContracts, TempCallbacks,
                        ExportedTypes, Records, Contracts, Callbacks],
-             Table =/= clean].
+             Table =/= clean, Table =/= persistent_term].
 
 -spec finalize_contracts(codeserver()) -> codeserver().
 
@@ -423,17 +457,25 @@ finalize_contracts(#codeserver{temp_contracts = TempContDict,
 -spec translate_fake_file(codeserver(), module(), file:filename()) ->
                              file:filename().
 
+translate_fake_file(#codeserver{code = persistent_term}, _Module, File) ->
+  File;
 translate_fake_file(#codeserver{code = Code}, Module, FakeFile) ->
-  Files = ets:lookup_element(Code, {mod, Module}, 2),
+  Files = table__lookup(Code, Module, {mod, Module}),
   {FakeFile, File} = lists:keyfind(FakeFile, 1, Files),
   File.
 
-table__lookup(TablePid, M) when is_atom(M) ->
-  {Name, Exports, Attrs, Keys, As} = ets:lookup_element(TablePid, M, 2),
-  Defs = [table__lookup(TablePid, Key) || Key <- Keys],
+table__lookup(Code, Mod, M) when is_atom(M) ->
+  {Name, Exports, Attrs, Keys, As} = code_lookup(Code, Mod, M, 2),
+  Defs = [table__lookup(Code, Mod, Key) || Key <- Keys],
   cerl:ann_c_module(As, Name, Exports, Attrs, Defs);
-table__lookup(TablePid, MFA) ->
-  ets:lookup_element(TablePid, MFA, 2).
+table__lookup(Code, Mod, MFA) ->
+  code_lookup(Code, Mod, MFA, 2).
+
+code_lookup(persistent_term, Mod, Key, I) ->
+  Map = persistent_term:get({?MODULE, Mod}),
+  element(I, maps:get(Key, Map));
+code_lookup(Code, _Mod, Key, I) ->
+  ets:lookup_element(Code, Key, I).
 
 compress_file_anno(Term) ->
   {Files, SmallTerm} = compress_file_anno(Term, []),

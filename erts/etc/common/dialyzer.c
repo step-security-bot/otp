@@ -250,6 +250,18 @@ int main(int argc, char** argv)
 	argc--, argv++;
     }
 
+    if (argc > 2 && strcmp(argv[1], "+MIscs") == 0) {
+	PUSH2("+MIscs", argv[2]);
+	argc--, argv++;
+	argc--, argv++;
+    }
+
+    if (argc > 2 && strcmp(argv[1], "+JPperf") == 0) {
+	PUSH2("+JPperf", argv[2]);
+	argc--, argv++;
+	argc--, argv++;
+    }
+
     PUSH("+B");
     PUSH2("-boot", "no_dot_erlang");
     PUSH3("-run", "dialyzer", "plain_cl");

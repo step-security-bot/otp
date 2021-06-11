@@ -147,7 +147,8 @@
                                            'plt_remove'}
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
-                       | {'error_location', error_location()}.
+                       | {'error_location', error_location()}
+                       | {'persistent_term', boolean()}.
 -type dial_options()  :: [dial_option()].
 -type filename_opt()  :: 'basename' | 'fullpath'.
 -type error_location():: 'column' | 'line'.
@@ -183,7 +184,8 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
-                   solvers                         :: [solver()]}).
+                   solvers                         :: [solver()],
+                   persistent_term = false         :: boolean()}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
@@ -206,6 +208,7 @@
 		  callgraph_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   error_location  = ?ERROR_LOCATION :: error_location(),
+                  persistent_term = false          :: boolean(),
                   solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],

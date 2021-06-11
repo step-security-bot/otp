@@ -173,6 +173,9 @@ cl(["--resources"|T]) ->
   put(dialyzer_options_report_mode, quiet),
   put(dialyzer_timing, debug),
   cl(T);
+cl(["--use_persistent_term"|T]) ->
+  put(dialyzer_options_use_persistent_term, true),
+  cl(T);
 cl(["-v"|_]) ->
   io:format("Dialyzer version "++?VSN++"\n"),
   erlang:halt(?RET_NOTHING_SUSPICIOUS);
@@ -305,7 +308,8 @@ cl_options() ->
               {analysis_type, dialyzer_options_analysis_type},
               {get_warnings, dialyzer_options_get_warnings},
               {timing, dialyzer_timing},
-              {callgraph_file, dialyzer_callgraph_file}],
+              {callgraph_file, dialyzer_callgraph_file},
+              {persistent_term, dialyzer_options_use_persistent_term}],
   get_options(OptsList) ++ common_options().
 
 common_options() ->

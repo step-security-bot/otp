@@ -89,8 +89,8 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--no_check_plt] [--no_indentation] [-o outfile]
          [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
          [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
-         [--shell] [--src] [--statistics] [--verbose] [--version]
-         [-Wwarn]*</code>
+         [--shell] [--src] [--statistics] [--use_persistent_term]
+         [--verbose] [--version] [-Wwarn]*</code>
 
     <note>
       <p>* denotes that multiple occurrences of the option are possible.</p>
@@ -279,6 +279,11 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Print information about the progress of execution (analysis phases,
           time spent in each, and size of the relative input).</p>
+      </item>
+      <tag><c>--use_persistent_term</c></tag>
+      <item>
+        <p>Allow Dialyzer to use <seeerl marker="erts:persistent_term">
+	  <c>persistent_term</c></seeerl> for storing static data.</p>
       </item>
       <tag><c>--verbose</c></tag>
       <item>

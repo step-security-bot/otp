@@ -805,6 +805,7 @@ build_analysis_record(#gui_state{mode = Mode, menu = Menu, options = Options,
       true -> dialyzer_plt:new();
       false -> InitPlt0
     end,
+  %% Ignore `persistent_term' option.
   #analysis{defines = Options#options.defines,
 	    include_dirs = Options#options.include_dirs,
 	    plt = InitPlt,
