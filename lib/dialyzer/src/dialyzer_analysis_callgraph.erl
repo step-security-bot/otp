@@ -224,6 +224,8 @@ skip_ets_transfer(Pid) ->
   end.
 
 move_data(CServer, Plt) ->
+  %% If persistant_term is used for the types, *all* records reside
+  %% on the heap and also in the ETS table.
   {CServer1, Records} = dialyzer_codeserver:extract_records(CServer),
   Plt1 = dialyzer_plt:insert_types(Plt, Records),
   {NewCServer, ExpTypes} = dialyzer_codeserver:extract_exported_types(CServer1),

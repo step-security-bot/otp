@@ -829,6 +829,7 @@ run_analysis(State, Analysis) ->
   Self = self(),
   NewAnalysis = Analysis#analysis{doc_plt = dialyzer_plt:new()},
   LegalWarnings = find_legal_warnings(State),
+  %% The GUI does not use persistent_term.
   Fun = 
     fun() -> 
 	dialyzer_analysis_callgraph:start(Self, LegalWarnings, NewAnalysis)

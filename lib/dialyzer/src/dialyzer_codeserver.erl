@@ -50,6 +50,7 @@
 	 lookup_mfa_code/2,
 	 lookup_mfa_var_label/2,
 	 lookup_mod_records/2,
+	 lookup_mod_records_in_table/2,
 	 lookup_mod_contracts/2,
 	 lookup_mfa_contract/2,
          lookup_meta_info/2,
@@ -58,7 +59,7 @@
 	 store_temp_records/3,
          translate_fake_file/3]).
 
--export_type([codeserver/0, fun_meta_info/0, contracts/0]).
+-export_type([codeserver/0, fun_meta_info/0, contracts/0, table/0]).
 
 -include("dialyzer.hrl").
 
@@ -78,12 +79,14 @@
 -type fun_meta_info() :: [{mfa(), meta_info()}
                           | {module(), [dial_warn_tag()]}].
 
+-type table() :: 'persistent_term' | map_ets().
+
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: 'persistent_term' | dict_ets(),
                      exported_types      :: 'clean' | set_ets(), % set(mfa())
-		     records             :: 'clean' | map_ets(),
-		     contracts           :: map_ets(),
-		     callbacks           :: map_ets(),
+		     records             :: 'clean' | table(),
+		     contracts           :: table(),
+		     callbacks           :: table(),
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
@@ -124,6 +127,11 @@ ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
   ets:foldl(Fold, sets:new(), Table).
 
+-define(PT_KEY(Key),         {dialyzer, Key}).
+-define(PT_RECORDS_KEY(),    ?PT_KEY([records])).
+-define(PT_MODULE_KEY(Mod),  ?PT_KEY(Mod)).
+-define(PT_SPEC_KEY(Mod),    ?PT_KEY({contracts_and_callbacks, Mod})).
+
 %%--------------------------------------------------------------------
 
 -spec new() -> codeserver().
@@ -142,12 +150,17 @@ new(UsePersistentTerm) ->
              persistent_term
          end,
   ReadOptions = [compressed, {read_concurrency, true}],
-  [Contracts, Callbacks, Records, ExportedTypes] =
-    [ets:new(Name, ReadOptions) ||
-      Name <- [dialyzer_codeserver_contracts,
-               dialyzer_codeserver_callbacks,
-               dialyzer_codeserver_records,
-               dialyzer_codeserver_exported_types]],
+  [Records, Contracts, Callbacks] =
+    case UsePersistentTerm of
+      true ->
+        [persistent_term, persistent_term, persistent_term];
+      false ->
+        [ets:new(Name, ReadOptions) ||
+          Name <- [dialyzer_codeserver_records,
+                   dialyzer_codeserver_contracts,
+                   dialyzer_codeserver_callbacks]]
+    end,
+  ExportedTypes = ets:new(dialyzer_codeserver_exported_types, ReadOptions),
   TempOptions = [public, {write_concurrency, true}],
   [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
    TempCallbacks] =
@@ -175,15 +188,16 @@ delete(CServer) ->
   lists:foreach(fun(Table) -> true = ets:delete(Table) end, tables(CServer)),
   case CServer#codeserver.code of
     persistent_term ->
-      %% This can be very slow.
+      %% This can be very slow. Note that delete(0 is not called
+      %% from dialyzer_cl:return_value() unless in Erlang mode.
       _ = [persistent_term:erase(Key) ||
-            {{?MODULE, _}=Key, _} <- persistent_term:get()],
+            {?PT_KEY(_)=Key, _} <- persistent_term:get()],
       ok;
     _ ->
       ok
   end.
 
--spec insert(atom(), cerl:c_module(), codeserver()) -> codeserver().
+-spec insert(module(), cerl:c_module(), codeserver()) -> codeserver().
 
 insert(Mod, ModCode, CS) ->
   Code = CS#codeserver.code,
@@ -209,7 +223,7 @@ insert(Mod, ModCode, CS) ->
       %% Reduce the number of persistent_term keys by using a map().
       KVs = [{element(1, Tuple), Tuple} || Tuple <- [ModEntry|Funs]],
       %% Cannot catch allocation failure.
-      ok = persistent_term:put({?MODULE, Mod}, maps:from_list(KVs));
+      ok = persistent_term:put(?PT_MODULE_KEY(Mod), maps:from_list(KVs));
     false ->
       ModFileEntry = {{mod, Mod}, Files},
       true = ets:insert(Code, [ModEntry, ModFileEntry|Funs])
@@ -269,7 +283,7 @@ finalize_exported_types(Set,
   true = ets:delete(TempETypes),
   CS#codeserver{temp_exported_types = clean}.
 
--spec lookup_mod_code(atom(), codeserver()) -> cerl:c_module().
+-spec lookup_mod_code(module(), codeserver()) -> cerl:c_module().
 
 lookup_mod_code(Mod, CS) when is_atom(Mod) ->
   table__lookup(CS#codeserver.code, Mod, Mod).
@@ -294,21 +308,39 @@ get_next_core_label(#codeserver{next_core_label = NCL}) ->
 set_next_core_label(NCL, CS) ->
   CS#codeserver{next_core_label = NCL}.
 
--spec lookup_mod_records(atom(), codeserver()) -> types().
+-spec lookup_mod_records(module(), codeserver()) -> types().
 
-lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
-  case ets_dict_find(Mod, RecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
+lookup_mod_records(Mod, #codeserver{records = RecDict}) ->
+  case lookup_mod_records_in_table(Mod, RecDict) of
+    {ok, Map} ->
+      Map;
+    error ->
+      maps:new()
   end.
 
--spec get_records_table(codeserver()) -> map_ets().
+-spec lookup_mod_records_in_table(module(), table()) ->
+                                     {'ok', types()} | 'error'.
+
+lookup_mod_records_in_table(Mod, persistent_term) when is_atom(Mod) ->
+  try persistent_term:get(?PT_RECORDS_KEY()) of
+      Types -> maps:find(Mod, Types)
+  catch _:_ -> error
+  end;
+lookup_mod_records_in_table(Mod, RecDict) when is_atom(Mod) ->
+  ets_dict_find(Mod, RecDict).
+
+-spec get_records_table(codeserver()) -> table().
 
 get_records_table(#codeserver{records = RecDict}) ->
   RecDict.
 
--spec extract_records(codeserver()) -> {codeserver(), map_ets()}.
+-spec extract_records(codeserver()) -> {codeserver(), map_ets() | map()}.
 
+extract_records(#codeserver{records = persistent_term} = CS) ->
+  Key = ?PT_RECORDS_KEY(),
+  RecDict = persistent_term:get(Key),
+  persistent_term:erase(Key),
+  {CS#codeserver{records = clean}, RecDict};
 extract_records(#codeserver{records = RecDict} = CS) ->
   {CS#codeserver{records = clean}, RecDict}.
 
@@ -344,11 +376,23 @@ finalize_records(#codeserver{temp_records = TmpRecords,
   %% small compared to overall memory consumption.
   List = dialyzer_utils:ets_tab2list(TmpRecords),
   true = ets:delete(TmpRecords),
-  true = ets:insert(Records, List),
+  case Records of
+    persistent_term ->
+      ok = persistent_term:put(?PT_RECORDS_KEY(), maps:from_list(List));
+    _ ->
+      true = ets:insert(Records, List)
+  end,
   CS#codeserver{temp_records = clean}.
 
--spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
+-spec lookup_mod_contracts(module(), codeserver()) -> contracts().
 
+lookup_mod_contracts(Mod, #codeserver{contracts = persistent_term})
+  when is_atom(Mod) ->
+  try persistent_term:get(?PT_SPEC_KEY(Mod)) of
+    {SpecMap, _CallbackMap} ->
+      SpecMap
+  catch _:_ -> maps:new()
+  end;
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
   case ets_dict_find(Mod, ContDict) of
@@ -363,6 +407,12 @@ get_file_contract(Key, ContDict) ->
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
          'error' | {'ok', dialyzer_contracts:file_contract()}.
 
+lookup_mfa_contract({M, _, _}=MFA, #codeserver{contracts = persistent_term}) ->
+  try persistent_term:get(?PT_SPEC_KEY(M)) of
+      {SpecMap, _CallbackMap} ->
+      maps:find(MFA, SpecMap)
+  catch _:_ -> error
+  end;
 lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
   ets_dict_find(MFA, ContDict).
 
@@ -375,6 +425,13 @@ lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
 -spec get_contracts(codeserver()) ->
                        dict:dict(mfa(), dialyzer_contracts:file_contract()).
 
+%% Only used by TypEr. Not tested as TypEr does not use persistent_term.
+get_contracts(#codeserver{contracts = persistent_term}) ->
+  dict:from_list(
+    [begin
+       {SpecMap, _CallbackMap} = persistent_term:get(?PT_SPEC_KEY(Mod)),
+       maps:to_list(SpecMap)
+     end || {?PT_SPEC_KEY(Mod), _} <- persistent_term:get()]);
 get_contracts(#codeserver{contracts = ContDict}) ->
   dict:filter(fun({_M, _F, _A}, _) -> true;
                  (_, _) -> false
@@ -382,6 +439,12 @@ get_contracts(#codeserver{contracts = ContDict}) ->
 
 -spec get_callbacks(codeserver()) -> list().
 
+get_callbacks(#codeserver{callbacks = persistent_term}) ->
+  L = [begin
+         {_SpecMap, CallbackMap} = persistent_term:get(?PT_SPEC_KEY(Mod)),
+         maps:to_list(CallbackMap)
+       end || {?PT_SPEC_KEY(Mod), _} <- persistent_term:get()],
+  lists:append(L);
 get_callbacks(#codeserver{callbacks = CallbDict}) ->
   ets:tab2list(CallbDict).
 
@@ -405,6 +468,14 @@ all_temp_modules(#codeserver{temp_contracts = TempContTable}) ->
 -spec store_contracts(module(), contracts(), contracts(), codeserver()) ->
                          codeserver().
 
+store_contracts(Mod, SpecMap, CallbackMap,
+                #codeserver{contracts = persistent_term,
+                            callbacks = persistent_term}=CS) ->
+  case {maps:size(SpecMap), maps:size(CallbackMap)} of
+    {0, 0} -> ok; % Do not use a persistent_term key for Mod.
+    _ -> ok = persistent_term:put(?PT_SPEC_KEY(Mod), {SpecMap, CallbackMap})
+  end,
+  CS;
 store_contracts(Mod, SpecMap, CallbackMap, CS) ->
   #codeserver{contracts = SpecDict, callbacks = CallbackDict} = CS,
   Keys = maps:keys(SpecMap),
@@ -472,7 +543,7 @@ table__lookup(Code, Mod, MFA) ->
   code_lookup(Code, Mod, MFA, 2).
 
 code_lookup(persistent_term, Mod, Key, I) ->
-  Map = persistent_term:get({?MODULE, Mod}),
+  Map = persistent_term:get(?PT_MODULE_KEY(Mod)),
   element(I, maps:get(Key, Map));
 code_lookup(Code, _Mod, Key, I) ->
   ets:lookup_element(Code, Key, I).

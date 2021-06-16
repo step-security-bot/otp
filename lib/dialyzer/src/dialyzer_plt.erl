@@ -190,8 +190,11 @@ lookup(Plt, Label) when is_integer(Label) ->
 lookup_1(#plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
--spec insert_types(plt(), ets:tid()) -> plt().
+-spec insert_types(plt(), map() | ets:tid()) -> plt().
 
+insert_types(PLT, Records) when is_map(Records) ->
+  true = ets:insert(PLT#plt.types, maps:to_list(Records)),
+  PLT;
 insert_types(PLT, Records) ->
   ok = dialyzer_utils:ets_move(Records, PLT#plt.types),
   PLT.

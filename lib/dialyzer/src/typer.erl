@@ -102,6 +102,7 @@ extract(#analysis{macros = Macros,
 		  trust_plt = TrustPLT} = Analysis, TrustedFiles) ->
   %% io:format("--- Extracting trusted typer_info... "),
   Ds = [{d, Name, Value} || {Name, Value} <- Macros],
+  %% TypEr does not use persistent_term.
   CodeServer = dialyzer_codeserver:new(),
   Fun =
     fun(File, CS) ->

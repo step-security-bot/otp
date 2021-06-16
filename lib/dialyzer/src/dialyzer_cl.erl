@@ -611,8 +611,10 @@ return_value(State = #cl_state{code_server = CodeServer,
   case CodeServer =:= none of
     true ->
       ok;
+    false when ErlangMode ->
+      dialyzer_codeserver:delete(CodeServer);
     false ->
-      dialyzer_codeserver:delete(CodeServer)
+      ok % Save some time, in particular if persistent_term is used.
   end,
   case OutputPlt =:= none of
     true ->

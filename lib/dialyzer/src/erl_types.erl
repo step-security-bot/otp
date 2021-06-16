@@ -4511,7 +4511,7 @@ mod_name(Mod, Name) ->
                | {'check', mta(), file:filename()}.
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
--type mod_type_table() :: ets:tid().
+-type mod_type_table() :: dialyzer_codeserver:table().
 -type mod_records() :: dict:dict(module(), type_table()).
 -record(cache,
         {
@@ -5483,12 +5483,14 @@ lookup_module_types(Module, CodeTable, Cache) ->
     {ok, R} ->
       {R, Cache};
     error ->
-      try ets:lookup_element(CodeTable, Module, 2) of
-        R ->
+      case
+        dialyzer_codeserver:lookup_mod_records_in_table(Module, CodeTable)
+      of
+        {ok, R} ->
           NewMRecs = dict:store(Module, R, MRecs),
-          {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
-      catch
-        _:_ -> error
+          {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}};
+        error ->
+          error
       end
   end.
 
