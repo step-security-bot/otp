@@ -597,6 +597,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 	mp = erts_alloc_message(0, NULL);
 	mp->data.attached = NULL;
 	*on_heap_p = !0;
+        pp->allocated -= sz;
     }
     else if (pp && erts_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
 	locked_main = 1;
@@ -912,6 +913,7 @@ void erts_save_message_in_proc(Process *p, ErtsMessage *msgp)
 	hfp = msgp->data.heap_frag;
     }
     else {
+        p->allocated += size_object(ERL_MESSAGE_TERM(msgp));
 	erts_free_message(msgp);
 	return; /* Nothing to save */
     }

@@ -685,6 +685,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ErtsMonotonicTime start_time;
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
     erts_aint32_t state;
+    Uint allocated;
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
@@ -738,6 +739,11 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
      * Test which type of GC to do.
      */
 
+    if (p->abandoned_heap)
+        allocated = p->htop - p->heap + p->mbuf_sz;
+    else
+        allocated = p->htop - p->high_water + p->mbuf_sz;
+
     if (GEN_GCS(p) < MAX_GEN_GCS(p) && !(FLAGS(p) & F_NEED_FULLSWEEP)) {
         if (IS_TRACED_FL(p, F_TRACE_GC)) {
             trace_gc(p, am_gc_minor_start, need, THE_NON_VALUE);
@@ -746,7 +752,6 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
         reds = minor_collection(p, live_hf_end, need + ext_msg_usage, objv, nobj,
 				ygen_usage, &reclaimed_now);
         DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
-        p->allocated += reclaimed_now + p->htop - p->heap;
         if (reds == -1) {
             if (IS_TRACED_FL(p, F_TRACE_GC)) {
                 trace_gc(p, am_gc_minor_end, reclaimed_now, THE_NON_VALUE);
@@ -774,10 +779,11 @@ do_major_collection:
         if (ERTS_SCHEDULER_IS_DIRTY(esdp))
             p->flags &= ~(F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
         DTRACE2(gc_major_end, pidbuf, reclaimed_now);
-        p->allocated += reclaimed_now + p->htop - p->heap;
         gc_trace_end_tag = am_gc_major_end;
         ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC);
     }
+
+    p->allocated += allocated;
 
     reset_active_writer(p);
 

@@ -129,9 +129,9 @@ static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
     do {                                            \
-	(pi0)->count   += (pi1)->count;             \
-	(pi0)->time    += (pi1)->time;              \
-	(pi0)->gc_words+= (pi1)->gc_words;          \
+	(pi0)->count    += (pi1)->count;             \
+	(pi0)->time     += (pi1)->time;              \
+	(pi0)->gc_words += (pi1)->gc_words;          \
     } while(0)
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n);
@@ -920,8 +920,8 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 
 static Uint get_gcwords(Process *c_p) {
     if (c_p->abandoned_heap)
-        return c_p->allocated + c_p->htop - c_p->heap;
-    return c_p->allocated + c_p->htop - c_p->high_water;
+        return c_p->allocated + c_p->htop - c_p->heap + c_p->mbuf_sz;
+    return c_p->allocated + c_p->htop - c_p->high_water + c_p->mbuf_sz;
 }
 
 const ErtsCodeInfo*
