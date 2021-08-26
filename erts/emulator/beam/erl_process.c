@@ -12035,6 +12035,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
     p->gen_gcs = 0;
+    p->allocated = 0;
     p->hend = p->heap + sz;
     p->stop = p->hend - CP_SIZE; /* Reserve place for continuation pointer. */
     p->htop = p->heap;
@@ -12575,6 +12576,7 @@ void erts_init_empty_process(Process *p)
     p->max_gen_gcs = 0;
     p->min_heap_size = 0;
     p->min_vheap_size = 0;
+    p->allocated = 0;
     p->rcount = 0;
     p->common.id = ERTS_INVALID_PID;
     p->reds = 0;

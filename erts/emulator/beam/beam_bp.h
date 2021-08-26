@@ -30,6 +30,7 @@ typedef struct {
     Eterm pid;
     Sint  count;
     ErtsMonotonicTime time;
+    Uint gc_words;
 } bp_data_time_item_t;
 
 typedef struct {
@@ -47,6 +48,7 @@ typedef struct bp_data_time {     /* Call time */
 typedef struct {
     const ErtsCodeInfo *ci;
     ErtsMonotonicTime time;
+    Uint gc_words;
 } process_breakpoint_time_t; /* used within psd */
 
 typedef struct {

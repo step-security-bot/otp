@@ -550,6 +550,7 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 	    }
 	}
 	p->abandoned_heap = orig_heap;
+        p->allocated += orig_htop - p->high_water;
     }
 
 #ifdef CHECK_FOR_HOLES
@@ -745,6 +746,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
         reds = minor_collection(p, live_hf_end, need + ext_msg_usage, objv, nobj,
 				ygen_usage, &reclaimed_now);
         DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
+        p->allocated += reclaimed_now + p->htop - p->heap;
         if (reds == -1) {
             if (IS_TRACED_FL(p, F_TRACE_GC)) {
                 trace_gc(p, am_gc_minor_end, reclaimed_now, THE_NON_VALUE);
@@ -772,6 +774,7 @@ do_major_collection:
         if (ERTS_SCHEDULER_IS_DIRTY(esdp))
             p->flags &= ~(F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
         DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+        p->allocated += reclaimed_now + p->htop - p->heap;
         gc_trace_end_tag = am_gc_major_end;
         ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC);
     }

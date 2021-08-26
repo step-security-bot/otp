@@ -131,6 +131,7 @@ static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
     do {                                            \
 	(pi0)->count   += (pi1)->count;             \
 	(pi0)->time    += (pi1)->time;              \
+	(pi0)->gc_words+= (pi1)->gc_words;          \
     } while(0)
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n);
@@ -917,10 +918,17 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
     return tracer;
 }
 
+static Uint get_gcwords(Process *c_p) {
+    if (c_p->abandoned_heap)
+        return c_p->allocated + c_p->htop - c_p->heap;
+    return c_p->allocated + c_p->htop - c_p->high_water;
+}
+
 const ErtsCodeInfo*
 erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
 {
     ErtsMonotonicTime time;
+    Uint gc_words;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
@@ -937,6 +945,8 @@ erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
     
     pbt = ERTS_PROC_GET_CALL_TIME(c_p);
     time = get_mtime(c_p);
+    gc_words = get_gcwords(c_p);
+    /* fprintf(stderr,"gc_words: %lu\n",gc_words); */
 
     /* get pbt
      * timestamp = t0
@@ -953,8 +963,10 @@ erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
     else if (pbt->ci) {
 	/* add time to previous code */
 	sitem.time = time - pbt->time;
+        sitem.gc_words = gc_words - pbt->gc_words;
 	sitem.pid = c_p->common.id;
 	sitem.count = 0;
+        ASSERT(pbt->gc_words <= gc_words);
 
 	/* previous breakpoint */
 	pbdt = get_time_break(pbt->ci);
@@ -971,6 +983,10 @@ erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
 		item = bp_hash_put(h, &sitem);
 	    } else {
 		BP_TIME_ADD(item, &sitem);
+                ERTS_ASSERT(item->gc_words < 1800000000000000ull);
+                /* erts_fprintf(stderr,"%T %p: add prev: %lu\r\n", */
+                /*              erts_codeinfo_to_code(pbt->ci),item, */
+                /*              item->gc_words); */
 	    }
 	}
     }
@@ -980,6 +996,7 @@ erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
     sitem.pid     = c_p->common.id;
     sitem.count   = 1;
     sitem.time    = 0;
+    sitem.gc_words = 0;
 
     /* this breakpoint */
     ASSERT(bdt);
@@ -998,6 +1015,7 @@ erts_trace_time_call(Process* c_p, const ErtsCodeInfo *info, BpDataTime* bdt)
     prev_info = pbt->ci;
     pbt->ci = info;
     pbt->time = time;
+    pbt->gc_words = gc_words;
 
     release_bp_sched_ix(six);
     return prev_info;
@@ -1007,6 +1025,7 @@ void
 erts_trace_time_return(Process *p, const ErtsCodeInfo *prev_info)
 {
     ErtsMonotonicTime time;
+    Uint gc_words;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
@@ -1022,6 +1041,7 @@ erts_trace_time_return(Process *p, const ErtsCodeInfo *prev_info)
 
     pbt = ERTS_PROC_GET_CALL_TIME(p);
     time = get_mtime(p);
+    gc_words = get_gcwords(p);
 
     /* get pbt
      * lookup bdt from code
@@ -1039,8 +1059,10 @@ erts_trace_time_return(Process *p, const ErtsCodeInfo *prev_info)
 	ASSERT(pbt->ci);
 
 	sitem.time = time - pbt->time;
+        sitem.gc_words = gc_words - pbt->gc_words;
 	sitem.pid   = p->common.id;
 	sitem.count = 0;
+        ASSERT(pbt->gc_words <= gc_words);
 
 	/* previous breakpoint */
 	pbdt = get_time_break(pbt->ci);
@@ -1058,12 +1080,17 @@ erts_trace_time_return(Process *p, const ErtsCodeInfo *prev_info)
 		item = bp_hash_put(h, &sitem);
 	    } else {
 		BP_TIME_ADD(item, &sitem);
+                ERTS_ASSERT(item->gc_words < 1800000000000000ull);
+                /* erts_fprintf(stderr,"%T %p: ret prev: %lu\r\n", */
+                /*              erts_codeinfo_to_code(pbt->ci),item, */
+                /*              item->gc_words); */
 	    }
 
 	}
 
 	pbt->ci = prev_info;
 	pbt->time = time;
+	pbt->gc_words = gc_words;
 
     }
 
@@ -1140,8 +1167,10 @@ int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *retval) {
 			sitem = bp_hash_get(&hash, item);
 			if (sitem) {
 			    BP_TIME_ADD(sitem, item);
+                            ERTS_ASSERT(sitem->gc_words < 1800000000000000ull);
 			} else {
 			    bp_hash_put(&hash, item);
+                            ERTS_ASSERT(item->gc_words < 1800000000000000ull);
 			}
 		    }
 		}
@@ -1156,13 +1185,19 @@ int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *retval) {
 		    item = &(hash.item[ix]);
 		    if (item->pid != NIL) {
 			ErtsMonotonicTime sec, usec;
+                        Uint meg_gc_words, gc_words;
 			usec = ERTS_MONOTONIC_TO_USEC(item->time);
 			sec = usec / 1000000;
 			usec = usec - sec*1000000;
+                        meg_gc_words = item->gc_words / 1000000;
+                        gc_words = item->gc_words - meg_gc_words*1000000;
 			t = TUPLE4(hp, item->pid,
-				make_small(item->count),
-				   make_small((Uint) sec),
-				   make_small((Uint) usec));
+                                   make_small(item->count),
+				   /* make_small((Uint) sec), */
+				   /* make_small((Uint) usec), */
+				   make_small((Uint) meg_gc_words),
+				   make_small((Uint) gc_words)
+                            );
 			hp += 5;
 			*retval = CONS(hp, t, *retval); hp += 2;
 		    }
@@ -1295,6 +1330,7 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_da
 
     item->pid     = sitem->pid;
     item->time    = sitem->time;
+    item->gc_words= sitem->gc_words;
     item->count   = sitem->count;
     hash->used++;
 
@@ -1334,6 +1370,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
                 pbdt = get_time_break(pbt->ci);
                 if (pbdt) {
                     sitem.time = get_mtime(p) - pbt->time;
+                    sitem.gc_words = 0;
                     sitem.pid   = p->common.id;
                     sitem.count = 0;
 
@@ -1357,6 +1394,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * timestamp in the psd.
 	     */
 	    pbt->time = get_mtime(p);
+//            pbt->gc_words = p->allocated + p->htop - p->high_water;
 	    break;
 	default :
 	    ASSERT(0);
