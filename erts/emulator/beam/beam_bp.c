@@ -135,7 +135,8 @@ static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
     } while(0)
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n);
-static void bp_hash_rehash(bp_time_hash_t *hash, Uint n);
+static void bp_hash_rehash(bp_time_hash_t *hash);
+static ERTS_INLINE Uint bp_hash_value(bp_time_hash_t *hash, Uint value);
 static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
 static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
 static void bp_hash_delete(bp_time_hash_t *hash);
@@ -1155,7 +1156,7 @@ int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *retval) {
     if (bdt) {
 	if (retval) {
 	    /* collect all hashes to one hash */
-	    bp_hash_init(&hash, 64);
+	    bp_hash_init(&hash, 7);
 	    /* foreach threadspecific hash */
 	    for (i = 0; i < bdt->n; i++) {
 		bp_data_time_item_t *sitem;
@@ -1181,7 +1182,7 @@ int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *retval) {
 		size = (5 + 2)*hash.used;
 		hp   = HAlloc(p, size);
 
-		for(ix = 0; ix < hash.n; ix++) {
+		for(ix = 0; ix < (1 << hash.n); ix++) {
 		    item = &(hash.item[ix]);
 		    if (item->pid != NIL) {
 			ErtsMonotonicTime sec, usec;
@@ -1239,45 +1240,56 @@ erts_find_local_func(const ErtsCodeMFA *mfa) {
 }
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
-    Uint size = sizeof(bp_data_time_item_t)*n;
+    Uint size = sizeof(bp_data_time_item_t)*(1 << n);
     Uint i;
 
     hash->n    = n;
     hash->used = 0;
+    hash->mask = ((1 << hash->n) - 1);
 
     hash->item = (bp_data_time_item_t *)Alloc(size);
     sys_memzero(hash->item, size);
 
-    for(i = 0; i < n; ++i) {
+    for(i = 0; i < (1 << n); ++i) {
 	hash->item[i].pid = NIL;
     }
 }
 
-static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
+static ERTS_INLINE Uint bp_hash_value(bp_time_hash_t *hash, Uint val) {
+    Hash h = { .shift = (SIZEOF_VOID_P * 8) - hash->n };
+    return hash_get_slot(&h, val);
+}
+
+static void bp_hash_rehash(bp_time_hash_t *hash) {
     bp_data_time_item_t *item = NULL;
-    Uint size = sizeof(bp_data_time_item_t)*n;
+    Uint old_n = hash->n;
     Uint ix;
+    Uint size;
     Uint hval;
 
     ASSERT(n > 0);
 
+    hash->n++;
+    hash->mask = ((1 << hash->n) - 1);
+
+    size = sizeof(bp_data_time_item_t)*(1 << hash->n);
+
     item = (bp_data_time_item_t *)Alloc(size);
     sys_memzero(item, size);
 
-    for( ix = 0; ix < n; ++ix) {
+    for(ix = 0; ix < (1 << hash->n); ++ix) {
 	item[ix].pid = NIL;
     }
 
-
     /* rehash, old hash -> new hash */
 
-    for( ix = 0; ix < hash->n; ix++) {
+    for(ix = 0; ix < (1 << old_n); ++ix) {
 	if (hash->item[ix].pid != NIL) {
 
-	    hval = ((hash->item[ix].pid) >> 4) % n; /* new n */
+	    hval = bp_hash_value(hash, hash->item[ix].pid);
 
 	    while (item[hval].pid != NIL) {
-		hval = (hval + 1) % n;
+		hval = (hval + 1) & hash->mask;
 	    }
 	    item[hval].pid     = hash->item[ix].pid;
 	    item[hval].count   = hash->item[ix].count;
@@ -1286,19 +1298,17 @@ static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
     }
 
     Free(hash->item);
-    hash->n = n;
     hash->item = item;
 }
+
 static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem) {
     Eterm pid = sitem->pid;
-    Uint hval = (pid >> 4) % hash->n;
-    bp_data_time_item_t *item = NULL;
-
-    item = hash->item;
+    Uint hval = bp_hash_value(hash, pid);
+    bp_data_time_item_t *item = hash->item;
 
     while (item[hval].pid != pid) {
 	if (item[hval].pid == NIL) return NULL;
-	hval = (hval + 1) % hash->n;
+	hval = (hval + 1) & hash->mask;
     }
 
     return &(item[hval]);
@@ -1306,25 +1316,25 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_da
 
 static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t* sitem) {
     Uint hval;
-    float r = 0.0;
+    Uint r;
     bp_data_time_item_t *item;
 
     /* make sure that the hash is not saturated */
     /* if saturated, rehash it */
 
-    r = hash->used / (float) hash->n;
+    r = (100 * hash->used) / (1 << hash->n);
 
-    if (r > 0.7f) {
-	bp_hash_rehash(hash, hash->n * 2);
+    if (r > 70) {
+	bp_hash_rehash(hash);
     }
     /* Do hval after rehash */
-    hval = (sitem->pid >> 4) % hash->n;
+    hval = bp_hash_value(hash, sitem->pid);
 
     /* find free slot */
     item = hash->item;
 
     while (item[hval].pid != NIL) {
-	hval = (hval + 1) % hash->n;
+	hval = (hval + 1) & hash->mask;
     }
     item = &(hash->item[hval]);
 
@@ -1342,6 +1352,7 @@ static void bp_hash_delete(bp_time_hash_t *hash) {
     hash->used = 0;
     Free(hash->item);
     hash->item = NULL;
+    hash->mask = 0;
 }
 
 void erts_schedule_time_break(Process *p, Uint schedule) {
@@ -1539,7 +1550,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	bdt->n = erts_no_schedulers + 1;
 	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 	for (i = 0; i < bdt->n; i++) {
-	    bp_hash_init(&(bdt->hash[i]), 32);
+	    bp_hash_init(&(bdt->hash[i]), 6);
 	}
 	bp->time = bdt;
     }

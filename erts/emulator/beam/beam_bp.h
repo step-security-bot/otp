@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
     Uint n;
     Uint used;
+    Uint mask;
     bp_data_time_item_t *item;
 } bp_time_hash_t;
 
