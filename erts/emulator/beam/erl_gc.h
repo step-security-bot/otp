@@ -55,10 +55,10 @@ ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
 #endif
 
 ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
-                                  Eterm *orig);
+                                  Eterm *orig, int convert_subbins);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
-                                  Eterm *orig)
+                                  Eterm *orig, int convert_subbins)
 {
     Eterm gval;
     Sint nelts;
@@ -71,7 +71,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
         {
             ErlSubBin *sb = (ErlSubBin *)ptr;
             /* convert sub-binary to heap-binary if applicable */
-            if (sb->bitsize == 0 && sb->bitoffs == 0 &&
+            if (convert_subbins && sb->bitsize == 0 && sb->bitoffs == 0 &&
                 sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
                 return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
             }
