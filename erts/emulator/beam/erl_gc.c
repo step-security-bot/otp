@@ -99,11 +99,17 @@ do {									\
 /*
  * This structure describes the rootset for the GC.
  */
+typedef enum GcRootsFlags {
+    GC_ROOTS_FLG_NONE = 0,
+    GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN = 1
+} GcRootsFlags;
+
 typedef struct roots {
     Eterm* v;		/* Pointers to vectors with terms to GC
 			 * (e.g. the stack).
 			 */
     Uint sz;		/* Size of each vector. */
+    int flags;
 } Roots;
 
 typedef struct {
@@ -1189,6 +1195,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     while (n--) {
         Eterm* g_ptr = roots->v;
         Uint g_sz = roots->sz;
+        int convert_subbin = roots->flags & GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	Eterm* ptr;
 	Eterm val;
 
@@ -1205,7 +1212,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 		    ASSERT(is_boxed(val));
                     *g_ptr = val;
 		} else if (ErtsInArea(ptr, area, area_size)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr);
+                    move_boxed(ptr,val,&old_htop,g_ptr,convert_subbin);
 		}
 		break;
 	    case TAG_PRIMARY_LIST:
@@ -1532,6 +1539,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     while (n--) {
         Eterm* g_ptr = roots->v;
         Uint g_sz = roots->sz;
+        int convert_subbin = roots->flags & GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 
 	roots++;
         for ( ; g_sz--; g_ptr++) {
@@ -1546,9 +1554,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
                     *g_ptr = val;
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr);
+                    move_boxed(ptr,val,&old_htop,g_ptr, convert_subbin);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_boxed(ptr,val,&n_htop,g_ptr);
+                    move_boxed(ptr,val,&n_htop,g_ptr, convert_subbin);
                 }
                 break;
 	    }
@@ -1599,9 +1607,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    move_boxed(ptr,val,&old_htop,n_hp++);
+		    move_boxed(ptr,val,&old_htop,n_hp++,1);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    move_boxed(ptr,val,&n_htop,n_hp++);
+		    move_boxed(ptr,val,&n_htop,n_hp++,1);
 		} else {
 		    n_hp++;
 		}
@@ -1635,10 +1643,10 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 			    *origptr = val;
 			    mb->base = binary_bytes(val);
 			} else if (ErtsInArea(ptr, mature, mature_size)) {
-			    move_boxed(ptr,val,&old_htop,origptr);
+			    move_boxed(ptr,val,&old_htop,origptr,1);
 			    mb->base = binary_bytes(mb->orig);
 			} else if (ErtsInYoungGen(*origptr, ptr, oh, oh_size)) {
-			    move_boxed(ptr,val,&n_htop,origptr);
+			    move_boxed(ptr,val,&n_htop,origptr,1);
 			    mb->base = binary_bytes(mb->orig);
 			}
 		    }
@@ -1855,6 +1863,7 @@ full_sweep_heaps(Process *p,
     while (n--) {
 	Eterm* g_ptr = roots->v;
 	Eterm g_sz = roots->sz;
+        int convert_subbin = roots->flags & GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 
 	roots++;
 	for ( ; g_sz--; g_ptr++) {
@@ -1871,7 +1880,7 @@ full_sweep_heaps(Process *p,
 		    ASSERT(is_boxed(val));
 		    *g_ptr = val;
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_boxed(ptr,val,&n_htop,g_ptr);
+		    move_boxed(ptr,val,&n_htop,g_ptr,convert_subbin);
 		}
                 break;
 	    }
@@ -2167,7 +2176,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-		move_boxed(ptr,val,&n_htop,n_hp++);
+		move_boxed(ptr,val,&n_htop,n_hp++,1);
 	    } else {
 		n_hp++;
 	    }
@@ -2200,7 +2209,7 @@ sweep(Eterm *n_hp, Eterm *n_htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
-			move_boxed(ptr,val,&n_htop,origptr);
+			move_boxed(ptr,val,&n_htop,origptr,1);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2263,7 +2272,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		move_boxed(ptr,val,&htop,heap_ptr++);
+		move_boxed(ptr,val,&htop,heap_ptr++,1);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2296,7 +2305,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ErtsInArea(ptr, src, src_size)) {
-			move_boxed(ptr,val,&htop,origptr);
+			move_boxed(ptr,val,&htop,origptr,1);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2329,7 +2338,7 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(val != ERTS_HOLE_MARKER);
 	if (is_header(val)) {
 	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &n_htop, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &n_htop, &dummy_ref, 1);
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
@@ -2482,11 +2491,17 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     if (p->dictionary != NULL) {
         roots[n].v = ERTS_PD_START(p->dictionary);
         roots[n].sz = ERTS_PD_SIZE(p->dictionary);
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
         ++n;
     }
     if (nobj > 0) {
         roots[n].v  = objv;
         roots[n].sz = nobj;
+        /* We do not want to convert subbins to heapbins
+           for the current arguments. This is because BIFs
+           that yield may rely on the original refc binary
+           to stay available. */
+        roots[n].flags = GC_ROOTS_FLG_NONE;
         ++n;
     }
 
@@ -2496,12 +2511,14 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     if (is_not_immed(p->seq_trace_token)) {
 	roots[n].v = &p->seq_trace_token;
 	roots[n].sz = 1;
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
     }
 #ifdef USE_VM_PROBES
     if (is_not_immed(p->dt_utag)) {
 	roots[n].v = &p->dt_utag;
 	roots[n].sz = 1;
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
     }
 #endif
@@ -2511,6 +2528,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     if (is_not_immed(p->group_leader)) {
 	roots[n].v  = &p->group_leader;
 	roots[n].sz = 1;
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
     }
 
@@ -2521,6 +2539,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     if (is_not_immed(p->fvalue)) {
 	roots[n].v  = &p->fvalue;
 	roots[n].sz = 1;
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
     }
 
@@ -2530,6 +2549,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     if (is_not_immed(p->ftrace)) {
 	roots[n].v  = &p->ftrace;
 	roots[n].sz = 1;
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
     }
 
@@ -2542,8 +2562,10 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     /*
      * If a NIF or BIF has saved arguments, they need to be added
      */
-    if (erts_setup_nfunc_rootset(p, &roots[n].v, &roots[n].sz))
+    if (erts_setup_nfunc_rootset(p, &roots[n].v, &roots[n].sz)) {
+        roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 	n++;
+    }
 
     ASSERT(n <= rootset->size);
 
@@ -2601,6 +2623,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	    if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
 		roots[n].v = mp->m;
 		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
+                roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 		n++;
 	    }
 	    mp = mp->next;
@@ -2620,12 +2643,14 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	    if (ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached) {
 		roots[n].v = mp->m;
 		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
+                roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 		n++;
 	    }
 	    else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
 		/* Exclude message slot... */
 		roots[n].v = &mp->m[1];
 		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ - 1;
+                roots[n].flags = GC_ROOTS_FLG_CONVERT_SUBBIN_TO_HEAPBIN;
 		n++;
 	    }
 	    mp = mp->next;

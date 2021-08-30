@@ -2061,7 +2061,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
 	if (is_header(val)) {
 	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &hp, &dummy_ref, 1);
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case REF_SUBTAG:
 		if (!is_magic_ref_thing(hdr))
