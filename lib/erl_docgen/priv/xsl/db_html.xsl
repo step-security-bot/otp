@@ -2410,7 +2410,7 @@
             </div>
 	  </xsl:when>
           <xsl:otherwise>
-	    <div class="bold_code fun-type">
+	    <div class="bold_code func-head">
 	      <xsl:call-template name="title_link">
                 <xsl:with-param name="link" select="concat(concat($fname,'-'),$arity)"/>
                 <xsl:with-param name="where" select="'before'"/>
