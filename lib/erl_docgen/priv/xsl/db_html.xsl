@@ -267,7 +267,7 @@
     <div class="bold_code title-link func-head"
          onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
          onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-      <div>
+      <div class="title-anchors">
         <xsl:call-template name="ghlink">
           <xsl:with-param name="mfa" select="$mfa"/>
           <xsl:with-param name="ghlink" select="$ghlink"/>
@@ -280,12 +280,12 @@
 	  <xsl:with-param name="global_types" select="$global_types"/>
         </xsl:apply-templates>
       </div>
-      <div class="title-since">
-        <xsl:if test="string-length($since) > 0">
+      <xsl:if test="string-length($since) > 0">
+        <div class="title-since">
 	  <span class="since"><xsl:value-of select="$since"/>
 	  </span>
-        </xsl:if>
-      </div>
+        </div>
+      </xsl:if>
     </div>
   </xsl:template>
 
@@ -510,11 +510,15 @@
           <div class="title-link data-type-name"
                onMouseOver="document.getElementById('ghlink-{$id}').style.visibility = 'visible';"
                onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
-            <xsl:call-template name="ghlink">
-              <xsl:with-param name="mfa" select="$id"/>
-              <xsl:with-param name="id" select="$id"/>
-            </xsl:call-template>
-            <xsl:apply-templates select="name"/>
+            <div class="title-anchors">
+              <xsl:call-template name="ghlink">
+                <xsl:with-param name="mfa" select="$id"/>
+                <xsl:with-param name="id" select="$id"/>
+              </xsl:call-template>
+            </div>
+            <div class="title-name">
+              <xsl:apply-templates select="name"/>
+            </div>
           </div>
         </xsl:when>
         <xsl:otherwise>
@@ -772,6 +776,8 @@
     <xsl:param name="curModule"/>
     <html>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
+        <meta charset="utf-8"></meta>
         <xsl:choose>
           <xsl:when test="string-length($stylesheet) > 0">
             <link rel="stylesheet" href="{$topdocdir}/{$stylesheet}" type="text/css"/>
@@ -790,32 +796,35 @@
         </xsl:choose>
       </head>
       <body>
-
+        <div class="topbar">
+          <div class="erlang-icon"></div>
+          <div class="topbar-title">
+            <xsl:value-of select="header/title"/>
+          </div>
+          <div class="topbar-expand">
+            <xsl:text disable-output-escaping="yes"><![CDATA[
+            <button onclick="toggleDisplay('leftnav')">Expand</button>
+            ]]></xsl:text>
+          </div>
+        </div>
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
           <script language="JavaScript" type="text/javascript">
             <xsl:text disable-output-escaping="yes"><![CDATA[
             <!--
-              function getWinHeight() {
-                var myHeight = 0;
-                if( typeof( window.innerHeight ) == 'number' ) {
-                  //Non-IE
-                  myHeight = window.innerHeight;
-                } else if( document.documentElement && ( document.documentElement.clientWidth ||
-                                                         document.documentElement.clientHeight ) ) {
-                  //IE 6+ in 'standards compliant mode'
-                  myHeight = document.documentElement.clientHeight;
-                } else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
-                  //IE 4 compatible
-                  myHeight = document.body.clientHeight;
+              function toggleDisplay(objId) {
+                var obj=document.getElementById(objId);
+                if (obj.classList.contains('show')) {
+                  obj.classList.remove('show');
+                } else {
+                  obj.classList.add('show');
                 }
-                return myHeight;
               }
 
               function setscrollpos() {
                 var objf=document.getElementById('loadscrollpos');
-                 document.getElementById("leftnav").scrollTop = objf.offsetTop - getWinHeight()/2;
+                document.getElementById("leftnav").firstChild.scrollTop = objf.offsetTop - 10;
               }
 
               function addEvent(obj, evType, fn){
@@ -832,7 +841,8 @@
 
              addEvent(window, 'load', setscrollpos);
 
-             //-->]]></xsl:text>
+             //-->
+]]></xsl:text>
           </script>
           <!-- Generate menu -->
           <xsl:call-template name="menu">
@@ -1446,8 +1456,8 @@
   <xsl:template name="menu.internal.ug">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1467,15 +1477,15 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
     <!-- Menu.internal.ref -->
   <xsl:template name="menu.internal.ref">
       <xsl:param name="curModule"/>
-      <div id="leftnav">
-      <div class="leftnav-tube">
+      <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1496,14 +1506,14 @@
             <xsl:with-param name="curModule" select="$curModule"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+      </aside>
   </xsl:template>
 
   <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
   <xsl:template name="menu.internal.ug_ref">
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
         <p class="section-title"><xsl:value-of select="/book/header/title"/></p>
@@ -1530,8 +1540,8 @@
             <!--xsl:with-param name="genFuncMenu" select="true"/-->
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
   <!--Users Guide -->
@@ -1574,8 +1584,8 @@
   <xsl:template name="menu.ug">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1595,8 +1605,8 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
 
@@ -1735,8 +1745,8 @@
   <!-- Menu.ref -->
   <xsl:template name="menu.ref">
     <xsl:param name="curModule"/>
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -1757,8 +1767,8 @@
             <xsl:with-param name="curModule" select="$curModule"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
 
@@ -2494,7 +2504,7 @@
          onMouseOut="document.getElementById('ghlink-{$id}').style.visibility = 'hidden';">
       <xsl:choose>
 	<xsl:when test="$where = 'before'">
-          <div>
+          <div class="title-anchors">
             <xsl:call-template name="ghlink">
               <xsl:with-param name="mfa" select="$link"/>
               <xsl:with-param name="id" select="$id"/>
@@ -2518,7 +2528,7 @@
       </div>
       <xsl:choose>
 	<xsl:when test="$where = 'after'">
-          <div>
+          <div class="title-anchors">
             <xsl:call-template name="ghlink">
               <xsl:with-param name="mfa" select="$link"/>
               <xsl:with-param name="id" select="$id"/>
@@ -2528,12 +2538,12 @@
           </div>
         </xsl:when>
       </xsl:choose>
-      <div class="title-since">
-        <xsl:if test="string-length($since) > 0">
+      <xsl:if test="string-length($since) > 0">
+        <div class="title-since">
 	  <span class="since"><xsl:value-of select="$since"/>
 	  </span>
-        </xsl:if>
-      </div>
+        </div>
+      </xsl:if>
     </div>
   </xsl:template>
 
@@ -2779,8 +2789,8 @@
   <xsl:template name="menu.rn">
     <xsl:param name="chapnum"/>
 
-    <div id="leftnav">
-      <div class="leftnav-tube">
+    <aside id="leftnav">
+      <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
 
@@ -2800,8 +2810,8 @@
             <xsl:with-param name="chapnum" select="$chapnum"/>
           </xsl:call-template>
         </ul>
-      </div>
-    </div>
+      </nav>
+    </aside>
   </xsl:template>
 
  <!-- Special templates to calculate the arity of functions -->

@@ -6,8 +6,6 @@ body {
   margin: 0;
   padding: 0;
   border: 0;
-  overflow: scroll;
-  height: 100%;
   max-height: 100%;
   line-height: 1.2em;
   font-size: 16px;
@@ -31,33 +29,85 @@ a:active       { color: #1c7cd6; text-decoration: none }
 a:visited      { color: #1b6ec2; text-decoration: none }
 
 #container {
-  width: 100%;
-  margin: 0;
-  background-color: #fefefe;
+    display: grid;
+    grid-template-columns: 1fr 5fr;
+    grid-template-areas: "leftnav content";
+    margin: 0;
+    background-color: #fefefe;
 }
 
 #leftnav {
-  position: fixed;
-  float: left;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 300px;
-  overflow:auto;
-  margin: 0;
-  padding: 1px;
-  border-right: 1px solid #ccc;
+    grid-area: leftnav;
 }
 
-.leftnav-tube
-{
-    margin: 15px;
+.leftnav-tube {
+    top: 0;
+    margin-left: 15px;
+    margin-right: 15px;
+    position: sticky;
+    height: 100vh;
+    overflow: auto;
+    padding: 1px;
+    border-right: 1px solid #ccc;
 }
 
 #content {
-  margin-left: 340px; /* set left value to WidthOfFrameDiv */
-  max-width: 52em;
-  overflow-x: hidden;
+    grid-area: content;
+    max-width: min(52em, 100%);
+}
+
+.topbar {
+    display: none;
+}
+
+@media screen and (max-width: 768px) {
+    .topbar {
+        display: flex;
+        position: relative;
+        padding: 0.5em;
+        width: calc(100%-1em);
+        top: 0px;
+        border-bottom: 1px solid #ccc;
+    }
+    .topbar-expand {
+    }
+    .topbar-title {
+        text-align: center;
+        flex-grow: 2;
+    }
+    #container {
+        grid-template-columns: 100%;
+        grid-template-areas:
+            "leftnav"
+            "content";
+    }
+    #content {
+    }
+    #leftnav {
+    }
+    #leftnav:not(.show) {
+        max-height: 0px;
+        transition: max-height 0.35s ease;
+    }
+    #leftnav.show {
+        max-height: 60vh;
+        transition: max-height 0.35s ease;
+    }
+    .leftnav-tube {
+        max-height: 100%;
+        position: unset;
+        border-right: 0px;
+        border-bottom: 1px solid #ccc;
+        margin-right: 0px;
+        margin-left: 0px;
+        padding: 0px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce){
+    #leftnav.collapsing{
+        transition: none;
+    }
 }
 
 .frontpage 
@@ -65,10 +115,16 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
 }
 
-.innertube 
-{
+@media screen and (min-width: 992px) {
+    .innertube 
+    {
+        margin-right: 11em;
+    }
+}
+
+.innertube {
     margin-left: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
-    margin-right: 11em;
+    margin-right: 2em;
 }
 
 .footer 
@@ -81,8 +137,20 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 .cref-head, .func-head, .data-type-name {
     margin-left: -4em;
+    padding-bottom: 0.2em;
+    padding-top: 0.2em;
 }
 
+.cref-head:hover, .func-head:hover, .data-type-name:hover {
+    background-color: #f5f5f5;
+}
+
+/* This small trick is in order to make all but the first line of the function
+ * head indented by 7em. So that it looks like this:
+ * int enif_alloc_binary(
+ *              size_t size,
+ *              ErlNifBinary* bin)
+ */
 .cref-head .title-name {
     padding-left: 7em;
     text-indent: -7em;
@@ -90,16 +158,27 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 .title-link {
     display: flex;
-    padding-top: 0.5em;
-    padding-bottom: 0.2em;
-}
-
-.title-link:hover {
-    background-color: #f5f5f5;
 }
 
 .title-since {
     margin-left: auto;
+}
+
+@media screen and (max-width: 992px) {
+    .cref-head, .func-head, .data-type-name {
+        margin-left: 0em;
+        padding-bottom: 0em;
+        padding-top: 0em;
+    }
+    .title-link {
+        flex-direction: column;
+    }
+    .title-anchors {
+        display: none;
+    }
+    .title-since {
+        margin-left: 1em;
+    }
 }
 
 .code        {
@@ -171,6 +250,8 @@ a:visited      { color: #1b6ec2; text-decoration: none }
   padding: 0.5em 1em;
   margin: 1em 0;
   font-size: 0.7em;
+  overflow: auto;
+  max-width: min(100%, 48em);
 }
 .extrafrontpageinfo {
   color: #C00;
@@ -184,17 +265,35 @@ pre {
  margin: 0;
 }
 
-
 .data-types-body, .REFBODY{
- margin-left: 2em;
+ margin-left: 1em;
 }
-.REFTYPES    { margin-left: 1.5em }
+.REFTYPES    { margin-left: 0.75em }
 .exports-body {
-    margin-left: 3em;
+    margin-left: 1em;
 }
+
+@media screen and (min-width: 992px) {
+
+    .data-types-body, .REFBODY{
+        margin-left: 2em;
+    }
+    .REFTYPES    { margin-left: 1.5em }
+    .exports-body {
+        margin-left: 3em;
+    }
+}
+
 .exports-tube
 {
-    margin-right: 11em;
+    margin-right: 2em;
+}
+
+@media screen and (min-width: 992px) {
+    .exports-tube
+    {
+        margin-right: 11em;
+    }
 }
 
 footer       { }
