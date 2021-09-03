@@ -799,29 +799,29 @@
         <div class="topbar">
           <div class="erlang-icon"></div>
           <div class="topbar-title">
-            <xsl:value-of select="header/title"/>
+            <h1>
+              <xsl:if test="string-length($chapnum) > 0">
+                <xsl:value-of select="$chapnum"/>&#160;
+              </xsl:if>
+              <xsl:value-of select="header/title"/>
+            </h1>
           </div>
-          <div class="topbar-expand">
-            <xsl:text disable-output-escaping="yes"><![CDATA[
-            <button onclick="toggleDisplay('leftnav')">Expand</button>
-            ]]></xsl:text>
+          <xsl:variable name="show">
+            <xsl:if test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
+              <xsl:text>show show-permanent</xsl:text>
+            </xsl:if>
+          </xsl:variable>
+          <div class="topbar-expand {$show}">
+            <button onclick="toggleDisplay();">⇊</button>
           </div>
         </div>
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
+          <script id="js3" type="text/javascript" src="{$topdocdir}/js/topbar.js"></script>
           <script language="JavaScript" type="text/javascript">
             <xsl:text disable-output-escaping="yes"><![CDATA[
             <!--
-              function toggleDisplay(objId) {
-                var obj=document.getElementById(objId);
-                if (obj.classList.contains('show')) {
-                  obj.classList.remove('show');
-                } else {
-                  obj.classList.add('show');
-                }
-              }
-
               function setscrollpos() {
                 var objf=document.getElementById('loadscrollpos');
                 document.getElementById("leftnav").firstChild.scrollTop = objf.offsetTop - 10;
@@ -921,10 +921,21 @@
   <xsl:template name="menu">
     <xsl:param name="chapnum"/>
     <xsl:param name="curModule"/>
+    <xsl:variable name="show">
+      <xsl:choose>
+        <xsl:when test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
+          <xsl:text>show show-permanent</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of  select="local-name()"/>::<xsl:value-of  select="local-name(parent)"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
     <xsl:if test="(local-name() = 'part') or ((local-name() = 'chapter') and ancestor::part)">
       <!-- .../part or .../part/chapter  -->
       <xsl:call-template name="menu.ug">
         <xsl:with-param name="chapnum" select="$chapnum"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
 
@@ -938,12 +949,14 @@
 	<!-- .../internal or .../internal/chapter  -->
 	<xsl:call-template name="menu.internal.ug">
           <xsl:with-param name="chapnum" select="$chapnum"/>
+          <xsl:with-param name="show" select="$show"/>
 	</xsl:call-template>
       </xsl:when>
       <xsl:when test="(local-name() = 'internal' and descendant::erlref) or (((local-name() = 'erlref') or (local-name() = 'comref') or (local-name() = 'cref') or (local-name() = 'fileref') or (local-name() = 'appref')) and ancestor::internal)">
 	<!-- .../internal,.../internal/erlref, .../internal/comref or .../internal/cref  or .../internal/fileref or .../internal/appref -->
 	<xsl:call-template name="menu.internal.ref">
           <xsl:with-param name="curModule" select="$curModule"/>
+          <xsl:with-param name="show" select="$show"/>
 	</xsl:call-template>
       </xsl:when>
     </xsl:choose>
@@ -951,12 +964,14 @@
       <!-- .../application,.../application/erlref, .../application/comref or .../application/cref  or .../application/fileref or .../application/appref -->
       <xsl:call-template name="menu.ref">
         <xsl:with-param name="curModule" select="$curModule"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
     <xsl:if test="(local-name() = 'releasenotes') or ((local-name() = 'chapter') and ancestor::releasenotes)">
       <!-- releasenotes  -->
       <xsl:call-template name="menu.rn">
         <xsl:with-param name="chapnum" select="$chapnum"/>
+        <xsl:with-param name="show" select="$show"/>
       </xsl:call-template>
     </xsl:if>
   </xsl:template>
@@ -989,7 +1004,7 @@
           <li><a href="internal_docs.html">Internal Documentation</a></li>
       </xsl:if>
       <xsl:if test="boolean(/book/releasenotes)">
-          <li><a href="release_notes.html">Release Notes</a></li>
+          <li><a href="notes.html">Release Notes</a></li>
       </xsl:if>
       <xsl:choose>
 	<xsl:when test="string-length($pdfname) > 0">
@@ -1455,8 +1470,9 @@
   <!-- Menu.internal.chapter -->
   <xsl:template name="menu.internal.ug">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1484,7 +1500,9 @@
     <!-- Menu.internal.ref -->
   <xsl:template name="menu.internal.ref">
       <xsl:param name="curModule"/>
-      <aside id="leftnav">
+      <xsl:param name="show"/>
+      
+      <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1512,7 +1530,8 @@
 
   <!-- Menu.internal.chapter combined when we have both modules and free-form chapters -->
   <xsl:template name="menu.internal.ug_ref">
-    <aside id="leftnav">
+    <xsl:param name="show"/>
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1583,8 +1602,9 @@
   <!-- Menu.ug -->
   <xsl:template name="menu.ug">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -1745,7 +1765,9 @@
   <!-- Menu.ref -->
   <xsl:template name="menu.ref">
     <xsl:param name="curModule"/>
-    <aside id="leftnav">
+    <xsl:param name="show"/>
+
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>
@@ -2788,8 +2810,9 @@
   <!-- Menu.rn -->
   <xsl:template name="menu.rn">
     <xsl:param name="chapnum"/>
+    <xsl:param name="show"/>
 
-    <aside id="leftnav">
+    <aside class="{$show}" id="leftnav">
       <nav class="leftnav-tube">
 
         <xsl:call-template name="erlang_logo"/>

@@ -60,6 +60,10 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     display: none;
 }
 
+.mobile-only {
+    display: none;
+}
+
 @media screen and (max-width: 768px) {
     .topbar {
         display: flex;
@@ -68,12 +72,27 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         width: calc(100%-1em);
         top: 0px;
         border-bottom: 1px solid #ccc;
+        text-align: center;
+    }
+    .topbar-expand.show > button {
+        transform: rotate(180deg);
+    }
+    .topbar-expand > button {
+        transition: transform 0.35s ease;
+    }
+    .topbar-expand.show-permanent > button {
+        display: none;
     }
     .topbar-expand {
+        padding-left: 0.5em;
     }
     .topbar-title {
         text-align: center;
         flex-grow: 2;
+    }
+    .topbar-title > h1 {
+        font-size: 1.17em;
+        margin: 0px;
     }
     #container {
         grid-template-columns: 100%;
@@ -82,6 +101,11 @@ a:visited      { color: #1b6ec2; text-decoration: none }
             "content";
     }
     #content {
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+    #content h1 {
+        display: none;
     }
     #leftnav {
     }
@@ -89,9 +113,15 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         max-height: 0px;
         transition: max-height 0.35s ease;
     }
+    #leftnav:not(.show) > .leftnav-tube {
+        border-bottom: 0px;
+    }
     #leftnav.show {
         max-height: 60vh;
         transition: max-height 0.35s ease;
+    }
+    #leftnav.show-permanent {
+        max-height: none;
     }
     .leftnav-tube {
         max-height: 100%;
@@ -100,12 +130,26 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         border-bottom: 1px solid #ccc;
         margin-right: 0px;
         margin-left: 0px;
-        padding: 0px;
+        padding-top: 0px;
+        padding-bottom: 0px;
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    .show-permanent > .leftnav-tube {
+        overflow: initial;
+        max-height: none;
+        height: inherit;
+    }
+    .mobile-only {
+        display: revert;
     }
 }
 
 @media (prefers-reduced-motion: reduce){
     #leftnav.collapsing{
+        transition: none;
+    }
+    .topbar-expand > button {
         transition: none;
     }
 }
