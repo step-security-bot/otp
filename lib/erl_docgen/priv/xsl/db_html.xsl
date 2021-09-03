@@ -796,25 +796,6 @@
         </xsl:choose>
       </head>
       <body>
-        <div class="topbar">
-          <div class="erlang-icon"></div>
-          <div class="topbar-title">
-            <h1>
-              <xsl:if test="string-length($chapnum) > 0">
-                <xsl:value-of select="$chapnum"/>&#160;
-              </xsl:if>
-              <xsl:value-of select="header/title"/>
-            </h1>
-          </div>
-          <xsl:variable name="show">
-            <xsl:if test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
-              <xsl:text>show show-permanent</xsl:text>
-            </xsl:if>
-          </xsl:variable>
-          <div class="topbar-expand {$show}">
-            <button onclick="toggleDisplay();">⇊</button>
-          </div>
-        </div>
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
@@ -844,6 +825,25 @@
              //-->
 ]]></xsl:text>
           </script>
+          <div class="topbar">
+            <div class="erlang-icon"></div>
+            <div class="topbar-title">
+              <h1>
+                <xsl:if test="string-length($chapnum) > 0">
+                  <xsl:value-of select="$chapnum"/>&#160;
+                </xsl:if>
+                <xsl:value-of select="header/title"/>
+              </h1>
+            </div>
+            <xsl:variable name="show">
+              <xsl:if test="(local-name() = 'application') or (local-name() = 'part') or (local-name() = 'releasenotes')">
+                <xsl:text>show show-permanent</xsl:text>
+              </xsl:if>
+            </xsl:variable>
+            <div class="topbar-expand {$show}">
+              <button onclick="toggleDisplay();">⇊</button>
+            </div>
+          </div>
           <!-- Generate menu -->
           <xsl:call-template name="menu">
             <xsl:with-param name="chapnum" select="$chapnum"/>
