@@ -20,20 +20,33 @@ limitations under the License.
 -->
 
 <html>
-<head>
+  <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
+  <meta charset="utf-8"></meta>
   <link rel="stylesheet" href="otp_doc.css" type="text/css"/>
   <title>Erlang/OTP #otp_base_vsn#</title>
 
 <script id="js" type="text/javascript" language="JavaScript" src="js/flipmenu/flipmenu.js">
-
+</script>
+<script id="js2" type="text/javascript" language="JavaScript" src="js/topbar.js">
 </script>
 </head> 
 
 <body>
-
+  <div class="topbar">
+    <div class="erlang-icon"></div>
+    <div class="topbar-title">
+      <h1>
+        Erlang/OTP #otp_base_vsn#
+      </h1>
+    </div>
+    <div class="topbar-expand">
+      <button onclick="toggleDisplay();">⇊</button>
+    </div>
+  </div>
 <div id="container">
-<div id="leftnav">
-<div class="leftnav-tube">
+<aside id="leftnav">
+<nav class="leftnav-tube">
 <div class="erlang-logo-wrapper">
  <img alt="Erlang logo" src="erlang-logo.png" class="erlang-logo"/ >
 </div>
@@ -78,8 +91,8 @@ limitations under the License.
 #applinks#
 </ul>
 
-</div>
-</div>
+</nav>
+</aside>
 
 
 <div id="content">
@@ -92,7 +105,9 @@ limitations under the License.
     <h2>Some hints that may get you started faster</h2>
 
 <ul>
-
+  <li class="mobile-only">
+    The navigation menu can be accessed by clicking the ⇊ symbol in the top right corner.
+  </li>
 <li>
 The Erlang language is described in the 
 <a href="reference_manual/users_guide.html">Erlang Reference Manual</a>. 
