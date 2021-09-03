@@ -1,18 +1,24 @@
 /* standard OTP style sheet */
+/* We use three responsive breakpoints:
+ * 768px - mobile
+ * 992px - small screen
+ * 1200px - medium screen
+ * default - large screen
+*/
 body {
-  background: #fefefe;
-  color: #1a1a1a;
-  font-family: sans-serif;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  max-height: 100%;
-  line-height: 1.2em;
-  font-size: 16px;
+    background: #fefefe;
+    color: #1a1a1a;
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    max-height: 100%;
+    line-height: 1.2em;
+    font-size: 16px;
 }
 
 h1, h2, h3, h4, h5, h6{
- line-height: 1.2em;
+    line-height: 1.2em;
 }
 
 p             { max-width: 42em }
@@ -32,8 +38,6 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     display: grid;
     grid-template-columns: 1fr 5fr;
     grid-template-areas: "leftnav content";
-    margin: 0;
-    background-color: #fefefe;
 }
 
 #leftnav {
@@ -43,9 +47,9 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 .leftnav-tube {
     top: 0;
     margin-left: 15px;
-    margin-right: 15px;
     position: sticky;
     height: 100vh;
+    max-width: 250px;
     overflow: auto;
     padding: 1px;
     border-right: 1px solid #ccc;
@@ -53,18 +57,38 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 
 #content {
     grid-area: content;
-    max-width: min(52em, 100%);
+    max-width: 52em;
+    margin-left: 30px;
+}
+
+@media screen and (max-width: 1200px) {
+    #content {
+        margin-left: 0px;
+    }
+}
+
+@media screen and (max-width: 992px) {
+    #content {
+        max-width: 35em;
+    }
 }
 
 .topbar {
-    display: none;
-}
-
-.mobile-only {
+    grid-area: topbar;
     display: none;
 }
 
 @media screen and (max-width: 768px) {
+
+    #container {
+        grid-template-columns: 100%;
+        grid-template-areas:
+            "topbar"
+            "leftnav"
+            "content";
+    }
+
+    /* styling for the top bar */
     .topbar {
         display: flex;
         position: relative;
@@ -75,6 +99,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         text-align: center;
     }
     .topbar-expand.show > button {
+        /* When we add the "show" class we rotate the button 180deg */
         transform: rotate(180deg);
     }
     .topbar-expand > button {
@@ -94,21 +119,23 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         font-size: 1.17em;
         margin: 0px;
     }
-    #container {
-        grid-template-columns: 100%;
-        grid-template-areas:
-            "leftnav"
-            "content";
-    }
+
+    /* Break words on mobile */
     #content {
         overflow-wrap: break-word;
         word-wrap: break-word;
+        margin-left: 0px;
+        max-width: 100%;
     }
+    p {
+        max-width: 100%;
+    }
+    /* The h1 is part of the topbar on mobile */
     #content h1 {
         display: none;
     }
-    #leftnav {
-    }
+
+    /* Styling of the navbar when shown/hidden */
     #leftnav:not(.show) {
         max-height: 0px;
         transition: max-height 0.35s ease;
@@ -120,11 +147,10 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         max-height: 60vh;
         transition: max-height 0.35s ease;
     }
-    #leftnav.show-permanent {
-        max-height: none;
-    }
+    
     .leftnav-tube {
         max-height: 100%;
+        max-width: 100%;
         position: unset;
         border-right: 0px;
         border-bottom: 1px solid #ccc;
@@ -135,13 +161,13 @@ a:visited      { color: #1b6ec2; text-decoration: none }
         padding-left: 15px;
         padding-right: 15px;
     }
+    #leftnav.show-permanent {
+        max-height: none;
+    }
     .show-permanent > .leftnav-tube {
         overflow: initial;
         max-height: none;
         height: inherit;
-    }
-    .mobile-only {
-        display: revert;
     }
 }
 
@@ -154,27 +180,35 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     }
 }
 
-.frontpage 
-{
-  padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
+.frontpage {
+    padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
 }
 
-@media screen and (min-width: 992px) {
-    .innertube 
-    {
-        margin-right: 11em;
+.mobile-only {
+    display: none;
+}
+
+@media screen and (max-width: 768px) {
+    .mobile-only {
+        display: revert;
     }
 }
 
 .innertube {
-    margin-left: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
-    margin-right: 2em;
+    margin-right: 11em; /* Magins for inner DIV inside each DIV (to provide padding) */
+    margin-left: 2em;
 }
 
-.footer 
-{
-  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
-  text-align: center;
+@media screen and (max-width: 1200px) {
+    .innertube {
+        margin-left: 15px;
+        margin-right: 15px;
+    }
+}
+
+.footer {
+    margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+    text-align: center;
 }
 
 .bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
@@ -208,7 +242,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     margin-left: auto;
 }
 
-@media screen and (max-width: 992px) {
+@media screen and (max-width: 768px) {
     .cref-head, .func-head, .data-type-name {
         margin-left: 0em;
         padding-bottom: 0em;
@@ -226,62 +260,62 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 .code        {
- font-family: mono, Courier, monospace;
- font-weight: normal;
- background-color: #f3f3f3;
+    font-family: mono, Courier, monospace;
+    font-weight: normal;
+    background-color: #f3f3f3;
 }
 
 .note, .warning, .do, .dont {
-  border: 1px solid #495057;
-  margin: 1em 0;
+    border: 1px solid #495057;
+    margin: 1em 0;
 }
 .note .label {
-  background-color: #2b8a3e;
-  color: #fefefe;
-  font-weight: bold;
-  padding: 0.5em 1em;
+    background-color: #2b8a3e;
+    color: #fefefe;
+    font-weight: bold;
+    padding: 0.5em 1em;
 }
 .note .content {
-  background: #f8f9fa;
-  line-height: 120%;
-  font-size: 0.9em;
-  padding: 0.5em 1em;
+    background: #f8f9fa;
+    line-height: 120%;
+    font-size: 0.9em;
+    padding: 0.5em 1em;
 }
 .warning .label {
-  background: #c92a2a;
-  color: #fefefe;
-  font-weight: bold;
-  padding: 0.5em 1em;
+    background: #c92a2a;
+    color: #fefefe;
+    font-weight: bold;
+    padding: 0.5em 1em;
 }
 .warning .content {
-  background-color: #f8f9fa;
-  line-height: 120%;
-  font-size: 0.9em;
-  padding: 0.5em 1em;
+    background-color: #f8f9fa;
+    line-height: 120%;
+    font-size: 0.9em;
+    padding: 0.5em 1em;
 }
 .do .label {
-  background-color: #2b8a3e;
-  color: #fefefe;
-  font-weight: bold;
-  padding: 0.5em 1em;
+    background-color: #2b8a3e;
+    color: #fefefe;
+    font-weight: bold;
+    padding: 0.5em 1em;
 }
 .do .content {
-  background: #f8f9fa;
-  line-height: 120%;
-  font-size: 0.9em;
-  padding: 0.5em 1em;
+    background: #f8f9fa;
+    line-height: 120%;
+    font-size: 0.9em;
+    padding: 0.5em 1em;
 }
 .dont .label {
-  background: #c92a2a;
-  color: #fefefe;
-  font-weight: bold;
-  padding: 0.5em 1em;
+    background: #c92a2a;
+    color: #fefefe;
+    font-weight: bold;
+    padding: 0.5em 1em;
 }
 .dont .content {
-  background-color: #f8f9fa;
-  line-height: 120%;
-  font-size: 0.9em;
-  padding: 0.5em 1em;
+    background-color: #f8f9fa;
+    line-height: 120%;
+    font-size: 0.9em;
+    padding: 0.5em 1em;
 }
 
 .quote {
@@ -289,81 +323,80 @@ a:visited      { color: #1b6ec2; text-decoration: none }
 }
 
 .example {
-  background-color:#f1f3f5;
-  border: 1px solid #dee2e6;
-  padding: 0.5em 1em;
-  margin: 1em 0;
-  font-size: 0.7em;
-  overflow: auto;
-  max-width: min(100%, 48em);
+    background-color:#f1f3f5;
+    border: 1px solid #dee2e6;
+    padding: 0.5em 1em;
+    margin: 1em 0;
+    font-size: 0.7em;
+    overflow: auto;
+    max-width: min(100%, 48em);
 }
 .extrafrontpageinfo {
-  color: #C00;
-  font-weight: bold;
-  font-size: 1.2em;
+    color: #C00;
+    font-weight: bold;
+    font-size: 1.2em;
 }
 
 pre {
- font-family: mono, Courier, monospace;
- font-weight: normal;
- margin: 0;
+    font-family: mono, Courier, monospace;
+    font-weight: normal;
+    margin: 0;
 }
 
-.data-types-body, .REFBODY{
- margin-left: 1em;
+
+.data-types-body, .REFBODY {
+    margin-left: 2em;
 }
-.REFTYPES    { margin-left: 0.75em }
+.REFTYPES    { margin-left: 1.5em }
 .exports-body {
-    margin-left: 1em;
+    margin-left: 3em;
 }
 
-@media screen and (min-width: 992px) {
-
+@media screen and (max-width: 768px) {
     .data-types-body, .REFBODY{
-        margin-left: 2em;
+        margin-left: 1em;
     }
-    .REFTYPES    { margin-left: 1.5em }
+    .REFTYPES    { margin-left: 0.75em }
     .exports-body {
-        margin-left: 3em;
+        margin-left: 1em;
     }
 }
 
-.exports-tube
-{
-    margin-right: 2em;
+.exports-tube {
+    margin-right: 11em;
 }
 
-@media screen and (min-width: 992px) {
-    .exports-tube
-    {
-        margin-right: 11em;
+@media screen and (max-width: 768px) {
+    .exports-tube {
+        margin-right: 2em;
     }
 }
 
 footer       { }
 
 .erlang-logo-wrapper{
- text-align: center;
- margin-bottom: 1em;
+    text-align: center;
+    margin-top: 1em;
+    margin-bottom: 1em;
 }
 
 .main-title{
- text-align: center;
+    text-align: center;
 }
 
 .main-description{
- text-align: center;
- margin: 2em 0;
- font-size: 1.5em;
- line-height: 1.5em;
+    text-align: center;
+    margin: 2em 0;
+    font-size: 1.5em;
+    line-height: 1.5em;
 }
 
 .doc-table-wrapper, .doc-image-wrapper{
- width: 100%;
+    width: 100%;
 }
 
 .doc-image-wrapper{
- text-align: center;
+    text-align: center;
 }
 
 .doc-svg {
@@ -371,60 +404,60 @@ footer       { }
 }
 
 .doc-table, .doc-image{
- min-width: 50%;
- margin: 0 auto;
- font-size: 0.7em;
+    min-width: 50%;
+    margin: 0 auto;
+    font-size: 0.7em;
 }
 
 .doc-table-caption, .doc-image-caption{
- margin-top: 1em;
- font-style: italic;
- text-align: center;
+    margin-top: 1em;
+    font-style: italic;
+    text-align: center;
 }
 
 table {
- border-collapse: collapse;
- min-width: 50%;
- margin: 1em;
+    border-collapse: collapse;
+    min-width: 50%;
+    margin: 1em;
 }
 
 table, th, td {
- border: 1px solid #666;
+    border: 1px solid #666;
 }
 
 th, td {
- padding: 0.5em;
- text-align: left;
+    padding: 0.5em;
+    text-align: left;
 }
 
 tr:hover {
- background-color: #f5f5f5;
+    background-color: #f5f5f5;
 }
 
 tr:nth-child(even) {
- background-color: #f2f2f2;
+    background-color: #f2f2f2;
 }
 
 th {
- background-color: #777;
- color: #fefefe;
+    background-color: #777;
+    color: #fefefe;
 }
 
 .section-title, .section-subtitle, .section-version{
- text-align: center;
- margin: 0;
+    text-align: center;
+    margin: 0;
 }
 
 .section-title{
- font-weight: bold;
+    font-weight: bold;
 }
 
 .section-version{
- font-size: small;
+    font-size: small;
 }
 
 .expand-collapse-items{
- font-size: small;
+    font-size: small;
 }
 
 .title_link {
@@ -473,24 +506,24 @@ th {
 }
 
 hr{
-  border: 0;
-  border-top: 1px solid #aaa;
+    border: 0;
+    border-top: 1px solid #aaa;
 }
 
 .section-links, .panel-sections, .expand-collapse-items{
- padding: 0 1em;
+    padding: 0 1em;
 }
 
 .section-links, .panel-sections{
- margin-top: 0;
+    margin-top: 0;
 }
 
 a > .code {
- color: #1862ab;
+    color: #1862ab;
 }
 
 .func-types-title{
- font-size: 1em;
+    font-size: 1em;
 }
 
 .since{
