@@ -1267,7 +1267,7 @@ static void bp_hash_rehash(bp_time_hash_t *hash) {
     Uint size;
     Uint hval;
 
-    ASSERT(n > 0);
+    ASSERT(old_n > 0);
 
     hash->n++;
     hash->mask = ((1 << hash->n) - 1);
