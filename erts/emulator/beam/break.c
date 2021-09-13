@@ -803,6 +803,10 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
      * data about the currently running processes and scheduler data.
      * We have to be very very careful when doing this as the schedulers
      * could be anywhere.
+     *
+     * IMPORTANT!!! None of the code below may call libc code that calls malloc
+     *              as that may cause a deadlock if a schedule is currently
+     *              holding the lock.
      */
     sys_init_suspend_handler();
 
@@ -892,6 +896,11 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     if (fd < 0)
 	return; /* Can't create the crash dump, skip it */
 
+
+#ifndef ERTS_SYS_SUSPEND_SIGNAL
+    /* If schedulers are suspended we cannot call fdopen as it will call
+       malloc, which may cause a deadlock. So we use skip using buffered output
+       until after we release the schedulers again */
     /*
      * Wrap into a FILE* so that we can use buffered output. Set an
      * explicit buffer to make sure the first write does not fail because
@@ -902,7 +911,9 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
         setvbuf(fp, write_buffer, _IOFBF, WRITE_BUFFER_SIZE);
         lwi.to = &erts_write_fp;
         lwi.to_arg = (void*)fp;
-    } else {
+    } else
+#endif
+    {
         lwi.to = &erts_write_fd;
         lwi.to_arg = (void*)&fd;
     }
@@ -914,7 +925,7 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     }
 
     time(&now);
-    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.5\n%s", ctime(&now));
+    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.5\n%s", ctime_r(&now, dumpnamebuf));
 
     if (file != NULL)
        erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
@@ -986,8 +997,18 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
         if (!erts_equal_tids(tid,erts_thr_self()))
 	    sys_thr_resume(tid);
     }
-#endif
 
+    write_buffer = (char *) erts_alloc_fnf(ERTS_ALC_T_TMP, WRITE_BUFFER_SIZE);
+    if (write_buffer && (fp = fdopen(fd, "w")) != NULL) {
+        setvbuf(fp, write_buffer, _IOFBF, WRITE_BUFFER_SIZE);
+        lwi.to = &erts_write_fp;
+        lwi.to_arg = (void*)fp;
+        if (to != &crash_dump_limited_writer) {
+            to = lwi.to;
+            to_arg = lwi.to_arg;
+        }
+    }
+#endif
     /*
      * Wait for all managed threads to block. If all threads haven't blocked
      * after a minute, we go anyway and hope for the best...
