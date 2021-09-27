@@ -261,7 +261,9 @@ last(E, L) -> badarg_with_info([E, L]).
 
 seq(First, Last)
     when is_integer(First), is_integer(Last), First-1 =< Last -> 
-    seq_loop(Last-First+1, Last, []).
+    seq_loop(Last-First+1, Last, []);
+seq(First, Last) ->
+    badarg_with_info([First,Last]).
 
 seq_loop(N, X, L) when N >= 4 ->
      seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
@@ -308,7 +310,8 @@ seq_loop(0, _, _, L) ->
 sum(L)          -> sum(L, 0).
 
 sum([H|T], Sum) -> sum(T, Sum + H);
-sum([], Sum)    -> Sum.
+sum([], Sum)    -> Sum;
+sum(List, Sum) -> badarg_with_info([List, Sum]).
 
 %% duplicate(N, X) -> [X,X,X,.....,X]  (N times)
 %%   return N copies of X
@@ -319,7 +322,8 @@ sum([], Sum)    -> Sum.
       List :: [T],
       T :: term().
 
-duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
+duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []);
+duplicate(N, X) -> badarg_with_info([N, X]).
 
 duplicate(0, _, L) -> L;
 duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
@@ -331,11 +335,13 @@ duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
       Min :: T,
       T :: term().
 
-min([H|T]) -> min(T, H).
+min([H|T]) -> min(T, H);
+min(L) -> badarg_with_info([L]).
 
 min([H|T], Min) when H < Min -> min(T, H);
 min([_|T], Min)              -> min(T, Min);
-min([],    Min)              -> Min. 
+min([],    Min)              -> Min;
+min(L,     Min) -> badarg_with_info([L, Min]).
 
 %% max(L) -> returns the maximum element of the list L
 
@@ -344,11 +350,13 @@ min([],    Min)              -> Min.
       Max :: T,
       T :: term().
 
-max([H|T]) -> max(T, H).
+max([H|T]) -> max(T, H);
+max(L) -> badarg_with_info([L]).
 
 max([H|T], Max) when H > Max -> max(T, H);
 max([_|T], Max)              -> max(T, Max);
-max([],    Max)              -> Max.
+max([],    Max)              -> Max;
+max(L,     Max) -> badarg_with_info([L, Max]).
 
 %% sublist(List, Start, Length)
 %%  Returns the sub-list starting at Start of length Length.
@@ -362,10 +370,12 @@ max([],    Max)              -> Max.
 
 sublist(List, 1, L) when is_list(List), is_integer(L), L >= 0 ->
     sublist(List, L);
-sublist([], S, _L) when is_integer(S), S >= 2 ->
+sublist([], S, L) when is_integer(S), is_integer(L), S >= 2 ->
     [];
-sublist([_H|T], S, L) when is_integer(S), S >= 2 ->
-    sublist(T, S-1, L).
+sublist([_H|T], S, L) when is_integer(S), is_integer(L), S >= 2 ->
+    sublist(T, S-1, L);
+sublist(List, S, L) -> badarg_with_info([List, S, L]).
+
 
 -spec sublist(List1, Len) -> List2 when
       List1 :: [T],
@@ -373,15 +383,14 @@ sublist([_H|T], S, L) when is_integer(S), S >= 2 ->
       Len :: non_neg_integer(),
       T :: term().
 
-sublist(List, L) when is_integer(L), is_list(List) ->
-    sublist_2(List, L).
-
-sublist_2([H|T], L) when L > 0 ->
-    [H|sublist_2(T, L-1)];
-sublist_2(_, 0) ->
+sublist([H|T], L) when is_integer(L), L > 0 ->
+    [H|sublist(T, L-1)];
+sublist(List, 0) when is_list(List) ->
     [];
-sublist_2(List, L) when is_list(List), L > 0 ->
-    [].
+sublist(List, L) when is_list(List), is_integer(L), L > 0 ->
+    [];
+sublist(List, L) -> badarg_with_info([List, L]).
+
 
 %% delete(Item, List) -> List'
 %%  Delete the first occurrence of Item from the list L.

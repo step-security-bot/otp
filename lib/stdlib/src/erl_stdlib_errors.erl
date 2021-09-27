@@ -196,12 +196,31 @@ format_lists_error(droplast, [L]) ->
 format_lists_error(last, [L]) ->
     [must_be_list(L)];
 format_lists_error(last, [_, L]) ->
-    [[],must_be_list(L)].
-%% format_lists_error(seq, [First, Last]) ->
-%%     if
-%%         is_integer(First), is_integer(Last) ->
-            
-
+    [[],must_be_list(L)];
+format_lists_error(seq, [First, Last]) ->
+    if
+        is_integer(First), is_integer(Last) ->
+            if First-1 > Last ->
+                    [[],<<"must be greater or equal to First-1">>];
+               true ->
+                    [[],[]]
+            end;
+        true ->
+            [must_be_integer(First),must_be_integer(Last)]
+    end;
+format_lists_error(sum, [L, _]) ->
+    [must_be_list(L),[]];
+format_lists_error(duplicate, [N, _]) ->
+    [must_be_non_neg_integer(N),[]];
+format_lists_error(min, [L | _]) ->
+    [must_be_list(L)];
+format_lists_error(max, [L | _]) ->
+    [must_be_list(L)];
+format_lists_error(sublist, [List, Start, Len]) ->
+    [must_be_list(List), must_be_integer(Start, 1, infinity),
+     must_be_non_neg_integer(Len)];
+format_lists_error(sublist, [List, Len]) ->
+    [must_be_list(List), must_be_non_neg_integer(Len)].
 
 
 format_maps_error(filter, Args) ->
