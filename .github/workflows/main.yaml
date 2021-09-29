@@ -38,7 +38,6 @@ jobs:
           name: otp_git_archive
           path: otp_src.tar.gz
 
-
   build-windows:
     defaults:
       run:
