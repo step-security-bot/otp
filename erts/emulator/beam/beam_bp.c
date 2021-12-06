@@ -1162,7 +1162,7 @@ int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *retval) {
 		bp_data_time_item_t *sitem;
 
 	        /* foreach hash bucket not NIL*/
-		for(ix = 0; ix < bdt->hash[i].n; ix++) {
+		for(ix = 0; ix < (1ull << bdt->hash[i].n); ix++) {
 		    item = &(bdt->hash[i].item[ix]);
 		    if (item->pid != NIL) {
 			sitem = bp_hash_get(&hash, item);
@@ -1245,12 +1245,12 @@ static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
 
     hash->n    = n;
     hash->used = 0;
-    hash->mask = ((1 << hash->n) - 1);
+    hash->mask = ((1ull << hash->n) - 1);
 
     hash->item = (bp_data_time_item_t *)Alloc(size);
     sys_memzero(hash->item, size);
 
-    for(i = 0; i < (1 << n); ++i) {
+    for(i = 0; i < (1ull << n); ++i) {
 	hash->item[i].pid = NIL;
     }
 }
@@ -1508,7 +1508,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	    bp->flags |= ERTS_BPF_TIME_TRACE_ACTIVE;
 	    for (i = 0; i < bdt->n; i++) {
 		bp_hash_delete(&(bdt->hash[i]));
-		bp_hash_init(&(bdt->hash[i]), 32);
+		bp_hash_init(&(bdt->hash[i]), 5);
 	    }
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
