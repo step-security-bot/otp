@@ -11,7 +11,7 @@ on:
 jobs:
 
   sync-releases:
-    if: github.repository == 'erlang/otp'
+    if: github.repository == 'garazdawi/otp' && false
     concurrency: sync-github-releases
     runs-on: ubuntu-latest
     steps:
@@ -28,14 +28,14 @@ jobs:
           "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
 
   sync-prs:
-    if: github.repository == 'erlang/otp'
+    if: github.repository == 'garazdawi/otp'
     concurrency: erlang.github.io-deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
-          repository: 'erlang/erlang.github.io'
+          repository: 'garazdawi/erlang.github.io'
           path: erlang.github.io
       - uses: actions/checkout@v2
       - name: Update PRs
@@ -46,12 +46,12 @@ jobs:
             (cd jsx && rebar3 compile)
             rm -rf "${GITHUB_WORKSPACE}/erlang.github.io/.git"
             mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
-            .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+            .github/scripts/sync-github-prs.es garazdawi/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
       - name: Deploy to github pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4.2.2
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           branch: master # The branch the action should deploy to.
           folder: erlang.github.io # The folder the action should deploy.
-          repository-name: erlang/erlang.github.io
+          repository-name: garazdawi/erlang.github.io
           single-commit: true

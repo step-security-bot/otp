@@ -12,7 +12,7 @@ jobs:
 
   build:
     name: Update base Erlang/OTP build images
-    if: github.repository == 'erlang/otp'
+    if: github.repository == 'garazdawi/otp'
     runs-on: ubuntu-latest
 
     strategy:
@@ -30,7 +30,7 @@ jobs:
       - name: Calculate BASE image
         id: base
         run: |
-          echo "::set-output name=BASE_TAG::docker.pkg.github.com/erlang/otp/${{ matrix.type }}"
+          echo "::set-output name=BASE_TAG::docker.pkg.github.com/garazdawi/otp/${{ matrix.type }}"
           .github/scripts/base-tag "${{ matrix.type }}"
       - name: Build base image
         run: |
