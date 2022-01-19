@@ -56,7 +56,7 @@ handle_pr(Repo, Target,
     Runs = ghapi(["gh api --paginate -X GET /repos/"++Repo++"/actions/runs -f event=pull_request -f 'branch=",Ref,"'"]),
     io:format("All runs ~p~n", [maps:get(<<"workflow_runs">>, Runs)]),
     case lists:search(
-           fun(#{ <<"head_sha">> := HeadSha }) ->
+           fun(#{ <<"head_sha">> := HeadSha, <<"status">> := <<"completed">> }) ->
                    string:equal(HeadSha, Sha)
            end, maps:get(<<"workflow_runs">>, Runs)) of
         {value, Run} ->
