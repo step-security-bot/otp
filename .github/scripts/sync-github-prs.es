@@ -46,9 +46,12 @@ handle_prs(Repo, Target, AllPRs) ->
 %% See https://github.community/t/retrieve-workflow-id-for-a-given-pr/199745/4
 %%   for a discussion about this.
 %%
+handle_pr(Repo, Target, PR) ->
+          handle_pr(Repo, Target, PR, 5).
 handle_pr(Repo, Target,
           #{ <<"number">> := Number,
-             <<"head">> := #{ <<"ref">> := Ref, <<"sha">> := Sha } }) ->
+             <<"head">> := #{ <<"ref">> := Ref, <<"sha">> := Sha } } = PR,
+          Retries) ->
     PRDir = filename:join(Target,integer_to_list(Number)),
     Runs = ghapi(["gh api --paginate -X GET /repos/"++Repo++"/actions/runs -f event=pull_request -f 'branch=",Ref,"'"]),
     case lists:search(
@@ -99,7 +102,17 @@ handle_pr(Repo, Target,
                     ok
             end;
         false ->
-            ok
+            io:format("Could not find run: ~ts~nworkflow_runs: ~p~n",
+                      [Sha, maps:get(<<"workflow_runs">>, Runs)]),
+            if Cnt > 0 ->
+                    %% Sometimes there is a delay in when the workflow run
+                    %% is visible, so we retry a couple of times
+                    io:format("Trying again in 10 seconds~n"),
+                    timer:sleep(10 * 1000),
+                    handle_pr(Repo, Target, PR, Retries - 1);
+               true ->
+                    io:format("Giving up~p")
+            end
     end.
 
 ghapi(CMD) ->
