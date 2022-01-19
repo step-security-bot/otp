@@ -60,6 +60,7 @@ handle_pr(Repo, Target,
            end, maps:get(<<"workflow_runs">>, Runs)) of
         {value, Run} ->
             Ident = integer_to_list(maps:get(<<"id">>,Run)),
+            io:format("Checking for ~ts~n", [filename:join(PRDir, Ident)]),
             case file:read_file_info(filename:join(PRDir, Ident)) of
                 {error, enoent} ->
                     cmd("rm -rf "++PRDir),
