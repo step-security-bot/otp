@@ -104,14 +104,14 @@ handle_pr(Repo, Target,
         false ->
             io:format("Could not find run: ~ts~nworkflow_runs: ~p~n",
                       [Sha, maps:get(<<"workflow_runs">>, Runs)]),
-            if Cnt > 0 ->
+            if Retries > 0 ->
                     %% Sometimes there is a delay in when the workflow run
                     %% is visible, so we retry a couple of times
                     io:format("Trying again in 10 seconds~n"),
                     timer:sleep(10 * 1000),
                     handle_pr(Repo, Target, PR, Retries - 1);
                true ->
-                    io:format("Giving up~p")
+                    io:format("Giving up~n")
             end
     end.
 
