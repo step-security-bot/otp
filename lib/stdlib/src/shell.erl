@@ -82,9 +82,9 @@ whereis_evaluator() ->
 			[{shell,Shell}] ->
 			    whereis_evaluator(Shell)
 		    end;
-		[{user_drv,UserDrv}] ->
+		[{user_drv,{UserDrv, UserMod}}] ->
 		    %% get current group pid from user_drv
-		    case user_drv:interfaces(UserDrv) of
+		    case UserMod:interfaces(UserDrv) of
 			[] ->
 			    undefined;
 			[{current_group,Group}] ->

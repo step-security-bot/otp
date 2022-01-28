@@ -35,7 +35,7 @@ server(Drv, Shell, Options) ->
     edlin:init(),
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
-    put(user_drv, Drv),
+    put(user_drv, {Drv, proplists:get_value(user_mod, Options, user_drv)}),
     put(expand_fun,
 	proplists:get_value(expand_fun, Options,
 			    fun(B) -> edlin_expand:expand(B) end)),

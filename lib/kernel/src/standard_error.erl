@@ -245,8 +245,8 @@ getopts() ->
     {ok,[Uni]}.
 
 wrap_characters_to_binary(Chars,From,To) ->
-    TrNl = (whereis(user_drv) =/= undefined),
-    Limit = case To of 
+    TrNl = group:interfaces(whereis(user)) =:= [],
+    Limit = case To of
 		latin1 ->
 		    255;
 		_Else ->
