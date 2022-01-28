@@ -1163,6 +1163,8 @@ OS_OBJS = \
 	$(OBJDIR)/sys_time.o \
 	$(OBJDIR)/sys_signal_stack.o
 
+NIF_OBJS += $(OBJDIR)/prim_tty_nif.o
+
 DRV_OBJS = \
 	$(OBJDIR)/inet_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
