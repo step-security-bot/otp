@@ -68,7 +68,7 @@ This is the short story though, for the experienced and impatient:
         <http://www.erlang.org/download.html>) and unpack with `tar`
         to the windows disk for example to: /mnt/c/src/
 
-    *   Install mingw-gcc, and make: `sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
+    *   Install mingw-gcc, and make: `sudo apt update && sudo apt install g++-mingw-w64 gcc-mingw-w64 make`
 
     *   `$ cd UNPACK_DIR`
 
