@@ -36,6 +36,8 @@
 %%    * The current implementation only allows the cursor to move and edit on current line
 %%
 %% Concepts to keep in mind:
+%%   Code point: A single unicode "thing", examples: "a", "😀" (unicode smilie)
+%%   Grapheme cluster: One or more code points, "
 %%   Logical character: Any character that the user typed or printed.
 %%            One unicode grapheme cluster is a logical character
 %%        Examples: "a", "\t", "😀" (unicode smilie), "\x{1F600}", "\e[0m" (ansi sequences),
@@ -55,6 +57,31 @@
 %%
 %%  In the current ttysl_drv and also this implementation there are never any newlines
 %%  in the buffer.
+%%
+%%  Printing of unicode characters:
+%%    Read this post: https://jeffquast.com/post/terminal_wcwidth_solution/
+%%    Summary: the wcwidth implementation in libc is often lacking. So we should
+%%        create our own. We can get the size of all unicode graphemes by rendering
+%%        them on a terminal and see how much the cursor moves. We can query where the
+%%        cursor is by using "\033[6n"[1]. How many valid grapheme clusters are there?
+%%
+%%    On consoles that does support fetching the surrent cursor position, we may get
+%%    away with only using that to check where we are and where to go. And on consoles
+%%    that do not we just have to make a best effort and use libc wcwidth.
+%%
+%%    We need to know the width of characters when:
+%%      * Printing a \t
+%%      * Compensating for xn
+%% [1]: https://www.linuxquestions.org/questions/programming-9/get-cursor-position-in-c-947833/
+%%    Notes:
+%%      [129306,127996] (hand with skintone), seems to move the cursor more than it should...
+%%      edlin and user needs to agree on what one "character" is, right now edlin uses
+%%      code points and not grapheme clusters.
+%%
+%%  Windows:
+%%    Since 2017:ish we can use Virtual Terminal Sequences[2] to control the terminal.
+%%    It seems like these are mostly ANSI escape comparitible, so it should be possible
+%%    to just use the same mechanism on windows and unix.
 
 -export([init/1, window_size/1, unicode/1, unicode/2,
          putc_sync/2, putc/2, move/2, insert/2, delete/2,
@@ -64,17 +91,21 @@
 -nifs([isatty/1, tty_init/2, tty_set/1, tty_termcap/2, setlocale/0,
        tty_select/2, tty_window_size/1, write/2, isprint/1, wcwidth/1, wcswidth/1,
        sizeof_wchar/0]).
+-export([isprint/1,wcwidth/1, wcswidth/1, sizeof_wchar/0]).
 
 -record(state, {tty, utf8, parent,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
-                pos = 0,             %% Current cursor position in characters
-                len = 0,              %% Current line length
                 width = 80,
-                up = [27,91,65],
+                up = "\e[A",
                 down = [10],
                 left = [8],
-                right = [27,91,67]
+                right = "\e[C",
+                tab = "\e[1I",  %% Tab to next 8 column
+                position = "\e[6n",
+                position_reply = "\e[([0-9]+);([0-9]+)R",
+                %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
+                ansi_regexp = <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>
                }).
 
 -spec on_load() -> ok.
@@ -147,6 +178,7 @@ init(Ref, Parent, Options) ->
        end, undefined}
      ),
     dbg:p(self(), [c, r]),
+    dbg:p(Parent, [c, r]),
     dbg:tpl(?MODULE, write, x),
     dbg:tpl(?MODULE, dbg, []),
     true = isatty(0),
@@ -178,7 +210,12 @@ init(Ref, Parent, Options) ->
     {error, not_printable} = wcwidth($\n),
 
     Parent ! {Ref, TTY},
-    loop(#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent }).
+    try
+        loop(#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent })
+    catch E:R:ST ->
+            erlang:display({E,R,ST}),
+            erlang:raise(E,R,ST)
+    end.
 
 loop(State) ->
     dbg({State#state.buffer_before,
@@ -217,7 +254,7 @@ handle_request(State, {delete, N}) when N > 0 ->
     write(State#state.tty,
           [unicode:characters_to_binary(
             [NewBA, lists:duplicate(DelNum, $\s),
-             xnfix(State, BBCols + NewBACols + DelNum),
+             xnfix(State),
              move_cursor(State,
                          BBCols + NewBACols + DelNum,
                          BBCols)])]),
@@ -230,7 +267,7 @@ handle_request(State, {delete, N}) when N < 0 ->
           [unicode:characters_to_binary(
             [move_cursor(State, NewBBCols + DelCols, NewBBCols),
              State#state.buffer_after, lists:duplicate(DelNum, $\s),
-             xnfix(State, NewBBCols + BACols + DelNum),
+             xnfix(State),
              move_cursor(State, NewBBCols + BACols + DelNum, NewBBCols)])]),
     State#state{ buffer_before = NewBB };
 handle_request(State, {delete, 0}) ->
@@ -312,55 +349,63 @@ cols([Char | T]) when is_integer(Char) ->
 cols([Chars | T]) ->
     length(Chars)  + cols(T).
 
-xnfix(State, Column) ->
-    if Column rem State#state.width == 0 ->
-            [$\s,move(left,State, 1)];
-       true ->
-            []
-    end.
+xnfix(State) ->
+    [$\s,move(left,State,1)].
 
 insert_buf(State, Binary) when is_binary(Binary) ->
-    insert_buf(State, State#state.pos,
-               unicode:characters_to_list(Binary), []).
-insert_buf(State, Pos, [], Acc) ->
-    ReverseAcc = lists:reverse(Acc),
-    NewBB = Acc ++ State#state.buffer_before,
-    write(State#state.tty,
-          [unicode:characters_to_binary([ReverseAcc,xnfix(State,cols(NewBB))])]),
-    State#state{ buffer_before = NewBB, pos = Pos };
-insert_buf(#state{ utf8 = Utf8 } = State, Pos, [Char | Rest], Acc) ->
-    WcWidth = wcwidth(Char),
-    IsPrintable = WcWidth =/= {error, not_printable},
-    if
-        (Utf8 andalso (Char >= 128 orelse IsPrintable));
-        (Char =< 255 andalso IsPrintable) ->
-            insert_buf(State, Pos + 1, Rest, [Char | Acc]);
-        Char =:= $\t ->
-            ok;
-        Char =:= $\e ->
-            ok;
-        Char =:= $\r; Char =:= $\n ->
+    insert_buf(State, Binary, []).
+insert_buf(State, Bin, Acc) ->
+    case string:next_grapheme(Bin) of
+        [] ->
+            ReverseAcc = lists:reverse(Acc),
+            NewBB = Acc ++ State#state.buffer_before,
+            write(State#state.tty,
+                  [unicode:characters_to_binary(
+                     [ReverseAcc%,xnfix(State)
+                     ])]),
+            State#state{ buffer_before = NewBB };
+        [$\t | Rest] ->
+            insert_buf(State, Rest, [State#state.tab | Acc]);
+        [$\e | Rest] ->
+            case re:run(State#state.ansi_regexp, Bin, [unicode]) of
+                {match, [{0, N}]} ->
+                    <<Ansi:N/binary, AnsiRest/binary>> = Bin,
+                    insert_buf(State, AnsiRest, [Ansi | Acc]);
+                _ ->
+                    insert_buf(State, Rest, [$\e | Acc])
+            end;
+        [NLCR | Rest] when NLCR =:= $\n; NLCR =:= $\r ->
             Tail =
-                if Char =:= $\n ->
+                if NLCR =:= $\n ->
                         <<$\r,$\n>>;
                    true ->
                         <<$\r>>
                 end,
             [] = write(State#state.tty,[unicode:characters_to_binary(lists:reverse(Acc)),Tail]),
-            insert_buf(State#state{ buffer_before = [] }, 0, Rest, []);
-        true ->
-            String =
-                if
-                    Char >= 128 ->
-                        %% UTF-8 character found in non-utf mode
-                        "\\x{" ++ integer_to_list(Char, 16) ++ "}";
-                    Char =:= 8#177 -> %% DEL
-                        "^?";
-                    true ->
-                        %% Not printable utf-8 string
-                        "^" ++ [Char bor 8#40]
-                end,
-            insert_buf(State, Pos + length(String), Rest, [String | Acc])
+            insert_buf(State#state{ buffer_before = [] }, Rest, []);
+        [Cluster | Rest] when is_list(Cluster) ->
+            insert_buf(State, Rest, [Cluster | Acc]);
+        [Char | Rest] when Char >= 128, Acc =:= [], State#state.buffer_before =/= [] ->
+            [PrevChar | BB] = State#state.buffer_before,
+            case string:next_grapheme([PrevChar | Bin]) of
+                [PrevChar | _] ->
+                    insert_buf(State, Rest, [Char | Acc]);
+                [Cluster | ClusterRest] ->
+                    {_, ToWrite} = lists:split(length(lists:flatten([PrevChar])), Cluster),
+                    write(State#state.tty, [unicode:characters_to_binary(ToWrite)]),
+                    insert_buf(State#state{ buffer_before = [Cluster | BB] }, ClusterRest, Acc)
+            end;
+        [Char | Rest] when Char >= 128 ->
+            insert_buf(State, Rest, [Char | Acc]);
+        [Char | Rest] ->
+            case {isprint(Char), Char} of
+                {true,_} ->
+                    insert_buf(State, Rest, [Char | Acc]);
+                {false, 8#177} -> %% DEL
+                    insert_buf(State, Rest, ["^?" | Acc]);
+                {false, _} ->
+                    insert_buf(State, Rest, ["^" ++ [Char bor 8#40] | Acc])
+            end
     end.
 
 call({Pid, _TTY}, Request) ->

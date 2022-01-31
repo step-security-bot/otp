@@ -45,6 +45,7 @@
 #include <termios.h>
 #include <term.h>
 #include <curses.h>
+#include <sys/ioctl.h>
 
 #if !defined(HAVE_SETLOCALE) || !defined(HAVE_NL_LANGINFO) || !defined(HAVE_LANGINFO_H)
 #define PRIMITIVE_UTF8_CHECK 1
@@ -176,7 +177,7 @@ static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         int width;
 #ifdef DEBUG
         for (int i = 0; i < bin.size / sizeof(wchar_t); i++) {
-            ASSERT(chars[i] >= 0 && chars < (1 << 16));
+            ASSERT(chars[i] >= 0 && chars[i] < (1 << 16));
         }
 #endif
         width = wcswidth(chars, bin.size / sizeof(wchar_t));
@@ -361,7 +362,7 @@ static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     {
 #ifdef TIOCGWINSZ
         struct winsize ws;
-        if (ioctl(ttysl_fd,TIOCGWINSZ,&ws) == 0) {
+        if (ioctl(tty->ifd,TIOCGWINSZ,&ws) == 0) {
             if (ws.ws_col > 0)
                 width = ws.ws_col;
             if (ws.ws_row > 0)

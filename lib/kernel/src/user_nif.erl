@@ -543,6 +543,8 @@ io_request(Request, _Input, Output) ->
             ok
     end.
 
+io_requests([{put_chars,Encoding,PC1},{put_chars,Encoding,PC2}|Rs], Input, Output) ->
+    io_requests([{put_chars,Encoding,[PC1,PC2]}|Rs], Input, Output);
 io_requests([R|Rs], Input, Output) ->
     io_request(R, Input, Output),
     io_requests(Rs, Input, Output);
