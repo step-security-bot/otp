@@ -10055,6 +10055,22 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         }
         else {
             /* On normal scheduler */
+            if (ERTS_IS_GC_DESIRED(p)) {
+                /* Tracing and handling of tasks/signals may generate
+                   heap data, so we do a GC check as otherwise a GC
+                   will only happen when we are scheduled in to run
+                   actual erlang code. */
+                if (!(state & ERTS_PSFLG_EXITING)
+                    && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
+                    int cost = scheduler_gc_proc(p, reds);
+                    calls += cost;
+                    reds -= cost;
+                    if (reds <= 0)
+                        goto sched_out_proc;
+                    if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC))
+                        goto sched_out_proc;
+                }
+            }
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
                     int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
@@ -10122,19 +10138,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
                     ASSERT(state & psflg_running_sys);
                     ASSERT(!(state & psflg_running));
-                }
-            }
-
-            if (ERTS_IS_GC_DESIRED(p)) {
-                if (!(state & ERTS_PSFLG_EXITING)
-                    && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
-                    int cost = scheduler_gc_proc(p, reds);
-                    calls += cost;
-                    reds -= cost;
-                    if (reds <= 0)
-                        goto sched_out_proc;
-                    if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC))
-                        goto sched_out_proc;
                 }
             }
         }
