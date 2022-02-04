@@ -18,6 +18,8 @@
 %% %CopyrightEnd%
 %%
 -module(prim_tty).
+-compile(nowarn_export_all).
+-compile(export_all).
 
 %% Todo:
 %%  * Look at what windows does
@@ -96,15 +98,19 @@
 -export_type([tty/0]).
 
 -nifs([isatty/1, tty_init/2, tty_set/1, setlocale/0,
-       tty_select/2, tty_window_size/1, write_nif/2, isprint/1, wcwidth/1, wcswidth/1,
+       tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
+       wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/2, tgoto_nif/3]).
+       tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 -export([isprint/1,wcwidth/1, wcswidth/1, sizeof_wchar/0,
          tgetent/1, tgetnum/1, tgetflag/1, tgetstr/1, tgoto/2, tgoto/3]).
 
 -on_load(on_load/0).
 
--record(state, {tty, utf8, parent,
+-record(state, {tty,
+                signal,
+                read,
+                utf8, parent,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
                 cols = 80,
@@ -186,14 +192,6 @@ beep(TTY) ->
     cast(TTY, beep).
 
 init(Ref, Parent, Options) ->
-    {ok, TraceFile} = file:open("tty.trace", [write]),
-    dbg:tracer(
-      process,
-      {fun(Event, FD) ->
-               io:format(FD,"~tp~n", [Event]),
-               FD
-       end, TraceFile}
-     ),
     true = isatty(0),
     true = isatty(1),
     {ok, TTY} = tty_init(1, maps:from_list(Options)),
@@ -239,8 +237,8 @@ init(Ref, Parent, Options) ->
                        %% User 7 should contain the codes for getting
                        %% cursor position.
                        % User 6 should contain how to parse the reply
-                       {ok, <<"\e[%i%d;%dr">>} = tgetstr("u6"),
-                       <<"\e[6n">> = U7;
+                       {ok, <<"\e[%i%d;%dR">>} = tgetstr("u6"),
+                       <<"\e[6n">> = U7, false;
                    false -> (#state{})#state.position
                end,
 
@@ -253,12 +251,23 @@ init(Ref, Parent, Options) ->
                     insert = Insert,
                     delete = Delete,
                     tab = Tab,
-                    position = Position
+                    position = Position,
+                    signal = make_ref(),
+                    read = make_ref()
                   },
 
-    dbg:p(self(), [c, r, timestamp]),
+    {ok, TraceFile} = file:open("tty.trace", [write]),
+    dbg:tracer(
+      process,
+      {fun(Event, FD) ->
+               io:format(FD,"~tp~n", [Event]),
+               FD
+       end, TraceFile}
+     ),
+    dbg:p(self(), [c, timestamp]),
 %    dbg:p(Parent, [c, r]),
     dbg:tpl(?MODULE, write_nif, []),
+    dbg:tpl(?MODULE, read_nif, x),
     dbg:tpl(?MODULE, dbg, []),
 
     Utf8Mode =
@@ -272,7 +281,7 @@ init(Ref, Parent, Options) ->
                 Utf8Locale
         end,
 
-    ok = tty_select(TTY, 0),
+    ok = tty_select(TTY, State#state.signal, State#state.read),
 
     true = isprint($a),
     1 = wcwidth($a),
@@ -285,15 +294,15 @@ init(Ref, Parent, Options) ->
 
     Parent ! {Ref, TTY},
     try
-        loop(State#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent })
+        loop(update_cols(
+               State#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent }))
     catch E:R:ST ->
             erlang:display({E,R,ST}),
             erlang:raise(E,R,ST)
     end.
 
 loop(State) ->
-    dbg({State#state.buffer_before,
-         State#state.buffer_after}),
+    dbg({State#state.buffer_before, State#state.buffer_after}),
     receive
         {call, Ref, {unicode, true}} ->
             Ref ! {Ref, utf8},
@@ -305,14 +314,36 @@ loop(State) ->
             Ref ! {Ref, State#state.utf8 },
             loop(State);
         {call, Ref, Request} ->
+            dbg({request, Request}),
             NewState = handle_request(State, Request),
             Ref ! {Ref, ok},
             loop(NewState);
         {cast, Request} ->
+            dbg({request, Request}),
             loop(handle_request(State, Request));
         {input, Bytes} ->
             State#state.parent ! {{self(), State#state.tty}, {data, Bytes}},
             loop(State);
+        {select, TTY, Ref, ready_input}
+          when TTY =:= State#state.tty,
+               Ref =:= State#state.signal ->
+            case tty_read_signal(TTY, Ref) of
+                {ok, winch} ->
+                    dbg(winch),
+                    loop(update_cols(State));
+                {ok, cont} ->
+                    dbg(cont),
+                    ok = tty_set(TTY),
+                    loop(State)
+            end;
+        {select, TTY, Ref, ready_input}
+          when TTY =:= State#state.tty,
+               Ref =:= State#state.read ->
+            case read(State) of
+                {ok, Bytes} ->
+                    State#state.parent ! {{self(), State#state.tty}, {data, Bytes}},
+                    loop(State)
+            end;
         _Unknown ->
 %            erlang:display({unknown, Unknown}),
             loop(State)
@@ -335,14 +366,15 @@ handle_request(State, {delete, N}) when N > 0 ->
     State#state{ buffer_after = NewBA };
 handle_request(State, {delete, N}) when N < 0 ->
     {DelNum, DelCols, _, NewBB} = split(-N, State#state.buffer_before),
+    dbg({delete, N, cols(State#state.buffer_before)}),
     NewBBCols = cols(NewBB),
     BACols = cols(State#state.buffer_after),
     write(State,
           [move_cursor(State, NewBBCols + DelCols, NewBBCols),
-           State#state.buffer_after, lists:duplicate(DelNum, $\s)]),
+           State#state.buffer_after, lists:duplicate(DelCols, $\s)]),
     write(State,
           [xnfix(State, NewBBCols + BACols + DelNum),
-           move_cursor(State, NewBBCols + BACols + DelNum, NewBBCols)]),
+           move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)]),
     State#state{ buffer_before = NewBB };
 handle_request(State, {delete, 0}) ->
     State;
@@ -389,15 +421,21 @@ handle_request(State, Req) ->
 split(N, Buff) ->
     split(N, Buff, [], 0, 0).
 split(0, Buff, Acc, Chars, Cols) ->
+    dbg({?FUNCTION_NAME, {Chars, Cols, Acc, Buff}}),
     {Chars, Cols, Acc, Buff};
+split(N, _Buff, _Acc, _Chars, _Cols) when N < 0 ->
+    ok = N;
 split(_N, [], Acc, Chars, Cols) ->
     {Chars, Cols, Acc, []};
 split(N, [Char | T], Acc, Cnt, Cols) when is_integer(Char) ->
     split(N - 1, T, [Char | Acc], Cnt + 1, Cols + wcwidth(Char));
-split(N, [Chars | T], Acc, Cnt, Cols) ->
-    split(N - 1, T, [Chars | Acc], Cnt + length(Chars), Cols + length(Chars)).
+split(N, [Chars | T], Acc, Cnt, Cols) when is_list(Chars) ->
+    split(N - length(Chars), T, [Chars | Acc], Cnt + length(Chars), Cols + cols(Chars));
+split(N, [SkipChars | T], Acc, Cnt, Cols) when is_binary(SkipChars) ->
+    split(N, T, [SkipChars | Acc], Cnt, Cols).
 
 move_cursor(#state{ cols = W } = State, FromCol, ToCol) ->
+    dbg({?FUNCTION_NAME, FromCol, ToCol}),
     [case (ToCol div W) - (FromCol div W) of
          0 -> "";
          N when N < 0 ->
@@ -430,8 +468,21 @@ cols([]) ->
     0;
 cols([Char | T]) when is_integer(Char) ->
     wcwidth(Char) + cols(T);
-cols([Chars | T]) ->
-    length(Chars)  + cols(T).
+cols([Chars | T]) when is_list(Chars) ->
+    cols(Chars) + cols(T);
+cols([SkipSeq | T]) when is_binary(SkipSeq) ->
+    %% Any binary should be an ANSI escape sequence
+    %% so we skip that
+    cols(T).
+
+update_cols(State) ->
+    case tty_window_size(State#state.tty) of
+        {ok, {_Row, Cols}} when Cols > 0 ->
+            dbg({?FUNCTION_NAME, Cols}),
+            State#state{ cols = Cols };
+        _ ->
+            State
+    end.
 
 %% Return the xn fix for the current cursor position.
 %% We use get_position to figure out if we need to calculate the current columns
@@ -457,7 +508,8 @@ xnfix(State) ->
 xnfix(#state{ xn = true, cols = Cols } = State, CurrCols)
   when CurrCols rem Cols  == 0 ->
     [<<"\s">>,move(left, State, 1)];
-xnfix(_, _) ->
+xnfix(_, _CurrCols) ->
+    dbg({xnfix, _CurrCols}),
     [].
 
 insert_buf(State, Binary) when is_binary(Binary) ->
@@ -519,6 +571,9 @@ insert_buf(State, Bin, Acc) ->
             end
     end.
 
+%% Using get_position adds about 10ms of latency
+get_position(#state{ position = false }) ->
+    unknown;
 get_position(State) ->
     [] = write(State, State#state.position),
     get_position(State, <<>>).
@@ -538,8 +593,8 @@ get_position(State, Acc) ->
                 nomatch ->
                     get_position(State, NewAcc)
             end
-    after 10000 ->
-            timeout
+    after 1000 ->
+            unknown
     end.
 
 call({Pid, _TTY}, Request) ->
@@ -569,7 +624,7 @@ tty_set(_TTY) ->
     erlang:nif_error(undef).
 setlocale() ->
     erlang:nif_error(undef).
-tty_select(_TTY, _FD) ->
+tty_select(_TTY, _SignalRef, _ReadRef) ->
     erlang:nif_error(undef).
 write(_State, <<>>) ->
     [];
@@ -578,6 +633,10 @@ write(State, UTF8Binary) when is_binary(UTF8Binary) ->
 write(State, Characters) ->
     write(State, unicode:characters_to_binary(Characters)).
 write_nif(_TTY, _IOVec) ->
+    erlang:nif_error(undef).
+read(State) ->
+    read_nif(State#state.tty, State#state.read).
+read_nif(_TTY, _Ref) ->
     erlang:nif_error(undef).
 tty_window_size(_TTY) ->
     erlang:nif_error(undef).
@@ -613,3 +672,6 @@ tgoto_nif(_Ent, _Arg) ->
     erlang:nif_error(undef).
 tgoto_nif(_Ent, _Arg1, _Arg2) ->
     erlang:nif_error(undef).
+tty_read_signal(_TTY, _Ref) ->
+    erlang:nif_error(undef).
+

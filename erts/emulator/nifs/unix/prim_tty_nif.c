@@ -61,15 +61,10 @@
 #define DEF_WIDTH 80
 
 typedef struct {
-    int ofd; /* stdout */
-    int ifd; /* stdin */
+    int ofd;       /* stdout */
+    int ifd;       /* stdin */
+    int signal[2]; /* Pipe used for signal (winch + cont) notifications */
     ErlNifPid self;
-    int cols;
-    int xn;
-    char *up;
-    char *down;
-    char *left;
-    char *right;
     ErlNifTid reader_tid;
     struct termios tty_smode;
     struct termios tty_rmode;
@@ -84,6 +79,7 @@ static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_select(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -94,15 +90,18 @@ static ERL_NIF_TERM tty_tgetnum(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM tty_tgetflag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_tgetstr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_tgoto(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_read_signal(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"isatty", 1, isatty_nif},
     {"tty_init", 2, tty_init},
     {"tty_set", 1, tty_set},
+    {"tty_read_signal", 2, tty_read_signal},
     {"setlocale", 0, setlocale_nif},
-    {"tty_select", 2, tty_select},
+    {"tty_select", 3, tty_select},
     {"tty_window_size", 1, tty_window_size},
-    {"write_nif", 2, tty_write},
+    {"write_nif", 2, tty_write, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"read_nif", 2, tty_read, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"isprint", 1, isprint_nif},
     {"wcwidth", 1, wcwidth_nif},
     {"wcswidth", 1, wcswidth_nif},
@@ -125,6 +124,7 @@ ERL_NIF_INIT(prim_tty, nif_funcs, load, NULL, upgrade, unload)
 #define ATOMS                                     \
     ATOM_DECL(canon);                             \
     ATOM_DECL(echo);                              \
+    ATOM_DECL(undefined);                         \
     ATOM_DECL(error);                             \
     ATOM_DECL(true);                              \
     ATOM_DECL(ok);                                \
@@ -216,6 +216,34 @@ static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return tail;
 }
 
+static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    TTYResource *tty;
+    ErlNifBinary bin;
+    ssize_t res;
+    ERL_NIF_TERM bin_term;
+    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
+        return enif_make_badarg(env);
+    enif_alloc_binary(1024, &bin);
+    res = read(tty->ifd, bin.data, bin.size);
+    if (res < 0) {
+        if (errno != EAGAIN && errno != EINTR) {
+            return make_errno_error(env, "read");
+        }
+        res = 0;
+    }
+    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
+    if (res < 512) {
+        unsigned char *buff = enif_make_new_binary(env, res, &bin_term);
+        memcpy(buff, bin.data, res);
+        enif_release_binary(&bin);
+    } else {
+        enif_realloc_binary(&bin, res);
+        bin_term = enif_make_binary(env, &bin);
+    }
+
+    return enif_make_tuple2(env, atom_ok, bin_term);
+}
+
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef PRIMITIVE_UTF8_CHECK
     setlocale(LC_CTYPE, "");  /* Set international environment, 
@@ -261,11 +289,12 @@ static ERL_NIF_TERM tty_tgetstr(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ErlNifBinary TERM, ret;
     /* tgetstr seems to use a lot of stack buffer space,
        so buff needs to be relatively "small" */
-    char *str = NULL, buff[32];
+    char *str = NULL;
+    char buff[BUFSIZ] = {0};
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
         return enif_make_badarg(env);
-    str = tgetstr((char*)TERM.data, (char **)buff);
+    str = tgetstr((char*)TERM.data, (char**)&buff);
     if (!str) return atom_false;
     enif_alloc_binary(strlen(str), &ret);
     memcpy(ret.data, str, strlen(str));
@@ -376,7 +405,7 @@ static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 #endif
 	tty_smode.c_lflag |= (ISIG|IEXTEN);
     }
-    if (enif_is_identical(echo, atom_false)) {
+    if (enif_is_identical(sig, atom_false)) {
 	/* Ignore IMAXBEL as not POSIX. */
 #ifndef QNX
 	tty_smode.c_iflag &= ~(BRKINT|IGNPAR|ICRNL|IXON|IXANY);
@@ -410,12 +439,10 @@ static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
-    int width = DEF_HEIGHT, height = DEF_WIDTH;
+    int width = -1, height = -1;
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
-#define DEF_HEIGHT 24
-#define DEF_WIDTH 80
     {
 #ifdef TIOCGWINSZ
         struct winsize ws;
@@ -424,33 +451,65 @@ static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                 width = ws.ws_col;
             if (ws.ws_row > 0)
                 height = ws.ws_row;
-        } else
-#endif
-        {
-            width = DEF_WIDTH;
-            height = DEF_HEIGHT;
+            return enif_make_tuple2(
+                env, atom_ok,
+                enif_make_tuple2(
+                    env,
+                    enif_make_int(env, height),
+                    enif_make_int(env, width)));
         }
     }
-    return enif_make_tuple2(
-        env, atom_ok,
-        enif_make_tuple2(
-            env,
-            enif_make_int(env, width),
-            enif_make_int(env, height)));
+#endif
+    return make_error(env, enif_make_atom(env, "enotsup"));
 }
+
+static int tty_signal_fd = -1;
 
 static RETSIGTYPE tty_cont(int sig)
 {
-    /* if (tty_set(ttysl_fd) < 0) { */
-    /*     exit(1); */
-    /* } */
+    if (tty_signal_fd != 1) {
+        write(tty_signal_fd, "c", 1);
+    }
 }
+
 
 static RETSIGTYPE tty_winch(int sig)
 {
-    // cols_needs_update = TRUE;
+    if (tty_signal_fd != 1) {
+        write(tty_signal_fd, "w", 1);
+    }
 }
 
+static ERL_NIF_TERM tty_read_signal(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    TTYResource *tty;
+    char buff[1];
+    ssize_t ret;
+    ERL_NIF_TERM res;
+    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
+        return enif_make_badarg(env);
+    do {
+        ret = read(tty->signal[0], buff, 1);
+    } while (ret < 0 && errno == EAGAIN);
+
+    if (ret < 0) {
+        return make_errno_error(env, "read");
+    } else if (ret == 0) {
+        return make_error(env, enif_make_atom(env,"empty"));
+    }
+
+    enif_select(env, tty->signal[0], ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
+
+    if (buff[0] == 'w') {
+        res = enif_make_atom(env, "winch");
+    } else if (buff[0] == 'c') {
+        res = enif_make_atom(env, "cont");
+    } else {
+        res = enif_make_string_len(env, buff, 1, ERL_NIF_LATIN1);
+    }
+    return enif_make_tuple2(env, atom_ok, res);
+}
+
+#ifdef THREADED_READED
 struct tty_reader_init {
     ErlNifEnv *env;
     ERL_NIF_TERM tty;
@@ -510,27 +569,63 @@ static void *tty_reader_thread(void *args) {
     return (void*)0;
 }
 
+#endif
+
 static ERL_NIF_TERM tty_select(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
+#ifdef THREADED_READER
     struct tty_reader_init *tty_reader_init;
+#endif
+    extern int using_oldshell; /* set this to let the rest of erts know */
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
+#ifdef THREADED_READER
     tty_reader_init = enif_alloc(sizeof(struct tty_reader_init));
     tty_reader_init->env = enif_alloc_env();
     tty_reader_init->tty = enif_make_copy(tty_reader_init->env, argv[0]);
+#endif
+
     enif_self(env, &tty->self);
+
+    pipe(tty->signal);
+    SET_NONBLOCKING(tty->signal[0]);
+    enif_select(env, tty->signal[0], ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
+    tty_signal_fd = tty->signal[1];
+
+    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+    enif_monitor_process(env, tty, &tty->self, NULL);
 
     sys_signal(SIGCONT, tty_cont);
     sys_signal(SIGWINCH, tty_winch);
 
+    using_oldshell = 0;
+
+#ifdef THREADED_READER
     if (enif_thread_create(
             "stdin_reader",
             &tty->reader_tid,
             tty_reader_thread, tty_reader_init, NULL)) {
         return make_errno_error(env, "enif_thread_create");
     }
+#endif
     return atom_ok;
+}
+
+static void tty_monitor_down(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon) {
+    TTYResource *tty = obj;
+
+    tcsetattr(tty->ifd, TCSANOW, &tty->tty_rmode);
+    fprintf(stderr,"reset tty in down\n");
+    enif_select(caller_env, tty->signal[0], ERL_NIF_SELECT_STOP, tty, NULL, atom_undefined);
+    close(tty->signal[1]);
+    sys_signal(SIGCONT, SIG_DFL);
+    sys_signal(SIGWINCH, SIG_DFL);
+
+}
+
+static void tty_select_stop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event, int is_direct_call) {
+    close(event);
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
@@ -538,8 +633,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     ErlNifResourceTypeInit rt = {
         NULL /* dtor */,
-        NULL /* select stop */,
-        NULL /* monitor down */};
+        tty_select_stop,
+        tty_monitor_down};
 
 #define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
 ATOMS

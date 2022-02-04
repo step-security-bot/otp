@@ -126,7 +126,12 @@ server1(Input, Output, Shell) ->
 	       Input, Output),
 
     %% Enter the server loop.
-    server_loop(Input, Output, Curr, User, Gr, {false, queue:new()}).
+    try
+        server_loop(Input, Output, Curr, User, Gr, {false, queue:new()})
+    catch Er:R:ST ->
+            erlang:display({Er,R,ST}),
+            erlang:raise(Er,R,ST)
+    end.
 
 append_hostname(Node, LocalNode) ->
     case string:find(Node,"@") of
@@ -168,7 +173,12 @@ server_loop(Input, Output, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
     receive
 	{Input,{data,Bs}} ->
 	    BsBin = iolist_to_binary(Bs),
-	    Unicode = unicode:characters_to_list(BsBin,utf8),
+	    Unicode = case unicode:characters_to_list(BsBin,utf8) of
+                          {error, _, _} ->
+                              erlang:display({failed, BsBin}),
+                              "";
+                          U -> U
+                      end,
             %% erlang:display({server_loop, input, Unicode}),
 	    port_bytes(Unicode, Input, Output, Curr, User, Gr, IOQueue);
 	{Input,eof} ->
