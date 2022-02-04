@@ -74,9 +74,16 @@
 %%      * Compensating for xn
 %% [1]: https://www.linuxquestions.org/questions/programming-9/get-cursor-position-in-c-947833/
 %%    Notes:
-%%      [129306,127996] (hand with skintone), seems to move the cursor more than it should...
-%%      edlin and user needs to agree on what one "character" is, right now edlin uses
-%%      code points and not grapheme clusters.
+%%      - [129306,127996] (hand with skintone) seems to move the cursor more than
+%%        it should on iTerm...The skintone code point seems to not
+%%        work at all on Linux and instead emits hand + brown square which is 4 characters
+%%        wide which is what the cursor on iTerm was positioned at. So maybe
+%%        there is a mismatch somewhere in iTerm wcwidth handling.
+%%      - edlin and user needs to agree on what one "character" is, right now edlin uses
+%%        code points and not grapheme clusters.
+%%      - We can deal with xn by always emitting it after a put_chars command. We must make
+%%        sure not to emit it before we emit any newline in the put_chars though as that
+%%        potentially will insert two newlines instead of one.
 %%
 %%  Windows:
 %%    Since 2017:ish we can use Virtual Terminal Sequences[2] to control the terminal.
@@ -88,22 +95,30 @@
          beep/1, on_load/0, on_load/1]).
 -export_type([tty/0]).
 
--nifs([isatty/1, tty_init/2, tty_set/1, tty_termcap/2, setlocale/0,
-       tty_select/2, tty_window_size/1, write/2, isprint/1, wcwidth/1, wcswidth/1,
-       sizeof_wchar/0]).
--export([isprint/1,wcwidth/1, wcswidth/1, sizeof_wchar/0]).
+-nifs([isatty/1, tty_init/2, tty_set/1, setlocale/0,
+       tty_select/2, tty_window_size/1, write_nif/2, isprint/1, wcwidth/1, wcswidth/1,
+       sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
+       tgoto_nif/2, tgoto_nif/3]).
+-export([isprint/1,wcwidth/1, wcswidth/1, sizeof_wchar/0,
+         tgetent/1, tgetnum/1, tgetflag/1, tgetstr/1, tgoto/2, tgoto/3]).
+
+-on_load(on_load/0).
 
 -record(state, {tty, utf8, parent,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
-                width = 80,
-                up = "\e[A",
-                down = [10],
-                left = [8],
-                right = "\e[C",
-                tab = "\e[1I",  %% Tab to next 8 column
-                position = "\e[6n",
-                position_reply = "\e[([0-9]+);([0-9]+)R",
+                cols = 80,
+                xn = false,
+                up = <<"\e[A">>,
+                down = <<"\n">>,
+                left = <<"\b">>,
+                right = <<"\e[C">>,
+                %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
+                tab = <<"\e[1I">>,
+                insert = false,
+                delete = false,
+                position = <<"\e[6n">>, %% "u7" on my Linux
+                position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>,
                 %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
                 ansi_regexp = <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>
                }).
@@ -116,7 +131,11 @@ on_load() ->
 -spec on_load(Extra) -> ok when
       Extra :: map().
 on_load(Extra) ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
+    case erlang:load_nif(atom_to_list(?MODULE), Extra) of
+        ok -> ok;
+        {error,{reload,_}} ->
+            ok
+    end.
 
 -opaque tty() :: {pid(), reference()}.
 
@@ -167,25 +186,80 @@ beep(TTY) ->
     cast(TTY, beep).
 
 init(Ref, Parent, Options) ->
+    {ok, TraceFile} = file:open("tty.trace", [write]),
     dbg:tracer(
       process,
-      {fun F(Event, undefined) ->
-               F(Event, element(2, file:open("tty.trace",[write, raw])));
-           F(Event, FD) ->
-               file:write(FD, io_lib:format("~p~n",[Event])),
-               file:sync(FD),
+      {fun(Event, FD) ->
+               io:format(FD,"~tp~n", [Event]),
                FD
-       end, undefined}
+       end, TraceFile}
      ),
-    dbg:p(self(), [c, r]),
-    dbg:p(Parent, [c, r]),
-    dbg:tpl(?MODULE, write, x),
-    dbg:tpl(?MODULE, dbg, []),
     true = isatty(0),
     true = isatty(1),
     {ok, TTY} = tty_init(1, maps:from_list(Options)),
     ok = tty_set(TTY),
-    ok = tty_termcap(TTY, os:getenv("TERM")),
+    ok = tgetent(os:getenv("TERM")),
+
+    %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
+    %% for a list of all possible termcap capabilities
+    Cols = case tgetnum("co") of
+               {ok, Cs} -> Cs;
+               _ -> (#state{})#state.cols
+           end,
+    {ok, Up} = tgetstr("up"),
+    Down = case tgetstr("do") of
+               false -> (#state{})#state.down;
+               {ok, D} -> D
+           end,
+    Left = case {tgetflag("bs"),tgetstr("bc")} of
+               {true,_} -> (#state{})#state.left;
+               {_,false} -> (#state{})#state.left;
+               {_,{ok, L}} -> L
+           end,
+    {ok, Right} = tgetstr("nd"),
+
+    Insert =
+        case tgetstr("IC") of
+            {ok, IC} -> IC;
+            false -> (#state{})#state.insert
+        end,
+
+    Tab = case tgetstr("ta") of
+              {ok, TA} -> TA;
+              false -> (#state{})#state.tab
+          end,
+
+    Delete = case tgetstr("DC") of
+                 {ok, DC} -> DC;
+                 false -> (#state{})#state.delete
+             end,
+
+    Position = case tgetstr("u7") of
+                   {ok, <<"\e[6n">> = U7} ->
+                       %% User 7 should contain the codes for getting
+                       %% cursor position.
+                       % User 6 should contain how to parse the reply
+                       {ok, <<"\e[%i%d;%dr">>} = tgetstr("u6"),
+                       <<"\e[6n">> = U7;
+                   false -> (#state{})#state.position
+               end,
+
+    State = #state{ cols = Cols,
+                    xn = tgetflag("xn"),
+                    up = Up,
+                    down = Down,
+                    left = Left,
+                    right = Right,
+                    insert = Insert,
+                    delete = Delete,
+                    tab = Tab,
+                    position = Position
+                  },
+
+    dbg:p(self(), [c, r, timestamp]),
+%    dbg:p(Parent, [c, r]),
+    dbg:tpl(?MODULE, write_nif, []),
+    dbg:tpl(?MODULE, dbg, []),
 
     Utf8Mode =
         case setlocale() of
@@ -193,7 +267,7 @@ init(Ref, Parent, Options) ->
                 lists:any(
                   fun(Key) ->
                           string:find(os:getenv(Key),"UTF-8") =/= nomatch
-                  end, ["LC_ALL","LC_CTYPE", "LANG"]);
+                  end, ["LC_ALL", "LC_CTYPE", "LANG"]);
             Utf8Locale when is_boolean(Utf8Locale) ->
                 Utf8Locale
         end,
@@ -211,7 +285,7 @@ init(Ref, Parent, Options) ->
 
     Parent ! {Ref, TTY},
     try
-        loop(#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent })
+        loop(State#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent })
     catch E:R:ST ->
             erlang:display({E,R,ST}),
             erlang:raise(E,R,ST)
@@ -251,49 +325,59 @@ handle_request(State, {delete, N}) when N > 0 ->
     {DelNum, _DelCols, _, NewBA} = split(N, State#state.buffer_after),
     BBCols = cols(State#state.buffer_before),
     NewBACols = cols(NewBA),
-    write(State#state.tty,
-          [unicode:characters_to_binary(
-            [NewBA, lists:duplicate(DelNum, $\s),
-             xnfix(State),
-             move_cursor(State,
-                         BBCols + NewBACols + DelNum,
-                         BBCols)])]),
+    write(State,
+          [NewBA, lists:duplicate(DelNum, $\s)]),
+    write(State,
+          [xnfix(State, BBCols + NewBACols + DelNum),
+           move_cursor(State,
+                       BBCols + NewBACols + DelNum,
+                       BBCols)]),
     State#state{ buffer_after = NewBA };
 handle_request(State, {delete, N}) when N < 0 ->
     {DelNum, DelCols, _, NewBB} = split(-N, State#state.buffer_before),
     NewBBCols = cols(NewBB),
     BACols = cols(State#state.buffer_after),
-    write(State#state.tty,
-          [unicode:characters_to_binary(
-            [move_cursor(State, NewBBCols + DelCols, NewBBCols),
-             State#state.buffer_after, lists:duplicate(DelNum, $\s),
-             xnfix(State),
-             move_cursor(State, NewBBCols + BACols + DelNum, NewBBCols)])]),
+    write(State,
+          [move_cursor(State, NewBBCols + DelCols, NewBBCols),
+           State#state.buffer_after, lists:duplicate(DelNum, $\s)]),
+    write(State,
+          [xnfix(State, NewBBCols + BACols + DelNum),
+           move_cursor(State, NewBBCols + BACols + DelNum, NewBBCols)]),
     State#state{ buffer_before = NewBB };
 handle_request(State, {delete, 0}) ->
     State;
 handle_request(State, {move, N}) when N < 0 ->
     {_DelNum, DelCols, NewBA, NewBB} = split(-N, State#state.buffer_before),
-    NewBBCols = cols(NewBB),
-    write(State#state.tty,
-          [unicode:characters_to_binary(
-             [move_cursor(
-                State, NewBBCols + DelCols, NewBBCols)])]),
+    Moves =
+        case get_position(State) of
+            {_Line, Col} when DelCols =< Col ->
+                move(left, State, DelCols);
+            _ ->
+                NewBBCols = cols(NewBB),
+                move_cursor(State, NewBBCols + DelCols, NewBBCols)
+        end,
+    write(State, Moves),
     State#state{ buffer_before = NewBB,
                  buffer_after = NewBA ++ State#state.buffer_after};
 handle_request(State, {move, N}) when N > 0 ->
     {_DelNum, DelCols, NewBB, NewBA} = split(N, State#state.buffer_after),
     BBCols = cols(State#state.buffer_before),
-    write(State#state.tty,
-          [unicode:characters_to_binary(
-             [move_cursor(
-                State, BBCols, BBCols + DelCols)])]),
+    write(State, move_cursor(State, BBCols, BBCols + DelCols)),
     State#state{ buffer_after = NewBA,
                  buffer_before = NewBB ++ State#state.buffer_before};
 handle_request(State, {move, 0}) ->
     State;
+handle_request(State = #state{ xn = OrigXn }, {insert, Chars}) ->
+    NewState0 = insert_buf(State#state{ xn = false }, Chars),
+    NewState = NewState0#state{ xn = OrigXn },
+    BBCols = cols(NewState#state.buffer_before),
+    BACols = cols(NewState#state.buffer_after),
+    write(NewState,NewState#state.buffer_after),
+    write(NewState,[xnfix(State, BBCols + BACols),
+                    move_cursor(State, BBCols + BACols, BBCols)]),
+    NewState;
 handle_request(State, beep) ->
-    write(State#state.tty, [<<7>>]),
+    write(State, <<7>>),
     State;
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
@@ -313,7 +397,7 @@ split(N, [Char | T], Acc, Cnt, Cols) when is_integer(Char) ->
 split(N, [Chars | T], Acc, Cnt, Cols) ->
     split(N - 1, T, [Chars | Acc], Cnt + length(Chars), Cols + length(Chars)).
 
-move_cursor(#state{ width = W } = State, FromCol, ToCol) ->
+move_cursor(#state{ cols = W } = State, FromCol, ToCol) ->
     [case (ToCol div W) - (FromCol div W) of
          0 -> "";
          N when N < 0 ->
@@ -349,25 +433,47 @@ cols([Char | T]) when is_integer(Char) ->
 cols([Chars | T]) ->
     length(Chars)  + cols(T).
 
+%% Return the xn fix for the current cursor position.
+%% We use get_position to figure out if we need to calculate the current columns
+%%  or not.
+%%
+%% We need to know the actual column because get_position will return the last
+%% column number when the cursor is:
+%%   * in the last column
+%%   * off screen
+%%
+%% and it is when the cursor is off screen that we should do the xnfix.
+xnfix(#state{ position = false } = State) ->
+    xnfix(State, cols(State#state.buffer_before));
 xnfix(State) ->
-    [$\s,move(left,State,1)].
+    {_Line, Col} = get_position(State),
+    if Col =:= State#state.cols ->
+            xnfix(State, cols(State#state.buffer_before));
+       true ->
+            []
+    end.
+
+%% Return the xn fix for CurrCols location.
+xnfix(#state{ xn = true, cols = Cols } = State, CurrCols)
+  when CurrCols rem Cols  == 0 ->
+    [<<"\s">>,move(left, State, 1)];
+xnfix(_, _) ->
+    [].
 
 insert_buf(State, Binary) when is_binary(Binary) ->
     insert_buf(State, Binary, []).
 insert_buf(State, Bin, Acc) ->
     case string:next_grapheme(Bin) of
         [] ->
-            ReverseAcc = lists:reverse(Acc),
             NewBB = Acc ++ State#state.buffer_before,
-            write(State#state.tty,
-                  [unicode:characters_to_binary(
-                     [ReverseAcc%,xnfix(State)
-                     ])]),
-            State#state{ buffer_before = NewBB };
+            NewState = State#state{ buffer_before = NewBB },
+            write(State, lists:reverse(Acc)),
+            write(State, xnfix(NewState)),
+            NewState;
         [$\t | Rest] ->
             insert_buf(State, Rest, [State#state.tab | Acc]);
         [$\e | Rest] ->
-            case re:run(State#state.ansi_regexp, Bin, [unicode]) of
+            case re:run(Bin, State#state.ansi_regexp, [unicode]) of
                 {match, [{0, N}]} ->
                     <<Ansi:N/binary, AnsiRest/binary>> = Bin,
                     insert_buf(State, AnsiRest, [Ansi | Acc]);
@@ -381,18 +487,23 @@ insert_buf(State, Bin, Acc) ->
                    true ->
                         <<$\r>>
                 end,
-            [] = write(State#state.tty,[unicode:characters_to_binary(lists:reverse(Acc)),Tail]),
+            [] = write(State, [lists:reverse(Acc), Tail]),
             insert_buf(State#state{ buffer_before = [] }, Rest, []);
         [Cluster | Rest] when is_list(Cluster) ->
             insert_buf(State, Rest, [Cluster | Acc]);
+        %% We have gotten a code point that may be part of the previous grapheme cluster. 
         [Char | Rest] when Char >= 128, Acc =:= [], State#state.buffer_before =/= [] ->
             [PrevChar | BB] = State#state.buffer_before,
             case string:next_grapheme([PrevChar | Bin]) of
                 [PrevChar | _] ->
+                    %% It was not part of the previous cluster, so just insert
+                    %% it as a normal character
                     insert_buf(State, Rest, [Char | Acc]);
                 [Cluster | ClusterRest] ->
+                    %% It was part of the previous grapheme cluster, so we output
+                    %% it and insert it into the before_buffer
                     {_, ToWrite} = lists:split(length(lists:flatten([PrevChar])), Cluster),
-                    write(State#state.tty, [unicode:characters_to_binary(ToWrite)]),
+                    write(State, ToWrite),
                     insert_buf(State#state{ buffer_before = [Cluster | BB] }, ClusterRest, Acc)
             end;
         [Char | Rest] when Char >= 128 ->
@@ -406,6 +517,29 @@ insert_buf(State, Bin, Acc) ->
                 {false, _} ->
                     insert_buf(State, Rest, ["^" ++ [Char bor 8#40] | Acc])
             end
+    end.
+
+get_position(State) ->
+    [] = write(State, State#state.position),
+    get_position(State, <<>>).
+get_position(State, Acc) ->
+    receive
+        {input, Bytes} ->
+            NewAcc = <<Acc/binary,(iolist_to_binary(Bytes))/binary>>,
+            case re:run(NewAcc, State#state.position_reply, [unicode]) of
+                {match,[{Start,Length},Row,Col]} ->
+                    <<Before:Start/binary,_:Length/binary,After/binary>> = NewAcc,
+                    %% This should be put in State in order to not screw up the
+                    %% message order...
+                    [self() ! {input, <<Before/binary, After/binary>>}
+                     || Before =/= <<>>, After =/= <<>>],
+                    {binary_to_integer(binary:part(NewAcc,Row)),
+                     binary_to_integer(binary:part(NewAcc,Col))};
+                nomatch ->
+                    get_position(State, NewAcc)
+            end
+    after 10000 ->
+            timeout
     end.
 
 call({Pid, _TTY}, Request) ->
@@ -433,13 +567,17 @@ tty_init(_Fd, _Options) ->
     erlang:nif_error(undef).
 tty_set(_TTY) ->
     erlang:nif_error(undef).
-tty_termcap(_TTY, _TERM) ->
-    erlang:nif_error(undef).
 setlocale() ->
     erlang:nif_error(undef).
 tty_select(_TTY, _FD) ->
     erlang:nif_error(undef).
-write(_TTY, _IOVec) ->
+write(_State, <<>>) ->
+    [];
+write(State, UTF8Binary) when is_binary(UTF8Binary) ->
+    write_nif(State#state.tty, [UTF8Binary]);
+write(State, Characters) ->
+    write(State, unicode:characters_to_binary(Characters)).
+write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
 tty_window_size(_TTY) ->
     erlang:nif_error(undef).
@@ -450,4 +588,28 @@ wcwidth(_Char) ->
 sizeof_wchar() ->
     erlang:nif_error(undef).
 wcswidth(_Char) ->
+    erlang:nif_error(undef).
+tgetent(Char) ->
+    tgetent_nif([Char,0]).
+tgetnum(Char) ->
+    tgetnum_nif([Char,0]).
+tgetflag(Char) ->
+    tgetflag_nif([Char,0]).
+tgetstr(Char) ->
+    tgetstr_nif([Char,0]).
+tgoto(Char, Arg) ->
+    tgoto_nif([Char,0], Arg).
+tgoto(Char, Arg1, Arg2) ->
+    tgoto_nif([Char,0], Arg1, Arg2).
+tgetent_nif(_Char) ->
+    erlang:nif_error(undef).
+tgetnum_nif(_Char) ->
+    erlang:nif_error(undef).
+tgetflag_nif(_Char) ->
+    erlang:nif_error(undef).
+tgetstr_nif(_Char) ->
+    erlang:nif_error(undef).
+tgoto_nif(_Ent, _Arg) ->
+    erlang:nif_error(undef).
+tgoto_nif(_Ent, _Arg1, _Arg2) ->
     erlang:nif_error(undef).

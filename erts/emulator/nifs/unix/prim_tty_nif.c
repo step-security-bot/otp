@@ -81,7 +81,6 @@ static ErlNifResourceType *tty_rt;
 static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_termcap(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_select(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -90,20 +89,30 @@ static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sizeof_wchar(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tgetent(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tgetnum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tgetflag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tgetstr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_tgoto(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"isatty", 1, isatty_nif},
     {"tty_init", 2, tty_init},
     {"tty_set", 1, tty_set},
-    {"tty_termcap", 2, tty_termcap},
     {"setlocale", 0, setlocale_nif},
     {"tty_select", 2, tty_select},
     {"tty_window_size", 1, tty_window_size},
-    {"write", 2, tty_write},
+    {"write_nif", 2, tty_write},
     {"isprint", 1, isprint_nif},
     {"wcwidth", 1, wcwidth_nif},
     {"wcswidth", 1, wcswidth_nif},
-    {"sizeof_wchar", 0, sizeof_wchar}
+    {"sizeof_wchar", 0, sizeof_wchar},
+    {"tgetent_nif", 1, tty_tgetent},
+    {"tgetnum_nif", 1, tty_tgetnum},
+    {"tgetflag_nif", 1, tty_tgetflag},
+    {"tgetstr_nif", 1, tty_tgetstr},
+    {"tgoto_nif", 2, tty_tgoto},
+    {"tgoto_nif", 3, tty_tgoto}
 };
 
 /* NIF interface declarations */
@@ -160,7 +169,7 @@ static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     int i;
     if (enif_get_int(env, argv[0], &i)) {
         int width;
-        ASSERT(i > 0 && i < (1 << 16));
+        ASSERT(i > 0 && i < (1l << 21));
         width = wcwidth((wchar_t)i);
         if (width == -1) {
             return make_error(env, enif_make_atom(env, "not_printable"));
@@ -177,7 +186,7 @@ static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         int width;
 #ifdef DEBUG
         for (int i = 0; i < bin.size / sizeof(wchar_t); i++) {
-            ASSERT(chars[i] >= 0 && chars[i] < (1 << 16));
+            ASSERT(chars[i] >= 0 && chars[i] < (1l << 21));
         }
 #endif
         width = wcswidth(chars, bin.size / sizeof(wchar_t));
@@ -220,6 +229,82 @@ static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
     return atom_false;
 #endif
+}
+
+static ERL_NIF_TERM tty_tgetent(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary TERM;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+        return enif_make_badarg(env);
+    if (tgetent((char *)NULL /* ignored */, (char *)TERM.data) <= 0) {
+        return make_errno_error(env, "tgetent");
+    }
+    return atom_ok;
+}
+
+static ERL_NIF_TERM tty_tgetnum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary TERM;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+        return enif_make_badarg(env);
+    return enif_make_int(env, tgetnum((char*)TERM.data));
+}
+
+static ERL_NIF_TERM tty_tgetflag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary TERM;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+        return enif_make_badarg(env);
+    if (tgetflag((char*)TERM.data))
+        return atom_true;
+    return atom_false;
+}
+
+static ERL_NIF_TERM tty_tgetstr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary TERM, ret;
+    /* tgetstr seems to use a lot of stack buffer space,
+       so buff needs to be relatively "small" */
+    char *str = NULL, buff[32];
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM))
+        return enif_make_badarg(env);
+    str = tgetstr((char*)TERM.data, (char **)buff);
+    if (!str) return atom_false;
+    enif_alloc_binary(strlen(str), &ret);
+    memcpy(ret.data, str, strlen(str));
+    return enif_make_tuple2(
+        env, atom_ok, enif_make_binary(env, &ret));
+}
+
+static int tputs_buffer_index;
+static unsigned char tputs_buffer[1024];
+
+static int tty_puts_putc(int c) {
+    tputs_buffer[tputs_buffer_index++] = (unsigned char)c;
+    return 0;
+}
+
+static ERL_NIF_TERM tty_tgoto(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary TERM;
+    char *ent;
+    int value1, value2;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM) ||
+        !enif_get_int(env, argv[1], &value1))
+        return enif_make_badarg(env);
+    if (argc == 2) {
+        ent = tgoto((char*)TERM.data, 0, value1);
+    } else {
+        ASSERT(argc == 3);
+        ent = tgoto((char*)TERM.data, value1, value2);
+    }
+    if (!ent) return make_errno_error(env, "tgoto");
+
+    tputs_buffer_index = 0;
+    if (tputs(ent, 1, tty_puts_putc)) {
+        return make_errno_error(env, "tputs");
+    } else {
+        ERL_NIF_TERM ret;
+        unsigned char *buff = enif_make_new_binary(env, tputs_buffer_index, &ret);
+        memcpy(buff, tputs_buffer, tputs_buffer_index);
+        return enif_make_tuple2(env, atom_ok, ret);
+    }
 }
 
 static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -321,34 +406,6 @@ static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return make_errno_error(env, "tcsetattr");
     }
     return atom_ok;
-}
-
-static ERL_NIF_TERM tty_termcap(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    TTYResource *tty;
-    ErlNifBinary TERM;
-    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty) ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &TERM))
-        return enif_make_badarg(env);
-    if (tgetent((char *)tty, (char *)TERM.data) <= 0) {
-        return make_errno_error(env, "tgetent");
-    }
-    tty->cols = tgetnum("co");
-    if (tty->cols <= 0)
-        tty->cols = DEF_WIDTH;
-    tty->xn = tgetflag("xn");
-    tty->up = tgetstr("up", &TERM.data);
-    if (!(tty->down = tgetstr("do", &TERM.data)))
-      tty->down = "\n";
-    if (!(tty->left = tgetflag("bs") ? "\b" : tgetstr("bc", &TERM.data)))
-      tty->left = "\b";		/* Can't happen - but does on Solaris 2 */
-    tty->right = tgetstr("nd", &TERM.data);
-    fprintf(stderr,"up: %d down: %d left: %d right: %d\r\n",
-            (int)(tty->up[2]), (int)*tty->down, (int)*tty->left, (int)(tty->right[2]));
-    if (tty->up && tty->down && tty->left && tty->right) {
-        return atom_ok;
-    }
-
-    return make_error(env, enif_make_atom(env, "enotsup"));;
 }
 
 static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
