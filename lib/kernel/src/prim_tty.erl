@@ -91,6 +91,18 @@
 %%    Since 2017:ish we can use Virtual Terminal Sequences[2] to control the terminal.
 %%    It seems like these are mostly ANSI escape comparitible, so it should be possible
 %%    to just use the same mechanism on windows and unix.
+%%
+%%
+%%  Things I've tried and discarded:
+%%    * Use get position to figure out xn fix for newlines
+%%      * There is too large a latency (about 10ms) to get the position, so things like
+%%        `c:i()` becomes a lot slower.
+%%    * Use tty insert mode
+%%      * This only works when the cursor is on the last line, when it is on a previous
+%%        line it only edit that line.
+%%    * Use tty delete mode
+%%      * Same problem as insert mode, it only deleted current line, and does not move
+%%        to previous line automatically.
 
 -export([init/1, window_size/1, unicode/1, unicode/2,
          putc_sync/2, putc/2, move/2, insert/2, delete/2,
@@ -428,7 +440,7 @@ split(N, _Buff, _Acc, _Chars, _Cols) when N < 0 ->
 split(_N, [], Acc, Chars, Cols) ->
     {Chars, Cols, Acc, []};
 split(N, [Char | T], Acc, Cnt, Cols) when is_integer(Char) ->
-    split(N - 1, T, [Char | Acc], Cnt + 1, Cols + wcwidth(Char));
+    split(N - 1, T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char));
 split(N, [Chars | T], Acc, Cnt, Cols) when is_list(Chars) ->
     split(N - length(Chars), T, [Chars | Acc], Cnt + length(Chars), Cols + cols(Chars));
 split(N, [SkipChars | T], Acc, Cnt, Cols) when is_binary(SkipChars) ->
@@ -467,7 +479,7 @@ move(right, #state{ right = Right }, N) ->
 cols([]) ->
     0;
 cols([Char | T]) when is_integer(Char) ->
-    wcwidth(Char) + cols(T);
+    npwcwidth(Char) + cols(T);
 cols([Chars | T]) when is_list(Chars) ->
     cols(Chars) + cols(T);
 cols([SkipSeq | T]) when is_binary(SkipSeq) ->
@@ -482,6 +494,12 @@ update_cols(State) ->
             State#state{ cols = Cols };
         _ ->
             State
+    end.
+
+npwcwidth(Char) ->
+    case wcwidth(Char) of
+        {error, not_printable} -> 0;
+        C -> C
     end.
 
 %% Return the xn fix for the current cursor position.
