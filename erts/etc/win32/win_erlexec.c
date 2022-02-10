@@ -244,8 +244,7 @@ do_keep_window(void)
 int
 start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_detached)
 {
-    static char console_mode[] = "tty:ccc";
-    char* fd_type;
+    char console_mode[] = "tty:ccc";
     char* title;
     int len;
     int argc = 0;
@@ -254,11 +253,16 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
     fprintf(stderr,"utf8emu = %s, start_prog = %s\n", utf8emu, utf8start_prog);
 #endif
 
-    fd_type = strchr(console_mode, ':');
-    fd_type++;
     _flushall();
 
     while (utf8argv[argc] != NULL) {
+	if (strcmp(utf8argv[argc],"-user") == 0 && utf8argv[argc+1] != NULL &&
+	    strcmp(utf8argv[argc+1],"user_nif") == 0
+	) {
+		console_mode[4] = 'c';
+		console_mode[5] = 'c';
+		console_mode[6] = 't';
+	}
 	++argc;
     }
 

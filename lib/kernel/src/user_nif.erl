@@ -173,7 +173,7 @@ server_loop(Input, Output, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
     receive
 	{Input,{data,Bs}} ->
 	    BsBin = iolist_to_binary(Bs),
-	    Unicode = case unicode:characters_to_list(BsBin,utf8) of
+	    Unicode = case unicode:characters_to_list(BsBin) of
                           {error, _, _} ->
                               erlang:display({failed, BsBin}),
                               "";
@@ -497,7 +497,13 @@ get_line({What,Cont0,Rs}, Input, Output) ->
     io_requests(Rs, Input, Output),
     receive
 	{Input,{data,Cs}} ->
-	    get_line(edlin:edit_line(Cs, Cont0), Input, Output);
+        Unicode = case unicode:characters_to_list(Cs) of
+            {error, _, _} ->
+                erlang:display({failed, Cs}),
+                "";
+            U -> U
+        end,
+	    get_line(edlin:edit_line(Unicode, Cont0), Input, Output);
 	{Input,eof} ->
 	    get_line(edlin:edit_line(eof, Cont0), Input, Output)
     after

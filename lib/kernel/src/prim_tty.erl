@@ -91,6 +91,10 @@
 %%    Since 2017:ish we can use Virtual Terminal Sequences[2] to control the terminal.
 %%    It seems like these are mostly ANSI escape comparitible, so it should be possible
 %%    to just use the same mechanism on windows and unix.
+%% [2]: https://docs.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+%%    Windows does not seem to have any wcwidth, so maybe we have to generate a similar table
+%%    as the PR in [3] and add string:width/1.
+%% [3]: https://github.com/microsoft/terminal/pull/5795
 %%
 %%
 %%  Things I've tried and discarded:
@@ -106,7 +110,7 @@
 
 -export([init/1, window_size/1, unicode/1, unicode/2,
          putc_sync/2, putc/2, move/2, insert/2, delete/2,
-         beep/1, on_load/0, on_load/1]).
+         window_position/1, beep/1, on_load/0, on_load/1]).
 -export_type([tty/0]).
 
 -nifs([isatty/1, tty_init/2, tty_set/1, setlocale/0,
@@ -177,6 +181,9 @@ init(Options) ->
 window_size({_Pid, TTY}) ->
     tty_window_size(TTY).
 
+window_position(TTY) ->
+    call(TTY, get_position).
+
 unicode(TTY) ->
     call(TTY, unicode).
 
@@ -204,9 +211,50 @@ beep(TTY) ->
     cast(TTY, beep).
 
 init(Ref, Parent, Options) ->
-    true = isatty(0),
-    true = isatty(1),
-    {ok, TTY} = tty_init(1, maps:from_list(Options)),
+    case {isatty(stdin), isatty(stdout)} of
+        {true, true} ->
+            State = init_tty(Options, os:type()),
+
+            {ok, TraceFile} = file:open("tty.trace", [write]),
+            dbg:tracer(
+              process,
+              {fun(Event, FD) ->
+                    io:format(FD,"~tp~n", [Event]),
+                    FD
+              end, TraceFile}
+            ),
+            dbg:p(self(), [c, m, timestamp]),
+        %    dbg:p(Parent, [c, r]),
+            dbg:tpl(?MODULE, write_nif, []),
+            dbg:tpl(?MODULE, read_nif, x),
+            dbg:tpl(?MODULE, dbg, []),
+
+            Utf8Mode =
+                case setlocale() of
+                    primitive ->
+                        lists:any(
+                            fun(Key) ->
+                                string:find(os:getenv(Key,""),"UTF-8") =/= nomatch
+                            end, ["LC_ALL", "LC_CTYPE", "LANG"]);
+                    Utf8Locale when is_boolean(Utf8Locale) ->
+                        Utf8Locale
+                end,
+
+            ok = tty_select(State#state.tty, State#state.signal, State#state.read),
+
+        Parent ! {Ref, State#state.tty},
+        try
+            loop(update_cols(State#state{ utf8 = Utf8Mode, parent = Parent }))
+        catch E:R:ST ->
+            erlang:display({E,R,ST}),
+            erlang:raise(E,R,ST)
+        end;
+    _ ->
+        exit(notatty)
+    end.
+
+init_tty(Options, {unix,_}) ->
+    {ok, TTY} = tty_init(stdout, maps:from_list(Options)),
     ok = tty_set(TTY),
     ok = tgetent(os:getenv("TERM")),
 
@@ -254,64 +302,28 @@ init(Ref, Parent, Options) ->
                    false -> (#state{})#state.position
                end,
 
-    State = #state{ cols = Cols,
-                    xn = tgetflag("xn"),
-                    up = Up,
-                    down = Down,
-                    left = Left,
-                    right = Right,
-                    insert = Insert,
-                    delete = Delete,
-                    tab = Tab,
-                    position = Position,
-                    signal = make_ref(),
-                    read = make_ref()
-                  },
-
-    {ok, TraceFile} = file:open("tty.trace", [write]),
-    dbg:tracer(
-      process,
-      {fun(Event, FD) ->
-               io:format(FD,"~tp~n", [Event]),
-               FD
-       end, TraceFile}
-     ),
-    dbg:p(self(), [c, timestamp]),
-%    dbg:p(Parent, [c, r]),
-    dbg:tpl(?MODULE, write_nif, []),
-    dbg:tpl(?MODULE, read_nif, x),
-    dbg:tpl(?MODULE, dbg, []),
-
-    Utf8Mode =
-        case setlocale() of
-            primitive ->
-                lists:any(
-                  fun(Key) ->
-                          string:find(os:getenv(Key),"UTF-8") =/= nomatch
-                  end, ["LC_ALL", "LC_CTYPE", "LANG"]);
-            Utf8Locale when is_boolean(Utf8Locale) ->
-                Utf8Locale
-        end,
-
-    ok = tty_select(TTY, State#state.signal, State#state.read),
-
-    true = isprint($a),
-    1 = wcwidth($a),
-    4 = sizeof_wchar(),
-    {ok, 1} = wcswidth(<<$a:(sizeof_wchar() * 8)/native>>),
-    {ok, 2} = wcswidth(<<16#1F600:(sizeof_wchar() * 8)/native>>),
-    {ok, 3} = wcswidth(<<$a:(sizeof_wchar() * 8)/native,
-                         16#1F600:(sizeof_wchar() * 8)/native>>), % 😀
-    {error, not_printable} = wcwidth($\n),
-
-    Parent ! {Ref, TTY},
-    try
-        loop(update_cols(
-               State#state{ tty = TTY, utf8 = Utf8Mode, parent = Parent }))
-    catch E:R:ST ->
-            erlang:display({E,R,ST}),
-            erlang:raise(E,R,ST)
-    end.
+    #state{ tty = TTY,
+            cols = Cols,
+            xn = tgetflag("xn"),
+            up = Up,
+            down = Down,
+            left = Left,
+            right = Right,
+            insert = Insert,
+            delete = Delete,
+            tab = Tab,
+            position = Position,
+            signal = make_ref(),
+            read = make_ref()
+    };
+init_tty(Options, {win32, _}) ->
+    {ok, TTY} = tty_init(stdout, maps:from_list(Options)),
+    % os:putenv("ERL_CONSOLE_MODE","window"),
+    #state{ tty = TTY,
+            position = false,
+            xn = true,
+            signal = make_ref(),
+            read = make_ref() }.
 
 loop(State) ->
     dbg({State#state.buffer_before, State#state.buffer_after}),
@@ -324,6 +336,9 @@ loop(State) ->
             loop(State#state{ utf8 = false });
         {call, Ref, unicode} ->
             Ref ! {Ref, State#state.utf8 },
+            loop(State);
+        {call, Ref, get_position} ->
+            Ref ! get_position(State),
             loop(State);
         {call, Ref, Request} ->
             dbg({request, Request}),
@@ -352,12 +367,17 @@ loop(State) ->
           when TTY =:= State#state.tty,
                Ref =:= State#state.read ->
             case read(State) of
-                {ok, Bytes} ->
+                {ok, Bytes} when is_binary(Bytes) ->
                     State#state.parent ! {{self(), State#state.tty}, {data, Bytes}},
+                    loop(State);
+                {ok, Characters} when is_list(Characters) ->
+                    State#state.parent ! {{self(), State#state.tty}, {data, unicode:characters_to_binary(Characters)}},
                     loop(State)
             end;
+        {resize, {_Rows, Cols}} ->
+            loop(State#state{ cols = Cols});
         _Unknown ->
-%            erlang:display({unknown, Unknown}),
+            erlang:display({unknown, _Unknown}),
             loop(State)
     end.
 
@@ -492,7 +512,8 @@ update_cols(State) ->
         {ok, {_Row, Cols}} when Cols > 0 ->
             dbg({?FUNCTION_NAME, Cols}),
             State#state{ cols = Cols };
-        _ ->
+        _Error ->
+            dbg({?FUNCTION_NAME, _Error}),
             State
     end.
 

@@ -304,6 +304,9 @@ int erts_set_signal(Eterm signal, Eterm type) {
     return 0;
 }
 
+static DWORD dwOriginalOutMode = 0;
+static DWORD dwOriginalInMode = 0;
+
 static void
 init_console(void)
 {
@@ -314,6 +317,8 @@ init_console(void)
 	ConInit();
 	/*nohup = 0;*/
     } else if (strncmp(mode, "tty:", 4) == 0) {
+	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
+	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
 	if (mode[5] == 'c') {
 	    setvbuf(stdout, NULL, _IONBF, 0);
 	}
@@ -2194,7 +2199,6 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	    return ERL_DRV_ERROR_GENERAL;
 	}
 	
-	fd_driver_input = &(dp->in);
 	dp->in.flags = DF_XLAT_CR;
 	if (is_std_error) {
 	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
@@ -2202,6 +2206,7 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	}
 	
 	if ( in == 0 && out == 1) {
+        fd_driver_input = &(dp->in);
 	    save_01_port = dp;
 	} else if (in == 2 && out == 2) {
 	    save_22_port = dp;
@@ -2972,6 +2977,32 @@ sys_get_key(int fd)
 		}
 		return key;
 	    }
+	}
+    }
+    else {
+	char c[64];
+	DWORD dwBytesRead, dwCurrentOutMode = 0, dwCurrentInMode = 0;
+
+	/* Get current console information */
+	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwCurrentOutMode);
+	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwCurrentInMode);
+
+	/* Set the a "oldstyle" terminal with line input that we can use ReadFile on */
+	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwOriginalOutMode);
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),
+		ENABLE_PROCESSED_INPUT |
+		ENABLE_LINE_INPUT |
+		ENABLE_ECHO_INPUT |
+		ENABLE_INSERT_MODE |
+		ENABLE_QUICK_EDIT_MODE |
+		ENABLE_AUTO_POSITION
+		);
+
+	if (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &c, sizeof(c), &dwBytesRead, NULL) && dwBytesRead > 0) {
+	    /* Restore original console information */
+	    SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwCurrentOutMode);
+	    SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), dwCurrentInMode);
+	    return c[0];
 	}
     }
     return '*';		/* Error! */

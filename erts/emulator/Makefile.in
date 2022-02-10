@@ -1128,6 +1128,7 @@ RUN_OBJS += \
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
 NIF_OBJS = \
+	$(OBJDIR)/prim_tty_nif.o \
 	$(OBJDIR)/erl_tracer_nif.o \
 	$(OBJDIR)/prim_buffer_nif.o \
 	$(OBJDIR)/prim_file_nif.o \
@@ -1162,8 +1163,6 @@ OS_OBJS = \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
 	$(OBJDIR)/sys_signal_stack.o
-
-NIF_OBJS += $(OBJDIR)/prim_tty_nif.o
 
 DRV_OBJS = \
 	$(OBJDIR)/inet_drv.o \
