@@ -366,9 +366,15 @@ loop(State) ->
         {select, TTY, Ref, ready_input}
           when TTY =:= State#state.tty,
                Ref =:= State#state.read ->
+            {OS, _} = os:type(),
             case read(State) of
-                {ok, Bytes} when is_binary(Bytes) ->
-                    State#state.parent ! {{self(), State#state.tty}, {data, Bytes}},
+                {ok, Utf8Bytes} when is_binary(Utf8Bytes), OS =:= unix ->
+                    State#state.parent ! {{self(), State#state.tty}, {data, Utf8Bytes}},
+                    loop(State);
+                {ok, UTF16NativeBytes} when is_binary(UTF16NativeBytes), OS =:= win32 ->
+                    State#state.parent !
+                        {{self(), State#state.tty},
+                         {data, unicode:characters_to_binary(UTF16NativeBytes, {utf16, little}, utf8)}},
                     loop(State);
                 {ok, Characters} when is_list(Characters) ->
                     State#state.parent ! {{self(), State#state.tty}, {data, unicode:characters_to_binary(Characters)}},

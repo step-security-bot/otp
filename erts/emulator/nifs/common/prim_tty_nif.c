@@ -275,28 +275,44 @@ static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
+    ErlNifBinary bin;
     ERL_NIF_TERM res_term;
+    ssize_t res = 0;
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
     #ifdef __WIN32__
     {
-        ssize_t inputs_read;
+        ssize_t inputs_read, num_characters = 0;
+        wchar_t *characters = NULL;
         INPUT_RECORD inputs[128];
-        if (!ReadConsoleInput(tty->ifd, inputs, sizeof(inputs)/sizeof(*inputs),
+        if (!ReadConsoleInputW(tty->ifd, inputs, sizeof(inputs)/sizeof(*inputs),
                               &inputs_read)) {
             return make_errno_error(env, "ReadConsoleInput");
         }
-        // fprintf(stderr,"num: %d\r\n", inputs_read);
+        for (int i = 0; i < inputs_read; i++) {
+            if (inputs[i].EventType == KEY_EVENT) {
+                if (inputs[i].Event.KeyEvent.bKeyDown && inputs[i].Event.KeyEvent.uChar.UnicodeChar < 256 && inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+                    num_characters++;
+                }
+                if (!inputs[i].Event.KeyEvent.bKeyDown && inputs[i].Event.KeyEvent.uChar.UnicodeChar > 255 && inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+                    num_characters++;
+                }
+            }
+        }
+        if (num_characters > 0) {
+            enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
+            characters = (wchar_t*)bin.data;
+        }
         enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-        res_term = enif_make_list(env, 0);
-        for (int i = inputs_read - 1; i > -1; i--) {
+        for (int i = 0; i < inputs_read; i++) {
             switch (inputs[i].EventType)
             {
             case KEY_EVENT:
-                if (inputs[i].Event.KeyEvent.bKeyDown) {
-                    res_term = enif_make_list_cell(env,
-                        enif_make_int(env, inputs[i].Event.KeyEvent.uChar.UnicodeChar),
-                        res_term);
+                if (inputs[i].Event.KeyEvent.bKeyDown && inputs[i].Event.KeyEvent.uChar.UnicodeChar < 256 && inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+                    characters[res++] = inputs[i].Event.KeyEvent.uChar.UnicodeChar;
+                }
+                if (!inputs[i].Event.KeyEvent.bKeyDown && inputs[i].Event.KeyEvent.uChar.UnicodeChar > 255 && inputs[i].Event.KeyEvent.uChar.UnicodeChar != 0) {
+                    characters[res++] = inputs[i].Event.KeyEvent.uChar.UnicodeChar;
                 }
                 break;
             case WINDOW_BUFFER_SIZE_EVENT:
@@ -310,10 +326,11 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                 break;
             }
         }
+        res *= sizeof(wchar_t);
     }
     #else
-    ErlNifBinary bin;
     ssize_t res;
+    ErlNifBinary bin;
     enif_alloc_binary(1024, &bin);
     res = read(tty->ifd, bin.data, bin.size);
     if (res < 0) {
@@ -322,16 +339,18 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         }
         res = 0;
     }
+    #endif
     enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-    if (res < 512) {
+    if (res < bin.size / 2) {
         unsigned char *buff = enif_make_new_binary(env, res, &res_term);
-        memcpy(buff, bin.data, res);
-        enif_release_binary(&bin);
+        if (res > 0) {
+            memcpy(buff, bin.data, res);
+            enif_release_binary(&bin);
+        }
     } else {
         enif_realloc_binary(&bin, res);
         res_term = enif_make_binary(env, &bin);
     }
-    #endif
 
     return enif_make_tuple2(env, atom_ok, res_term);
 }
@@ -560,8 +579,8 @@ static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return make_errno_error(env, "GetConsoleMode");
     }
 
-    fprintf(stderr, "origOutMode: %x origInMode: %x\r\n",
-        dwOriginalOutMode, dwOriginalInMode);
+    // fprintf(stderr, "origOutMode: %x origInMode: %x\r\n",
+    //     dwOriginalOutMode, dwOriginalInMode);
 
     DWORD dwRequestedOutModes = ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
     DWORD dwRequestedInModes = ENABLE_VIRTUAL_TERMINAL_INPUT;
