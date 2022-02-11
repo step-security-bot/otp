@@ -204,17 +204,17 @@ static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM wcwidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     int i;
     if (enif_get_int(env, argv[0], &i)) {
+#ifndef __WIN32__
         int width;
         ASSERT(i > 0 && i < (1l << 21));
-#ifndef __WIN32__
         width = wcwidth((wchar_t)i);
-#else
-        width = iswprint((wchar_t)i) ? 1 : -1;
-#endif
         if (width == -1) {
             return make_error(env, enif_make_atom(env, "not_printable"));
         }
         return enif_make_int(env, width);
+#else
+        return make_error(env, enif_make_atom(env, "enotsup"));
+#endif
     }
     return enif_make_badarg(env);
 }

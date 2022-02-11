@@ -526,6 +526,11 @@ update_cols(State) ->
 npwcwidth(Char) ->
     case wcwidth(Char) of
         {error, not_printable} -> 0;
+        {error, enotsup} ->
+            case unicode_util:is_wide(Char) of
+                true -> 2;
+                false -> 1
+            end;
         C -> C
     end.
 
