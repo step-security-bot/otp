@@ -518,7 +518,7 @@ subst_var([], Vars, Result, VarAcc) ->
 %%%-----------------------------------------------------------------
 %%% 
 start_node(Start,ExpStatus,ExpVsn,ExpApps) ->
-    case open_port({spawn_executable, Start}, []) of
+    case open_port({spawn_executable, Start}, [{env,[{"ERL_AFLAGS",false}]}]) of
         Port when is_port(Port) ->
             unlink(Port),
             erlang:port_close(Port),
@@ -533,7 +533,15 @@ wait_node_up(ExpStatus, ExpVsn, ExpApps0) ->
     wait_node_up(Node, ExpStatus, ExpVsn, lists:keysort(1,ExpApps), 60).
 
 wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, 0) ->
-    p("wait_node_up -> fail"),
+    Root = erpc:call(Node, code, root_dir, []),
+    {ok, Log} = case filelib:wildcard(filename:join([Root,"log","erlang.*"])) of
+                    [Logfile|_] ->
+                        file:read_file(Logfile);
+                    [] ->
+                        {ok, "No log file found"}
+                end,
+    p("wait_node_up -> fail~n"
+      "Logs: ~n~ts~n", [Log]),
     ct:fail({app_check_failed,ExpVsn,ExpApps,
 	     rpc:call(Node, release_handler, which_releases,     [ExpStatus]),
 	     rpc:call(Node, application,     which_applications, [])});
@@ -549,8 +557,11 @@ wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N) ->
                     p("wait_node_up -> [~w] expected apps", [N]),
                     {ok, Node};
                 UnexpApps ->
-                    p("wait_node_up -> [~w] still wrong apps:"
-                      "~n      ~p", [N, UnexpApps]),
+                    p("wait_node_up -> [~w] still wrong apps:~n"
+                      "Missing:~p~n"
+                      "Extra:  ~p~n"
+                      "All:    ~p~n"
+                      , [N, ExpApps -- UnexpApps, UnexpApps -- ExpApps, UnexpApps]),
                     wait_node_up(Node, ExpStatus, ExpVsn, ExpApps, N-1)
             end;
         {[{_,Vsn,_,_}],_} ->
