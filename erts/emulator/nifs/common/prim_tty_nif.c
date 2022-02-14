@@ -303,7 +303,6 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
             characters = (wchar_t*)bin.data;
         }
-        enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
         for (int i = 0; i < inputs_read; i++) {
             switch (inputs[i].EventType)
             {
@@ -360,6 +359,9 @@ static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (!SetConsoleOutputCP(CP_UTF8)) {
         return make_errno_error(env, "SetConsoleOutputCP");
     }
+    // if (!SetConsoleCP(CP_UTF8)) {
+    //     return make_errno_error(env, "SetConsoleOutputCP");
+    // }
     return atom_true;
 #elif defined(PRIMITIVE_UTF8_CHECK)
     setlocale(LC_CTYPE, "");  /* Set international environment, 
