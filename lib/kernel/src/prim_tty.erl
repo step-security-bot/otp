@@ -22,7 +22,6 @@
 -compile(export_all).
 
 %% Todo:
-%%  * Look at what windows does
 %%  * Try to move buffer handling logic to Erlang
 %%    * This may not be possible for performance reasons, but should be tried
 %%    * It seems like unix decodes and then encodes utf8 when emitting it
@@ -126,6 +125,7 @@
 -record(state, {tty,
                 signal,
                 read,
+                acc = <<>>,
                 utf8, parent,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
@@ -320,7 +320,7 @@ init_tty(Options, {win32, _}) ->
     {ok, TTY} = tty_init(stdout, maps:from_list(Options)),
     % os:putenv("ERL_CONSOLE_MODE","window"),
     #state{ tty = TTY,
-            position = false,
+            % position = false,
             xn = true,
             signal = make_ref(),
             read = make_ref() }.
@@ -338,7 +338,7 @@ loop(State) ->
             Ref ! {Ref, State#state.utf8 },
             loop(State);
         {call, Ref, get_position} ->
-            Ref ! get_position(State),
+            Ref ! {Ref, get_position(State)},
             loop(State);
         {call, Ref, Request} ->
             dbg({request, Request}),
@@ -366,25 +366,33 @@ loop(State) ->
         {select, TTY, Ref, ready_input}
           when TTY =:= State#state.tty,
                Ref =:= State#state.read ->
-            {OS, _} = os:type(),
-            case read(State) of
-                {ok, Utf8Bytes} when is_binary(Utf8Bytes), OS =:= unix ->
-                    State#state.parent ! {{self(), State#state.tty}, {data, Utf8Bytes}},
-                    loop(State);
-                {ok, UTF16NativeBytes} when is_binary(UTF16NativeBytes), OS =:= win32 ->
-                    State#state.parent !
-                        {{self(), State#state.tty},
-                         {data, unicode:characters_to_binary(UTF16NativeBytes, {utf16, little}, utf8)}},
-                    loop(State);
-                {ok, Characters} when is_list(Characters) ->
-                    State#state.parent ! {{self(), State#state.tty}, {data, unicode:characters_to_binary(Characters)}},
-                    loop(State)
-            end;
+            {Bytes, Acc} = read_input(State),
+            State#state.parent ! {{self(), State#state.tty}, {data, Bytes}},
+            loop(State#state{ acc = Acc });
         {resize, {_Rows, Cols}} ->
-            loop(State#state{ cols = Cols});
+            loop(State#state{ cols = Cols });
         _Unknown ->
             erlang:display({unknown, _Unknown}),
             loop(State)
+    end.
+
+read_input(State) ->
+    {OS, _} = os:type(),
+    CsToBin =
+    case read(State) of
+        {ok, Utf8Bytes} when is_binary(Utf8Bytes), OS =:= unix ->
+            unicode:characters_to_binary([State#state.acc, Utf8Bytes]);
+        {ok, UTF16NativeBytes} when is_binary(UTF16NativeBytes), OS =:= win32 ->
+            unicode:characters_to_binary([State#state.acc, UTF16NativeBytes],
+                {utf16, little}, utf8)
+    end,
+    case CsToBin of
+        {error, B, _Error} ->
+            {B, <<>>};
+        {incomplete, B, Inc} ->
+            {B, Inc};
+        B when is_binary(B) ->
+            {B, <<>>}
     end.
 
 handle_request(State, {putc, Binary}) ->
@@ -629,19 +637,21 @@ get_position(State) ->
     get_position(State, <<>>).
 get_position(State, Acc) ->
     receive
-        {input, Bytes} ->
-            NewAcc = <<Acc/binary,(iolist_to_binary(Bytes))/binary>>,
-            case re:run(NewAcc, State#state.position_reply, [unicode]) of
+        {select,TTY,Ref,ready_input}
+            when TTY =:= State#state.tty,
+                 Ref =:= State#state.read ->
+            {Bytes, Acc} = read_input(State#state{ acc = Acc }),
+            case re:run(Bytes, State#state.position_reply, [unicode]) of
                 {match,[{Start,Length},Row,Col]} ->
-                    <<Before:Start/binary,_:Length/binary,After/binary>> = NewAcc,
+                    <<Before:Start/binary,_:Length/binary,After/binary>> = Bytes,
                     %% This should be put in State in order to not screw up the
                     %% message order...
-                    [self() ! {input, <<Before/binary, After/binary>>}
+                    [State#state.parent ! {{self(), State#state.tty}, {data, <<Before/binary, After/binary>>}}
                      || Before =/= <<>>, After =/= <<>>],
-                    {binary_to_integer(binary:part(NewAcc,Row)),
-                     binary_to_integer(binary:part(NewAcc,Col))};
+                    {binary_to_integer(binary:part(Bytes,Row)),
+                     binary_to_integer(binary:part(Bytes,Col))};
                 nomatch ->
-                    get_position(State, NewAcc)
+                    get_position(State, Bytes)
             end
     after 1000 ->
             unknown
