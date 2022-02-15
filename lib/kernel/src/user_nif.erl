@@ -195,6 +195,9 @@ server_loop(Input, Output, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
         {Requester,set_unicode_state, Bool} ->
             Requester ! {self(),set_unicode_state,set_unicode_state(Input,Bool)},
             server_loop(Input, Output, Curr, User, Gr, IOQueue);
+        {Requester,tty_position} ->
+            Requester ! {self(),tty_position,get_tty_position(Input)},
+            server_loop(Input, Output, Curr, User, Gr, IOQueue);
 
         Req when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
                  tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
@@ -523,6 +526,9 @@ get_tty_geometry(Input) ->
         {error, _Reason} ->
             error
     end.
+
+get_tty_position(Input) ->
+    prim_tty:window_position(Input).
 
 get_unicode_state(Input) ->
     case prim_tty:unicode(Input) of
