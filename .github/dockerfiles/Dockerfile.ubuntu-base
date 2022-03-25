@@ -20,13 +20,19 @@ RUN apt-get update && apt-get -y upgrade && \
     tzdata ssh openssh-server groff-base sudo gdb tinyproxy bind9 nsd expect vsftpd python \
     linux-tools-common linux-tools-generic linux-tools-`uname -r` \
     ${INSTALL_LIBS} && \
-    for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
-    if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
     update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
 
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
+RUN for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
+    if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
+
+## Setup X tools for testing wx and interactive shell
+ENV DISPLAY=:6
+RUN apt-get install -y xdotool xserver-xorg-video-dummy x11vnc net-tools && \
+    sed -i -e 's:$SO $tmp:$SO $tmp $LDFLAGS:g' /usr/bin/Xdummy && \
+    LDFLAGS=-ldl Xdummy -install
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 

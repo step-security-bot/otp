@@ -31,7 +31,8 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1]).
+         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
+         xterm_navigate/1,xterm_transpose/1]).
 
 %% For spawn
 -export([toerl_server/3]).
@@ -47,6 +48,7 @@ all() ->
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
      ctrl_keys, stop_during_init, wrap,
+     {group, xterm},
      {group, shell_history},
      {group, remsh}].
 
@@ -66,7 +68,9 @@ groups() ->
      {remsh, [],
       [remsh_basic,
        remsh_longnames,
-       remsh_no_epmd]}
+       remsh_no_epmd]},
+     {xterm, [],
+      [xterm_navigate]}
     ].
 
 init_per_suite(Config) ->
@@ -846,6 +850,199 @@ remsh_no_epmd(Config) when is_list(Config) ->
             Else
     end.
 
+-record(xterm, { port, node, screenbuffer, wid, orig_location }).
+
+xterm_navigate(Config) ->
+
+    XTerm = start_xterm(Config),
+
+    try
+        xdotool(XTerm,type,"{aaa,bbb,ccc}"),
+        check_location(XTerm, {0, 0}),
+        check_content(XTerm, "{aaa,bbb,ccc}$"),
+        timer:sleep(1000),
+        check_location(XTerm, {0, 13}),
+        xdotool(XTerm,key,"Home"),
+        check_location(XTerm, {0, 0}),
+        xdotool(XTerm,key,"End"),
+        check_location(XTerm, {0, 13}),
+        xdotool(XTerm,key,"Left"),
+        check_location(XTerm, {0, 12}),
+        xdotool(XTerm,key,"Control_L+Left"),
+        check_location(XTerm, {0, 9}),
+        xdotool(XTerm,key,"Control_L+Left"),
+        check_location(XTerm, {0, 5}),
+        xdotool(XTerm,key,"Control_L+Right"),
+        check_location(XTerm, {0, 8}),
+        xdotool(XTerm,key,"Control_L+Left"),
+        check_location(XTerm, {0, 5}),
+        xdotool(XTerm,key,"Control_L+Left"),
+        check_location(XTerm, {0, 1}),
+        xdotool(XTerm,key,"Control_L+Left"),
+        check_location(XTerm, {0, 0}),
+        xdotool(XTerm,key,"Control_L+E"),
+        check_location(XTerm, {0, 13}),
+        xdotool(XTerm,key,"Control_L+A"),
+        check_location(XTerm, {0, 0}),
+        ok
+    after
+        erpc:call(XTerm#xterm.node,init,stop,[])
+    end.
+
+xterm_transpose(Config) ->
+    XTerm = start_xterm(Config),
+
+    Unicode = [[16#1f600],            % Smile 😀
+               [16#1F91A,16#1F3FC]    % Hand with skintone 🤚🏼
+              ],
+
+    try
+        [
+         begin
+             xdotool(XTerm,type,"ab"),
+             [xdotool(XTerm,key,"U"++integer_to_list(CP, 16)) || CP <- U],
+             [xdotool(XTerm,key,"U"++integer_to_list(CP, 16)) || CP <- U],
+             xdotool(XTerm,type,"cde"),
+             check_content(XTerm, "ab"++[U,U]++"cde$"),
+             check_location(XTerm, {R*2, 5 + width([U,U])}),
+             xdotool(XTerm,key,"Home"),
+             xdotool(XTerm,key,"Right"),
+             xdotool(XTerm,key,"Ctrl+T"),
+             check_content(XTerm, "ba"++[U,U]++"cde$"),
+             xdotool(XTerm,key,"Ctrl+T"),
+             check_content(XTerm, "b"++[U,$a,U]++"cde$"),
+             xdotool(XTerm,key,"Ctrl+T"),
+             check_content(XTerm, "b"++[U,U]++"acde$"),
+             xdotool(XTerm,key,"Ctrl+T"),
+             check_content(XTerm, "b"++[U,U]++"cade$"),
+             xdotool(XTerm,key,"End"),
+             xdotool(XTerm,key,"Left"),
+             xdotool(XTerm,key,"Left"),
+             xdotool(XTerm,key,"BackSpace"),
+             check_content(XTerm, "b"++[U,U]++"cde$"),
+             xdotool(XTerm,key,"End"),
+             xdotool(XTerm,key,"Linefeed")
+         end || {U, R} <- lists:zip(Unicode,lists:seq(0,length(Unicode)-1))],
+        ok
+    after
+        erpc:call(XTerm#xterm.node,init,stop,[]),
+        ok
+    end.
+
+xterm_insert(Config) ->
+    XTerm = start_xterm(Config),
+
+    try
+        xdotool(XTerm,type,"abcdefghijklm"),
+        check_content(XTerm, "abcdefghijklm$"),
+        check_location(XTerm, {0, 13}),
+        xdotool(XTerm,key,"Home"),
+        xdotool(XTerm,key,"Right"),
+        xdotool(XTerm,key,"Ctrl+T"),
+        xdotool(XTerm,key,"Ctrl+T"),
+        xdotool(XTerm,key,"Ctrl+T"),
+        xdotool(XTerm,key,"Ctrl+T"),
+        check_content(XTerm, "bcdeafghijklm$"),
+        xdotool(XTerm,key,"End"),
+        xdotool(XTerm,key,"Left"),
+        xdotool(XTerm,key,"Left"),
+        xdotool(XTerm,key,"BackSpace"),
+        check_content(XTerm, "bcdeafghijlm$"),
+        ok
+    after
+        erpc:call(XTerm#xterm.node,init,stop,[])
+    end.
+
+width(Str) ->
+    lists:sum(
+      [case unicode_util:is_wide(CP) of
+           true -> 2;
+           false -> 1
+       end || CP <- lists:flatten(Str)]).
+
+start_xterm(Config) ->
+    Name = peer:random_name(),
+    User = proplists:get_value(user,Config,"user_nif"),
+    ScreenBuffer = filename:join(proplists:get_value(priv_dir,Config,"/tmp"),Name),
+    Self64 = base64:encode_to_string(term_to_binary(self())),
+    Port = open_port(
+              {spawn_executable, os:find_executable("xterm")},
+              [{args,
+                ["-u8","-fa","DejaVu Sans Mono",
+                 %% Allow xdotool to send events
+                 "-xrm","*allowSendEvents:true",
+                 %% When issuing '\033[?11i', send contents to tmp file
+                 %% (print-everything https://invisible-island.net/xterm/manpage/xterm.html#Actions:print-everything)
+                 "-xrm","*printerCommand:cat - > " ++ ScreenBuffer,
+                 "-hold",
+                "-e",ct:get_progname(),
+                 "-sname",peer:random_name(),
+                 "-user",User,
+                "-pa",filename:dirname(code:which(?MODULE)),
+                "-eval","binary_to_term(base64:decode(\""++Self64++"\")) ! {hello, node()}."]}]),
+    Node =
+        receive
+            {hello, N} ->
+                N
+        after 1000 ->
+                ct:fail(timeout)
+        end,
+
+    dbg:tracer(),
+    dbg:p(all,c),
+    dbg:tp(os,cmd,x),
+    erpc:call(Node, dbg, tracer, [process,{fun(E,GL) ->
+                                                   io:format(GL,"~p~n",[E]), GL
+                                           end, group_leader()}]),
+    erpc:call(Node, dbg, p,[all,c]),
+    erpc:call(Node, dbg, tpl,[prim_tty,dbg,[]]),
+    erpc:call(Node, dbg, tpl,[prim_tty,write_nif,[]]),
+    WId = erpc:call(Node,os,getenv,["WINDOWID"]),
+    timer:sleep(100),
+    {ok, OrigLocation} = try erpc:call(Node,user_nif,window_location,[])
+                         catch _:_ -> {ok, unknown} end,
+    #xterm{ port = Port, node = Node, screenbuffer = ScreenBuffer,
+            wid = WId, orig_location = OrigLocation }.
+
+xdotool(#xterm{ wid = WId },type,Value) ->
+    timer:sleep(200),
+    Res = os:cmd(lists:concat(["xdotool type --clearmodifiers --delay 0 --window ",WId," '",Value,"'"])),
+    [io:format("~ts~n",[Res]) || Res /= []];
+xdotool(#xterm{ wid = WId },key,Value) ->
+    Res = os:cmd(lists:concat(["xdotool key --clearmodifiers --window ",WId," '",Value,"'"])),
+    [io:format("~ts~n",[Res]) || Res /= []].
+
+check_location(#xterm{ orig_location = unknown }, _) ->
+    ok;
+check_location(#xterm{ node = Node, orig_location = {OrigX, OrigY} }, {AdjX, AdjY}) ->
+    {ok, NewLocation} = erpc:call(Node,user_nif,window_location,[]),
+    case {OrigX+AdjX,OrigY+AdjY} of
+        NewLocation -> NewLocation;
+        _ ->
+            {NewX, NewY} = NewLocation,
+            ct:fail({wrong_location, {expected,{AdjX, AdjY}},
+                     {got,{NewX - OrigX, NewY - OrigY}}})
+    end.
+
+check_content(#xterm{ node = Node, screenbuffer = ScreenBufferFile }, Match) ->
+    timer:sleep(100),
+    erpc:call(Node,io,format,[user,[$\e]++"[?11i",[]]),
+    timer:sleep(100),
+    {ok, B} = file:read_file(ScreenBufferFile),
+    ScreenBuffer = re:replace(
+                     %% Strip whitespace and ANSI clear from end of screen buffer
+                     re:replace(B,"(\\s|"++[$\e]++"\\[0m)+$","", [unicode]),
+                     %% Strip unicode FFFF (not a character) from buffer
+                     [65535],"",[unicode,global]),
+    case re:run(ScreenBuffer, lists:flatten(Match), [unicode]) of
+        {match,_} ->
+            ok;
+        _ ->
+            io:format("Failed to find '~ts' in ~n'~w'~n",
+                      [Match,ScreenBuffer]),
+            ct:fail(nomatch)
+    end.
+
 rtnode(C) ->
     rtnode(C, []).
 
@@ -1305,7 +1502,7 @@ rtnode_read_logs(Tempdir) ->
 get_default_shell() ->
     try
         rtnode([{putline,""},
-                {putline, "is_pid(whereis(user_drv))."},
+                {putline, "is_pid(whereis(user_drv)) orelse is_pid(whereis(user_nif))."},
                 {expect, "true\r\n"}], []),
         new
     catch _E:_R ->
