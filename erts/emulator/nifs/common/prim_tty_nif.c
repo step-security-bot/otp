@@ -250,14 +250,14 @@ static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ERL_NIF_TERM tail;
     ErlNifIOVec vec, *iovec = &vec;
     TTYResource *tty;
+    ssize_t res = 0;
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
     if (!enif_inspect_iovec(env, 64, argv[1], &tail, &iovec))
         return enif_make_badarg(env);
 #ifndef __WIN32__
-    ssize_t res = writev(tty->ofd, iovec->iov, iovec->iovcnt);
+    res = writev(tty->ofd, iovec->iov, iovec->iovcnt);
 #else
-    ssize_t res = 0;
     for (int i = 0; i < iovec->iovcnt; i++) {
         ssize_t written;
         BOOL r = WriteFile(tty->ofd, iovec->iov[i].iov_base, iovec->iov[i].iov_len, &written, NULL);
@@ -328,12 +328,10 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         res *= sizeof(wchar_t);
     }
     #else
-    ssize_t res;
-    ErlNifBinary bin;
     enif_alloc_binary(1024, &bin);
     res = read(tty->ifd, bin.data, bin.size);
     if (res < 0) {
-        if (1 || errno != EAGAIN && errno != EINTR) {
+        if (errno != EAGAIN && errno != EINTR) {
             return make_errno_error(env, "read");
         }
         res = 0;
@@ -449,7 +447,7 @@ static int tty_puts_putc(int c) {
 static ERL_NIF_TERM tty_tgoto(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary TERM;
     char *ent;
-    int value1, value2;
+    int value1, value2 = 0;
     if (!enif_inspect_iolist_as_binary(env, argv[0], &TERM) ||
         !enif_get_int(env, argv[1], &value1))
         return enif_make_badarg(env);
@@ -609,22 +607,24 @@ static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     }
 
 #endif /* __WIN32__ */
-    
-    TTYResource *tty = enif_alloc_resource(tty_rt, sizeof(TTYResource));
+    {
+        TTYResource *tty = enif_alloc_resource(tty_rt, sizeof(TTYResource));
+        ERL_NIF_TERM tty_term;
 #ifndef __WIN32__
-    memcpy(&tty->tty_rmode, &tty_rmode, sizeof(tty_rmode));
-    memcpy(&tty->tty_smode, &tty_smode, sizeof(tty_smode));
-    tty->ifd = 0;
-    tty->ofd = 1;
+        memcpy(&tty->tty_rmode, &tty_rmode, sizeof(tty_rmode));
+        memcpy(&tty->tty_smode, &tty_smode, sizeof(tty_smode));
+        tty->ifd = 0;
+        tty->ofd = 1;
 #else
-    tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
-    tty->ofd = GetStdHandle(STD_OUTPUT_HANDLE);
+        tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
+        tty->ofd = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 
-    ERL_NIF_TERM tty_term = enif_make_resource(env, tty);
-    enif_release_resource(tty);
+        tty_term = enif_make_resource(env, tty);
+        enif_release_resource(tty);
 
-    return enif_make_tuple2(env, atom_ok, tty_term);
+        return enif_make_tuple2(env, atom_ok, tty_term);
+    }
 }
 
 static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -684,7 +684,7 @@ static int tty_signal_fd = -1;
 static RETSIGTYPE tty_cont(int sig)
 {
     if (tty_signal_fd != 1) {
-        write(tty_signal_fd, "c", 1);
+        while (write(tty_signal_fd, "c", 1) < 0 && errno == EINTR) { };
     }
 }
 
@@ -692,7 +692,7 @@ static RETSIGTYPE tty_cont(int sig)
 static RETSIGTYPE tty_winch(int sig)
 {
     if (tty_signal_fd != 1) {
-        write(tty_signal_fd, "w", 1);
+        while (write(tty_signal_fd, "w", 1) < 0 && errno == EINTR) { };
     }
 }
 
@@ -804,16 +804,12 @@ static ERL_NIF_TERM tty_select(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
-#ifdef THREADED_READER
-    tty_reader_init = enif_alloc(sizeof(struct tty_reader_init));
-    tty_reader_init->env = enif_alloc_env();
-    tty_reader_init->tty = enif_make_copy(tty_reader_init->env, argv[0]);
-#endif
-
     enif_self(env, &tty->self);
 
 #ifndef __WIN32__
-    pipe(tty->signal);
+    if (pipe(tty->signal) == -1) {
+        return make_errno_error(env, "pipe");
+    }
     SET_NONBLOCKING(tty->signal[0]);
     enif_select(env, tty->signal[0], ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
     tty_signal_fd = tty->signal[1];
@@ -828,10 +824,16 @@ static ERL_NIF_TERM tty_select(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enif_monitor_process(env, tty, &tty->self, NULL);
 
 #ifdef THREADED_READER
+
+    tty_reader_init = enif_alloc(sizeof(struct tty_reader_init));
+    tty_reader_init->env = enif_alloc_env();
+    tty_reader_init->tty = enif_make_copy(tty_reader_init->env, argv[0]);
+
     if (enif_thread_create(
             "stdin_reader",
             &tty->reader_tid,
             tty_reader_thread, tty_reader_init, NULL)) {
+        enif_free(tty_reader_init);
         return make_errno_error(env, "enif_thread_create");
     }
 #endif
