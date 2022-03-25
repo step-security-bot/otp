@@ -672,9 +672,9 @@ static ERL_NIF_TERM tty_window_size(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                 env, atom_ok,
                 enif_make_tuple2(
                     env,
-                    enif_make_int(env, height),
-                    enif_make_int(env, width)));
-    
+                    enif_make_int(env, width),
+                    enif_make_int(env, height)
+                    ));
 }
 
 #ifndef __WIN32__

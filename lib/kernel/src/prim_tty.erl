@@ -130,6 +130,7 @@
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
                 cols = 80,
+                rows = 24,
                 xn = false,
                 up = <<"\e[A">>,
                 down = <<"\n">>,
@@ -180,8 +181,13 @@ init(Options) ->
             {ok, {Pid, TTY}}
     end.
 
-window_size({_Pid, TTY}) ->
-    tty_window_size(TTY).
+window_size({_Pid, TTYResource} = TTY) ->
+    case tty_window_size(TTYResource) of
+        {error, enotsup} ->
+            call(TTY, get_window_size);
+        WinSz ->
+            WinSz
+    end.
 
 window_position(TTY) ->
     call(TTY, get_position).
@@ -341,6 +347,9 @@ loop(State) ->
             loop(State);
         {call, Ref, get_position} ->
             Ref ! {Ref, get_position(State)},
+            loop(State);
+        {call, Ref, get_window_size} ->
+            Ref ! {Ref, {State#state.cols, State#state.rows}},
             loop(State);
         {call, Ref, Request} ->
             dbg({request, Request}),
@@ -525,7 +534,7 @@ cols([SkipSeq | T]) when is_binary(SkipSeq) ->
 
 update_cols(State) ->
     case tty_window_size(State#state.tty) of
-        {ok, {_Row, Cols}} when Cols > 0 ->
+        {ok, {Cols, _Rows}} when Cols > 0 ->
             dbg({?FUNCTION_NAME, Cols}),
             State#state{ cols = Cols };
         _Error ->
