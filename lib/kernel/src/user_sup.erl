@@ -114,7 +114,7 @@ wait_for_user_p(N) ->
 
 get_user() ->
     Flags = init:get_arguments(),
-    check_flags(Flags, {user_drv, start, []}).
+    check_flags(Flags, {user_nif, start, []}).
 
 %% These flags depend upon what arguments the erl script passes on
 %% to erl91.
