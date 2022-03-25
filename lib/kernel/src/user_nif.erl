@@ -23,7 +23,7 @@
 
 -export([start/0,server/2,server/3]).
 
--export([interfaces/1]).
+-export([interfaces/1, window_location/0]).
 
 -include_lib("kernel/include/logger.hrl").
 
@@ -54,6 +54,13 @@ interfaces(UserDrv) ->
 	    end;
 	_ ->
 	    []
+    end.
+
+window_location() ->
+    ?MODULE ! {self(),tty_position},
+    receive
+        {_UserNif,tty_position,Position} ->
+            Position
     end.
 
 %% server(Pid, Shell)

@@ -306,7 +306,7 @@ init_tty(Options, {unix,_}) ->
                        %% cursor position.
                        % User 6 should contain how to parse the reply
                        {ok, <<"\e[%i%d;%dR">>} = tgetstr("u6"),
-                       <<"\e[6n">> = U7, false;
+                       <<"\e[6n">> = U7;
                    false -> (#state{})#state.position
                end,
 
@@ -449,7 +449,7 @@ handle_request(State, {move, N}) when N < 0 ->
     {_DelNum, DelCols, NewBA, NewBB} = split(-N, State#state.buffer_before),
     Moves =
         case get_position(State) of
-            {_Line, Col} when DelCols =< Col ->
+            {_Line, Col} when DelCols =< Col, false ->
                 move(left, State, DelCols);
             _ ->
                 NewBBCols = cols(NewBB),
@@ -573,7 +573,7 @@ npwcwidth(Char) ->
 %%   * off screen
 %%
 %% and it is when the cursor is off screen that we should do the xnfix.
-xnfix(#state{ position = false } = State) ->
+xnfix(#state{ position = _ } = State) ->
     xnfix(State, cols(State#state.buffer_before));
 xnfix(State) ->
     {_Line, Col} = get_position(State),
@@ -671,7 +671,7 @@ get_position(State, Acc) ->
         {select,TTY,Ref,ready_input}
             when TTY =:= State#state.tty,
                  Ref =:= State#state.read ->
-            {Bytes, Acc} = read_input(State#state{ acc = Acc }),
+            {Bytes, <<>>} = read_input(State#state{ acc = Acc }),
             case re:run(Bytes, State#state.position_reply, [unicode]) of
                 {match,[{Start,Length},Row,Col]} ->
                     <<Before:Start/binary,_:Length/binary,After/binary>> = Bytes,
