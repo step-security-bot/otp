@@ -142,7 +142,9 @@
                 position = <<"\e[6n">>, %% "u7" on my Linux
                 position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>,
                 %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
-                ansi_regexp = <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>
+                ansi_regexp = <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>,
+                %% The SGR (Select Graphic Rendition) parameters https://en.wikipedia.org/wiki/ANSI_escape_code#SGR
+                ansi_sgr = <<"^[\e",194,155,"]\\[[0-9;:]*m">>
                }).
 
 -spec on_load() -> ok.
@@ -586,7 +588,17 @@ insert_buf(State, Bin, Acc) ->
             case re:run(Bin, State#state.ansi_regexp, [unicode]) of
                 {match, [{0, N}]} ->
                     <<Ansi:N/binary, AnsiRest/binary>> = Bin,
-                    insert_buf(State, AnsiRest, [Ansi | Acc]);
+                    case re:run(Bin, State#state.ansi_sgr, [unicode]) of
+                        {match, [{0, N}]} ->
+                            %% We include the graphics ansi sequences in the
+                            %% buffer that we step over
+                            insert_buf(State, AnsiRest, [Ansi | Acc]);
+                        _ ->
+                            %% Any other ansi sequences are just printed and
+                            %% then dropped as they "should" not effect rendering
+                            write(State, Ansi),
+                            insert_buf(State, AnsiRest, Acc)
+                    end;
                 _ ->
                     insert_buf(State, Rest, [$\e | Acc])
             end;
