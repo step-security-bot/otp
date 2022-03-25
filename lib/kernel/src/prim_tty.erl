@@ -406,9 +406,19 @@ read_input(State) ->
             {B, <<>>}
     end.
 
+%% putc prints Binary and overwrites any existing characters
 handle_request(State, {putc, Binary}) ->
     %% Todo should handle invalid utf8?
-    insert_buf(State, Binary);
+    NewState = insert_buf(State, Binary),
+    if NewState#state.buffer_after =:= [] ->
+            NewState;
+       true ->
+            %% Delete any overwritten characters after current the cursor
+            OldLength = length(State#state.buffer_before),
+            NewLength = length(NewState#state.buffer_before),
+            {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after),
+            NewState#state{ buffer_after = NewBA }
+    end;
 handle_request(State, {delete, N}) when N > 0 ->
     {DelNum, _DelCols, _, NewBA} = split(N, State#state.buffer_after),
     BBCols = cols(State#state.buffer_before),
