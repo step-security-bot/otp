@@ -585,7 +585,7 @@ xnfix(State) ->
 
 %% Return the xn fix for CurrCols location.
 xnfix(#state{ xn = true, cols = Cols } = State, CurrCols)
-  when CurrCols rem Cols  == 0 ->
+  when CurrCols =/= 0, CurrCols rem Cols == 0 ->
     [<<"\s">>,move(left, State, 1)];
 xnfix(_, _CurrCols) ->
     dbg({xnfix, _CurrCols}),
