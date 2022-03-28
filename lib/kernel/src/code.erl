@@ -71,6 +71,7 @@
 	 start_link/0,
 	 which/1,
          get_doc/1,
+         get_type_doc/1,
 	 where_is_file/1,
 	 where_is_file/2,
 	 set_primary_archive/4,
@@ -906,21 +907,41 @@ get_doc_chunk_from_ast(Filename) ->
         {ok, {_Mod, [{abstract_code,
                       {raw_abstract_v1, AST}}]}} ->
             Docs = get_function_docs_from_ast(AST),
+            Types = get_type_docs_from_ast(AST),
             {ok, #docs_v1{ anno = 0, beam_language = erlang,
                            module_doc = none,
-                           metadata = #{ generated => true, otp_doc_vsn => ?CURR_DOC_VERSION },
-                           docs = Docs }};
+                           metadata = #{ generated => true, otp_doc_vsn => ?CURR_DOC_VERSION},
+                           docs = Docs++Types }};
         {ok, {_Mod, [{abstract_code,no_abstract_code}]}} ->
             {error,missing};
         Error ->
             Error
     end.
 
+get_type_doc(Mod) ->
+    case which(Mod) of
+        preloaded ->
+            Fn = filename:join([code:lib_dir(erts),"ebin",atom_to_list(Mod) ++ ".beam"]),
+            get_doc_chunk_from_ast(Fn);
+        Error when is_atom(Error) ->
+            {error, Error};
+        Fn ->
+            get_doc_chunk_from_ast(Fn)
+    end.
+get_type_docs_from_ast(AST) ->
+    lists:flatmap(fun(E) -> get_type_docs_from_ast(E, AST) end, AST).
+get_type_docs_from_ast({attribute, Anno, type, {TypeName, _, Ps}}=Meta, _) ->
+    Arity = length(Ps),
+    Signature = io_lib:format("~p/~p",[TypeName,Arity]),
+    [{{type, TypeName, Arity},Anno,[unicode:characters_to_binary(Signature)],none,#{signature => [Meta]}}];
+get_type_docs_from_ast(_, _) ->
+    [].
+
 get_function_docs_from_ast(AST) ->
     lists:flatmap(fun(E) -> get_function_docs_from_ast(E, AST) end, AST).
 get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
     Signature = io_lib:format("~p/~p",[Name,Arity]),
-    Specs =  lists:filter(
+    Specs = lists:filter(
                fun({attribute,_Ln,spec,{FA,_}}) ->
                        case FA of
                            {F,A} ->

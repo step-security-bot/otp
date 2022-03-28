@@ -3105,6 +3105,10 @@ server_loop(S) ->
     receive 
         {io_request, From, ReplyAs, Request} when is_pid(From) ->
 	    server_loop(do_io_request(Request, From, S, ReplyAs));
+        {update_records,_} ->
+            server_loop(S);
+        {update_bindings,_} ->
+        server_loop(S);
 	NotExpected ->
             exit(NotExpected)
     end.
