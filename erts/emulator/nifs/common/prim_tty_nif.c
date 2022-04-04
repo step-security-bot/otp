@@ -256,7 +256,9 @@ static ERL_NIF_TERM tty_write(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (!enif_inspect_iovec(env, 64, argv[1], &tail, &iovec))
         return enif_make_badarg(env);
 #ifndef __WIN32__
-    res = writev(tty->ofd, iovec->iov, iovec->iovcnt);
+    do {
+        res = writev(tty->ofd, iovec->iov, iovec->iovcnt);
+    } while(res < 0 && (errno == EINTR || errno == EAGAIN));
 #else
     for (int i = 0; i < iovec->iovcnt; i++) {
         ssize_t written;

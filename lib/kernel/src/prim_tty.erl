@@ -221,6 +221,7 @@ beep(TTY) ->
 init(Ref, Parent, Options) ->
     case {isatty(stdin), isatty(stdout)} of
         {true, true} ->
+            register(?MODULE,self()),
             State = init_tty(Options, os:type()),
 
             {ok, TraceFile} = file:open("tty.trace", [write]),
@@ -423,25 +424,25 @@ handle_request(State, {delete, N}) when N > 0 ->
     {DelNum, _DelCols, _, NewBA} = split(N, State#state.buffer_after),
     BBCols = cols(State#state.buffer_before),
     NewBACols = cols(NewBA),
-    write(State,
-          [NewBA, lists:duplicate(DelNum, $\s)]),
-    write(State,
-          [xnfix(State, BBCols + NewBACols + DelNum),
-           move_cursor(State,
-                       BBCols + NewBACols + DelNum,
-                       BBCols)]),
+    [] = write(State,
+               [NewBA, lists:duplicate(DelNum, $\s)]),
+    [] = write(State,
+               [xnfix(State, BBCols + NewBACols + DelNum),
+                move_cursor(State,
+                            BBCols + NewBACols + DelNum,
+                            BBCols)]),
     State#state{ buffer_after = NewBA };
 handle_request(State, {delete, N}) when N < 0 ->
     {DelNum, DelCols, _, NewBB} = split(-N, State#state.buffer_before),
     dbg({delete, N, cols(State#state.buffer_before)}),
     NewBBCols = cols(NewBB),
     BACols = cols(State#state.buffer_after),
-    write(State,
-          [move_cursor(State, NewBBCols + DelCols, NewBBCols),
-           State#state.buffer_after, lists:duplicate(DelCols, $\s)]),
-    write(State,
-          [xnfix(State, NewBBCols + BACols + DelNum),
-           move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)]),
+    [] = write(State,
+               [move_cursor(State, NewBBCols + DelCols, NewBBCols),
+                State#state.buffer_after, lists:duplicate(DelCols, $\s)]),
+    [] = write(State,
+               [xnfix(State, NewBBCols + BACols + DelNum),
+                move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)]),
     State#state{ buffer_before = NewBB };
 handle_request(State, {delete, 0}) ->
     State;
@@ -455,13 +456,13 @@ handle_request(State, {move, N}) when N < 0 ->
                 NewBBCols = cols(NewBB),
                 move_cursor(State, NewBBCols + DelCols, NewBBCols)
         end,
-    write(State, Moves),
+    [] = write(State, Moves),
     State#state{ buffer_before = NewBB,
                  buffer_after = NewBA ++ State#state.buffer_after};
 handle_request(State, {move, N}) when N > 0 ->
     {_DelNum, DelCols, NewBB, NewBA} = split(N, State#state.buffer_after),
     BBCols = cols(State#state.buffer_before),
-    write(State, move_cursor(State, BBCols, BBCols + DelCols)),
+    [] = write(State, move_cursor(State, BBCols, BBCols + DelCols)),
     State#state{ buffer_after = NewBA,
                  buffer_before = NewBB ++ State#state.buffer_before};
 handle_request(State, {move, 0}) ->
@@ -471,12 +472,12 @@ handle_request(State = #state{ xn = OrigXn }, {insert, Chars}) ->
     NewState = NewState0#state{ xn = OrigXn },
     BBCols = cols(NewState#state.buffer_before),
     BACols = cols(NewState#state.buffer_after),
-    write(NewState,NewState#state.buffer_after),
-    write(NewState,[xnfix(State, BBCols + BACols),
-                    move_cursor(State, BBCols + BACols, BBCols)]),
+    [] = write(NewState,NewState#state.buffer_after),
+    [] = write(NewState,[xnfix(State, BBCols + BACols),
+                         move_cursor(State, BBCols + BACols, BBCols)]),
     NewState;
 handle_request(State, beep) ->
-    write(State, <<7>>),
+    [] = write(State, <<7>>),
     State;
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
@@ -598,8 +599,8 @@ insert_buf(State, Bin, Acc) ->
         [] ->
             NewBB = Acc ++ State#state.buffer_before,
             NewState = State#state{ buffer_before = NewBB },
-            write(State, lists:reverse(Acc)),
-            write(State, xnfix(NewState)),
+            [] = write(State, lists:reverse(Acc)),
+            [] = write(State, xnfix(NewState)),
             NewState;
         [$\t | Rest] ->
             insert_buf(State, Rest, [State#state.tab | Acc]);
@@ -615,7 +616,7 @@ insert_buf(State, Bin, Acc) ->
                         _ ->
                             %% Any other ansi sequences are just printed and
                             %% then dropped as they "should" not effect rendering
-                            write(State, Ansi),
+                            [] = write(State, Ansi),
                             insert_buf(State, AnsiRest, Acc)
                     end;
                 _ ->
@@ -644,7 +645,7 @@ insert_buf(State, Bin, Acc) ->
                     %% It was part of the previous grapheme cluster, so we output
                     %% it and insert it into the before_buffer
                     {_, ToWrite} = lists:split(length(lists:flatten([PrevChar])), Cluster),
-                    write(State, ToWrite),
+                    [] = write(State, ToWrite),
                     insert_buf(State#state{ buffer_before = [Cluster | BB] }, ClusterRest, Acc)
             end;
         [Char | Rest] when Char >= 128 ->
