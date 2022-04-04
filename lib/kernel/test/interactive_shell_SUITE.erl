@@ -32,12 +32,17 @@
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
-         xterm_navigate/1,xterm_transpose/1]).
+         xterm_navigate/1,xterm_transpose/1,xterm_search/1,
+         xterm_prop/1]).
+
+-compile(export_all).
 
 %% For spawn
 -export([toerl_server/3]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
+%% Exports for shell prompt tests
+-export([prompt/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -81,7 +86,7 @@ init_per_suite(Config) ->
             Term = os:getenv("TERM", "dumb"),
             os:putenv("TERM", "vt100"),
             DefShell = get_default_shell(),
-            [{default_shell,DefShell},{term,Term}|Config]
+            ct_property_test:init_per_suite([{default_shell,DefShell},{term,Term}|Config])
     end.
 
 end_per_suite(Config) ->
@@ -850,185 +855,294 @@ remsh_no_epmd(Config) when is_list(Config) ->
             Else
     end.
 
--record(xterm, { port, node, screenbuffer, wid, orig_location }).
+-record(tmux,  { node, name, orig_location }).
+
+xterm_prop(Config) ->
+    ct_property_test:quickcheck(
+      interactive_shell_props:prop_crash(),
+      Config).
 
 xterm_navigate(Config) ->
 
-    XTerm = start_xterm(Config),
+    Term = start_tmux(Config),
 
     try
-        xdotool(XTerm,type,"{aaa,bbb,ccc}"),
-        check_location(XTerm, {0, 0}),
-        check_content(XTerm, "{aaa,bbb,ccc}$"),
+        send_tmux(Term,type,"{aaa,bbb,ccc}"),
+        check_location(Term, {0, 0}),
+        check_content(Term, "{aaa,bbb,ccc}$"),
         timer:sleep(1000),
-        check_location(XTerm, {0, 13}),
-        xdotool(XTerm,key,"Home"),
-        check_location(XTerm, {0, 0}),
-        xdotool(XTerm,key,"End"),
-        check_location(XTerm, {0, 13}),
-        xdotool(XTerm,key,"Left"),
-        check_location(XTerm, {0, 12}),
-        xdotool(XTerm,key,"Control_L+Left"),
-        check_location(XTerm, {0, 9}),
-        xdotool(XTerm,key,"Control_L+Left"),
-        check_location(XTerm, {0, 5}),
-        xdotool(XTerm,key,"Control_L+Right"),
-        check_location(XTerm, {0, 8}),
-        xdotool(XTerm,key,"Control_L+Left"),
-        check_location(XTerm, {0, 5}),
-        xdotool(XTerm,key,"Control_L+Left"),
-        check_location(XTerm, {0, 1}),
-        xdotool(XTerm,key,"Control_L+Left"),
-        check_location(XTerm, {0, 0}),
-        xdotool(XTerm,key,"Control_L+E"),
-        check_location(XTerm, {0, 13}),
-        xdotool(XTerm,key,"Control_L+A"),
-        check_location(XTerm, {0, 0}),
+        check_location(Term, {0, 13}),
+        send_tmux(Term,key,"Home"),
+        check_location(Term, {0, 0}),
+        send_tmux(Term,key,"End"),
+        check_location(Term, {0, 13}),
+        send_tmux(Term,key,"Left"),
+        check_location(Term, {0, 12}),
+        send_tmux(Term,key,"Ctrl+Left"),
+        check_location(Term, {0, 9}),
+        send_tmux(Term,key,"Ctrl+Left"),
+        check_location(Term, {0, 5}),
+        send_tmux(Term,key,"Ctrl+Right"),
+        check_location(Term, {0, 8}),
+        send_tmux(Term,key,"Ctrl+Left"),
+        check_location(Term, {0, 5}),
+        send_tmux(Term,key,"Ctrl+Left"),
+        check_location(Term, {0, 1}),
+        send_tmux(Term,key,"Ctrl+Left"),
+        check_location(Term, {0, 0}),
+        send_tmux(Term,key,"Ctrl+E"),
+        check_location(Term, {0, 13}),
+        send_tmux(Term,key,"Ctrl+A"),
+        check_location(Term, {0, 0}),
         ok
     after
-        erpc:call(XTerm#xterm.node,init,stop,[])
+        stop_tmux(Term)
     end.
 
 xterm_transpose(Config) ->
-    XTerm = start_xterm(Config),
 
-    Unicode = [[16#1f600],            % Smile 😀
-               [16#1F91A,16#1F3FC]    % Hand with skintone 🤚🏼
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+
+    Term = start_tmux([{shell_prompt_func_test,Prompt}|Config]),
+
+    Unicode = [[$a]                    % a
+               ,[16#1f600]             % Smilie 😀
+               ,[16#1F91A,16#1F3FC]    % Hand with skintone 🤚🏼
+               ,"한"                   % Hangul
+               ,"Z̤͔ͧ̑̓","ä͖̭̈̇","lͮ̒ͫ","ǧ̗͚̚","o̙̔ͮ̇͐̇" %% Vertically stacked chars
+               %,"👩‍👩"                % Zero width joiner
+%               ,"👩‍👩‍👧‍👦"           % Zero width joiner
               ],
 
     try
         [
          begin
-             xdotool(XTerm,type,"ab"),
-             [xdotool(XTerm,key,"U"++integer_to_list(CP, 16)) || CP <- U],
-             [xdotool(XTerm,key,"U"++integer_to_list(CP, 16)) || CP <- U],
-             xdotool(XTerm,type,"cde"),
-             check_content(XTerm, "ab"++[U,U]++"cde$"),
-             check_location(XTerm, {R*2, 5 + width([U,U])}),
-             xdotool(XTerm,key,"Home"),
-             xdotool(XTerm,key,"Right"),
-             xdotool(XTerm,key,"Ctrl+T"),
-             check_content(XTerm, "ba"++[U,U]++"cde$"),
-             xdotool(XTerm,key,"Ctrl+T"),
-             check_content(XTerm, "b"++[U,$a,U]++"cde$"),
-             xdotool(XTerm,key,"Ctrl+T"),
-             check_content(XTerm, "b"++[U,U]++"acde$"),
-             xdotool(XTerm,key,"Ctrl+T"),
-             check_content(XTerm, "b"++[U,U]++"cade$"),
-             xdotool(XTerm,key,"End"),
-             xdotool(XTerm,key,"Left"),
-             xdotool(XTerm,key,"Left"),
-             xdotool(XTerm,key,"BackSpace"),
-             check_content(XTerm, "b"++[U,U]++"cde$"),
-             xdotool(XTerm,key,"End"),
-             xdotool(XTerm,key,"Linefeed")
-         end || {U, R} <- lists:zip(Unicode,lists:seq(0,length(Unicode)-1))],
+             send_tmux(Term,type,"a"),
+             [send_tmux(Term,key,"U"++integer_to_list(CP, 16)) || CP <- U],
+             send_tmux(Term,type,"b"),
+             [[send_tmux(Term,key,"U"++integer_to_list(CP, 16)) || CP <- U2] || U2 <- Unicode],
+             send_tmux(Term,type,"cde"),
+             check_content(Term, ["a",U,"b",Unicode,"cde$"]),
+             check_location(Term, {0, width(["a",U,"b",Unicode,"cde"])}),
+             send_tmux(Term,key,"Home"),
+             check_location(Term, {0, 0}),
+             send_tmux(Term,key,"Right"),
+             send_tmux(Term,key,"Right"),
+             check_location(Term, {0, 1+width([U])}),
+             send_tmux(Term,key,"Ctrl+T"),
+             check_content(Term, ["ab",U,Unicode,"cde$"]),
+             send_tmux(Term,key,"Ctrl+T"),
+             check_content(Term, ["ab",hd(Unicode),U,tl(Unicode),"cde$"]),
+             [send_tmux(Term,key,"Ctrl+T") || _ <- lists:seq(1,length(Unicode)-1)],
+             check_content(Term, ["ab",Unicode,U,"cde$"]),
+             send_tmux(Term,key,"Ctrl+T"),
+             check_content(Term, ["ab",Unicode,"c",U,"de$"]),
+             check_location(Term, {0, width(["ab",Unicode,"c",U])}),
+             send_tmux(Term,key,"End"),
+             check_location(Term, {0, width(["ab",Unicode,"c",U,"de"])}),
+             send_tmux(Term,key,"Left"),
+             send_tmux(Term,key,"Left"),
+             send_tmux(Term,key,"BackSpace"),
+             check_content(Term, ["ab",Unicode,"cde$"]),
+             send_tmux(Term,key,"End"),
+             send_tmux(Term,key,"Linefeed")
+         end || U <- Unicode],
         ok
     after
-        erpc:call(XTerm#xterm.node,init,stop,[]),
+        stop_tmux(Term),
+        ok
+    end.
+
+xterm_search(Config) ->
+
+    Term = start_tmux(Config),
+    Prompt = width("("++Term#tmux.name++"@"++inet_db:gethostname()++")1> "),
+
+    try
+        send_tmux(Term,key,"a"),
+        send_tmux(Term,key,"."),
+        send_tmux(Term,key,"Linefeed"),
+        send_tmux(Term,key,"'"),
+        send_tmux(Term,key,"a"),
+        send_tmux(Term,key,"U1f600"),
+        send_tmux(Term,key,"'"),
+        send_tmux(Term,key,"."),
+        send_tmux(Term,key,"Linefeed"),
+        check_location(Term, {0, 0}),
+        send_tmux(Term,key,"Ctrl+r"),
+        check_location(Term, {0, - Prompt + width("(search)`': 'a😀'.") }),
+        send_tmux(Term,key,"Ctrl+a"),
+        check_location(Term, {0, width("'a😀'.")}),
+        send_tmux(Term,key,"Linefeed"),
+        send_tmux(Term,key,"Ctrl+r"),
+        check_location(Term, {0, - Prompt + width("(search)`': 'a😀'.") }),
+        send_tmux(Term,key,"a"),
+        check_location(Term, {0, - Prompt + width("(search)`a': 'a😀'.") }),
+        send_tmux(Term,key,"Ctrl+r"),
+        check_location(Term, {0, - Prompt + width("(search)`a': a.") }),
+        send_tmux(Term,key,"BackSpace"),
+        check_location(Term, {0, - Prompt + width("(search)`': 'a😀'.") }),
+        send_tmux(Term,key,"BackSpace"),
+        check_location(Term, {0, - Prompt + width("(search)`': 'a😀'.") }),
+        ok
+    after
+%        stop_tmux(Term),
         ok
     end.
 
 xterm_insert(Config) ->
-    XTerm = start_xterm(Config),
+    Term = start_tmux(Config),
 
     try
-        xdotool(XTerm,type,"abcdefghijklm"),
-        check_content(XTerm, "abcdefghijklm$"),
-        check_location(XTerm, {0, 13}),
-        xdotool(XTerm,key,"Home"),
-        xdotool(XTerm,key,"Right"),
-        xdotool(XTerm,key,"Ctrl+T"),
-        xdotool(XTerm,key,"Ctrl+T"),
-        xdotool(XTerm,key,"Ctrl+T"),
-        xdotool(XTerm,key,"Ctrl+T"),
-        check_content(XTerm, "bcdeafghijklm$"),
-        xdotool(XTerm,key,"End"),
-        xdotool(XTerm,key,"Left"),
-        xdotool(XTerm,key,"Left"),
-        xdotool(XTerm,key,"BackSpace"),
-        check_content(XTerm, "bcdeafghijlm$"),
+        send_tmux(Term,type,"abcdefghijklm"),
+        check_content(Term, "abcdefghijklm$"),
+        check_location(Term, {0, 13}),
+        send_tmux(Term,key,"Home"),
+        send_tmux(Term,key,"Right"),
+        send_tmux(Term,key,"Ctrl+T"),
+        send_tmux(Term,key,"Ctrl+T"),
+        send_tmux(Term,key,"Ctrl+T"),
+        send_tmux(Term,key,"Ctrl+T"),
+        check_content(Term, "bcdeafghijklm$"),
+        send_tmux(Term,key,"End"),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"BackSpace"),
+        check_content(Term, "bcdeafghijlm$"),
         ok
     after
-        erpc:call(XTerm#xterm.node,init,stop,[])
+        stop_tmux(Term)
     end.
 
 width(Str) ->
     lists:sum(
-      [case unicode_util:is_wide(CP) of
-           true -> 2;
-           false -> 1
-       end || CP <- lists:flatten(Str)]).
+      [prim_tty:npwcwidth(CP) || CP <- lists:flatten(Str)]).
 
-start_xterm(Config) ->
+-define(TMUX,"/home/lukas/git/tmux/bin/tmux").
+%% -define(TMUX,"tmux").
+
+prompt(L) ->
+    N = proplists:get_value(history, L, 0),
+    Fun = application:get_env(stdlib, shell_prompt_func_test,
+                              fun() -> atom_to_list(node()) end),
+    io_lib:format("(~ts)~w> ",[Fun(),N]).
+
+start_tmux(Config) ->
     Name = peer:random_name(),
     User = proplists:get_value(user,Config,"user_nif"),
-    ScreenBuffer = filename:join(proplists:get_value(priv_dir,Config,"/tmp"),Name),
     Self64 = base64:encode_to_string(term_to_binary(self())),
-    Port = open_port(
-              {spawn_executable, os:find_executable("xterm")},
-              [{args,
-                ["-u8","-fa","DejaVu Sans Mono",
-                 %% Allow xdotool to send events
-                 "-xrm","*allowSendEvents:true",
-                 %% When issuing '\033[?11i', send contents to tmp file
-                 %% (print-everything https://invisible-island.net/xterm/manpage/xterm.html#Actions:print-everything)
-                 "-xrm","*printerCommand:cat - > " ++ ScreenBuffer,
-                 "-hold",
-                "-e",ct:get_progname(),
-                 "-sname",peer:random_name(),
-                 "-user",User,
-                "-pa",filename:dirname(code:which(?MODULE)),
-                "-eval","binary_to_term(base64:decode(\""++Self64++"\")) ! {hello, node()}."]}]),
+    cmd(?TMUX ++ " -u new-session -d -s " ++ Name),
+    cmd(?TMUX ++ " send -t "++Name++" 'export PATH=\""++ os:getenv("PATH")++"\"' Enter"),
+    cmd(?TMUX ++ " send -t "++Name++" '" ++
+            [ct:get_progname()," ",
+             "-sname ",Name," ",
+             "-user ",User," ",
+             "-kernel shell_history disabled ",
+             "-kernel prevent_overlapping_partitions false ",
+             "-pa ",filename:dirname(code:which(?MODULE))," ",
+             "-eval ","'\"'\"'shell:prompt_func({interactive_shell_SUITE,prompt}).'\"'\"' ",
+             "-eval ","'\"'\"'binary_to_term(base64:decode(\""++Self64++"\")) ! {hello, node()}.'\"'\""] ++ " Enter"),
+
     Node =
         receive
             {hello, N} ->
                 N
         after 1000 ->
+                B = unicode:characters_to_binary(cmd(?TMUX ++ " capture-pane -p -t " ++ Name)),
+                cmd(?TMUX ++ " kill-session -t " ++ Name),
+                io:format("Failed to start node: ~ts~n",[B]),
                 ct:fail(timeout)
         end,
 
-    dbg:tracer(),
-    dbg:p(all,c),
-    dbg:tp(os,cmd,x),
-    erpc:call(Node, dbg, tracer, [process,{fun(E,GL) ->
-                                                   io:format(GL,"~p~n",[E]), GL
-                                           end, group_leader()}]),
+%    cmd("gnome-terminal -- "++?TMUX++" attach"),
+
+    Term = #tmux{ node = Node, name = Name },
+
+    %% dbg:tracer(),
+    %% dbg:p(all,c),
+    %% dbg:tp(os,cmd,x),
+    erpc:call(Node, dbg, tracer,
+              [process,
+               {fun
+                    %% ({trace,Pid,call,{group,get_line1,[What|_]},Caller}, GL) ->
+                    %%     io:format(GL,"~p~n",[{trace,Pid,call,{group,get_line1,[What,'...']},Caller}]), GL;
+                    (E,GL) ->
+                        io:format(GL,"~p~n",[E]), GL
+                end, group_leader()}]),
     erpc:call(Node, dbg, p,[all,c]),
-    erpc:call(Node, dbg, tpl,[prim_tty,dbg,[]]),
-    erpc:call(Node, dbg, tpl,[prim_tty,write_nif,[]]),
-    WId = erpc:call(Node,os,getenv,["WINDOWID"]),
+    erpc:call(Node, dbg, p,[erpc:call(Node,erlang,whereis,[prim_tty]),[m]]),
+    %% erpc:call(Node, dbg, tpl,[prim_tty,dbg,[]]),
+    %% erpc:call(Node, dbg, tpl,[prim_tty,write_nif,[]]),
+    %% erpc:call(Node, dbg, tp,[edlin,cx]),
+    %% erpc:call(Node, dbg, tpl,[group,get_line,cx]),
+    erpc:call(Node, dbg, tpl,[group,get_line1,cx]),
+    erpc:call(Node, dbg, tpl,[group,send_drv_reqs,cx]),
+    %% erpc:call(Node, dbg, p,[erpc:call(Node,erlang,whereis,[user]),[m]]),
+    erpc:call(Node, dbg, tpl,[edlin,do_op,x]),
+    erpc:call(Node, application, set_env,
+              [stdlib, shell_prompt_func_test,
+               proplists:get_value(shell_prompt_func_test, Config,
+                                   fun() -> atom_to_list(node()) end)]),
+    timer:sleep(100),
+    send_tmux(Term,type,"a."),
+    send_tmux(Term,key,"Linefeed"),
     timer:sleep(100),
     {ok, OrigLocation} = try erpc:call(Node,user_nif,window_location,[])
                          catch _:_ -> {ok, unknown} end,
-    #xterm{ port = Port, node = Node, screenbuffer = ScreenBuffer,
-            wid = WId, orig_location = OrigLocation }.
+    Term#tmux{ orig_location = OrigLocation }.
 
-xdotool(#xterm{ wid = WId },type,Value) ->
-    timer:sleep(200),
-    Res = os:cmd(lists:concat(["xdotool type --clearmodifiers --delay 0 --window ",WId," '",Value,"'"])),
-    [io:format("~ts~n",[Res]) || Res /= []];
-xdotool(#xterm{ wid = WId },key,Value) ->
-    Res = os:cmd(lists:concat(["xdotool key --clearmodifiers --window ",WId," '",Value,"'"])),
-    [io:format("~ts~n",[Res]) || Res /= []].
+stop_tmux(#tmux{ node = Node, name = Name }) ->
+    erpc:call(Node,init,stop,[]),
+    cmd(?TMUX ++ " kill-session -t " ++ Name).
 
-check_location(#xterm{ orig_location = unknown }, _) ->
-    ok;
-check_location(#xterm{ node = Node, orig_location = {OrigX, OrigY} }, {AdjX, AdjY}) ->
+% https://blog.damonkelley.me/2016/09/07/tmux-send-keys/
+send_tmux(#tmux{ name = Name },type,Value) ->
+    cmd(?TMUX ++ " send -t " ++ Name ++ " '"++Value++"'");
+send_tmux(Tmux,key,"Up") ->
+    send_tmux(Tmux,type,"Up");
+send_tmux(Tmux,key,"U"++Value) ->
+    send_tmux(Tmux,type,[list_to_integer(Value,16)]);
+send_tmux(Tmux,key,"Ctrl+"++Key) ->
+    send_tmux(Tmux,type,"C-"++string:to_lower(Key));
+send_tmux(#tmux{ name = Name },key,"'") ->
+    cmd(?TMUX ++ " send -t " ++ Name ++ " \"'\"");
+send_tmux(Tmux,key,"Linefeed") ->
+    send_tmux(Tmux,type,"Enter");
+send_tmux(Tmux,key,"Home") ->
+    %% https://stackoverflow.com/a/55616731
+    send_tmux(Tmux,type,"Escape"),
+    send_tmux(Tmux,type,"OH");
+send_tmux(Tmux,key,"End") ->
+    send_tmux(Tmux,type,"Escape"),
+    send_tmux(Tmux,type,"OF");
+send_tmux(Tmux,key,"BackSpace") ->
+    send_tmux(Tmux,type,"BSpace");
+send_tmux(Tmux,key,"Delete") ->
+    send_tmux(Tmux,type,"DC");
+send_tmux(Tmux,key,Value) ->
+    send_tmux(Tmux,type,Value).
+
+cmd(Cmd) ->
+    Res = os:cmd(lists:flatten(Cmd)),
+    [io:format("~ts~n",[Res]) || Res /= []],
+    Res.
+
+check_location(#tmux{ node = Node, orig_location = {OrigX, OrigY} }, {AdjX, AdjY}) ->
+    timer:sleep(100),
     {ok, NewLocation} = erpc:call(Node,user_nif,window_location,[]),
     case {OrigX+AdjX,OrigY+AdjY} of
         NewLocation -> NewLocation;
         _ ->
             {NewX, NewY} = NewLocation,
             ct:fail({wrong_location, {expected,{AdjX, AdjY}},
-                     {got,{NewX - OrigX, NewY - OrigY}}})
+                     {got,{NewX - OrigX, NewY - OrigY},
+                      {NewLocation, {OrigX, OrigY}}}})
     end.
 
-check_content(#xterm{ node = Node, screenbuffer = ScreenBufferFile }, Match) ->
-    timer:sleep(100),
-    erpc:call(Node,io,format,[user,[$\e]++"[?11i",[]]),
-    timer:sleep(100),
-    {ok, B} = file:read_file(ScreenBufferFile),
+check_content(#tmux{ name = Name } = Term, Match) ->
+    send_tmux(Term,key,"Ctrl+l"),
+    timer:sleep(25),
+    B = unicode:characters_to_binary(os:cmd(?TMUX ++ " capture-pane -p -t " ++ Name)),
     ScreenBuffer = re:replace(
                      %% Strip whitespace and ANSI clear from end of screen buffer
                      re:replace(B,"(\\s|"++[$\e]++"\\[0m)+$","", [unicode]),
@@ -1038,7 +1152,7 @@ check_content(#xterm{ node = Node, screenbuffer = ScreenBufferFile }, Match) ->
         {match,_} ->
             ok;
         _ ->
-            io:format("Failed to find '~ts' in ~n'~w'~n",
+            io:format("Failed to find '~ts' in ~n'~ts'~n",
                       [Match,ScreenBuffer]),
             ct:fail(nomatch)
     end.
