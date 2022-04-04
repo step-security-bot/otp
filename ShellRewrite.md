@@ -28,6 +28,7 @@ Tickets that should be solved:
 - [ ] [ERL-331: Erlang shell should handle EOF signal (Ctrl+D)](https://github.com/erlang/otp/issues/4414)
 - [ ] [ERL-282: escript fails when redirecting stdout to less and less terminates](https://github.com/erlang/otp/issues/3150)
 - [ ] [ERL-162: "erl -remsh" malfunctions when TERM is set to "dumb"](https://github.com/erlang/otp/issues/4220)
+- [ ] [Printing pid changes value](https://github.com/erlang/otp/issues/5084) (OTP-17546)
 
 # 2022 🐚 idea
 
