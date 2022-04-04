@@ -415,8 +415,8 @@ handle_request(State, {putc, Binary}) ->
             NewState;
        true ->
             %% Delete any overwritten characters after current the cursor
-            OldLength = length(State#state.buffer_before),
-            NewLength = length(NewState#state.buffer_before),
+            OldLength = logical(State#state.buffer_before),
+            NewLength = logical(NewState#state.buffer_before),
             {_, _, _, NewBA} = split(NewLength - OldLength, NewState#state.buffer_after),
             NewState#state{ buffer_after = NewBA }
     end;
@@ -501,6 +501,16 @@ split(N, [Chars | T], Acc, Cnt, Cols) when is_list(Chars) ->
     split(N - length(Chars), T, [Chars | Acc], Cnt + length(Chars), Cols + cols(Chars));
 split(N, [SkipChars | T], Acc, Cnt, Cols) when is_binary(SkipChars) ->
     split(N, T, [SkipChars | Acc], Cnt, Cols).
+
+logical([]) ->
+    0;
+logical([Char | T]) when is_integer(Char) ->
+    1 + logical(T);
+logical([Chars | T]) when is_list(Chars) ->
+    length(Chars) + logical(T);
+logical([SkipChars | T]) when is_binary(SkipChars) ->
+    logical(T).
+
 
 move_cursor(#state{ cols = W } = State, FromCol, ToCol) ->
     dbg({?FUNCTION_NAME, FromCol, ToCol}),
@@ -630,7 +640,7 @@ insert_buf(State, Bin, Acc) ->
                         <<$\r>>
                 end,
             [] = write(State, [lists:reverse(Acc), Tail]),
-            insert_buf(State#state{ buffer_before = [] }, Rest, []);
+            insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, []);
         [Cluster | Rest] when is_list(Cluster) ->
             insert_buf(State, Rest, [Cluster | Acc]);
         %% We have gotten a code point that may be part of the previous grapheme cluster. 
