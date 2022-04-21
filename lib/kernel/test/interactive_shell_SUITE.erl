@@ -33,7 +33,7 @@
          get_columns_and_rows_escript/1,
          remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
          xterm_navigate/1,xterm_transpose/1,xterm_search/1,
-         xterm_prop/1]).
+         xterm_xnfix/1,xterm_delete/1,xterm_prop/1]).
 
 -compile(export_all).
 
@@ -899,6 +899,82 @@ xterm_navigate(Config) ->
         stop_tmux(Term)
     end.
 
+xterm_xnfix(Config) ->
+
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+
+    Term = start_tmux([{shell_prompt_func_test,Prompt}|Config]),
+
+    try
+        {ok, Cols} = rpc(Term, io, columns, []),
+        {ok, {X, Y}} = get_location(Term),
+
+        check_location(Term, {0, 0}),
+        send_tmux(Term,type,lists:duplicate(Cols - Y,"a")),
+        check_location(Term, {0, Cols - Y}),
+        send_tmux(Term,key,"a"),
+        check_location(Term, {0, 1 - Y}),
+        send_tmux(Term,key,"Left"),
+        check_location(Term, {-1, Cols - Y}),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"U"++integer_to_list(16#1f600, 16)),
+        check_location(Term, {0, 1 - Y}),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"U"++integer_to_list(16#1f600, 16)),
+        check_location(Term, {0, 1 - Y}),
+        send_tmux(Term,key,"Ctrl+K"),
+        check_location(Term, {0, 1 - Y}),
+        send_tmux(Term,key,"Ctrl+A"),
+        check_location(Term, {-1, 0}),
+        send_tmux(Term,key,"Ctrl+E"),
+        check_location(Term, {0, 1 - Y}),
+        ok
+    after
+        stop_tmux(Term)
+    end.
+
+xterm_delete(Config) ->
+
+    Term = start_tmux(Config),
+
+    try
+        send_tmux(Term,key,"a"),
+        check_content(Term, "> a$"),
+        check_location(Term, {0, 1}),
+        send_tmux(Term,key,"BackSpace"),
+        check_location(Term, {0, 0}),
+        check_content(Term, ">$"),
+        send_tmux(Term,key,"a"),
+        send_tmux(Term,key,"U"++integer_to_list(16#1f600, 16)),
+        check_location(Term, {0, width([$a,16#1f600])}),
+        send_tmux(Term,key,"a"),
+        send_tmux(Term,key,"U"++integer_to_list(16#1f600, 16)),
+        check_location(Term, {0, width([$a,16#1f600,$a,16#1f600])}),
+        check_content(Term, ["> a",16#1f600,$a,16#1f600,"$"]),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"BackSpace"),
+        check_location(Term, {0, width([$a])}),
+        check_content(Term, ["> aa",16#1f600,"$"]),
+        send_tmux(Term,key,"U"++integer_to_list(16#1f600, 16)),
+        check_location(Term, {0, width([$a,16#1f600])}),
+        send_tmux(Term,key,"Left"),
+        send_tmux(Term,key,"Delete"),
+        check_location(Term, {0, width([$a])}),
+        check_content(Term, ["> aa",16#1f600,"$"]),
+        send_tmux(Term,key,"Delete"),
+        send_tmux(Term,key,"Delete"),
+        check_content(Term, ["> a$"]),
+        send_tmux(Term,key,"Ctrl+E"),
+        check_location(Term, {0, width([$a])}),
+        send_tmux(Term,key,"BackSpace"),
+        check_location(Term, {0, width([])}),
+
+        ok
+    after
+        stop_tmux(Term)
+    end.
+
 xterm_transpose(Config) ->
 
     Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
@@ -1018,8 +1094,8 @@ width(Str) ->
     lists:sum(
       [prim_tty:npwcwidth(CP) || CP <- lists:flatten(Str)]).
 
--define(TMUX,"/home/lukas/git/tmux/bin/tmux").
-%% -define(TMUX,"tmux").
+% -define(TMUX,"/home/lukas/git/tmux/bin/tmux").
+-define(TMUX,"tmux").
 
 prompt(L) ->
     N = proplists:get_value(history, L, 0),
@@ -1028,6 +1104,13 @@ prompt(L) ->
     io_lib:format("(~ts)~w> ",[Fun(),N]).
 
 start_tmux(Config) ->
+
+    dbg:tracer(),
+    dbg:p(all,c),
+    dbg:tp(os,cmd,x),
+    dbg:tpl(?MODULE, width,x),
+    dbg:tpl(prim_tty, npwcwidth,x),
+
     Name = peer:random_name(),
     User = proplists:get_value(user,Config,"user_nif"),
     Self64 = base64:encode_to_string(term_to_binary(self())),
@@ -1047,7 +1130,7 @@ start_tmux(Config) ->
         receive
             {hello, N} ->
                 N
-        after 1000 ->
+        after 5000 ->
                 B = unicode:characters_to_binary(cmd(?TMUX ++ " capture-pane -p -t " ++ Name)),
                 cmd(?TMUX ++ " kill-session -t " ++ Name),
                 io:format("Failed to start node: ~ts~n",[B]),
@@ -1058,9 +1141,6 @@ start_tmux(Config) ->
 
     Term = #tmux{ node = Node, name = Name },
 
-    %% dbg:tracer(),
-    %% dbg:p(all,c),
-    %% dbg:tp(os,cmd,x),
     erpc:call(Node, dbg, tracer,
               [process,
                {fun
@@ -1124,12 +1204,17 @@ send_tmux(Tmux,key,Value) ->
 
 cmd(Cmd) ->
     Res = os:cmd(lists:flatten(Cmd)),
+    timer:sleep(200),
     [io:format("~ts~n",[Res]) || Res /= []],
     Res.
 
-check_location(#tmux{ node = Node, orig_location = {OrigX, OrigY} }, {AdjX, AdjY}) ->
-    timer:sleep(100),
-    {ok, NewLocation} = erpc:call(Node,user_nif,window_location,[]),
+get_location(Term) ->
+    timer:sleep(200),
+    rpc(Term,user_nif,window_location,[]).
+
+check_location(#tmux{ node = Node, orig_location = {OrigX, OrigY} } = Term,
+               {AdjX, AdjY}) ->
+    {ok, NewLocation} = get_location(Term),
     case {OrigX+AdjX,OrigY+AdjY} of
         NewLocation -> NewLocation;
         _ ->
@@ -1156,6 +1241,9 @@ check_content(#tmux{ name = Name } = Term, Match) ->
                       [Match,ScreenBuffer]),
             ct:fail(nomatch)
     end.
+
+rpc(#tmux{ node = Node }, M, F, A) ->
+    erpc:call(Node, M, F, A).
 
 rtnode(C) ->
     rtnode(C, []).
