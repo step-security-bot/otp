@@ -468,6 +468,7 @@ static ERL_NIF_TERM zlib_codec(int (*codec)(z_stream*, int),
         if(bytes_remaining == 0 && bytes_produced < output_chunk_size) {
             return enif_make_tuple2(env, am_finished, flushed_output);
         } else if(res != Z_NEED_DICT) {
+            fprintf(stderr,"Bytes produced %lu\r\n", bytes_produced);
             return enif_make_tuple2(env, am_continue, flushed_output);
         }
 

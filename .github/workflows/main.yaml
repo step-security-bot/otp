@@ -267,12 +267,13 @@ jobs:
           eval `./otp_build env_win32 x64`
           ./otp_build configure
           if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
-          ./otp_build boot -a
+          ./otp_build boot
+          make crypto public_key ssl inets
           make emulator TYPE=debug
-          ./otp_build release -a
+          # ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
           ./otp_build installer_win32
-          ERL_FLAGS="-emu_type debug" bin/escript.exe test.erl
+          bin/erlc.exe test.erl && bin/erl.exe -emu_type debug -eval "test:main([]),erlang:halt()."
 
       # - name: Upload installer
       #   uses: actions/upload-artifact@v2
