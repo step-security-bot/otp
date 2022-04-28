@@ -271,7 +271,9 @@ jobs:
           make crypto public_key ssl inets
           make emulator TYPE=debug
           # ./otp_build release -a
-          bin/erlc.exe test.erl && bin/erl.exe -emu_type debug -eval "test:main([]),erlang:halt()."
+          bin/erlc.exe test.erl
+          timeout 10m bin/erl.exe -eval "test:main([]),erlang:halt()."
+          timeout 10m bin/erl.exe -emu_type debug -eval "test:main([]),erlang:halt()."
 
       # - name: Upload installer
       #   uses: actions/upload-artifact@v2
