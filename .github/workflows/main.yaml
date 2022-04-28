@@ -34,71 +34,71 @@ jobs:
         with:
           name: otp_git_archive
           path: otp_src.tar.gz
-      - name: Docker login
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Calculate BASE image
-        id: base
-        run: |
-          BASE_TAG=$(grep "ARG BASE=" .github/dockerfiles/Dockerfile.64-bit | head -1 | tr '=' ' ' | awk '{print $3}')
-          echo "::set-output name=BASE_TAG::${BASE_TAG}"
-          .github/scripts/base-tag "${BASE_TAG}"
-      - name: Pull BASE image
-        run: docker pull ${{ steps.base.outputs.BASE_TAG }}
-      - name: Build BASE image
-        run: |
-          docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
-            --cache-from ${{ steps.base.outputs.BASE_TAG }} \
-            --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
-            --build-arg USER=otptest --build-arg GROUP=uucp \
-            --build-arg uid=$(id -u) \
-            --build-arg BASE=${{ steps.base.outputs.BASE }} .github/
-      - name: Build 64-bit image
-        run: |
-          mv otp_src.tar.gz .github/otp.tar.gz
-          docker build --tag otp \
-            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
-            --file .github/dockerfiles/Dockerfile.64-bit \
-            .github/
-      # - name: Save docker image
-      #   run: docker save otp > otp_docker.tar
-      # - name: Upload docker image
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: otp_docker
-      #     path: otp_docker.tar
-      - name: Build pre-built tar archives
-        run: |
-          docker run -v $PWD:/github otp \
-            "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-      - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp_prebuilt_no_chunks
-          path: otp_src.tar.gz
+  #     - name: Docker login
+  #       uses: docker/login-action@v1
+  #       with:
+  #         registry: docker.pkg.github.com
+  #         username: ${{ github.repository_owner }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Calculate BASE image
+  #       id: base
+  #       run: |
+  #         BASE_TAG=$(grep "ARG BASE=" .github/dockerfiles/Dockerfile.64-bit | head -1 | tr '=' ' ' | awk '{print $3}')
+  #         echo "::set-output name=BASE_TAG::${BASE_TAG}"
+  #         .github/scripts/base-tag "${BASE_TAG}"
+  #     - name: Pull BASE image
+  #       run: docker pull ${{ steps.base.outputs.BASE_TAG }}
+  #     - name: Build BASE image
+  #       run: |
+  #         docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
+  #           --cache-from ${{ steps.base.outputs.BASE_TAG }} \
+  #           --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
+  #           --build-arg USER=otptest --build-arg GROUP=uucp \
+  #           --build-arg uid=$(id -u) \
+  #           --build-arg BASE=${{ steps.base.outputs.BASE }} .github/
+  #     - name: Build 64-bit image
+  #       run: |
+  #         mv otp_src.tar.gz .github/otp.tar.gz
+  #         docker build --tag otp \
+  #           --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+  #           --file .github/dockerfiles/Dockerfile.64-bit \
+  #           .github/
+  #     # - name: Save docker image
+  #     #   run: docker save otp > otp_docker.tar
+  #     # - name: Upload docker image
+  #     #   uses: actions/upload-artifact@v2
+  #     #   with:
+  #     #     name: otp_docker
+  #     #     path: otp_docker.tar
+  #     - name: Build pre-built tar archives
+  #       run: |
+  #         docker run -v $PWD:/github otp \
+  #           "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
+  #     - name: Upload pre-built tar archive
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: otp_prebuilt_no_chunks
+  #         path: otp_src.tar.gz
 
-  changed-apps:
-    name: Calculate changed applications
-    runs-on: ubuntu-latest
-    outputs:
-        changes: ${{ steps.changes.outputs.changes }}
-        all: ${{ steps.apps.outputs.all }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: Get applications
-        id: apps
-        run: |
-          .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
-          ALL_APPS=$(grep '^[a-z_]*:$' .github/scripts/path-filters.yaml | sed 's/:$//')
-          ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
-          echo "::set-output name=all::${ALL_APPS}"
-      - uses: dorny/paths-filter@v2
-        id: changes
-        with:
-          filters: .github/scripts/path-filters.yaml
+  # changed-apps:
+  #   name: Calculate changed applications
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #       changes: ${{ steps.changes.outputs.changes }}
+  #       all: ${{ steps.apps.outputs.all }}
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Get applications
+  #       id: apps
+  #       run: |
+  #         .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+  #         ALL_APPS=$(grep '^[a-z_]*:$' .github/scripts/path-filters.yaml | sed 's/:$//')
+  #         ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
+  #         echo "::set-output name=all::${ALL_APPS}"
+  #     - uses: dorny/paths-filter@v2
+  #       id: changes
+  #       with:
+  #         filters: .github/scripts/path-filters.yaml
 
   # build-macos:
   #   name: Build Erlang/OTP (macOS)
@@ -251,7 +251,7 @@ jobs:
       - name: Download source archive
         uses: actions/download-artifact@v2
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_git_archive
 
       - name: Compile Erlang
         run: |
@@ -268,10 +268,11 @@ jobs:
           ./otp_build configure
           if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
           ./otp_build boot -a
+          make emulator TYPE=debug
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
           ./otp_build installer_win32
-          bin/escript.exe test.erl
+          ERL_FLAGS="-emu_type debug" bin/escript.exe test.erl
 
       # - name: Upload installer
       #   uses: actions/upload-artifact@v2
