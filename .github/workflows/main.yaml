@@ -268,12 +268,12 @@ jobs:
           ./otp_build configure
           if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
           ./otp_build boot
-          make crypto public_key ssl inets
+          make asn1 crypto public_key ssl inets
           make emulator TYPE=debug
           # ./otp_build release -a
           bin/erlc.exe test.erl
-          timeout 10m bin/erl.exe -eval "test:main([]),erlang:halt()."
-          timeout 10m bin/erl.exe -emu_type debug -eval "test:main([]),erlang:halt()."
+          bin/erl.exe -noshell -eval "test:main([]),erlang:halt()."
+          # bin/erl.exe -noshell -emu_type debug -eval "test:main([]),erlang:halt()."
 
       # - name: Upload installer
       #   uses: actions/upload-artifact@v2
