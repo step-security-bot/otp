@@ -464,7 +464,7 @@ static ERL_NIF_TERM zlib_codec(int (*codec)(z_stream*, int),
             enif_release_binary(&output_buffer);
             flushed_output = enif_make_list(env, 0);
         }
-        fprintf(stderr,"Bytes produced %lu\r\n", bytes_produced);
+//        fprintf(stderr,"Bytes produced %lu\r\n", bytes_produced);
 
         if(bytes_remaining == 0 && bytes_produced < output_chunk_size) {
             return enif_make_tuple2(env, am_finished, flushed_output);
