@@ -129,6 +129,7 @@
                 utf8, parent,
                 buffer_before = [],  %% Current line before cursor in reverse
                 buffer_after = [],   %% Current line after  cursor not in reverse
+                buffer_expand,       %% Characters in expand buffer
                 cols = 80,
                 rows = 24,
                 xn = false,
@@ -138,6 +139,7 @@
                 right = <<"\e[C">>,
                 %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
                 tab = <<"\e[1I">>,
+                erase_after_cursor = <<"\e[J">>,
                 insert = false,
                 delete = false,
                 position = <<"\e[6n">>, %% "u7" on my Linux
@@ -214,6 +216,9 @@ insert(TTY, Characters) ->
 
 delete(TTY, NumCharacters) ->
     cast(TTY, {delete, NumCharacters}).
+
+expand(TTY, ExpandCharacters) ->
+    cast(TTY, {expand, ExpandCharacters}).
 
 beep(TTY) ->
     cast(TTY, beep).
@@ -407,6 +412,25 @@ read_input(State) ->
             {B, <<>>}
     end.
 
+handle_request(State = #state{ buffer_expand = Expand }, Request) when
+      Expand =/= undefined ->
+    BBCols = cols(State#state.buffer_before),
+    BACols = cols(State#state.buffer_after),
+    [] = write(State, [move_cursor(State, BBCols, BBCols + BACols),
+                       State#state.erase_after_cursor,
+                       move_cursor(State, BBCols + BACols, BBCols)]),
+    handle_request(State#state{ buffer_expand = undefined}, Request);
+handle_request(State, {expand, Binary}) ->
+    BBCols = cols(State#state.buffer_before),
+    BACols = cols(State#state.buffer_after),
+    Expand = iolist_to_binary(["\r\n",string:trim(Binary, both)]),
+    [] = write(State,
+               [move_cursor(State, BBCols, BBCols + BACols)]),
+    NewState = insert_buf(State#state{ buffer_expand = [] }, Expand),
+    BECols = cols(NewState#state.cols, BBCols + BACols, NewState#state.buffer_expand),
+    [] = write(NewState,
+               [move_cursor(State, BECols, BBCols)]),
+    NewState;
 %% putc prints Binary and overwrites any existing characters
 handle_request(State, {putc, Binary}) ->
     %% Todo should handle invalid utf8?
@@ -553,6 +577,13 @@ cols([SkipSeq | T]) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T).
 
+cols(_ColsPerLine, CurrCols, []) ->
+    CurrCols;
+cols(ColsPerLine, CurrCols, ["\r\n" | T]) ->
+    (1 + (CurrCols div ColsPerLine)) * ColsPerLine + cols(ColsPerLine, 0, T);
+cols(ColsPerLine, CurrCols, [H | T]) ->
+    cols(ColsPerLine, CurrCols + cols([H]), T).
+
 update_cols(State) ->
     case tty_window_size(State#state.tty) of
         {ok, {Cols, _Rows}} when Cols > 0 ->
@@ -606,6 +637,10 @@ insert_buf(State, Binary) when is_binary(Binary) ->
     insert_buf(State, Binary, []).
 insert_buf(State, Bin, Acc) ->
     case string:next_grapheme(Bin) of
+        [] when State#state.buffer_expand =/= undefined ->
+            ExpandBuffer = lists:reverse(Acc),
+            [] = write(State, ExpandBuffer),
+            State#state{ buffer_expand = ExpandBuffer };
         [] ->
             NewBB = Acc ++ State#state.buffer_before,
             NewState = State#state{ buffer_before = NewBB },
@@ -639,12 +674,17 @@ insert_buf(State, Bin, Acc) ->
                    true ->
                         <<$\r>>
                 end,
-            [] = write(State, [lists:reverse(Acc), Tail]),
-            insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, []);
+            if State#state.buffer_expand =:= undefined ->
+                    [] = write(State, [lists:reverse(Acc), Tail]),
+                    insert_buf(State#state{ buffer_before = [], buffer_after = [] }, Rest, []);
+               true ->
+                    insert_buf(State, Rest, [binary_to_list(Tail) | Acc])
+            end;
         [Cluster | Rest] when is_list(Cluster) ->
             insert_buf(State, Rest, [Cluster | Acc]);
         %% We have gotten a code point that may be part of the previous grapheme cluster. 
-        [Char | Rest] when Char >= 128, Acc =:= [], State#state.buffer_before =/= [] ->
+        [Char | Rest] when Char >= 128, Acc =:= [], State#state.buffer_before =/= [],
+                           State#state.buffer_expand =:= undefined ->
             [PrevChar | BB] = State#state.buffer_before,
             case string:next_grapheme([PrevChar | Bin]) of
                 [PrevChar | _] ->

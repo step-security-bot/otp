@@ -588,11 +588,12 @@ io_requests([], _Input, _Output) ->
 %% is sent back to the process sending the request. This command was added in
 %% OTP 18 to make sure that data sent from io:format is actually printed
 %% to the console before the vm stops when calling erlang:halt(integer()).
--dialyzer({no_improper_lists, io_command/1}).
 io_command({put_chars_sync, unicode,Cs,Reply}) ->
     {putc_sync, unicode:characters_to_binary(Cs,utf8), Reply};
 io_command({put_chars, unicode,Cs}) ->
     {putc,unicode:characters_to_binary(Cs,utf8), ok};
+io_command({put_expand, unicode, Cs}) ->
+    {expand, Cs, ok};
 io_command({move_rel,N}) ->
     {move, N, ok};
 io_command({insert_chars,unicode,Cs}) ->

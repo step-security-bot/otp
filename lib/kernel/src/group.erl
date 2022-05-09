@@ -601,9 +601,16 @@ get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     Cs1 = append(Add, Cs0, Encoding), %%XXX:PaN should this always be unicode?
     Cs = case Matches of
 	     [] -> Cs1;
-	     _ -> MatchStr = edlin_expand:format_matches(Matches),
-		  send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(MatchStr,unicode)}),
-		  [$\^L | Cs1]
+             _ ->
+                 MatchStr = edlin_expand:format_matches(Matches),
+                 send_drv(Drv, {put_expand, unicode,
+                                unicode:characters_to_binary(MatchStr,unicode)}),
+                 Cs1
+	     %% _ ->
+             %%     MatchStr = edlin_expand:format_matches(Matches),
+             %%     send_drv(Drv, {put_chars, unicode,
+             %%                    unicode:characters_to_binary(MatchStr,unicode)}),
+             %%     [$\^L | Cs1]
 	 end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
