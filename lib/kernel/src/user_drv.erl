@@ -612,6 +612,8 @@ io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     ok = prim_tty:write(NewTTY, Output, self()),
     {Reply, NewTTY};
+io_request({put_expand, unicode, Chars}, TTY) ->
+    write(prim_tty:handle_request(TTY, {expand, unicode:characters_to_binary(Chars)}));
 io_request({move_rel, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {move, N}));
 io_request({insert_chars, unicode, Chars}, TTY) ->
