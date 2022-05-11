@@ -139,7 +139,7 @@
                 right = <<"\e[C">>,
                 %% Tab to next 8 column windows is "\e[1I", for unix "ta" termcap
                 tab = <<"\e[1I">>,
-                erase_after_cursor = <<"\e[J">>,
+                delete_after_cursor = <<"\e[J">>,
                 insert = false,
                 delete = false,
                 position = <<"\e[6n">>, %% "u7" on my Linux
@@ -316,6 +316,16 @@ init_tty(Options, {unix,_}) ->
                    false -> (#state{})#state.position
                end,
 
+    %% According to the manual this should only be issues when the cursor
+    %% is at position 0, but until we encounter such a console we keep things
+    %% simple and issue this with the cursor anywhere
+    DeleteAfter = case tgetstr("cd") of
+                      {ok, DA} ->
+                          DA;
+                      false ->
+                          (#state{})#state.delete_after_cursor
+                  end,
+
     #state{ tty = TTY,
             cols = Cols,
             xn = tgetflag("xn"),
@@ -327,6 +337,7 @@ init_tty(Options, {unix,_}) ->
             delete = Delete,
             tab = Tab,
             position = Position,
+            delete_after_cursor = DeleteAfter,
             signal = make_ref(),
             read = make_ref()
     };
@@ -412,12 +423,12 @@ read_input(State) ->
             {B, <<>>}
     end.
 
-handle_request(State = #state{ buffer_expand = Expand }, Request) when
-      Expand =/= undefined ->
+handle_request(State = #state{ buffer_expand = Expand }, Request)
+  when Expand =/= undefined ->
     BBCols = cols(State#state.buffer_before),
     BACols = cols(State#state.buffer_after),
     [] = write(State, [move_cursor(State, BBCols, BBCols + BACols),
-                       State#state.erase_after_cursor,
+                       State#state.delete_after_cursor,
                        move_cursor(State, BBCols + BACols, BBCols)]),
     handle_request(State#state{ buffer_expand = undefined}, Request);
 handle_request(State, {expand, Binary}) ->
