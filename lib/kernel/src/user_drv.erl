@@ -53,10 +53,7 @@ start() ->					%Default line editing shell
     case gen_statem:start({local, ?MODULE}, ?MODULE, [], []) of
         {ok, Pid} -> Pid;
         {error, _Reason} ->
-            spawn(fun() ->
-                          process_flag(trap_exit, true),
-                          user:start()
-                  end)
+            user:start()
     end.
 
 callback_mode() -> state_functions.
@@ -67,13 +64,11 @@ init([]) ->
         {'EXIT', _Reason} ->
             {stop, normal};
         Port ->
-            {ok, init, #state{ },
+            {ok, init, #state{ user = start_user() },
              {next_event, internal, Port}}
     end.
 
-init(internal, Port, State) ->
-
-    User = start_user(),
+init(internal, Port, State = #state{ user = User }) ->
 
     %% Cleanup ancestors so that observer looks nice
     put('$ancestors',[User|get('$ancestors')]),
