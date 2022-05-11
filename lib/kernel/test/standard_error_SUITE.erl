@@ -35,7 +35,7 @@ badarg(Config) when is_list(Config) ->
     ok.
 
 getopts(Config) when is_list(Config) ->
-    [{encoding,latin1}] = io:getopts(standard_error),
+    latin1 = proplists:get_value(encoding, io:getopts(standard_error)),
     ok.
 
 %% Test that writing a lot of output to standard_error does not cause the
