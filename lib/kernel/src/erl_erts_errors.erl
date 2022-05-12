@@ -354,6 +354,13 @@ format_erlang_error(demonitor, [Ref,Options], _) ->
     [Arg1,maybe_option_list_error(Options, Arg1)];
 format_erlang_error(display_string, [_], _) ->
     [not_string];
+format_erlang_error(display_string, [Device, _], _) ->
+    case lists:member(Device,[stdin,stdout,stderr]) of
+        true ->
+            [[],not_string];
+        false ->
+            [not_device,[]]
+    end;
 format_erlang_error(element, [Index, Tuple], _) ->
     [if
          not is_integer(Index) ->
@@ -1519,6 +1526,8 @@ expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->
     <<"not a list of characters">>;
+expand_error(not_device) ->
+    <<"not a valid device type">>;
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(range) ->
