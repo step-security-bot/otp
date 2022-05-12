@@ -23,7 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
@@ -49,17 +49,21 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
-     specs, improper_bif_stubs, auto_imports,
-     t_list_to_existing_atom, os_env, otp_7526,
-     display, display_string, list_to_utf8_atom,
-     t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
-     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
-     error_stacktrace, error_stacktrace_during_call_trace,
-     group_leader_prio, group_leader_prio_dirty,
-     is_process_alive, process_info_blast, os_env_case_sensitivity,
-     verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3].
+    [{group,tests}].
+
+groups() ->
+   [{tests,[parallel],
+     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
+      specs, improper_bif_stubs, auto_imports,
+      t_list_to_existing_atom, os_env, otp_7526,
+      display, display_string, list_to_utf8_atom,
+      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
+      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
+      error_stacktrace, error_stacktrace_during_call_trace,
+      group_leader_prio, group_leader_prio_dirty,
+      is_process_alive, process_info_blast, os_env_case_sensitivity,
+      verify_middle_queue_save, test_length,fixed_apply_badarg,
+      external_fun_apply3]}].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
