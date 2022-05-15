@@ -46,7 +46,8 @@
     old_release/0, old_release/1,
     ssh/0, ssh/1,
     docker/0, docker/1,
-    post_process_args/0, post_process_args/1
+    post_process_args/0, post_process_args/1,
+    run_erl/0, run_erl/1
 ]).
 
 suite() ->
@@ -68,7 +69,7 @@ groups() ->
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
-        {remote, [parallel], [ssh]}
+        {remote, [parallel], [ssh, run_erl]}
     ].
 
 all() ->
@@ -580,3 +581,26 @@ docker(Config) when is_list(Config) ->
             ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
             peer:stop(Peer)
     end.
+
+run_erl() ->
+    [{doc, "Test that it is possible to start a peer node using run_erl aka attached"}].
+
+run_erl(Config) ->
+    RunErl = os:find_executable("run_erl"),
+    [throw({skip, "Could not find run_erl"}) || RunErl =:= false],
+    Erl = string:split(ct:get_progname()," ",all),
+    RunErlDir = filename:join(proplists:get_value(priv_dir, Config),?FUNCTION_NAME),
+    filelib:ensure_path(RunErlDir),
+    {ok, Peer, _Node} =
+        peer:start(
+          #{ name => ?CT_PEER_NAME(),
+             exec => {RunErl, Erl},
+             detached => false,
+             post_process_args =>
+                 fun(Args) ->
+                         [RunErlDir ++ "/", RunErlDir,
+                          lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
+                 end
+           }),
+    peer:stop(Peer).
+    
