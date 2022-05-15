@@ -789,15 +789,20 @@ command_line(Listen, Options) ->
             undefined when map_get(connection, Options) =:= standard_io ->
                 ["-user", atom_to_list(?MODULE)];
             undefined ->
+                %% If we should detach from the node
+                DetachArgs = case maps:get(detached, Options, true) of
+                                 true -> ["-detached"];
+                                 false -> []
+                             end,
                 Self = base64:encode_to_string(term_to_binary(self())),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", Self];
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", Self];
             {Ips, Port} ->
                 IpStr = lists:concat(lists:join(",", [inet:ntoa(Ip) || Ip <- Ips])),
-                ["-detached", "-noinput", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
+                ["-detached", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
         end,
     %% build command line
     {Exec, PreArgs} = exec(Options),
-    {Exec, PreArgs ++ NameArg ++ StartCmd ++ CmdOpts}.
+    {Exec, PreArgs ++ NameArg ++ CmdOpts ++ StartCmd}.
 
 exec(#{exec := Prog}) when is_list(Prog) ->
     {Prog, []};
@@ -899,19 +904,27 @@ start() ->
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
             OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
-            %% setup 'user' process, I/O redirection: ask controlling process
-            %%  who is the group leader.
-            GroupLeader = gen_server:call(OriginProcess, group_leader),
-            RelayPid = spawn(fun () -> relay(GroupLeader) end),
-            register(user, RelayPid),
             spawn(
               fun () ->
                       MRef = monitor(process, OriginProcess),
                       notify_when_started(dist, OriginProcess),
                       origin_link(MRef, OriginProcess)
               end),
-            %% return RelayPid for user_sup to link to
-            RelayPid;
+            case init:get_argument(detached) of
+                {ok, _} ->
+                    %% We are detached, so setup 'user' process, I/O redirection:
+                    %%   ask controlling process who is the group leader.
+                    GroupLeader = gen_server:call(OriginProcess, group_leader),
+                    RelayPid = spawn(fun () -> relay(GroupLeader) end),
+                    register(user, RelayPid),
+                    %% return RelayPid for user_sup to link to
+                    RelayPid;
+                error ->
+                    %% We are not detached, so after we spawn the link process we
+                    %% start the terminal as normal but without the -user peer flag.
+                    user_sup:init(
+                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+            end;
         error ->
             %% no -origin specified, meaning that standard I/O is used for alternative
             spawn(fun io_server/0)
