@@ -28,6 +28,13 @@ RUN apt-get update && apt-get -y upgrade && \
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
 
+## We use tmux to test terminals
+RUN apt-get install -y libevent-dev libutf8proc-dev && \
+    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.2a/tmux-3.2a.tar.gz && \
+    tar xvzf tmux-3.2a.tar.gz && cd tmux-3.2a && \
+    ./configure --enable-static --enable-utf8proc && \
+    make && make install
+
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 ARG USER=gitpod
