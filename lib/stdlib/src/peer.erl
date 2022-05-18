@@ -278,14 +278,17 @@ init([Notify, Options]) ->
 
     Env = maps:get(env, Options, []),
 
+    PostProcessArgs = maps:get(post_process_args, Options, fun(As) -> As end),
+    FinalArgs = PostProcessArgs(Args),
+
     %% close port if running detached
     Conn =
         case maps:find(connection, Options)  of
             {ok, standard_io} ->
                 %% Cannot detach a peer that uses stdio. Request exit_status.
-                open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary, exit_status]);
+                open_port({spawn_executable, Exec}, [{args, FinalArgs}, {env, Env}, hide, binary, exit_status]);
             _ ->
-                Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env}, hide, binary]),
+                Port = open_port({spawn_executable, Exec}, [{args, FinalArgs}, {env, Env}, hide, binary]),
                 %% peer can close the port before we get here which will cause
                 %%  port_close to throw. Catch this and ignore.
                 catch erlang:port_close(Port),
