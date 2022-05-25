@@ -221,3 +221,249 @@ AND release.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_t
  Planning Time: 51.770 ms
  Execution Time: 6086.438 ms
 (160 rows)
+
+
+
+explain analyze SELECT DISTINCT views.id view_id,build_types.id,build_types.created_at,branch.value as branch,emulator.value as emulator,mea.value as mea,commercial.value as commercial,kp.value as kp,smp.value as smp,async.value as async,release.value as release,extra.value as extra
+FROM build_types,
+     views,
+     tags branch,
+     build_type_tag_map branch_map,
+     tags emulator,
+     build_type_tag_map emulator_map,
+     tags mea,
+     build_type_tag_map mea_map,
+     tags commercial,
+     build_type_tag_map commercial_map,
+     tags kp,
+     build_type_tag_map kp_map,
+     tags smp,
+     build_type_tag_map smp_map,
+     tags async,
+     build_type_tag_map async_map,
+     tags release,
+     build_type_tag_map release_map,
+     tags extra,
+     build_type_tag_map extra_map
+WHERE build_types.id = 6934
+AND build_types.id = branch_map.build_type_id
+AND branch.id = branch_map.tag_id
+AND branch.class = 'branch'
+AND branch.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = emulator_map.build_type_id
+AND emulator.id = emulator_map.tag_id
+AND emulator.class = 'emulator'
+AND emulator.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = mea_map.build_type_id
+AND mea.id = mea_map.tag_id
+AND mea.class = 'mea'
+AND mea.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = commercial_map.build_type_id
+AND commercial.id = commercial_map.tag_id
+AND commercial.class = 'commercial'
+AND commercial.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = kp_map.build_type_id
+AND kp.id = kp_map.tag_id
+AND kp.class = 'kp'
+AND kp.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = smp_map.build_type_id AND smp.id = smp_map.tag_id
+AND smp.class = 'smp'
+AND smp.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = async_map.build_type_id
+AND async.id = async_map.tag_id
+AND async.class = 'async'
+AND async.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = release_map.build_type_id
+AND release.id = release_map.tag_id
+AND release.class = 'release'
+AND release.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id)
+AND build_types.id = extra_map.build_type_id
+AND extra.id = extra_map.tag_id
+AND extra.class = 'extra'
+AND extra.id NOT IN (SELECT view_tag_map.tag_id FROM view_tag_map WHERE view_tag_map.view_id = views.id);
+
+
+
+                                                                                                                                             QUERY PLAN                                                                                       
+                                                       
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------
+ Unique  (cost=16844.41..16844.44 rows=1 width=114) (actual time=51305.168..51305.488 rows=311 loops=1)
+   ->  Sort  (cost=16844.41..16844.42 rows=1 width=114) (actual time=51305.167..51305.200 rows=311 loops=1)
+         Sort Key: views.id, build_types.created_at, branch.value, emulator.value, mea.value, commercial.value, kp.value, smp.value, async.value, release.value, extra.value
+         Sort Method: quicksort  Memory: 68kB
+         ->  Nested Loop  (cost=36.90..16844.40 rows=1 width=114) (actual time=25563.554..51304.681 rows=311 loops=1)
+               Join Filter: (NOT (SubPlan 8))
+               ->  Nested Loop  (cost=36.63..16816.63 rows=1 width=112) (actual time=25563.091..51296.837 rows=2799 loops=1)
+                     Join Filter: (NOT (SubPlan 1))
+                     Rows Removed by Join Filter: 144
+                     ->  Nested Loop  (cost=36.36..16788.87 rows=1 width=110) (actual time=25560.241..51229.770 rows=26487 loops=1)
+                           Join Filter: (NOT (SubPlan 9))
+                           ->  Nested Loop  (cost=36.09..16761.10 rows=1 width=108) (actual time=25510.410..50637.358 rows=238383 loops=1)
+                                 Join Filter: (NOT (SubPlan 4))
+                                 ->  Nested Loop  (cost=35.81..16733.34 rows=1 width=106) (actual time=25509.408..45429.469 rows=2145447 loops=1)
+                                       Join Filter: (mea.id = mea_map.tag_id)
+                                       Rows Removed by Join Filter: 75090645
+                                       ->  Nested Loop  (cost=35.52..16723.44 rows=9 width=114) (actual time=646.036..31401.195 rows=8581788 loops=1)
+                                             ->  Hash Join  (cost=35.23..16714.70 rows=1 width=106) (actual time=646.024..25799.201 rows=953532 loops=1)
+                                                   Hash Cond: (smp_map.tag_id = smp.id)
+                                                   Join Filter: (NOT (SubPlan 6))
+                                                   ->  Nested Loop  (cost=27.14..16706.23 rows=144 width=104) (actual time=644.514..16968.546 rows=8581788 loops=1)
+                                                         ->  Nested Loop  (cost=26.85..16695.75 rows=16 width=96) (actual time=644.497..14115.632 rows=953532 loops=1)
+                                                               Join Filter: (NOT (SubPlan 3))
+                                                               ->  Index Scan using tags_pkey on tags mea  (cost=0.27..38.56 rows=4 width=18) (actual time=0.021..0.246 rows=4 loops=1)
+                                                                     Filter: (class = 'mea'::text)
+                                                                     Rows Removed by Filter: 401
+                                                               ->  Materialize  (cost=26.58..15891.76 rows=8 width=78) (actual time=161.116..1577.941 rows=238383 loops=4)
+                                                                     ->  Nested Loop  (cost=26.58..15891.72 rows=8 width=78) (actual time=644.433..6044.589 rows=238383 loops=1)
+                                                                           ->  Index Scan using build_types_pkey on build_types  (cost=0.28..8.30 rows=1 width=16) (actual time=0.032..0.056 rows=1 loops=1)
+                                                                                 Index Cond: (id = 6934)
+                                                                           ->  Hash Join  (cost=26.29..15883.34 rows=8 width=110) (actual time=644.393..5983.706 rows=238383 loops=1)
+                                                                                 Hash Cond: (kp_map.tag_id = kp.id)
+                                                                                 Join Filter: (NOT (SubPlan 5))
+                                                                                 ->  Nested Loop  (cost=18.20..15771.47 rows=3087 width=108) (actual time=643.777..3789.764 rows=2145447 loops=1)
+                                                                                       ->  Hash Join  (cost=17.91..15724.20 rows=343 width=92) (actual time=643.744..3018.561 rows=238383 loops=1)
+                                                                                             Hash Cond: (async_map.tag_id = async.id)
+                                                                                             Join Filter: (NOT (SubPlan 7))
+                                                                                             ->  Nested Loop  (cost=9.81..11234.67 rows=139968 width=90) (actual time=0.134..882.924 rows=2145447 loops=1)
+                                                                                                   ->  Nested Loop  (cost=9.52..9476.40 rows=15552 width=74) (actual time=0.130..123.811 rows=238383 loops=1)
+                                                                                                         ->  Nested Loop  (cost=9.23..9273.32 rows=1728 width=58) (actual time=0.124..42.147 rows=26487 loops=1)
+                                                                                                               ->  Nested Loop  (cost=8.94..9243.04 rows=192 width=42) (actual time=0.118..33.190 rows=2943 loops=1)
+                                                                                                                     Join Filter: (NOT (SubPlan 2))
+                                                                                                                     Rows Removed by Join Filter: 9
+                                                                                                                     ->  Hash Join  (cost=8.94..26.92 rows=1 width=42) (actual time=0.055..0.292 rows=9 loops=1)
+                                                                                                                           Hash Cond: (emulator_map.tag_id = emulator.id)
+                                                                                                                           ->  Nested Loop  (cost=0.58..18.35 rows=81 width=32) (actual time=0.040..0.171 rows=81 loops=1)
+                                                                                                                                 ->  Index Scan using build_type_tag_map_index on build_type_tag_map async_map  (cost=0.29..8.66 rows=9 width=
+16) (actual time=0.033..0.062 rows=9 loops=1)
+                                                                                                                                       Index Cond: (build_type_id = 6934)
+                                                                                                                                 ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.001..0.008 rows=9 loops=9)
+                                                                                                                                       ->  Index Scan using build_type_tag_map_index on build_type_tag_map emulator_map  (cost=0.29..8.66 rows
+=9 width=16) (actual time=0.004..0.039 rows=9 loops=1)
+                                                                                                                                             Index Cond: (build_type_id = 6934)
+                                                                                                                           ->  Hash  (cost=8.33..8.33 rows=3 width=18) (actual time=0.009..0.009 rows=3 loops=1)
+                                                                                                                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                                                                                                 ->  Index Scan using tags_class on tags emulator  (cost=0.27..8.33 rows=3 width=18) (actual time=0.006..0.008
+ rows=3 loops=1)
+                                                                                                                                       Index Cond: (class = 'emulator'::text)
+                                                                                                                     ->  Seq Scan on views  (cost=0.00..7.85 rows=385 width=8) (actual time=0.005..0.074 rows=328 loops=9)
+                                                                                                                     SubPlan 2
+                                                                                                                       ->  Bitmap Heap Scan on view_tag_map view_tag_map_1  (cost=4.46..43.29 rows=23 width=8) (actual time=0.005..0.008 rows=
+20 loops=2952)
+                                                                                                                             Recheck Cond: (view_id = views.id)
+                                                                                                                             Heap Blocks: exact=3411
+                                                                                                                             ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.003..0.003 rows=2
+0 loops=2952)
+                                                                                                                                   Index Cond: (view_id = views.id)
+                                                                                                               ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=2943)
+                                                                                                                     ->  Index Scan using build_type_tag_map_index on build_type_tag_map extra_map  (cost=0.29..8.66 rows=9 width=16) (actual 
+time=0.004..0.006 rows=9 loops=1)
+                                                                                                                           Index Cond: (build_type_id = 6934)
+                                                                                                         ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=26487)
+                                                                                                               ->  Index Scan using build_type_tag_map_index on build_type_tag_map kp_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.00
+4..0.006 rows=9 loops=1)
+                                                                                                                     Index Cond: (build_type_id = 6934)
+                                                                                                   ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=238383)
+                                                                                                         ->  Index Scan using build_type_tag_map_index on build_type_tag_map smp_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.003..0.
+016 rows=9 loops=1)
+                                                                                                               Index Cond: (build_type_id = 6934)
+                                                                                             ->  Hash  (cost=8.07..8.07 rows=2 width=18) (actual time=0.016..0.016 rows=2 loops=1)
+                                                                                                   Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                                                                   ->  Bitmap Heap Scan on tags async  (cost=4.29..8.07 rows=2 width=18) (actual time=0.014..0.015 rows=2 loops=1)
+                                                                                                         Recheck Cond: (class = 'async'::text)
+                                                                                                         Heap Blocks: exact=1
+                                                                                                         ->  Bitmap Index Scan on tags_class  (cost=0.00..4.29 rows=2 width=0) (actual time=0.013..0.013 rows=2 loops=1)
+                                                                                                               Index Cond: (class = 'async'::text)
+                                                                                             SubPlan 7
+                                                                                               ->  Bitmap Heap Scan on view_tag_map view_tag_map_6  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=238383)
+                                                                                                     Recheck Cond: (view_id = views.id)
+                                                                                                     Heap Blocks: exact=275562
+                                                                                                     ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=238383)
+                                                                                                           Index Cond: (view_id = views.id)
+                                                                                       ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=238383)
+                                                                                             ->  Index Scan using build_type_tag_map_index on build_type_tag_map commercial_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.025..0.028 r
+ows=9 loops=1)
+                                                                                                   Index Cond: (build_type_id = 6934)
+                                                                                 ->  Hash  (cost=8.07..8.07 rows=2 width=18) (actual time=0.007..0.007 rows=2 loops=1)
+                                                                                       Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                                                       ->  Bitmap Heap Scan on tags kp  (cost=4.29..8.07 rows=2 width=18) (actual time=0.005..0.005 rows=2 loops=1)
+                                                                                             Recheck Cond: (class = 'kp'::text)
+                                                                                             Heap Blocks: exact=1
+                                                                                             ->  Bitmap Index Scan on tags_class  (cost=0.00..4.29 rows=2 width=0) (actual time=0.003..0.003 rows=2 loops=1)
+                                                                                                   Index Cond: (class = 'kp'::text)
+                                                                                 SubPlan 5
+                                                                                   ->  Bitmap Heap Scan on view_tag_map view_tag_map_4  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=238383)
+                                                                                         Recheck Cond: (view_id = views.id)
+                                                                                         Heap Blocks: exact=275562
+                                                                                         ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=238383)
+                                                                                               Index Cond: (view_id = views.id)
+                                                               SubPlan 3
+                                                                 ->  Bitmap Heap Scan on view_tag_map view_tag_map_2  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=953532)
+                                                                       Recheck Cond: (view_id = views.id)
+                                                                       Heap Blocks: exact=1102248
+                                                                       ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=953532)
+                                                                             Index Cond: (view_id = views.id)
+                                                         ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=953532)
+                                                               ->  Index Scan using build_type_tag_map_index on build_type_tag_map branch_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.009..0.011 rows=9 loops=1)
+                                                                     Index Cond: (build_type_id = 6934)
+                                                   ->  Hash  (cost=8.07..8.07 rows=2 width=18) (actual time=0.041..0.041 rows=2 loops=1)
+                                                         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                         ->  Bitmap Heap Scan on tags smp  (cost=4.29..8.07 rows=2 width=18) (actual time=0.038..0.039 rows=2 loops=1)
+                                                               Recheck Cond: (class = 'smp'::text)
+                                                               Heap Blocks: exact=1
+                                                               ->  Bitmap Index Scan on tags_class  (cost=0.00..4.29 rows=2 width=0) (actual time=0.033..0.033 rows=2 loops=1)
+                                                                     Index Cond: (class = 'smp'::text)
+                                                   SubPlan 6
+                                                     ->  Bitmap Heap Scan on view_tag_map view_tag_map_5  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=953532)
+                                                           Recheck Cond: (view_id = views.id)
+                                                           Heap Blocks: exact=1102248
+                                                           ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=953532)
+                                                                 Index Cond: (view_id = views.id)
+                                             ->  Index Scan using build_type_tag_map_index on build_type_tag_map release_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.002..0.003 rows=9 loops=953532)
+                                                   Index Cond: (build_type_id = 6934)
+                                       ->  Materialize  (cost=0.29..8.70 rows=9 width=16) (actual time=0.000..0.001 rows=9 loops=8581788)
+                                             ->  Index Scan using build_type_tag_map_index on build_type_tag_map mea_map  (cost=0.29..8.66 rows=9 width=16) (actual time=0.008..0.009 rows=9 loops=1)
+                                                   Index Cond: (build_type_id = 6934)
+                                 ->  Index Scan using tags_pkey on tags commercial  (cost=0.27..3.85 rows=1 width=18) (actual time=0.001..0.001 rows=0 loops=2145447)
+                                       Index Cond: (id = commercial_map.tag_id)
+                                       Filter: (class = 'commercial'::text)
+                                       Rows Removed by Filter: 1
+                                 SubPlan 4
+                                   ->  Bitmap Heap Scan on view_tag_map view_tag_map_3  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=238383)
+                                         Recheck Cond: (view_id = views.id)
+                                         Heap Blocks: exact=275562
+                                         ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=238383)
+                                               Index Cond: (view_id = views.id)
+                           ->  Index Scan using tags_pkey on tags extra  (cost=0.27..3.85 rows=1 width=18) (actual time=0.001..0.001 rows=0 loops=238383)
+                                 Index Cond: (id = extra_map.tag_id)
+                                 Filter: (class = 'extra'::text)
+                                 Rows Removed by Filter: 1
+                           SubPlan 9
+                             ->  Bitmap Heap Scan on view_tag_map view_tag_map_8  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=20 loops=26487)
+                                   Recheck Cond: (view_id = views.id)
+                                   Heap Blocks: exact=30618
+                                   ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=26487)
+                                         Index Cond: (view_id = views.id)
+                     ->  Index Scan using tags_pkey on tags branch  (cost=0.27..3.85 rows=1 width=18) (actual time=0.001..0.001 rows=0 loops=26487)
+                           Index Cond: (id = branch_map.tag_id)
+                           Filter: (class = 'branch'::text)
+                           Rows Removed by Filter: 1
+                     SubPlan 1
+                       ->  Bitmap Heap Scan on view_tag_map  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.005 rows=19 loops=2943)
+                             Recheck Cond: (view_id = views.id)
+                             Heap Blocks: exact=3348
+                             ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=2943)
+                                   Index Cond: (view_id = views.id)
+               ->  Index Scan using tags_pkey on tags release  (cost=0.27..3.85 rows=1 width=18) (actual time=0.001..0.001 rows=0 loops=2799)
+                     Index Cond: (id = release_map.tag_id)
+                     Filter: (class = 'release'::text)
+                     Rows Removed by Filter: 1
+               SubPlan 8
+                 ->  Bitmap Heap Scan on view_tag_map view_tag_map_7  (cost=4.46..43.29 rows=23 width=8) (actual time=0.003..0.006 rows=19 loops=311)
+                       Recheck Cond: (view_id = views.id)
+                       Heap Blocks: exact=351
+                       ->  Bitmap Index Scan on view_tag_map_view_id  (cost=0.00..4.46 rows=23 width=0) (actual time=0.002..0.002 rows=20 loops=311)
+                             Index Cond: (view_id = views.id)
+ Planning Time: 54.622 ms
+ Execution Time: 51309.540 ms
+(169 rows)
