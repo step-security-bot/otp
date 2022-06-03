@@ -167,9 +167,9 @@ init_per_group(Group, Config) when Group =:= tty_unicode;
                               os:getenv("LANG","en_US.UTF-8"))),"."),
     case Group of
         tty_unicode ->
-            [{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
+            [{encoding, unicode},{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
         tty_latin1 ->
-            [{env,[{"LC_ALL",Lang++".ISO-8859-1"}]}|Config]
+            [{encoding, latin1},{env,[{"LC_ALL",Lang++".ISO-8859-1"}]}|Config]
     end;
 init_per_group(sh_custom, Config) ->
     %% Ensure that ERL_AFLAGS will not override the value of the shell_history variable.
@@ -681,9 +681,9 @@ shell_transpose(Config) ->
         ok
     end.
 
-shell_search(Config) ->
+shell_search(C) ->
 
-    Term = start_tty(Config),
+    Term = start_tty(C),
     {_Row, Cols} = get_location(Term),
 
     try
@@ -698,20 +698,20 @@ shell_search(Config) ->
         send_tty(Term,"Enter"),
         check_location(Term, {0, 0}),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width("(search)`': 'a😀'.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
         send_tty(Term,"C-a"),
-        check_location(Term, {0, width("'a😀'.")}),
+        check_location(Term, {0, width(C, "'a😀'.")}),
         send_tty(Term,"Enter"),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width("(search)`': 'a😀'.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
         send_tty(Term,"a"),
-        check_location(Term, {0, - Cols + width("(search)`a': 'a😀'.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`a': 'a😀'.") }),
         send_tty(Term,"C-r"),
-        check_location(Term, {0, - Cols + width("(search)`a': a.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`a': a.") }),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width("(search)`': 'a😀'.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
         send_tty(Term,"BSpace"),
-        check_location(Term, {0, - Cols + width("(search)`': 'a😀'.") }),
+        check_location(Term, {0, - Cols + width(C, "(search)`': 'a😀'.") }),
         ok
     after
         stop_tty(Term),
@@ -774,7 +774,8 @@ shell_huge_input(Config) ->
 
     try
         send_tty(Term,ManyUnicode),
-        check_content(Term, hard_unicode() ++ "$"),
+        check_content(Term, hard_unicode_match(Config) ++ "$",
+                      #{ replace => {"\n",""} }),
         send_tty(Term,"Enter"),
         ok
     after
@@ -1015,6 +1016,39 @@ hard_unicode() ->
      %%"👩‍👩‍👧‍👦"                % Zero width joiner
      | ZWJ].
 
+hard_unicode_match(Config) ->
+    ["\\Q",[unicode_to_octet(Config, U) || U <- hard_unicode()],"\\E"].
+
+unicode_to_octet(Config, U) ->
+    case ?config(encoding,Config) of
+        unicode -> U;
+        latin1 -> unicode_to_octet(U)
+    end.
+
+unicode_to_octet(U) ->
+    [if Byte >= 128 -> [$\\,integer_to_list(Byte,8)];
+        true -> Byte
+     end || <<Byte>> <= unicode:characters_to_binary(U)].
+
+unicode_to_hex(Config, U) ->
+    case ?config(encoding,Config) of
+        unicode -> U;
+        latin1 -> unicode_to_hex(U)
+    end.
+
+unicode_to_hex(U) when is_integer(U) ->
+    unicode_to_hex([U]);
+unicode_to_hex(Us) ->
+    [if U < 128 -> U;
+        U < 512 -> ["\\",integer_to_list(U,8)];
+        true -> ["\\x{",integer_to_list(U,16),"}"]
+     end || U <- Us].
+
+width(C, Str) ->
+    case ?config(encoding, C) of
+        unicode -> width(Str);
+        latin1 -> width(unicode_to_octet(Str))
+    end.
 width(Str) ->
     lists:sum(
       [npwcwidth(CP) || CP <- lists:flatten(Str)]).
@@ -1220,12 +1254,16 @@ get_window_size(Term) ->
     {list_to_integer(Row), list_to_integer(Col)}.
 
 check_content(Term, Match) ->
-    check_content(Term, Match, 5).
-check_content(Term, Match, Attempt) ->
-    Content = case Term of
+    check_content(Term, Match, #{}).
+check_content(Term, Match, Opts) when is_map(Opts) ->
+    check_content(Term, Match, Opts, 5).
+check_content(Term, Match, Opts, Attempt) ->
+    OrigContent = case Term of
                   #tmux{} -> get_content(Term);
                   Fun when is_function(Fun,0) -> Fun()
               end,
+    {RE,Repl} = maps:get(replace, Opts, {"",""}),
+    Content = re:replace(OrigContent, RE, Repl, [global]),
     case re:run(string:trim(Content, both), lists:flatten(Match), [unicode]) of
         {match,_} ->
             ok;
@@ -1237,7 +1275,7 @@ check_content(Term, Match, Attempt) ->
             ct:fail(nomatch);
         _ ->
             timer:sleep(500),
-            check_content(Term, Match, Attempt - 1)
+            check_content(Term, Match, Opts, Attempt - 1)
     end.
 
 get_content(#tmux{ name = Name }) ->
