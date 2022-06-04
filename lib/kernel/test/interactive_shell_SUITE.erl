@@ -1262,8 +1262,12 @@ check_content(Term, Match, Opts, Attempt) ->
                   #tmux{} -> get_content(Term);
                   Fun when is_function(Fun,0) -> Fun()
               end,
-    {RE,Repl} = maps:get(replace, Opts, {"",""}),
-    Content = re:replace(OrigContent, RE, Repl, [global]),
+    Content = case maps:find(replace, Opts) of
+                  {ok, {RE,Repl} } ->
+                      re:replace(OrigContent, RE, Repl, [global]);
+                  error ->
+                      OrigContent
+              end,
     case re:run(string:trim(Content, both), lists:flatten(Match), [unicode]) of
         {match,_} ->
             ok;
