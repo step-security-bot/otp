@@ -24,6 +24,8 @@
 %% This is responsible for a couple of things:
 %%   - Dispatching I/O messages when erl is running
 %%      * as a terminal.
+%%      * with -noshell
+%%      * with -noinput
 %%     The messages are listed in the type message/0.
 %%   - Any data received from the terminal is sent to the current group like this:
 %%     `{DrvPid :: pid(), {data, UnicodeCharacters :: list()}}`
@@ -67,7 +69,7 @@
         {requests, [request()]}.
 
 -export_type([message/0]).
--export([start/0, start/1]).
+-export([start/0, start/1, start_shell/0]).
 
 %% gen_statem state callbacks
 -export([init/3,server/3,switch_loop/3]).
@@ -80,7 +82,8 @@
 -record(state, { tty, write, read, shell_started = true, user, current_group, groups, queue }).
 
 -type shell() :: {module(), atom(), arity()} | {node(), module(), atom(), arity()}.
--type arguments() :: #{ initial_shell => shell() | {remote, unicode:charlist()} }.
+-type arguments() :: #{ initial_shell => noshell | shell() | {remote, unicode:charlist()},
+                        input => boolean() }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -91,6 +94,13 @@ start() ->
         E when E =:= error ; E =:= {ok,[[]]} ->
             start(#{ })
     end.
+
+-spec start_shell() -> ok | {error, Reason :: term()}.
+start_shell() ->
+    start_shell(#{ }).
+-spec start_shell(arguments()) -> ok | {error, enottty | already_started}.
+start_shell(Args) ->
+    gen_statem:call(?MODULE, {start_shell, Args}).
 
 %% Backwards compatibility with pre OTP-26 for Elixir/LFE etc
 -spec start(['tty_sl -c -e'| shell()]) -> pid();
@@ -111,18 +121,24 @@ init(Args) ->
     process_flag(trap_exit, true),
     prim_tty:on_load(),
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
-    if IsTTY ->
-            try prim_tty:init(#{}) of
-                TTYState ->
-                    {ok, init, {Args, #state{ user = start_user() } },
-                     {next_event, internal, TTYState}}
-            catch error:enotsup ->
-                    %% This is thrown by prim_tty:init when
-                    %% it could not start the terminal,
-                    %% probably because TERM=dumb was set.
-                    {stop, normal}
-            end;
-       not IsTTY ->
+    StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
+    try
+        if IsTTY, StartShell ->
+                TTYState = prim_tty:init(#{}),
+                {ok, init, {Args, #state{ user = start_user() } },
+                 {next_event, internal, TTYState}};
+           not StartShell ->
+                TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
+                                           tty => false}),
+                {ok, init, {Args, #state{ user = start_user() } },
+                 {next_event, internal, TTYState}};
+           not IsTTY ->
+                {stop, normal}
+        end
+    catch error:enotsup ->
+            %% This is thrown by prim_tty:init when
+            %% it could not start the terminal,
+            %% probably because TERM=dumb was set.
             {stop, normal}
     end.
 
@@ -140,6 +156,8 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
                           },
 
     case Args of
+        #{ initial_shell := noshell } ->
+            init_noshell(NewState);
         #{ initial_shell := {remote, Node} } ->
             init_remote_shell(NewState, Node);
         #{ initial_shell := InitialShell } ->
@@ -147,6 +165,11 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
         _ ->
             init_local_shell(NewState, {shell,start,[init]})
     end.
+
+%% We have been started with -noshell. In this mode the current_group is
+%% the `user` group process.
+init_noshell(State) ->
+    init_shell(State#state{ shell_started = false }, "").
 
 init_remote_shell(State, Node) ->
 
@@ -237,13 +260,42 @@ init_shell(State = #state{ tty = TTY }, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}),
+	    User = group:start(self(), {}, [{echo,false}]),
 	    register(user, User),
 	    User;
 	User ->
 	    User
     end.
 
+server({call, From}, {start_shell, Args},
+       State = #state{ tty = TTY, shell_started = false }) ->
+    case prim_tty:isatty(stdin) andalso prim_tty:isatty(stdout) of
+        true ->
+            try prim_tty:reinit(TTY, #{input => maps:get(input, Args, true) }) of
+                NewTTY ->
+                    gen_statem:reply(From, ok),
+                    NewState = State#state{ tty = NewTTY },
+                    case Args of
+                        #{ initial_shell := noshell } ->
+                            init_noshell(NewState);
+                        #{ initial_shell := {remote, Node} } ->
+                            init_remote_shell(NewState, Node);
+                        #{ initial_shell := InitialShell } ->
+                            init_local_shell(NewState, InitialShell);
+                        _ ->
+                            init_local_shell(NewState, {shell,start,[init]})
+                    end
+            catch error:enotsup ->
+                    gen_statem:reply(From, {error, enotsup}),
+                    keep_state_and_data
+            end;
+        false ->
+            gen_statem:reply(From, {error, enottty}),
+            keep_state_and_data
+    end;
+server({call, From}, {start_shell, _Args}, _State) ->
+    gen_statem:reply(From, {error, already_started}),
+    keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
   when State#state.current_group =:= State#state.user ->
     State#state.current_group !
@@ -383,8 +435,8 @@ switch_loop(internal, init, State) ->
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"\nUser switch command\n">>}],
-                            State#state.tty),
+                io_request([{put_chars,unicode,<<"\nUser switch command\n">>}],
+                           State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
 	    edlin:init(gr_cur_pid(State#state.groups)),
@@ -413,7 +465,7 @@ switch_loop(internal, {line, Line}, State) ->
             end;
         {error, _, _} ->
             NewTTYState =
-                io_requests([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
+                io_request([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
             {keep_state, State#state{ tty = NewTTYState },
              {next_event, internal, line}}
     end;
