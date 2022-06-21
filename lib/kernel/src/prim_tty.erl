@@ -156,6 +156,7 @@
                }).
 
 -type options() :: #{ tty => boolean(),
+                      input => boolean(),
                       canon => boolean(),
                       echo => boolean(),
                       sig => boolean()
@@ -222,10 +223,23 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 State
         end,
 
-    {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
-    {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+    WriterState =
+        if TTYState#state.writer =:= undefined ->
+                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
+                TTYState#state{ writer = Writer };
+           true ->
+                TTYState
+        end,
+    ReaderState =
+        case {maps:get(input, Options), TTYState#state.reader} of
+            {true, undefined} ->
+                {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+                WriterState#state{ reader = Reader };
+            {false, undefined} ->
+                WriterState
+        end,
 
-    update_geometry(TTYState#state{ reader = Reader, writer = Writer }).
+    update_geometry(ReaderState).
 
 -spec reinit(state(), options()) -> state().
 reinit(State, UserOptions) ->
