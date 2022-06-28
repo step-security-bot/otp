@@ -310,7 +310,7 @@ then
         -pz "$ERL_TOP/lib/common_test/test_server"\
         -pz "."\
         -ct_test_vars "{net_dir,\"\"}"\
-        -noshell\
+        -noinput\
         -sname test_server\
         -rsh ssh\
         ${ERL_ARGS}
@@ -331,7 +331,7 @@ else
         -pz "$WIN_ERL_TOP/lib/common_test/test_server"\
         -pz "."\
         -ct_test_vars "{net_dir,\"\"}"\
-        -noshell\
+        -noinput\
         -sname test_server\
         -rsh ssh\
         ${ERL_ARGS}
