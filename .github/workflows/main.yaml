@@ -85,7 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
         changes: ${{ steps.changes.outputs.changes }}
-        all: ${{ steps.apps.outputs.all }}
+        all: ${{ steps.changes.outputs.all }}
+        max-parallel: ${{ steps.changes.outputs.max-parallel }}
     steps:
       - uses: actions/checkout@v2
       - name: Get applications
@@ -96,9 +97,24 @@ jobs:
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "::set-output name=all::${ALL_APPS}"
       - uses: dorny/paths-filter@v2
-        id: changes
+        id: filters
         with:
           filters: .github/scripts/path-filters.yaml
+      - name: Decide tests to run
+        id: changes
+        run: |
+            echo '::set-output name=all::${{ steps.apps.outputs.all }}'
+            CHANGES='${{ steps.filters.outputs.changes }}'
+            MAX_PARALLEL=256
+            if [ "${{ github.repository }}" = "erlang/otp" ]; then
+              if [ "${{ github.event_name }}" = "push" ]; then
+                CHANGES='${{ steps.apps.outputs.all }}'
+              else
+                MAX_PARALLEL=3
+              fi
+            fi
+            echo "::set-output name=changes::${CHANGES}"
+            echo "::set-output name=max-parallel::${MAX_PARALLEL}"
 
   build-macos:
     name: Build Erlang/OTP (macOS)
@@ -417,6 +433,7 @@ jobs:
         # type: ${{ fromJson(needs.changed-apps.outputs.all) }}
         type: ${{ fromJson(needs.changed-apps.outputs.changes) }}
         # type: ["os_mon","sasl"]
+      max-parallel: ${{ fromJson(needs.changed-apps.outputs.max-parallel) }}
       fail-fast: false
     steps:
       ## Download docker images
