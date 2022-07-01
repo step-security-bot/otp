@@ -22,8 +22,6 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
@@ -44,15 +42,6 @@
 -define(dbg(Data),noop).
 -endif.
 
-init_per_testcase(_Case, Config) ->
-    Term = os:getenv("TERM", "dumb"),
-    os:putenv("TERM","vt100"),
-    [{term, Term} | Config].
-end_per_testcase(_Case, Config) ->
-    Term = proplists:get_value(term,Config),
-    os:putenv("TERM",Term),
-    ok.
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,5}}].
@@ -66,10 +55,14 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+    Term = os:getenv("TERM", "dumb"),
+    os:putenv("TERM","vt100"),
     DefShell = rtnode:get_default_shell(),
-    [{default_shell,DefShell}|Config].
+    [{default_shell,DefShell},{term, Term}|Config].
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    Term = proplists:get_value(term,Config),
+    os:putenv("TERM",Term),
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -105,6 +98,7 @@ unicode_prompt(Config) when is_list(Config) ->
                {expect, "\nok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
+               {expect,"\nhej"},
                {expect, "\\Q\n<<\"hej\\n\">>\\E"}
               ],[],[],["-pa",PA]);
         _ ->
@@ -124,6 +118,7 @@ unicode_prompt(Config) when is_list(Config) ->
        {expect, "\nok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
+       {expect,"\nhej"},
        {expect, "\\Q\n<<\"hej\\n\">>\\E"}
       ],[],[],["-oldshell","-pa",PA]),
     ok.
@@ -416,7 +411,7 @@ unicode_options(Config) when is_list(Config) ->
                {putline, "io:setopts([unicode])."},
                {expect, "\nok"},
                {putline, "io:format(\"~ts~n\",[[1024]])."},
-               {expect, unicode, [1024]}
+               {expect, [1024]}
               ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
               "export LC_CTYPE; ");
         _ ->
@@ -433,7 +428,7 @@ unicode_options(Config) when is_list(Config) ->
        {putline, "io:setopts([{encoding,unicode}])."},
        {expect, "\nok"},
        {putline, "io:format(\"~ts~n\",[[1024]])."},
-       {expect, unicode, "\n"++[1024]}
+       {expect, "\n"++[1024]}
       ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
       ["-oldshell"]),
 
@@ -707,7 +702,7 @@ binary_options(Config) when is_list(Config) ->
                {expect, "\\Q\n<<\"hej\\n\">>\\E"},
                {putline, "io:get_line('')."},
                {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-               {expect, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+               {expect, latin1, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
               ],[]);
         _ ->
             ok
@@ -728,13 +723,14 @@ binary_options(Config) when is_list(Config) ->
        {expect, "\\Q\n<<\"hej\\n\">>\\E"},
        {putline, "io:get_line('')."},
        {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-       {expect, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+       {expect, latin1, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
       ],[],[],["-oldshell"]),
     ok.
 
 answering_machine1(OthNode,OthReg,Me) ->
     TestDataLine1 = [229,228,246],
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
+    TestDataLine1Oct = "\\\\345( \b)*\\\\344( \b)*\\\\366",
     rtnode:run(
       [{putline,""},
        {putline, "2."},
@@ -752,9 +748,11 @@ answering_machine1(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},
@@ -771,9 +769,11 @@ answering_machine1(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},
@@ -790,9 +790,11 @@ answering_machine1(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},
@@ -824,9 +826,11 @@ answering_machine2(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},
@@ -843,9 +847,11 @@ answering_machine2(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},
@@ -862,9 +868,11 @@ answering_machine2(OthNode,OthReg,Me) ->
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
        {expect, "Okej"},
        {expect, "Prompt"},
        {putline, TestDataUtf},

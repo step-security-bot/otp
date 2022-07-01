@@ -706,7 +706,8 @@ job_control_remote_noshell(Config) when is_list(Config) ->
 	old ->
 	    {skip,"No new shell found"};
 	_ ->
-	    {ok, Peer, NSNode} = ?CT_PEER(#{ args => ["-connect_all","false","-noshell"],
+	    {ok, Peer, NSNode} = ?CT_PEER(#{ name => peer:random_name(test_remote_job_control),
+                                             args => ["-connect_all","false","-noshell"],
                                              peer_down => continue }),
             try
                 test_remote_job_control(NSNode)

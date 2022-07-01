@@ -132,7 +132,7 @@ send_commands(CPid, [{sleep, X}|T], N) ->
 	    send_commands(CPid, T, N+1)
     end;
 send_commands(CPid, [{expect, Expect}|T], N) when is_list(Expect) ->
-    send_commands(CPid, [{expect, latin1, Expect}|T], N);
+    send_commands(CPid, [{expect, unicode, Expect}|T], N);
 send_commands(CPid, [{expect, Encoding, Expect}|T], N) when is_list(Expect) ->
     ?dbg({expect, Expect}),
     case command(CPid, {expect, Encoding, [Expect], timeout(normal)}) of
@@ -461,7 +461,12 @@ compile_expect([{{re,RE0},Action}|T], E) when is_binary(RE0), is_function(Action
     fun({timeout, _}=Subject) ->
             Next(Subject);
        (Subject) ->
-            BinarySubject = unicode:characters_to_binary(list_to_binary(Subject), E),
+            BinarySubject = if
+                                E =:= unicode ->
+                                    unicode:characters_to_binary(list_to_binary(Subject));
+                                E =:= latin1 ->
+                                    list_to_binary(Subject)
+                            end,
             case re:run(BinarySubject, RE, [{capture,first,index}]) of
                 nomatch ->
                     Next(Subject);
@@ -472,7 +477,7 @@ compile_expect([{{re,RE0},Action}|T], E) when is_binary(RE0), is_function(Action
     end;
 compile_expect([RE|T], E) when is_list(RE) ->
     Ok = fun(_) -> ok end,
-    compile_expect([{{re,unicode:characters_to_binary(RE, E)},Ok}|T], E);
+    compile_expect([{{re,unicode:characters_to_binary(RE, unicode, E)},Ok}|T], E);
 compile_expect([], _E) ->
     fun(_) ->
             nomatch
