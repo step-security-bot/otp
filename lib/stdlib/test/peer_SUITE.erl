@@ -47,7 +47,7 @@
     ssh/0, ssh/1,
     docker/0, docker/1,
     post_process_args/0, post_process_args/1,
-    run_erl/0, run_erl/1
+    attached/0, attached/1
 ]).
 
 suite() ->
@@ -58,18 +58,18 @@ shutdown_alternatives() ->
 
 alternative() ->
     [basic, peer_states, cast, detached, dyn_peer, stop_peer,
-     io_redirect, multi_node, duplicate_name] ++ shutdown_alternatives().
+     io_redirect, multi_node, duplicate_name, attached] ++ shutdown_alternatives().
 
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-                            dist_up_down, dist_localhost, post_process_args] ++ shutdown_alternatives()},
+                            dist_up_down, dist_localhost, post_process_args, attached] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
         {tcp, [parallel], alternative()},
         {standard_io, [parallel], [init_debug | alternative()]},
         {compatibility, [parallel], [old_release]},
-        {remote, [parallel], [ssh, run_erl]}
+        {remote, [parallel], [ssh]}
     ].
 
 all() ->
@@ -582,25 +582,31 @@ docker(Config) when is_list(Config) ->
             peer:stop(Peer)
     end.
 
-run_erl() ->
+attached() ->
     [{doc, "Test that it is possible to start a peer node using run_erl aka attached"}].
 
-run_erl(Config) ->
+attached(Config) ->
     RunErl = os:find_executable("run_erl"),
     [throw({skip, "Could not find run_erl"}) || RunErl =:= false],
     Erl = string:split(ct:get_progname()," ",all),
     RunErlDir = filename:join(proplists:get_value(priv_dir, Config),?FUNCTION_NAME),
     filelib:ensure_path(RunErlDir),
-    {ok, Peer, _Node} =
-        peer:start(
-          #{ name => ?CT_PEER_NAME(),
-             exec => {RunErl, Erl},
-             detached => false,
-             post_process_args =>
-                 fun(Args) ->
-                         [RunErlDir ++ "/", RunErlDir,
-                          lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
-                 end
-           }),
-    peer:stop(Peer).
-    
+    Connection = proplists:get_value(connection, Config),
+    Conn = if Connection =:= undefined -> #{ name => ?CT_PEER_NAME() };
+              true -> #{ connection => Connection }
+           end,
+    try peer:start(
+           Conn#{
+                 exec => {RunErl, Erl},
+                 detached => false,
+                 post_process_args =>
+                     fun(Args) ->
+                             [RunErlDir ++ "/", RunErlDir,
+                              lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
+                     end
+                }) of
+        {ok, Peer, _Node} when Connection =:= undefined; Connection =:= 0 ->
+            peer:stop(Peer)
+    catch error:{detached,_} when Connection =:= standard_io ->
+            ok
+    end.

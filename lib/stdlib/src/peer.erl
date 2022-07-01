@@ -592,8 +592,13 @@ verify_args(Options) ->
             ok;
         {ok, Err2} ->
             error({shutdown, Err2})
+    end,
+    case maps:find(detached, Options) of
+        {ok, false} when map_get(connection, Options) =:= standard_io ->
+            error({detached, cannot_detach_with_standard_io});
+        _ ->
+            ok
     end.
-            
 
 make_notify_ref(infinity) ->
     {self(), make_ref()};
@@ -809,22 +814,24 @@ command_line(Listen, Options) ->
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
+
+    %% If we should detach from the node
+    DetachArgs = case maps:get(detached, Options, true) of
+                     true -> ["-detached"];
+                     false -> []
+                 end,
+
     %% start command
     StartCmd =
         case Listen of
             undefined when map_get(connection, Options) =:= standard_io ->
                 ["-user", atom_to_list(?MODULE)];
             undefined ->
-                %% If we should detach from the node
-                DetachArgs = case maps:get(detached, Options, true) of
-                                 true -> ["-detached"];
-                                 false -> []
-                             end,
                 Self = base64:encode_to_string(term_to_binary(self())),
                 DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", Self];
             {Ips, Port} ->
                 IpStr = lists:concat(lists:join(",", [inet:ntoa(Ip) || Ip <- Ips])),
-                ["-detached", "-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
+                DetachArgs ++ ["-user", atom_to_list(?MODULE), "-origin", IpStr, integer_to_list(Port)]
         end,
     %% build command line
     {Exec, PreArgs} = exec(Options),
@@ -927,7 +934,15 @@ start() ->
             Port = list_to_integer(PortString),
             Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end ||
                       Ip <- string:lexemes(IpStr, ",")],
-            spawn(fun () -> tcp_init(Ips, Port) end);
+            TCPConnection = spawn(fun () -> tcp_init(Ips, Port) end),
+            case init:get_argument(detached) of
+                {ok, _} ->
+                    register(user, TCPConnection),
+                    TCPConnection;
+                error ->
+                    user_sup:init(
+                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+            end;
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
             OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
@@ -985,7 +1000,6 @@ io_server() ->
 tcp_init(IpList, Port) ->
     try
         Sock = loop_connect(IpList, Port),
-        register(user, self()),
         erlang:group_leader(self(), self()),
         notify_when_started(tcp, Sock),
         io_server_loop(tcp, Sock, #{}, #{}, undefined)
