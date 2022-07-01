@@ -124,10 +124,10 @@
 
 %%-define(debug, true).
 -ifdef(debug).
--define(dbg(Term), ).
--else.
 -define(dbg(Term), dbg(Term)).
--endif
+-else.
+-define(dbg(Term), ok).
+-endif.
 
 -record(state, {tty,
                 reader,
@@ -332,7 +332,6 @@ init(State, {unix,_}) ->
       delete_after_cursor = DeleteAfter
      };
 init(State, {win32, _}) ->
-    % os:putenv("ERL_CONSOLE_MODE","window"),
     State#state{
       %% position = false,
       xn = true }.
@@ -352,8 +351,12 @@ unicode(State) ->
 
 -spec unicode(state(), boolean()) -> state().
 unicode(#state{ reader = {ReaderPid, _} } = State, Bool) ->
+    MonRef = erlang:monitor(process, ReaderPid),
     ReaderPid ! {self(), set_unicode_state, Bool},
-    receive {ReaderPid, set_unicode_state, _} -> ok end,
+    receive
+        {ReaderPid, set_unicode_state, _} -> ok;
+        {'DOWN',MonRef,_,_,_} -> ok
+    end,
     State#state{ unicode = Bool }.
 
 -spec handle_signal(state(), winch | cont) -> state().

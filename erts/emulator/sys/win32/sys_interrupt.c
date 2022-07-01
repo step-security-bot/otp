@@ -27,7 +27,6 @@
 #include "erl_alloc.h"
 #include "erl_thr_progress.h"
 #include "erl_driver.h"
-#include "../../drivers/win32/win_con.h"
 
 #if defined(__GNUC__)
 #  define WIN_SYS_INLINE __inline__
@@ -82,7 +81,6 @@ BOOL WINAPI ctrl_handler_ignore_break(DWORD dwCtrlType)
 }
 
 void erts_set_ignore_break(void) {
-    ConSetCtrlHandler(ctrl_handler_ignore_break);
     SetConsoleCtrlHandler(ctrl_handler_ignore_break, TRUE);
 }
 
@@ -110,7 +108,11 @@ BOOL WINAPI ctrl_handler_replace_intr(DWORD dwCtrlType)
 /* Don't use ctrl-c for break handler but let it be 
    used by the shell instead (see user_drv.erl) */
 void erts_replace_intr(void) {
-    ConSetCtrlHandler(ctrl_handler_replace_intr);
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD dwOriginalInMode = 0;
+    if (GetConsoleMode(hIn, &dwOriginalInMode)) {
+	SetConsoleMode(hIn, dwOriginalInMode & ~ENABLE_PROCESSED_INPUT);
+    }
     SetConsoleCtrlHandler(ctrl_handler_replace_intr, TRUE);
 }
 
@@ -135,7 +137,6 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType)
 
 void init_break_handler()
 {
-    ConSetCtrlHandler(ctrl_handler);
     SetConsoleCtrlHandler(ctrl_handler, TRUE);
 }
 

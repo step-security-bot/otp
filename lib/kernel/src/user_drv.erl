@@ -438,8 +438,8 @@ switch_loop(internal, init, State) ->
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_request([{put_chars,unicode,<<"\nUser switch command\n">>}],
-                           State#state.tty),
+                io_requests([{put_chars,unicode,<<"\nUser switch command\n">>}],
+                            State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
 	    edlin:init(gr_cur_pid(State#state.groups)),
@@ -468,7 +468,7 @@ switch_loop(internal, {line, Line}, State) ->
             end;
         {error, _, _} ->
             NewTTYState =
-                io_request([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
+                io_requests([{put_chars,unicode,<<"Illegal input\n">>}], State#state.tty),
             {keep_state, State#state{ tty = NewTTYState },
              {next_event, internal, line}}
     end;

@@ -32,7 +32,6 @@
 #include "erl_sys_driver.h"
 #include "global.h"
 #include "erl_threads.h"
-#include "../../drivers/win32/win_con.h"
 #include "erl_cpu_topology.h"
 #include <malloc.h>
 
@@ -205,10 +204,6 @@ erts_sys_misc_mem_sz(void)
  */
 void sys_tty_reset(int exit_code)
 {
-    if (exit_code == ERTS_ERROR_EXIT)
-	ConWaitForExit();
-    else
-	ConNormalExit();
 }
 
 void erl_sys_args(int* argc, char** argv)
@@ -310,24 +305,10 @@ static DWORD dwOriginalInMode = 0;
 static void
 init_console(void)
 {
-    char* mode = erts_read_env("ERL_CONSOLE_MODE");
-
-    if (!mode || strcmp(mode, "window") == 0) {
-	win_console = TRUE;
-	ConInit();
-	/*nohup = 0;*/
-    } else if (strncmp(mode, "tty:", 4) == 0) {
-	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
-	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
-	if (mode[5] == 'c') {
-	    setvbuf(stdout, NULL, _IONBF, 0);
-	}
-	if (mode[6] == 'c') {
-	    setvbuf(stderr, NULL, _IONBF, 0);
-	}
-    }
-
-    erts_free_read_env(mode);
+    GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
+    GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 int sys_max_files(void) 
@@ -2949,10 +2930,6 @@ int
 sys_get_key(int fd)
 {
     ASSERT(fd == 0);
-
-    if (win_console) {
-        return ConGetKey();
-    }
 
     /*
      * Black magic follows. (Code stolen from get_overlapped_result())

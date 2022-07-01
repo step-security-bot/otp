@@ -361,10 +361,8 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                 }
             }
         }
-        if (num_characters > 0) {
-            enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
-            characters = (wchar_t*)bin.data;
-        }
+        enif_alloc_binary(num_characters * sizeof(wchar_t), &bin);
+        characters = (wchar_t*)bin.data;
         for (int i = 0; i < inputs_read; i++) {
             switch (inputs[i].EventType)
             {
@@ -381,6 +379,11 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                     enif_make_tuple2(env, enif_make_atom(env, "resize"),
                         enif_make_tuple2(env, enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
                                             enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
+                break;
+            case MENU_EVENT:
+            case FOCUS_EVENT:
+                /* Should be ignored according to
+                   https://docs.microsoft.com/en-us/windows/console/input-record-str */
                 break;
             default:
                 fprintf(stderr,"Unknown event: %d\r\n", inputs[i].EventType);
@@ -402,7 +405,9 @@ static ERL_NIF_TERM tty_read(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     }
     #endif
     enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-    if (res < bin.size / 2) {
+    if (res == bin.size) {
+	res_term = enif_make_binary(env, &bin);
+    } else if (res < bin.size / 2) {
         unsigned char *buff = enif_make_new_binary(env, res, &res_term);
         if (res > 0) {
             memcpy(buff, bin.data, res);
@@ -703,6 +708,7 @@ static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }
 
 static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+#if defined(HAVE_TERMCAP) || defined(__WIN32__)
     TTYResource *tty;
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
@@ -710,6 +716,7 @@ static ERL_NIF_TERM tty_set(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (tty->tty && tcsetattr(tty->ifd, TCSANOW, &tty->tty_smode) < 0) {
         return make_errno_error(env, "tcsetattr");
     }
+#endif
     enif_self(env, &tty->self);
     enif_monitor_process(env, tty, &tty->self, NULL);
     return atom_ok;

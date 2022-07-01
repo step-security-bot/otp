@@ -48,7 +48,6 @@ static char* win32_errorstr(int error);
 static int has_console(void);
 static char** fnuttify_argv(char **argv);
 static void free_fnuttified(char **v);
-static int windowed = 0;
 
 #ifdef LOAD_BEAM_DYNAMICALLY
 typedef int SysGetKeyFunction(int);
@@ -133,103 +132,6 @@ free_env_val(char *value)
 	free(value);
 }
 
-
-int
-start_win_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_detached)
-{
-    int len;
-    int argc = 0;
-
-    windowed = 1;
-    while (utf8argv[argc] != NULL) {
-	++argc;
-    }
-
-    if (start_detached) {
-	wchar_t *start_prog=NULL;
-	int result;
-	int i;
-	wchar_t **argv;
-	close(0);
-	close(1);
-	close(2);
-	
-	set_env("ERL_CONSOLE_MODE", "detached");
-	set_env(DLL_ENV, utf8emu);
-
-	utf8argv[0] = utf8start_prog;
-	utf8argv = fnuttify_argv(utf8argv);
-
-	len = MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, NULL, 0);
-	start_prog = malloc(len*sizeof(wchar_t));
-	MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, start_prog, len);
-
-	/* Convert utf8argv to multibyte argv */
-	argv = malloc((argc+1) * sizeof(wchar_t*));
-	for (i=0; i<argc; i++) {
-	    len = MultiByteToWideChar(CP_UTF8, 0, utf8argv[i], -1, NULL, 0);
-	    argv[i] = malloc(len*sizeof(wchar_t));
-	    MultiByteToWideChar(CP_UTF8, 0, utf8argv[i], -1, argv[i], len);
-	}
-	argv[argc] = NULL;
-
-#ifdef ARGS_HARDDEBUG
-	{
-	    wchar_t tempbuf[2048] = L"";
-	    wchar_t *sbuf;
-	    int i;
-	    sbuf=tempbuf;
-	    sbuf += swprintf(sbuf, 2048, L"utf16: %s\n", start_prog);
-	    for (i = 0; i < argc; ++i) {
-		sbuf += swprintf(sbuf, 2048, L"|%s|", argv[i]);
-	    };
-	    sbuf += swprintf(sbuf, 2048, L"\nutf8: \n");
-	    for (i = 0; i < argc; ++i) {
-		sbuf += swprintf(sbuf, 2048, L"|%S|", utf8argv[i]);
-	    };
-	    MessageBoxW(NULL, tempbuf, L"respawn args", MB_OK|MB_ICONERROR);
-	}
-#endif
-
-	result = _wspawnv(_P_DETACH, start_prog, argv);
-	free_fnuttified(utf8argv);
-	if (result == -1) {
-	    error("Failed to execute %S: %s", start_prog, win32_errorstr(_doserrno));
-	}
-    } else {
-	wchar_t *emu=NULL;
-#ifdef LOAD_BEAM_DYNAMICALLY
-	HMODULE beam_module = NULL;
-	len = MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, NULL, 0);
-	emu = malloc(len*sizeof(wchar_t));
-	MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, emu, len);
-#ifdef ARGS_HARDDEBUG
-	{
-	    char sbuf[2048] = "";
-	    int i;
-	    strcat(sbuf,utf8emu);
-	    strcat(sbuf,":");
-	    for (i = 0; i < argc; ++i) {
-		strcat(sbuf,"|");
-		strcat(sbuf, utf8argv[i]);
-		strcat(sbuf,"| ");
-	    }
-	    MessageBox(NULL, sbuf, "erl_start args", MB_OK|MB_ICONERROR);
-	}
-#endif
-	beam_module = load_win_beam_dll(emu);
-#endif	
-	set_env("ERL_CONSOLE_MODE", "window");
-#ifdef LOAD_BEAM_DYNAMICALLY
-	(*sys_primitive_init_p)(beam_module);
-	(*erl_start_p)(argc,utf8argv);
-#else
-	erl_start(argc,utf8argv);
-#endif
-    }
-    return 0;
-}
-
 void __cdecl 
 do_keep_window(void)
 {
@@ -244,7 +146,6 @@ do_keep_window(void)
 int
 start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_detached)
 {
-    char console_mode[] = "tty:ccc";
     char* title;
     int len;
     int argc = 0;
@@ -256,13 +157,6 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
     _flushall();
 
     while (utf8argv[argc] != NULL) {
-	if (strcmp(utf8argv[argc],"-user") == 0 && utf8argv[argc+1] != NULL &&
-	    strcmp(utf8argv[argc+1],"user_nif") == 0
-	) {
-		console_mode[4] = 'c';
-		console_mode[5] = 'c';
-		console_mode[6] = 't';
-	}
 	++argc;
     }
 
@@ -343,7 +237,7 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
 	}
 #endif
 	beam_module = load_win_beam_dll(emu);
-#endif	
+#endif
 
 	/*
 	 * Start the emulator.
@@ -354,8 +248,8 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
 	    SetConsoleTitle(title);
 	}
 	free_env_val(title);
-	
-	set_env("ERL_CONSOLE_MODE", console_mode);
+
+	set_env("ERL_CONSOLE_MODE", "windowed");
 	if (keep_window) {
 	    atexit(do_keep_window);
 	}
@@ -391,10 +285,8 @@ error(char* format, ...)
     vsprintf(sbuf, format, ap);
     va_end(ap);
 
-    if (!windowed && has_console()) {
+    if (has_console()) {
 	fprintf(stderr, "%s\n", sbuf);
-    } else {
-	MessageBox(NULL, sbuf, "Werl", MB_OK|MB_ICONERROR);
     }
     exit(1);
 }

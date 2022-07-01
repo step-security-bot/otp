@@ -246,7 +246,7 @@ static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, jit 
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detached mode -
-					       erl.exe/werl.exe */
+					       erl.exe */
 static char* key_val_name = ERLANG_VERSION; /* Used by the registry
 					   * access functions.
 					   */
@@ -256,7 +256,6 @@ static int config_script_cnt = 0;
 static int got_start_erl = 0;
 
 static HANDLE this_module_handle;
-static int run_werl;
 static WCHAR *utf8_to_utf16(unsigned char *bytes);
 static char *utf16_to_utf8(WCHAR *wstr);
 static WCHAR *latin1_to_utf16(char *str);
@@ -414,7 +413,7 @@ static void add_boot_config(void)
 #define NEXT_ARG_CHECK() NEXT_ARG_CHECK_NAMED(argv[i])
 
 #ifdef __WIN32__
-__declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int windowed)
+__declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module)
 #else
 int main(int argc, char **argv)
 #endif
@@ -435,7 +434,6 @@ int main(int argc, char **argv)
 
 #ifdef __WIN32__
     this_module_handle = module;
-    run_werl = windowed;
     /* if we started this erl just to get a detached emulator,
      * the arguments are already prepared for beam, so we skip
      * directly to start_emulator */
@@ -1115,24 +1113,7 @@ int main(int argc, char **argv)
  skip_arg_massage:
     /*DebugBreak();*/
 
-    if (run_werl) {
-	if (start_detached) {
-	    char *p;
-	    /* transform werl to erl */
-	    p = start_emulator_program+strlen(start_emulator_program);
-	    while (--p >= start_emulator_program && *p != '/' && *p != '\\' &&
-		   *p != 'W' && *p != 'w')
-		;
-	    if (p >= start_emulator_program && (*p == 'W' || *p == 'w') &&
-		(p[1] == 'E' || p[1] == 'e') && (p[2] == 'R' || p[2] == 'r') &&
-		(p[3] == 'L' || p[3] == 'l')) {
-		memmove(p,p+1,strlen(p));
-	    }
-	}
-      return start_win_emulator(emu, start_emulator_program, Eargsp, start_detached);
-    } else {
-      return start_emulator(emu, start_emulator_program, Eargsp, start_detached);
-    }
+    return start_emulator(emu, start_emulator_program, Eargsp, start_detached);
 
 #else
 
