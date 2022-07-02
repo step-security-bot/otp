@@ -99,7 +99,7 @@ unicode_prompt(Config) when is_list(Config) ->
                {putline, "io:get_line('')."},
                {putline, "hej"},
                {expect,"\nhej"},
-               {expect, "\\Q\n<<\"hej\\n\">>\\E"}
+               {expect, "\\Q<<\"hej\\n\">>\\E"}
               ],[],[],["-pa",PA]);
         _ ->
             ok
@@ -119,7 +119,7 @@ unicode_prompt(Config) when is_list(Config) ->
        {putline, "io:get_line('')."},
        {putline, "hej"},
        {expect,"\nhej"},
-       {expect, "\\Q\n<<\"hej\\n\">>\\E"}
+       {expect, "\\Q<<\"hej\\n\">>\\E"}
       ],[],[],["-oldshell","-pa",PA]),
     ok.
 
