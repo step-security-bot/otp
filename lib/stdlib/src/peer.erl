@@ -815,9 +815,10 @@ command_line(Listen, Options) ->
     %% additional command line args
     CmdOpts = maps:get(args, Options, []),
 
-    %% If we should detach from the node
+    %% If we should detach from the node. We use -detached to tell erl to detach
+    %% and -peer_detached to tell peer:start that we are detached.
     DetachArgs = case maps:get(detached, Options, true) of
-                     true -> ["-detached"];
+                     true -> ["-detached","-peer_detached"];
                      false -> []
                  end,
 
@@ -935,7 +936,7 @@ start() ->
             Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end ||
                       Ip <- string:lexemes(IpStr, ",")],
             TCPConnection = spawn(fun () -> tcp_init(Ips, Port) end),
-            case init:get_argument(detached) of
+            case init:get_argument(peer_detached) of
                 {ok, _} ->
                     register(user, TCPConnection),
                     TCPConnection;
@@ -953,7 +954,7 @@ start() ->
                       origin_link(MRef, OriginProcess)
               end),
             ok = gen_server:call(OriginProcess, {starting, node()}),
-            case init:get_argument(detached) of
+            case init:get_argument(peer_detached) of
                 {ok, _} ->
                     %% We are detached, so setup 'user' process, I/O redirection:
                     %%   ask controlling process who is the group leader.
