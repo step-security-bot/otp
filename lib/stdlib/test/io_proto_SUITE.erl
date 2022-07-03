@@ -93,7 +93,7 @@ unicode_prompt(Config) when is_list(Config) ->
                {expect, "\ndefault"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q\n\"hej\\n\"\\E"},
+               {expect, "\\Q\"hej\\n\"\\E"},
                {putline, "io:setopts([{binary,true}])."},
                {expect, "\nok"},
                {putline, "io:get_line('')."},
@@ -113,7 +113,7 @@ unicode_prompt(Config) when is_list(Config) ->
        {expect, "default"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q\n\"hej\\n\"\\E"},
+       {expect, "\\Q\"hej\\n\"\\E"},
        {putline, "io:setopts([{binary,true}])."},
        {expect, "\nok"},
        {putline, "io:get_line('')."},
@@ -209,12 +209,12 @@ setopts_getopts(Config) when is_list(Config) ->
                {expect, "{binary,false}"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q\n\"hej\\n\"\\E"},
+               {expect, "\\Q\"hej\\n\"\\E"},
                {putline, "io:setopts([{binary,true}])."},
                {expect, "ok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q\n<<\"hej\\n\">>\\E"}
+               {expect, "\\Q<<\"hej\\n\">>\\E"}
               ],[]);
         _ ->
             ok
@@ -228,12 +228,12 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "\n{binary,false}"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q\n\"hej\\n\"\\E"},
+       {expect, "\\Q\"hej\\n\"\\E"},
        {putline, "io:setopts([{binary,true}])."},
        {expect, "\nok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q\n<<\"hej\\n\">>\\E"}
+       {expect, "\\Q<<\"hej\\n\">>\\E"}
       ],[],[],["-oldshell"]),
     ok.
 
@@ -412,8 +412,7 @@ unicode_options(Config) when is_list(Config) ->
                {expect, "\nok"},
                {putline, "io:format(\"~ts~n\",[[1024]])."},
                {expect, [1024]}
-              ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
-              "export LC_CTYPE; ");
+              ],[],"",["-env","LC_CTYPE",get_lc_ctype()]);
         _ ->
             ok
     end,
@@ -424,13 +423,13 @@ unicode_options(Config) when is_list(Config) ->
        {putline, "lists:keyfind(encoding,1,io:getopts())."},
        {expect, "\n{encoding,latin1}"},
        {putline, "io:format(\"~ts~n\",[[1024]])."},
-       {expect, "\\Q\n\\x{400}\\E"},
+       {expect, "\\Q\\x{400}\\E"},
        {putline, "io:setopts([{encoding,unicode}])."},
        {expect, "\nok"},
        {putline, "io:format(\"~ts~n\",[[1024]])."},
        {expect, "\n"++[1024]}
-      ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
-      ["-oldshell"]),
+      ],[],"",
+      ["-oldshell","-env","LC_CTYPE",get_lc_ctype()]),
 
     ok.
 
@@ -694,12 +693,12 @@ binary_options(Config) when is_list(Config) ->
                {expect, "\n{binary,false}"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q\n\"hej\\n\"\\E"},
+               {expect, "\\Q\"hej\\n\"\\E"},
                {putline, "io:setopts([{binary,true},unicode])."},
                {expect, "\nok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q\n<<\"hej\\n\">>\\E"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
                {putline, "io:get_line('')."},
                {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
                {expect, latin1, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
@@ -720,7 +719,7 @@ binary_options(Config) when is_list(Config) ->
        {expect, "\nok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q\n<<\"hej\\n\">>\\E"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
        {putline, "io:get_line('')."},
        {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
        {expect, latin1, "\\Q\n<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
