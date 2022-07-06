@@ -218,7 +218,6 @@ static char* possibly_quote(char* arg);
 /*
  * Functions from win_erlexec.c
  */
-int start_win_emulator(char* emu, char *startprog,char** argv, int start_detached);
 int start_emulator(char* emu, char*start_prog, char** argv, int start_detached);
 #endif
 
