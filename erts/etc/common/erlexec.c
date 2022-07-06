@@ -39,14 +39,12 @@
 #define DIRSEP "\\"
 #define PATHSEP ";"
 #define NULL_DEVICE "nul"
-#define BINARY_EXT ""
 #define DLL_EXT ".dll"
 #define EMULATOR_EXECUTABLE "beam.dll"
 #else
 #define PATHSEP ":"
 #define DIRSEP "/"
 #define NULL_DEVICE "/dev/null"
-#define BINARY_EXT ""
 #define EMULATOR_EXECUTABLE "beam"
 
 #endif
@@ -519,7 +517,7 @@ int main(int argc, char **argv)
 
     emu = add_extra_suffixes(emu);
     emu_name = strsave(emu);
-    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
+    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s", bindir, emu);
     emu = strsave(tmpStr);
 
     s = get_env("ESCRIPT_NAME");
@@ -1577,6 +1575,14 @@ static void get_parameters(int argc, char** argv)
 
     emu = EMULATOR_EXECUTABLE;
     start_emulator_program = strsave(argv[0]);
+
+    /* in wsl argv[0] is given as "erl.exe", but start_emulator_program should be
+       an absolute path, so we prepend BINDIR to it */
+    if (strcmp(start_emulator_program, "erl.exe") == 0) {
+        erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s", bindir,
+                      start_emulator_program);
+        start_emulator_program = strsave(tmpStr);
+    }
 
     free(ini_filename);
 }
