@@ -210,7 +210,14 @@ start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_d
 
 	if (result == (HANDLE)-1) {
 #ifdef ARGS_HARDDEBUG
-	    MessageBox(NULL, "_wspawnv failed","Start detached",MB_OK);
+            wchar_t buf[256], buffer[256], path[1024];
+            DWORD err = GetLastError();
+            FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                           NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+                           buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+            GetEnvironmentVariableW(L"PATH",path,sizeof(path) / sizeof(wchar_t));
+            wsprintfW(buffer,L"_wspawnv failed %s(%d)\nPATH=%s", buf, err, path);
+	    MessageBoxW(NULL, buffer , L"Start detached",MB_OK);
 #endif
 	    return 1;
 	}

@@ -23,6 +23,9 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
+
+#define ERTS_WANT_BREAK_HANDLING
+
 #include "sys.h"
 #include "erl_alloc.h"
 #include "erl_thr_progress.h"
@@ -90,6 +93,9 @@ BOOL WINAPI ctrl_handler_replace_intr(DWORD dwCtrlType)
     case CTRL_C_EVENT:
 	return FALSE;
     case CTRL_BREAK_EVENT:
+        if (ERTS_BREAK_REQUESTED) {
+            erts_exit(ERTS_INTR_EXIT, "");
+        }
 	SetEvent(erts_sys_break_event);
 	break;
     case CTRL_LOGOFF_EVENT:
@@ -121,6 +127,9 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType)
     switch (dwCtrlType) {
     case CTRL_C_EVENT:
     case CTRL_BREAK_EVENT:
+        if (ERTS_BREAK_REQUESTED) {
+            erts_exit(ERTS_INTR_EXIT, "");
+        }
 	SetEvent(erts_sys_break_event);
 	break;
     case CTRL_LOGOFF_EVENT:
