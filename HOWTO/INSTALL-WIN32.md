@@ -150,7 +150,7 @@ the different tools:
     Install into `C:/OpenSSL-Win64` (or `C:/OpenSSL-Win32`)
 
 *   wxWidgets (optional)
-    You need this to build wx and use gui's in debugger and observer.
+    You need this to build wx to use gui's in debugger and observer.
 
     We recommend v3.1.4 or later.
     Unpack into `c:/opt/local64/pgm/wxWidgets-3.1.4`

@@ -124,8 +124,6 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType);
 static int max_files = 1024;
 
 static BOOL use_named_pipes;
-static BOOL win_console = FALSE;
-
 
 static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
 
