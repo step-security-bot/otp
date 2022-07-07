@@ -125,11 +125,13 @@ init(Args) ->
     try
         if IsTTY, StartShell ->
                 TTYState = prim_tty:init(#{}),
+                init_standard_error(TTYState, true),
                 {ok, init, {Args, #state{ user = start_user() } },
                  {next_event, internal, TTYState}};
            not StartShell ->
                 TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
                                            tty => false}),
+                init_standard_error(TTYState, false),
                 {ok, init, {Args, #state{ user = start_user() } },
                  {next_event, internal, TTYState}};
            not IsTTY ->
@@ -141,6 +143,15 @@ init(Args) ->
             %% probably because TERM=dumb was set.
             {stop, normal}
     end.
+
+%% Initialize standard_error
+init_standard_error(TTY, NewlineCarriageReturn) ->
+    Encoding = case prim_tty:unicode(TTY) of
+                   true -> unicode;
+                   false -> latin1
+               end,
+    ok = io:setopts(standard_error, [{encoding, Encoding},
+                                     {onlcr, NewlineCarriageReturn}]).
 
 init(internal, TTYState, {Args, State = #state{ user = User }}) ->
 
@@ -173,53 +184,57 @@ init_noshell(State) ->
 
 init_remote_shell(State, Node) ->
 
-    AppendHostname =
-        fun(LocalNode) ->
-                case string:find(Node,"@") of
-                    nomatch ->
-                        list_to_atom(Node ++ string:find(atom_to_list(LocalNode),"@"));
-                    _ ->
-                        list_to_atom(Node)
-                end
+    StartedDist =
+        case net_kernel:get_state() of
+            #{ started := no } ->
+                {ok, _} = net_kernel:start([undefined, shortnames]),
+                true;
+            _ ->
+                false
         end,
 
-    ANode =
-        if
-            node() =:= nonode@nohost ->
-                %% We try to connect to the node if the current node is not
-                %% a distributed node yet. If this succeeds it means that we
-                %% are running using "-sname undefined".
-                _ = net_kernel:start([undefined, shortnames]),
-                NodeName = AppendHostname(net_kernel:nodename()),
-                case net_kernel:connect_node(NodeName) of
-                    true ->
-                        NodeName;
-                    _Else ->
-                        ?LOG_ERROR("Could not connect to ~p",[Node])
-                end;
-            true ->
-                AppendHostname(node())
+    LocalNode =
+        case net_kernel:get_state() of
+            #{ started := dynamic } ->
+                net_kernel:nodename();
+            #{ started := static } ->
+                node()
         end,
 
-    %% We fetch the shell slogan from the remote node
-    Slogan =
-        case erpc:call(ANode, application, get_env,
-                       [stdlib, shell_slogan,
-                        erpc:call(ANode, erlang, system_info, [system_version])]) of
-            Fun when is_function(Fun, 0) ->
-                erpc:call(ANode, Fun);
-            SloganEnv ->
-                SloganEnv
+    RemoteNode =
+        case string:find(Node,"@") of
+            nomatch ->
+                list_to_atom(Node ++ string:find(atom_to_list(LocalNode),"@"));
+            _ ->
+                list_to_atom(Node)
         end,
 
-    RShellOpts = [{expand_fun,fun(B)-> rpc:call(ANode,edlin_expand,expand,[B]) end}],
+    case net_kernel:connect_node(RemoteNode) of
+        true ->
+            %% We fetch the shell slogan from the remote node
+            Slogan =
+                case erpc:call(RemoteNode, application, get_env,
+                               [stdlib, shell_slogan,
+                                erpc:call(RemoteNode, erlang, system_info, [system_version])]) of
+                    Fun when is_function(Fun, 0) ->
+                        erpc:call(RemoteNode, Fun);
+                    SloganEnv ->
+                        SloganEnv
+                end,
 
-    RShell = {ANode,shell,start,[]},
-    Gr = gr_add_cur(State#state.groups,
-                    group:start(self(), RShell, RShellOpts),
-                    RShell),
+            RShellOpts = [{expand_fun,fun(B)-> rpc:call(RemoteNode,edlin_expand,expand,[B]) end}],
 
-    init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
+            RShell = {RemoteNode,shell,start,[]},
+            Gr = gr_add_cur(State#state.groups,
+                            group:start(self(), RShell, RShellOpts),
+                            RShell),
+
+            init_shell(State#state{ groups = Gr }, [Slogan,$\n]);
+        false ->
+            ?LOG_ERROR("Could not connect to ~p, starting local shell",[RemoteNode]),
+            [net_kernel:stop() || StartedDist],
+            init_local_shell(State, {shell, start, []})
+    end.
 
 init_local_shell(State, InitialShell) ->
 
@@ -239,14 +254,9 @@ init_local_shell(State, InitialShell) ->
 
     init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
 
-init_shell(State = #state{ tty = TTY }, Slogan) ->
+init_shell(State, Slogan) ->
 
-    %% Initialize standard_error
-    Encoding = case prim_tty:unicode(TTY) of
-                   true -> unicode;
-                   false -> latin1
-               end,
-    ok = io:setopts(standard_error, [{encoding, Encoding}, {onlcr, State#state.shell_started}]),
+    init_standard_error(State#state.tty, State#state.shell_started),
 
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
      {next_event, info,
