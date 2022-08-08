@@ -47,6 +47,7 @@ ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
     htop[0] = car;               /* copy car */
     htop[1] = ptr[1];            /* copy cdr */
     gval    = make_list(htop);   /* new location */
+    gval   |= TAG_LITERAL_PTR;
     *orig   = gval;              /* redirect original reference */
     ptr[0]  = THE_NON_VALUE;     /* store forwarding indicator */
     ptr[1]  = gval;              /* store forwarding address */

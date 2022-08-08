@@ -3920,9 +3920,11 @@ dec_term(ErtsDistExternal *edep,
     DECLARE_WSTACK(flat_maps); /* for preprocessing of small maps */
     Eterm* next;
     SWord reds;
+    Uint cons_cnt = 0;
 #ifdef DEBUG
     Eterm* dbg_resultp = ctx ? &ctx->u.dc.res : objp;
 #endif
+    Process *p = erts_get_current_process();
 
     if (ctx) {
         reds     = ctx->reds;
@@ -3956,7 +3958,8 @@ dec_term(ErtsDistExternal *edep,
                 objp = next - 2;
                 while (n > 0) {
                     objp[0] = (Eterm) next;
-                    objp[1] = make_list(next);
+                    objp[1] = make_list(next) | TAG_LITERAL_PTR;
+                    cons_cnt++;
                     next = objp;
                     objp -= 2;
                     n--;
@@ -3977,7 +3980,8 @@ dec_term(ErtsDistExternal *edep,
                 hp[-1] = make_list(hp);  /* overwrite the premature NIL */
                 while (n-- > 0) {
                     hp[0] = make_small(*ep++);
-                    hp[1] = make_list(hp+2);
+                    hp[1] = make_list(hp+2) | TAG_LITERAL_PTR;
+                    cons_cnt++;
                     hp += 2;
                 }
                 hp[-1] = NIL;
@@ -4176,7 +4180,8 @@ dec_term_atom_common:
 		next = objp;
 		break;
 	    }
-	    *objp = make_list(hp);
+	    *objp = make_list(hp) | TAG_LITERAL_PTR;
+            cons_cnt++;
             hp += 2 * n;
 	    objp = hp - 2;
 	    objp[0] = (Eterm) (objp+1);
@@ -4195,7 +4200,8 @@ dec_term_atom_common:
 	    }
             while (n > 0) {
 		objp[0] = (Eterm) next;
-		objp[1] = make_list(next);
+		objp[1] = make_list(next) | TAG_LITERAL_PTR;
+                cons_cnt++;
 		next = objp;
 		objp -= 2;
                 n--;
@@ -4219,7 +4225,8 @@ dec_term_atom_common:
             }
 	    while (n-- > 0) {
 		hp[0] = make_small(*ep++);
-		hp[1] = make_list(hp+2);
+		hp[1] = make_list(hp+2) | TAG_LITERAL_PTR;
+                cons_cnt++;
 		hp += 2;
 	    }
 	    hp[-1] = NIL;
@@ -4906,6 +4913,9 @@ dec_term_atom_common:
 	ctx->reds = reds;
         ctx->u.dc.ep = ep;
     }
+
+    if (p)
+        p->cons_cnt += cons_cnt;
 
     return ep;
 

@@ -12260,6 +12260,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_qs.flags = qs_flags;
 
     p->static_flags = 0;
+    p->cons_cnt = 0;
     if (so->flags & SPO_SYSTEM_PROC)
 	p->static_flags |= ERTS_STC_FLG_SYSTEM_PROC;
     if (so->flags & SPO_USE_ARGS) {

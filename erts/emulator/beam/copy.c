@@ -647,11 +647,13 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
     int i;
     Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
     Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
+    Uint cons_cnt = 0;
 #ifdef DEBUG
     Eterm org_obj = obj;
     Uint org_sz = sz;
     Eterm mypid = erts_get_current_pid();
 #endif
+    Process *p = erts_get_current_process();
 
     if (IS_CONST(obj))
 	return obj;
@@ -671,6 +673,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
     case TAG_PRIMARY_LIST:
 	argp = &res;
 	objp = list_val(obj);
+        if (!(obj & TAG_LITERAL_PTR))
+            cons_cnt++;
 	goto L_copy_list;
     case TAG_PRIMARY_BOXED: argp = &res; goto L_copy_boxed;
     default:
@@ -688,6 +692,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 	    break;
 	case TAG_PRIMARY_LIST:
 	    objp = list_val(obj);
+            if (!(obj & TAG_LITERAL_PTR))
+                cons_cnt++;
 	    if (ErtsInArea(objp,hstart,hsize)) {
 		hp++;
 		break;
@@ -714,6 +720,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    htop += 2;
 		}
 		*tp = make_list(tailp - 1);
+                *tp |= TAG_LITERAL_PTR;
 		obj = CDR(objp);
 
 		if (!is_list(obj)) {
@@ -725,6 +732,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
                     *tailp = obj;
                     goto L_copy;
                 }
+                if (!(obj & TAG_LITERAL_PTR))
+                    cons_cnt++;
 	    }
 	    switch (primary_tag(obj)) {
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
@@ -991,6 +1000,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 #endif
         *hpp = (Eterm *) (hstart+hsize);
     }
+    if (p)
+        p->cons_cnt += cons_cnt;
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", mypid, res));
     return res;
 }
