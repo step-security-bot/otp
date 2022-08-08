@@ -12261,6 +12261,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->static_flags = 0;
     p->cons_cnt = 0;
+    p->mem_cnt = 0;
+    
     if (so->flags & SPO_SYSTEM_PROC)
 	p->static_flags |= ERTS_STC_FLG_SYSTEM_PROC;
     if (so->flags & SPO_USE_ARGS) {
@@ -14352,6 +14354,8 @@ restart:
         trace_sched(p, curr_locks, am_out_exited);
 
     erts_flush_trace_messages(p, ERTS_PROC_LOCK_MAIN);
+
+    erts_atomic_add_nob(&erts_cons_cnt, p->cons_cnt);
 
     ERTS_TRACER_CLEAR(&ERTS_TRACER(p));
 

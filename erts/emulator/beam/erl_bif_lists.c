@@ -1120,6 +1120,8 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
         Eterm *pair = list_val(list);
 
         tail = CONS(alloc_top, CAR(pair), tail);
+        tail |= TAG_LITERAL_PTR;
+        c_p->cons_cnt++;
         list = CDR(pair);
 
         ASSERT(is_list(list) || is_nil(list));
@@ -1162,6 +1164,8 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
         Eterm *pair = list_val(list);
 
         tail = CONS(alloc_top, CAR(pair), tail);
+        tail |= TAG_LITERAL_PTR;
+        c_p->cons_cnt++;
         list = CDR(pair);
 
         alloc_top += 2;

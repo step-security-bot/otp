@@ -1851,10 +1851,14 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_CONS_COUNT: {
-	Uint hsz = 0;
+	Uint hsz = 3;
+        Eterm cons, mem;
 	(void) erts_bld_uint(NULL, &hsz, rp->cons_cnt);
+	(void) erts_bld_uint(NULL, &hsz, rp->mem_cnt);
         hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_bld_uint(&hp, NULL, rp->cons_cnt);
+        cons = erts_bld_uint(&hp, NULL, rp->cons_cnt);
+        mem = erts_bld_uint(&hp, NULL, rp->mem_cnt);
+	res = TUPLE2(hp, cons, mem);
 	break;
     }
 
@@ -2693,6 +2697,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("hipe_architecture", BIF_ARG_1)) {
 	BIF_RET(am_undefined);
+    } else if (ERTS_IS_ATOM_STR("cons_count", BIF_ARG_1)) {
+        BIF_RET(make_small(erts_atomic_read_nob(&erts_cons_cnt)));
     } else if (BIF_ARG_1 == am_trace_control_word) {
 	BIF_RET(db_get_trace_control_word(BIF_P));
     } else if (ERTS_IS_ATOM_STR("ets_realloc_moves", BIF_ARG_1)) {

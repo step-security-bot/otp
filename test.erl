@@ -9,6 +9,7 @@ go() ->
               exit(loop(Tid, 10, []))
       end),
     receive {'DOWN', _, _, _, M} -> io:format(user,"~p~n",[M]) end,
+%    io:format("~p~n",[erlang:system_info(cons_count)]),
     ok.
 
 loop(Tid, 0, N) ->

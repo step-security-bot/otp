@@ -1147,6 +1147,8 @@ Uint size_shared(Eterm);
 
 /* #define ERTS_COPY_REGISTER_LOCATION */
 
+extern erts_atomic_t erts_cons_cnt;
+
 #ifdef ERTS_COPY_REGISTER_LOCATION
 
 #define copy_shared_perform(U, V, X, Y, Z) \
