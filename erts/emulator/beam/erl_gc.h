@@ -55,7 +55,7 @@ ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
             cnt->cons++;
         }
         cnt->all_cons++;
-        cnt->mem++;
+        cnt->mem+=2;
     }
 
     htop[0] = car;               /* copy car */
