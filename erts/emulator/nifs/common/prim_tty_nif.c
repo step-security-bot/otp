@@ -79,6 +79,10 @@ typedef struct {
 #ifdef __WIN32__
     HANDLE ofd;
     HANDLE ifd;
+    DWORD dwOriginalOutMode;
+    DWORD dwOriginalInMode;
+    DWORD dwOutMode;
+    DWORD dwInMode;
 #else
     int ofd;       /* stdout */
     int ifd;       /* stdin */
@@ -554,7 +558,35 @@ static ERL_NIF_TERM tty_create(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     tty->ofd = 1;
 #else
     tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
+    if (tty->ifd == INVALID_HANDLE_VALUE) {
+        return make_errno_error(env, "GetStdHandle");
+    }
     tty->ofd = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (tty->ofd == INVALID_HANDLE_VALUE) {
+        return make_errno_error(env, "GetStdHandle");
+    }
+    if (!GetConsoleMode(tty->ofd, &tty->dwOriginalOutMode))
+    {
+        return make_errno_error(env, "GetConsoleMode");
+    }
+    if (!GetConsoleMode(tty->ifd, &tty->dwOriginalInMode))
+    {
+        return make_errno_error(env, "GetConsoleMode");
+    }
+    if (isatty(fileno(stdout))) {
+        tty->dwOutMode = ENABLE_VIRTUAL_TERMINAL_PROCESSING | tty->dwOriginalOutMode;
+        if (!SetConsoleMode(tty->ofd, tty->dwOutMode)) {
+            // Failed to set any VT mode, can't do anything here.
+            return make_errno_error(env, "SetConsoleMode");
+        }
+    }
+    if (isatty(fileno(stdin))) {
+        tty->dwInMode = ENABLE_VIRTUAL_TERMINAL_INPUT | tty->dwOriginalInMode;
+        if (!SetConsoleMode(tty->ifd, tty->dwInMode)) {
+            // Failed to set any VT mode, can't do anything here.
+            return make_errno_error(env, "SetConsoleMode");
+        }
+    }
 #endif
 
     tty_term = enif_make_resource(env, tty);
@@ -651,53 +683,18 @@ static ERL_NIF_TERM tty_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     }
 
 #else
-    // Set output mode to handle virtual terminal sequences
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut == INVALID_HANDLE_VALUE)
-    {
-        return make_errno_error(env, "GetStdHandle");
-    }
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (hIn == INVALID_HANDLE_VALUE)
-    {
-        return make_errno_error(env, "GetStdHandle");
-    }
-
-    DWORD dwOriginalOutMode = 0;
-    DWORD dwOriginalInMode = 0;
-    if (!GetConsoleMode(hOut, &dwOriginalOutMode))
-    {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-    if (!GetConsoleMode(hIn, &dwOriginalInMode))
-    {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-
     // fprintf(stderr, "origOutMode: %x origInMode: %x\r\n",
-    //     dwOriginalOutMode, dwOriginalInMode);
+    //     tty->dwOriginalOutMode, tty->dwOriginalInMode);
 
-    DWORD dwRequestedOutModes = ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-    DWORD dwRequestedInModes = ENABLE_VIRTUAL_TERMINAL_INPUT;
-    DWORD dwDisabledInModes = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT;
-
-    DWORD dwOutMode = dwOriginalOutMode | dwRequestedOutModes;
-    if (!SetConsoleMode(hOut, dwOutMode))
-    {
-        // we failed to set both modes, try to step down mode gracefully.
-        dwRequestedOutModes = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        dwOutMode = dwOriginalOutMode | dwRequestedOutModes;
-        if (!SetConsoleMode(hOut, dwOutMode))
-        {
-            // Failed to set any VT mode, can't do anything here.
-            return make_errno_error(env, "SetConsoleMode");
-        }
+    /* If we cannot disable NEWLINE_AUTO_RETURN we continue anyway as things work */
+    if (SetConsoleMode(tty->ofd, tty->dwOutMode | DISABLE_NEWLINE_AUTO_RETURN)) {
+        tty->dwOutMode |= DISABLE_NEWLINE_AUTO_RETURN;
     }
 
-    DWORD dwInMode = (dwOriginalInMode | dwRequestedInModes) & ~dwDisabledInModes;
-    if (!SetConsoleMode(hIn, dwInMode))
+    tty->dwInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+    if (!SetConsoleMode(tty->ifd, tty->dwInMode))
     {
-        // Failed to set VT input mode, can't do anything here.
+        // Failed to set disable echo or line input mode
         return make_errno_error(env, "SetConsoleMode");
     }
 
