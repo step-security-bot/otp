@@ -1,0 +1,38 @@
+## To run this test use these commands:
+##  > docker network create perf-test
+##  > docker run -it --rm --network perf-test --name rabbitmq -p 15672:15672 rabbit:latest
+##  > docker run -it --rm --network perf-test pivotalrabbitmq/perf-test:latest --uri amqp://rabbitmq
+FROM docker.pkg.github.com/erlang/otp/ubuntu-base
+
+USER root
+
+ADD install-rabbit.sh /tmp/install-rabbit.sh
+
+RUN /tmp/install-rabbit.sh
+
+RUN apt-get update && apt-get install -y rabbitmq-server git linux-tools-generic
+
+## Enable us to connect from outside the docker container without auth
+RUN echo "loopback_users = none" >> /etc/rabbitmq/rabbitmq.conf
+
+ENV MAKEFLAGS=-j4 \
+        ERLC_USE_SERVER=yes \
+        ERL_TOP=/buildroot/otp \
+        PATH=/otp/bin:$PATH
+
+WORKDIR /buildroot
+
+## Download Erlang/OTP with JIT support
+RUN git clone https://github.com/garazdawi/otp && cd otp && \
+        git checkout lukas/erts/count-cons-copy
+
+WORKDIR /buildroot/otp/
+
+## Build Erlang/OTP with JIT support
+RUN ./otp_build setup -a --prefix=/otp/ && make install
+
+RUN echo "rabbitmq  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER rabbitmq
+
+CMD "rabbitmq-server"
