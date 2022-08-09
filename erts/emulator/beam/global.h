@@ -1148,6 +1148,8 @@ Uint size_shared(Eterm);
 /* #define ERTS_COPY_REGISTER_LOCATION */
 
 extern erts_atomic_t erts_cons_cnt;
+extern erts_atomic_t erts_all_cons_cnt;
+extern erts_atomic_t erts_mem_cnt;
 
 #ifdef ERTS_COPY_REGISTER_LOCATION
 

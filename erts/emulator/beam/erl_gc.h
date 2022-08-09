@@ -35,14 +35,28 @@
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
 Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig);
 
+struct cnt {
+    Uint cons;
+    Uint all_cons;
+    Uint mem;
+};
+
 ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
-                               Eterm *orig);
+                               Eterm *orig, struct cnt *cnt);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
-                               Eterm *orig)
+                               Eterm *orig, struct cnt *cnt)
 {
     Eterm *ERTS_RESTRICT htop = *hpp;
     Eterm gval;
+
+    if (cnt) {
+        if (!(*orig & TAG_LITERAL_PTR)) {
+            cnt->cons++;
+        }
+        cnt->all_cons++;
+        cnt->mem++;
+    }
 
     htop[0] = car;               /* copy car */
     htop[1] = ptr[1];            /* copy cdr */
@@ -56,10 +70,10 @@ ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
 #endif
 
 ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
-                                  Eterm *orig);
+                                  Eterm *orig, struct cnt *cnt);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
-                                  Eterm *orig)
+                                  Eterm *orig, struct cnt *cnt)
 {
     Eterm gval;
     Sint nelts;
@@ -74,6 +88,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
             /* convert sub-binary to heap-binary if applicable */
             if (sb->bitsize == 0 && sb->bitoffs == 0 &&
                 sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
+                if (cnt) cnt->mem += sb->size / sizeof(Eterm) + 1;
                 return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
             }
         }
@@ -85,6 +100,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
     break;
     case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free+1; break;
     }
+    if (cnt) cnt->mem += nelts;
     gval    = make_boxed(htop);
     *orig   = gval;
     *htop++ = hdr;

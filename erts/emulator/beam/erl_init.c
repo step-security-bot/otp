@@ -172,6 +172,8 @@ int erts_backtrace_depth;	/* How many functions to show in a backtrace
 
 erts_atomic32_t erts_max_gen_gcs;
 erts_atomic_t erts_cons_cnt;
+erts_atomic_t erts_all_cons_cnt;
+erts_atomic_t erts_mem_cnt;
 
 Eterm erts_error_logger_warnings; /* What to map warning logs to, am_error, 
 				     am_info or am_warning, am_error is 
@@ -886,6 +888,8 @@ early_init(int *argc, char **argv) /*
     erts_atomic32_init_nob(&erts_max_gen_gcs,
 			       (erts_aint32_t) ((Uint16) -1));
     erts_atomic_init_nob(&erts_cons_cnt, 0);
+    erts_atomic_init_nob(&erts_all_cons_cnt, 0);
+    erts_atomic_init_nob(&erts_mem_cnt, 0);
 
     erts_pre_init_process();
 
@@ -2590,6 +2594,8 @@ erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list arg
     system_cleanup(flush_async);
 
     fprintf(stderr,"Cons Count: %ld\r\n", erts_atomic_read_nob(&erts_cons_cnt));
+    fprintf(stderr,"All Cons Count: %ld\r\n", erts_atomic_read_nob(&erts_all_cons_cnt));
+    fprintf(stderr,"Mem Count: %ld\r\n", erts_atomic_read_nob(&erts_mem_cnt));
 
     if (fmt != NULL && *fmt != '\0')
 	erl_error(fmt, args2);	/* Print error message. */

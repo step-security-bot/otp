@@ -134,9 +134,9 @@ static int minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 static void do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		     char *mature, Uint mature_size,
 		     Uint new_sz, Eterm* objv, int nobj);
-static Eterm *sweep_new_heap(Uint* p, Eterm *n_hp, Eterm *n_htop,
+static Eterm *sweep_new_heap(struct cnt*, Eterm *n_hp, Eterm *n_htop,
 			     char* old_heap, Uint old_heap_size);
-static Eterm *sweep_heaps(Uint* p, Eterm *n_hp, Eterm *n_htop,
+static Eterm *sweep_heaps(struct cnt*, Eterm *n_hp, Eterm *n_htop,
 			  char* old_heap, Uint old_heap_size);
 static Eterm* sweep_literal_area(Eterm* n_hp, Eterm* n_htop,
 				 char* old_heap, Uint old_heap_size,
@@ -144,7 +144,7 @@ static Eterm* sweep_literal_area(Eterm* n_hp, Eterm* n_htop,
 static Eterm* sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 					 char* src, Uint src_size);
 static Eterm* collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end,
-				      Eterm* htop);
+				      Eterm* htop, struct cnt*);
 static int adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
@@ -1229,7 +1229,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 		    ASSERT(is_boxed(val));
                     *g_ptr = val;
 		} else if (ErtsInArea(ptr, area, area_sz)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr);
+                    move_boxed(ptr,val,&old_htop,g_ptr,NULL);
 		}
 		break;
 	    case TAG_PRIMARY_LIST:
@@ -1238,10 +1238,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr = ptr[1];
 		} else if (ErtsInArea(ptr, area, area_sz)) {
-                    move_cons(ptr,val,&old_htop,g_ptr);
-                    if (!(gval & TAG_LITERAL_PTR)) {
-                        p->cons_cnt++;
-                    }
+                    move_cons(ptr,val,&old_htop,g_ptr,NULL);
                 }
 		break;
 	    default:
@@ -1594,7 +1591,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     Eterm* n_heap;
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
-    Uint cons_cnt = 0;
+    struct cnt cnt = { .cons = 0, .all_cons = 0, .mem = 0 };
 
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] MINOR GC: %p %p %p %p\n", p->common.id,
                            HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
@@ -1615,7 +1612,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 	 * Move heap frags that we know are completely live
 	 * directly into the new young heap generation.
 	 */
-	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
+	n_htop = collect_live_heap_frags(p, live_hf_end, n_htop, &cnt);
     }
 
     while (n--) {
@@ -1635,9 +1632,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
                     *g_ptr = val;
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_boxed(ptr,val,&old_htop,g_ptr);
+                    move_boxed(ptr,val,&old_htop,g_ptr,&cnt);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_boxed(ptr,val,&n_htop,g_ptr);
+                    move_boxed(ptr,val,&n_htop,g_ptr,&cnt);
                 }
                 break;
 	    }
@@ -1648,12 +1645,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
                 if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr = ptr[1];
                 } else if (ErtsInArea(ptr, mature, mature_size)) {
-                    move_cons(ptr,val,&old_htop,g_ptr);
+                    move_cons(ptr,val,&old_htop,g_ptr, &cnt);
                 } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-                    move_cons(ptr,val,&n_htop,g_ptr);
-                    if (!(gval & TAG_LITERAL_PTR)) {
-                        ++cons_cnt;
-                    }
+                    move_cons(ptr,val,&n_htop,g_ptr, &cnt);
                  }
 		break;
 	    }
@@ -1673,7 +1667,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
      */
 
     if (mature_size == 0) {
-	n_htop = sweep_new_heap(&cons_cnt, n_heap, n_htop, oh, oh_size);
+	n_htop = sweep_new_heap(&cnt, n_heap, n_htop, oh, oh_size);
     } else {
 	Eterm* n_hp = n_heap;
 	Eterm* ptr;
@@ -1691,9 +1685,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    move_boxed(ptr,val,&old_htop,n_hp++);
+		    move_boxed(ptr,val,&old_htop,n_hp++,&cnt);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    move_boxed(ptr,val,&n_htop,n_hp++);
+		    move_boxed(ptr,val,&n_htop,n_hp++,&cnt);
 		} else {
 		    n_hp++;
 		}
@@ -1705,12 +1699,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (ErtsInArea(ptr, mature, mature_size)) {
-		    move_cons(ptr,val,&old_htop,n_hp++);
+		    move_cons(ptr,val,&old_htop,n_hp++,&cnt);
 		} else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
-		    move_cons(ptr,val,&n_htop,n_hp++);
-                    if (!(gval & TAG_LITERAL_PTR)) {
-                        ++cons_cnt;
-                    }
+		    move_cons(ptr,val,&n_htop,n_hp++,&cnt);
 		} else {
 		    n_hp++;
 		}
@@ -1730,10 +1721,10 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 			    *origptr = val;
 			    mb->base = binary_bytes(val);
 			} else if (ErtsInArea(ptr, mature, mature_size)) {
-			    move_boxed(ptr,val,&old_htop,origptr);
+			    move_boxed(ptr,val,&old_htop,origptr,&cnt);
 			    mb->base = binary_bytes(mb->orig);
 			} else if (ErtsInYoungGen(*origptr, ptr, oh, oh_size)) {
-			    move_boxed(ptr,val,&n_htop,origptr);
+			    move_boxed(ptr,val,&n_htop,origptr,&cnt);
 			    mb->base = binary_bytes(mb->orig);
 			}
 		    }
@@ -1754,7 +1745,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
      */
 
     if (OLD_HTOP(p) < old_htop)
-	old_htop = sweep_new_heap(&cons_cnt, OLD_HTOP(p), old_htop, oh, oh_size);
+	old_htop = sweep_new_heap(&cnt, OLD_HTOP(p), old_htop, oh, oh_size);
     OLD_HTOP(p) = old_htop;
     HIGH_WATER(p) = n_htop;
 
@@ -1782,7 +1773,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     HEAP_START(p) = n_heap;
     HEAP_TOP(p) = n_htop;
     HEAP_END(p) = n_heap + new_sz;
-    p->cons_cnt += cons_cnt;
+    p->cons_cnt += cnt.cons;
+    p->all_cons_cnt += cnt.all_cons;
+    p->mem_cnt += cnt.mem;
 
 #ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
@@ -1919,7 +1912,8 @@ full_sweep_heaps(Process *p,
 {
     Rootset rootset;
     Roots *roots;
-    Uint n, cons_cnt = 0;
+    Uint n;
+    struct cnt cnt = { .cons = 0, .all_cons = 0, .mem = 0 };
 
     /*
      * Copy all top-level terms directly referenced by the rootset to
@@ -1938,7 +1932,7 @@ full_sweep_heaps(Process *p,
          * Move heap frags that we know are completely live
          * directly into the heap.
          */
-        n_htop = collect_live_heap_frags(p, live_hf_end, n_htop);
+        n_htop = collect_live_heap_frags(p, live_hf_end, n_htop, &cnt);
     }
 
     roots = rootset.roots;
@@ -1961,7 +1955,7 @@ full_sweep_heaps(Process *p,
 		    ASSERT(is_boxed(val));
 		    *g_ptr = val;
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_boxed(ptr,val,&n_htop,g_ptr);
+		    move_boxed(ptr,val,&n_htop,g_ptr,&cnt);
 		}
                 break;
 	    }
@@ -1972,10 +1966,7 @@ full_sweep_heaps(Process *p,
 		if (IS_MOVED_CONS(val)) {
 		    *g_ptr = ptr[1];
 		} else if (!erts_is_literal(gval, ptr)) {
-		    move_cons(ptr,val,&n_htop,g_ptr);
-                    if (!(gval & TAG_LITERAL_PTR)) {
-                        ++cons_cnt;
-                    }
+		    move_cons(ptr,val,&n_htop,g_ptr,&cnt);
 		}
                 break;
 	    }
@@ -1995,7 +1986,7 @@ full_sweep_heaps(Process *p,
      * until all is copied.
      */
 
-    n_htop = sweep_heaps(&cons_cnt, n_heap, n_htop, oh, oh_size);
+    n_htop = sweep_heaps(&cnt, n_heap, n_htop, oh, oh_size);
 
     if (MSO(p).first || p->wrt_bins) {
 	sweep_off_heap(p, 1);
@@ -2007,7 +1998,9 @@ full_sweep_heaps(Process *p,
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
 	OLD_HEAP(p) = OLD_HTOP(p) = OLD_HEND(p) = NULL;
     }
-    p->cons_cnt += cons_cnt;
+    p->cons_cnt += cnt.cons;
+    p->all_cons_cnt += cnt.all_cons;
+    p->mem_cnt += cnt.mem;
 
     return n_htop;
 }
@@ -2232,7 +2225,7 @@ typedef enum {
 } ErtsSweepType;
 
 static ERTS_FORCE_INLINE Eterm *
-sweep(Uint *cons_cnt,
+sweep(struct cnt *cnt,
       Eterm *n_hp, Eterm *n_htop,
       ErtsSweepType type,
       char *oh, Uint ohsz,
@@ -2262,7 +2255,7 @@ sweep(Uint *cons_cnt,
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-		move_boxed(ptr,val,&n_htop,n_hp++);
+		move_boxed(ptr,val,&n_htop,n_hp++,cnt);
 	    } else {
 		n_hp++;
 	    }
@@ -2274,10 +2267,7 @@ sweep(Uint *cons_cnt,
 	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
 	    } else if (ERTS_IS_IN_SWEEP_AREA(gval, ptr)) {
-                if (cons_cnt && !(gval & TAG_LITERAL_PTR)) {
-                    ++*cons_cnt;
-                }
-		move_cons(ptr,val,&n_htop,n_hp++);
+		move_cons(ptr,val,&n_htop,n_hp++,cnt);
 	    } else {
 		n_hp++;
 	    }
@@ -2298,7 +2288,7 @@ sweep(Uint *cons_cnt,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ERTS_IS_IN_SWEEP_AREA(*origptr, ptr)) {
-			move_boxed(ptr,val,&n_htop,origptr);
+			move_boxed(ptr,val,&n_htop,origptr,cnt);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2316,7 +2306,7 @@ sweep(Uint *cons_cnt,
 }
 
 static Eterm *
-sweep_new_heap(Uint *cons_cnt, Eterm *n_hp, Eterm *n_htop, char* old_heap, Uint old_heap_size)
+sweep_new_heap(struct cnt *cons_cnt, Eterm *n_hp, Eterm *n_htop, char* old_heap, Uint old_heap_size)
 {
     return sweep(cons_cnt, n_hp, n_htop,
 		 ErtsSweepNewHeap,
@@ -2325,7 +2315,7 @@ sweep_new_heap(Uint *cons_cnt, Eterm *n_hp, Eterm *n_htop, char* old_heap, Uint 
 }
 
 static Eterm *
-sweep_heaps(Uint *cons_cnt, Eterm *n_hp, Eterm *n_htop, char* old_heap, Uint old_heap_size)
+sweep_heaps(struct cnt *cons_cnt, Eterm *n_hp, Eterm *n_htop, char* old_heap, Uint old_heap_size)
 {
     return sweep(cons_cnt, n_hp, n_htop,
 		 ErtsSweepHeaps,
@@ -2361,7 +2351,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		move_boxed(ptr,val,&htop,heap_ptr++);
+		move_boxed(ptr,val,&htop,heap_ptr++,NULL);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2373,7 +2363,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 	    if (IS_MOVED_CONS(val)) {
 		*heap_ptr++ = ptr[1];
 	    } else if (ErtsInArea(ptr, src, src_size)) {
-		move_cons(ptr,val,&htop,heap_ptr++);
+		move_cons(ptr,val,&htop,heap_ptr++,NULL);
 	    } else {
 		heap_ptr++;
 	    }
@@ -2394,7 +2384,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (ErtsInArea(ptr, src, src_size)) {
-			move_boxed(ptr,val,&htop,origptr);
+			move_boxed(ptr,val,&htop,origptr,NULL);
 			mb->base = binary_bytes(*origptr);
 		    }
 		}
@@ -2414,7 +2404,7 @@ sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
  * Move an area (heap fragment) by sweeping over it and set move markers.
  */
 static Eterm*
-move_one_area(Eterm* n_htop, char* src, Uint src_size)
+move_one_area(struct cnt *cnt, Eterm* n_htop, char* src, Uint src_size)
 {
     Eterm* ptr = (Eterm*) src;
     Eterm* end = ptr + src_size/sizeof(Eterm);
@@ -2427,11 +2417,11 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
 	ASSERT(val != ERTS_HOLE_MARKER);
 	if (is_header(val)) {
 	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &n_htop, &dummy_ref);
+	    ptr = move_boxed(ptr, val, &n_htop, &dummy_ref, cnt);
 	}
 	else { /* must be a cons cell */
 	    ASSERT(ptr+1 < end);
-	    move_cons(ptr, val, &n_htop, &dummy_ref);
+	    move_cons(ptr, val, &n_htop, &dummy_ref, cnt);
 	    ptr += 2;
 	}
     }
@@ -2444,7 +2434,8 @@ move_one_area(Eterm* n_htop, char* src, Uint src_size)
  */
 
 static Eterm*
-collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end, Eterm* n_htop)
+collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end, Eterm* n_htop,
+                        struct cnt *cnt)
 {
     ErlHeapFragment* qb;
     char* frag_begin;
@@ -2461,7 +2452,7 @@ collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end, Eterm* n_htop)
 	frag_size = qb->used_size * sizeof(Eterm);
 	if (frag_size != 0) {
 	    frag_begin = (char *) qb->mem;
-	    n_htop = move_one_area(n_htop, frag_begin, frag_size);
+	    n_htop = move_one_area(cnt, n_htop, frag_begin, frag_size);
 	}
 	qb = qb->next;
     }

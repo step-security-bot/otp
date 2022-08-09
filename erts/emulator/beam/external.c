@@ -4872,6 +4872,9 @@ dec_term_atom_common:
 
     ASSERT(hp <= factory->hp_end
            || (factory->mode == FACTORY_CLOSED && is_immed(*dbg_resultp)));
+    if (p)
+        p->mem_cnt += hp - factory->hp;
+
     factory->hp = hp;
     /*
      * From here on factory may produce (more) heap fragments
@@ -4914,8 +4917,10 @@ dec_term_atom_common:
         ctx->u.dc.ep = ep;
     }
 
-    if (p)
+    if (p) {
         p->cons_cnt += cons_cnt;
+        p->all_cons_cnt += cons_cnt;
+    }
 
     return ep;
 

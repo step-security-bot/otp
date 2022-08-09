@@ -647,7 +647,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
     int i;
     Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
     Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
-    Uint cons_cnt = 0;
+    Uint cons_cnt = 0, all_cons_cnt = 0;
 #ifdef DEBUG
     Eterm org_obj = obj;
     Uint org_sz = sz;
@@ -694,6 +694,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 	    objp = list_val(obj);
             if (!(obj & TAG_LITERAL_PTR))
                 cons_cnt++;
+            all_cons_cnt++;
 	    if (ErtsInArea(objp,hstart,hsize)) {
 		hp++;
 		break;
@@ -734,6 +735,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
                 }
                 if (!(obj & TAG_LITERAL_PTR))
                     cons_cnt++;
+                all_cons_cnt++;
 	    }
 	    switch (primary_tag(obj)) {
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
@@ -1000,8 +1002,11 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 #endif
         *hpp = (Eterm *) (hstart+hsize);
     }
-    if (p)
+    if (p) {
         p->cons_cnt += cons_cnt;
+        p->all_cons_cnt += all_cons_cnt;
+        p->mem_cnt += sz;
+    }
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", mypid, res));
     return res;
 }
@@ -2133,7 +2138,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
             struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
 
             ASSERT(ptr + header_arity(val) < end);
-            ptr = move_boxed(ptr, val, &hp, &dummy_ref);
+            ptr = move_boxed(ptr, val, &hp, &dummy_ref, NULL);
 
             switch (val & _HEADER_SUBTAG_MASK) {
             case REF_SUBTAG:
@@ -2162,7 +2167,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
             }
         } else { /* must be a cons cell */
             ASSERT(ptr+1 < end);
-            move_cons(ptr, val, &hp, &dummy_ref);
+            move_cons(ptr, val, &hp, &dummy_ref, NULL);
             ptr += 2;
         }
     }
