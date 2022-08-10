@@ -565,22 +565,16 @@ static ERL_NIF_TERM tty_create(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     if (tty->ofd == INVALID_HANDLE_VALUE) {
         return make_errno_error(env, "GetStdHandle");
     }
-    if (!GetConsoleMode(tty->ofd, &tty->dwOriginalOutMode))
+    if (GetConsoleMode(tty->ofd, &tty->dwOriginalOutMode))
     {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-    if (!GetConsoleMode(tty->ifd, &tty->dwOriginalInMode))
-    {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-    if (isatty(fileno(stdout))) {
         tty->dwOutMode = ENABLE_VIRTUAL_TERMINAL_PROCESSING | tty->dwOriginalOutMode;
         if (!SetConsoleMode(tty->ofd, tty->dwOutMode)) {
             // Failed to set any VT mode, can't do anything here.
             return make_errno_error(env, "SetConsoleMode");
         }
     }
-    if (isatty(fileno(stdin))) {
+    if (GetConsoleMode(tty->ifd, &tty->dwOriginalInMode))
+    {
         tty->dwInMode = ENABLE_VIRTUAL_TERMINAL_INPUT | tty->dwOriginalInMode;
         if (!SetConsoleMode(tty->ifd, tty->dwInMode)) {
             // Failed to set any VT mode, can't do anything here.
