@@ -418,11 +418,11 @@ jobs:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
     needs: [pack, changed-apps]
-    if: needs.changed-apps.outputs.changes != '[]'
+    # if: needs.changed-apps.outputs.changes != '[]'
     strategy:
       matrix:
-        # type: ${{ fromJson(needs.changed-apps.outputs.all) }}
-        type: ${{ fromJson(needs.changed-apps.outputs.changes) }}
+        type: ${{ fromJson(needs.changed-apps.outputs.all) }}
+        # type: ${{ fromJson(needs.changed-apps.outputs.changes) }}
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
