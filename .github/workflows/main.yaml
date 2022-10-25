@@ -224,7 +224,6 @@ jobs:
         shell: wsl-bash {0}
     env:
       WXWIDGETS_VERSION: 3.1.4
-      WSLENV: GITHUB_OUTPUT/p
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
