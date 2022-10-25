@@ -250,6 +250,8 @@ jobs:
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
         id: wxwidgets-cache
+        env:
+          WSLENV: GITHUB_OUTPUT/p
         run: |
           if [ -d wxWidgets ]; then
             echo "cache-hit=true" >> $GITHUB_OUTPUT
