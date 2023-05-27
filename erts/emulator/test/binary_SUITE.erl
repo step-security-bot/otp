@@ -1970,7 +1970,7 @@ large(Config) when is_list(Config) ->
     ok.
 
 error_after_yield(Config) when is_list(Config) ->
-    L2BTrap = {erts_internal, list_to_binary_continue, 1},
+    L2BTrap = {erts_internal, list_to_bitstring_continue, 1},
     error_after_yield(badarg, erlang, list_to_binary, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, iolist_to_binary, 1, fun () -> [[list2iolist(mk_list(1000000)), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
