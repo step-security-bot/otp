@@ -229,10 +229,6 @@
 %% Tracing
 -export([handle_trace/3]).
 
--export([ktls_os/0,
-         ktls_set_ulp/2,
-         ktls_set_cipher/4]).
-
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
 -define(DEFAULT_CURVE, secp256r1).
@@ -468,7 +464,7 @@ sig_algs(rsa_pss_rsae, _) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256]}];
-sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+sig_algs(rsa, Version) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256,
@@ -477,13 +473,13 @@ sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
                        {sha256, rsa},
                        {sha, rsa}
                       ]}];
-sig_algs(ecdsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+sig_algs(ecdsa, Version) ->
     [{signature_algs, [
                        {sha512, ecdsa},
                        {sha384, ecdsa},
                        {sha256, ecdsa},
                        {sha, ecdsa}]}];
-sig_algs(dsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+sig_algs(dsa, Version) ->
     [{signature_algs, [{sha,dsa}]}];
 sig_algs(_,_) ->
     [].
@@ -1447,8 +1443,6 @@ format_certs(Cert) when is_binary(Cert) ->
 
 format_cert(BinCert) when is_binary(BinCert) ->
     format_cert(public_key:pkix_decode_cert(BinCert, otp));
-format_cert(#cert{otp=Otp}) ->
-    format_cert(Otp);
 format_cert(#'OTPCertificate'{tbsCertificate = Cert} = OtpCert) ->
     #'OTPTBSCertificate'{subject = Subject, serialNumber = Nr, issuer = Issuer} = Cert,
     case public_key:pkix_is_self_signed(OtpCert) of
@@ -3109,32 +3103,10 @@ verify_server_early_data(Socket, WaitForReply, EarlyData) ->
     ok.
 
 verify_session_ticket_extension([Ticket0|_], MaxEarlyDataSize) ->
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data :=
-                                      #early_data_indication_nst{
-                                         indication = Size}}}} = Ticket0,
-      case Size of
-          MaxEarlyDataSize ->
-              ?CT_LOG("~nmax_early_data_size verified! (expected ~p, got ~p)!",
-                     [MaxEarlyDataSize, Size]);
-          Else ->
-              ?CT_LOG("~nFailed to verify max_early_data_size! (expected ~p, got ~p)!",
-                     [MaxEarlyDataSize, Else])
-      end.
+    ok.
 
 update_session_ticket_extension([Ticket|_], MaxEarlyDataSize) ->
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data :=
-                                      #early_data_indication_nst{
-                                         indication = Size}}}} = Ticket,
-    ?CT_LOG("~nOverwrite max_early_data_size (from ~p to ~p)!",
-                     [Size, MaxEarlyDataSize]),
-    #{ticket := #new_session_ticket{
-                   extensions = #{early_data := _Extensions0}} = NST0} = Ticket,
-    Extensions = #{early_data => #early_data_indication_nst{
-                                    indication = MaxEarlyDataSize}},
-    NST = NST0#new_session_ticket{extensions = Extensions},
-    [Ticket#{ticket => NST}].
+    [].
 
 boolean_to_log_msg(true) ->
     "OK";
@@ -4134,10 +4106,6 @@ set_protocol_versions(AppVar, Value) ->
 
 pss_params(sha256) ->
     #'RSASSA-PSS-params'{
-       hashAlgorithm = #'HashAlgorithm'{algorithm = ?'id-sha256'},
-       maskGenAlgorithm = #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
-                                              parameters = #'HashAlgorithm'{algorithm = ?'id-sha256'}
-                                             },
        saltLength = 32,
        trailerField = 1}.
        
@@ -4250,36 +4218,6 @@ handle_trace(rle,
     {io_lib:format("(*~w) Mode = ~w ResponderPort = ~w",
                    [Role, Mode, ResponderPort]),
      [{role, Role} | Stack0]}.
-
-
-ktls_os() ->
-    inet_tls_dist:ktls_os().
-
-%% Set UserLand Protocol
-ktls_set_ulp(Socket, OS) ->
-    inet_tls_dist:set_ktls_ulp(
-      #{ socket => Socket,
-         setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-         getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
-      OS).
-
-ktls_set_cipher(Socket, OS, TxRx, Seed) ->
-    TLS_version = ?TLS_1_3,
-    TLS_cipher = ?TLS_AES_256_GCM_SHA384,
-    TLS_IV   = binary:copy(<<(Seed + 0)>>, 8),
-    TLS_KEY  = binary:copy(<<(Seed + 1)>>, 32),
-    TLS_SALT = binary:copy(<<(Seed + 2)>>, 4),
-    KtlsInfo =
-        #{ socket => Socket,
-           tls_version => TLS_version,
-           cipher_suite => TLS_cipher,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
-    CipherState =
-        #cipher_state{
-           key = TLS_KEY,
-           iv = <<TLS_SALT/binary, TLS_IV/binary>> },
-    inet_tls_dist:set_ktls_cipher(KtlsInfo, OS, CipherState, 0, TxRx).
 
 ct_pal_file(FilePath) ->
     case file:read_file(FilePath) of

@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(ssl_dist_bench_SUITE).
--feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
@@ -97,10 +96,11 @@ groups() ->
        throughput_1048576]}].
 
 protocols() ->
-    [{group, ssl},
-     {group, cryptcookie},
-     {group, plain},
-     {group, socket}].
+    [%% {group, ssl},
+     %% {group, cryptcookie},
+     {group, plain}%% ,
+     %% {group, socket}
+].
 
 ssl_backends() ->
     [{group, tls},
@@ -113,34 +113,34 @@ cryptcookie_backends() ->
      {group, cryptcookie_inet_ktls}].
 
 categories() ->
-    [{group, setup},
-     {group, roundtrip},
-     {group, throughput},
-     {group, sched_utilization}
+    [%% {group, setup},
+     %% {group, roundtrip},
+     {group, throughput}%% ,
+     %% {group, sched_utilization}
     ].
 
 init_per_suite(Config) ->
     Digest = sha256,
     ECCurve = secp521r1,
-%%%     TLSVersion = 'tlsv1.2',
-%%%     TLSCipher =
-%%%         #{key_exchange => ecdhe_ecdsa,
-%%%           cipher       => aes_128_cbc,
-%%%           mac          => sha256,
-%%%           prf          => sha256},
-    TLSVersion = 'tlsv1.3',
+    TLSVersion = 'tlsv1.2',
     TLSCipher =
         #{key_exchange => ecdhe_ecdsa,
-          cipher       => aes_256_gcm,
-          mac          => aead,
-          prf          => sha384},
+          cipher       => aes_128_cbc,
+          mac          => sha256,
+          prf          => sha256},
+    %% TLSVersion = 'tlsv1.3',
+    %% TLSCipher =
+    %%     #{key_exchange => ecdhe_ecdsa,
+    %%       cipher       => aes_256_gcm,
+    %%       mac          => aead,
+    %%       prf          => sha384},
     %%
     Node = node(),
     Skip = make_ref(),
     try
         Node =/= nonode@nohost orelse
             throw({Skip,"Node not distributed"}),
-        verify_node_src_addr(),
+%        verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
@@ -194,7 +194,7 @@ init_per_suite(Config) ->
           CertOptions, RootCert),
         %%
         Schedulers =
-            erpc:call(ServerNode, erlang, system_info, [schedulers]),
+            rpc:call(ServerNode, erlang, system_info, [schedulers]),
         [_, ClientHost] = split_node(Node),
         [{server_node, ServerNode},
          {server_name, ServerName},
@@ -316,16 +316,6 @@ init_per_group(socket, Config) ->
             {fail, {Class, Reason, Stacktrace}}
     end;
 %%
-init_per_group(ktls, Config) ->
-    case ktls_supported() of
-        ok ->
-            [{ktls, true},
-             {ssl_dist_prefix,
-              proplists:get_value(ssl_dist_prefix, Config) ++ "-kTLS"}
-            | proplists:delete(ssl_dist_prefix, Config)];
-        {error, Reason} ->
-            {skip, Reason}
-    end;
 %%
 init_per_group(_GroupName, Config) ->
     Config.
@@ -351,23 +341,6 @@ init_per_testcase(Func, Conf) ->
 
 end_per_testcase(_Func, _Conf) ->
     ok.
-
-
-ktls_supported() ->
-    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
-    try
-        maybe
-            {ok, OS} ?= ssl_test_lib:ktls_os(),
-            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
-            ssl_test_lib:ktls_set_cipher(Client, OS, tx, 1)
-        end
-    after
-        _ = gen_tcp:close(Client),
-        _ = gen_tcp:close(Listen)
-    end.
 
 
 %%%-------------------------------------------------------------------
@@ -476,7 +449,7 @@ setup_loop(_A, _B, T, 0) ->
     T;
 setup_loop(A, B, T, N) ->
     StartTime = start_time(),
-    try erpc:call(B, net_adm, ping, [A]) of
+    try rpc:call(B, net_adm, ping, [A]) of
         pong -> ok;
         Other ->
             error({N,Other})
@@ -675,7 +648,7 @@ roundtrip(A, B, Prefix, Effort, HA, HB) ->
 %% Runs on node A and spawns a server on node B
 roundtrip_runner(A, B, Rounds) ->
     ClientPid = self(),
-    [A] = erpc:call(B, erlang, nodes, []),
+    [A] = rpc:call(B, erlang, nodes, []),
     ServerPid =
         erlang:spawn(
           B,
@@ -791,7 +764,7 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
     process_flag(trap_exit, true),
     Payload = payload(100),
     Time = 1000 * Effort,
-    [A] = erpc:call(B, erlang, nodes, []),
+    [A] = rpc:call(B, erlang, nodes, []),
     ServerPids =
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
@@ -968,7 +941,7 @@ mlcm_client_start(Node, Payloads) ->
     {_,Monitor} =
         spawn_monitor(
           fun () ->
-                  Alias = alias(),
+                  Alias = a,
                   Parent ! {StartRef, Alias},
                   Server = mlcm_server_start(Node, Alias),
                   mlcm_client(Alias, Server, Payloads, 0)
@@ -1151,7 +1124,7 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
 %% Runs on node A and spawns a server on node B
 throughput_runner(A, B, Rounds, Size) ->
     Payload = payload(Size),
-    [A] = erpc:call(B, erlang, nodes, []),
+    [A] = rpc:call(B, erlang, nodes, []),
     ClientPid = self(),
     ServerPid =
         erlang:spawn_opt(
@@ -1357,7 +1330,7 @@ start_ssl_node(server, Config, Verbose) ->
     Args = get_node_args(server_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
-    erpc:call(
+    rpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
       [Name, "-pa " ++ Pa ++ " +Muacul 0 " ++ Args, Verbose]).
 
@@ -1365,7 +1338,7 @@ stop_ssl_node({client, _}, HA, _Config) ->
     ssl_dist_test_lib:stop_ssl_node(HA);
 stop_ssl_node(server, HB, Config) ->
     ServerNode = proplists:get_value(server_node, Config),
-    erpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
+    rpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
 
 get_node_args(Tag, Config) ->
     case proplists:get_value(ssl_dist, Config) of

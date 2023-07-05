@@ -58,8 +58,8 @@ setup(Name) ->
                           PeerOptions
                   end),
             Path = code:get_path(),
-            true = erpc:call(Node, code, set_path, [Path]),
-            ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
+            true = rpc:call(Node, code, set_path, [Path]),
+            ok = rpc:call(Node, ?MODULE, setup_server, [node()]),
             ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
             (Node =:= node()) andalso restrict_schedulers(client),
             Node
@@ -84,7 +84,7 @@ restrict_schedulers(Type) ->
     erlang:system_flag(schedulers_online, (Scheds div 2) + Extra).
 
 cleanup(Node) ->
-    try erpc:call(Node, erlang, halt, [], 5000) of
+    try rpc:call(Node, erlang, halt, [], 5000) of
         Result ->
             ct:fail({unexpected_return, Result})
     catch
