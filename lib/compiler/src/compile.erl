@@ -1572,16 +1572,9 @@ save_abstract_code(Code, St) ->
 
 beam_docs(Code, #compile{dir = Dir,
                          extra_chunks = ExtraChunks}=St) ->
-    %% F = fun ({attribute, _, Attr, _}) -> (Attr =:= doc) orelse (Attr =:= moduledoc) end,
-    %% Docs = lists:filter(F, Code),
     Docs = beam_doc:main(Dir, Code),
-    %% try
     MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
     {ok, Code, St#compile{extra_chunks = MetaDocs}}.
-    %% catch E:R:ST ->
-    %%         io:format("Failed to convert ~ts~n",[Docs]),
-    %%         erlang:raise(E, R, ST)
-    %% end.
 
 debug_info(#compile{module=Module,ofile=OFile}=St) ->
     {DebugInfo,Opts2} = debug_info_chunk(St),
@@ -1698,16 +1691,6 @@ beam_validator_1(Code, #compile{errors=Errors0}=St, Level) ->
         {error, Es} ->
             {error, St#compile{errors=Errors0 ++ Es}}
     end.
-
-
-%% beam_docs(Code0, St) ->
-%%     try
-%%         {ok, Code1} = beam_doc:main(Code0),
-%%         {ok, Code1, St}
-%%     catch E:R:ST ->
-%%             io:format("Failed to add docs to ~ts~n",[St#compile.ifile]),
-%%             erlang:raise(E, R, ST)
-%%     end.
 
 beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpts}=St) ->
     case debug_info(St) of
