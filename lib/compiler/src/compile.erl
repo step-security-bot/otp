@@ -791,6 +791,8 @@ standard_passes() ->
 
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
+     {iff,beam_docs,?pass(beam_docs)},
+     ?pass(remove_doc_attributes),
 
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
@@ -800,15 +802,17 @@ standard_passes() ->
 
 abstr_passes(AbstrStatus) ->
     case AbstrStatus of
-        non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)}];
+        non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)},
+                               {iff,beam_docs,?pass(beam_docs)}];
         verified_abstr -> []
     end ++
         [
+         ?pass(remove_doc_attributes),
+
          %% Add all -compile() directives to #compile.options
          ?pass(compile_directives),
 
          {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
-         {iff,beam_docs,?pass(beam_docs)},
 
 
          ?pass(expand_records),
@@ -1570,11 +1574,30 @@ save_abstract_code(Code, St) ->
 
 -define(META_DOC_CHUNK, <<"Docs">>).
 
+-doc "
+Adds documentation attributes to extra_chunks (beam file)
+".
 beam_docs(Code, #compile{dir = Dir,
                          extra_chunks = ExtraChunks}=St) ->
     Docs = beam_doc:main(Dir, Code),
     MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
     {ok, Code, St#compile{extra_chunks = MetaDocs}}.
+
+-doc "
+Strips documentation attributes from the code
+".
+remove_doc_attributes(Code, St) ->
+    DocAttrFun = fun (Attr) -> not is_doc_attribute(Attr) end,
+    {ok, lists:filter(DocAttrFun, Code), St}.
+
+
+is_doc_attribute(Attr) ->
+    case Attr of
+        {attribute, _Anno, DocAttr, _Meta}
+          when DocAttr =:= doc; DocAttr =:= moduledoc; DocAttr =:= docformat ->
+            true;
+        _ -> false
+    end.
 
 debug_info(#compile{module=Module,ofile=OFile}=St) ->
     {DebugInfo,Opts2} = debug_info_chunk(St),

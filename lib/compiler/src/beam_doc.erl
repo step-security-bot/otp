@@ -1,19 +1,62 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2023-2028. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+%% Purpose : Generate documentation as per EEP-48
+
+
 -module(beam_doc).
 
 -feature(maybe_expr, enable).
+
+-moduledoc "
+Tool to convert an Erlang program in its abstract form to EEP-48 format.
+
+### Example:
+
+```erlang
+1> compile:file(test, [beam_docs]).
+```
+".
 
 -export([main/2]).
 
 -include_lib("kernel/include/eep48.hrl").
 
+-doc "
+Internal record used when transforming Erlang abstract syntax into EEP-48
+documentation format.
+".
 
 -record(docs, {cwd                 :: unicode:chardata(),             % Cwd
                module_name = undefined  :: unicode:chardata() | undefined,
                doc    = undefined  :: unicode:chardata(), % Function/type/callback local doc
                meta   = maps:new() :: map()}).      % Function/type/callback local meta
+
+-doc "
+Internal documentation type for generating EEP-48 documentation format.
+".
 -type internal_docs() :: #docs{}.
 
 
+-doc "
+Transforms an Erlang abstract syntax form into EEP-48 documentation format.
+".
 -spec main(term(), term()) -> term().
 main(Dirname, AST) ->
     try
@@ -62,6 +105,10 @@ update_doc(#docs{}=State, Doc) ->
 update_module(#docs{}=State, ModuleName) ->
     State#docs{module_name = ModuleName}.
 
+
+-doc "
+Creates EEP-48 documentation format from an Erlang abstract form.
+".
 extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) ->
     extract_documentation(T, update_module(State, ModuleName));
 extract_documentation([{attribute, _Anno, doc, Meta0} | T], State) when is_map(Meta0) ->
@@ -119,6 +166,10 @@ extract_documentation([_H|T], State) ->
 extract_documentation([], #docs{doc = undefined}) ->
     [].
 
+
+-doc "
+Internal function that creates EEP-48 documentation format.
+".
 -spec gen_doc(Anno, AttrBody, Slogan, Docs, State) -> Response when
       Anno      :: erl_anno:anno(),
       AttrBody  :: {function | type | callback, term(), integer()},
@@ -134,7 +185,12 @@ gen_doc(Anno0, AttrBody, Slogan, Docs, #docs{meta = Meta, module_name = Module})
     {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)],
       #{ <<"en">> => unicode:characters_to_binary(string:trim(Docs)) }, Meta}.
 
+-doc "
+Documentation generation template pattern.
 
+This function is shared by Erlang abstract forms that generate EEP-48
+documentation format, i.e., called from `extract_documentation/2`.
+".
 template_gen_doc({Attr, Anno, F, A, Args}, #docs{doc = Doc}=State) ->
     {Slogan, DocsWithoutSlogan} =
         case extract_slogan(Doc, F, A) of
