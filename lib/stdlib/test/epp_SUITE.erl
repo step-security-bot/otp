@@ -930,11 +930,12 @@ scan_file(Config) when is_list(Config) ->
     [FileForm1, ModuleForm, ExportForm,
      FileForm2, FileForm3, FunctionForm,
      {eof,_}] = Toks,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm1,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm1,
     [{'-',_}, {atom,_,module}, {'(',_} | _ ] = ModuleForm,
     [{'-',_}, {atom,_,export}, {'(',_} | _ ] = ExportForm,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm2,
-    [{'-',_}, {atom,_,file}, {'(',_} | _ ] = FileForm3,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm2,
+    [{'-',_}, {atom,_,file}, {'(',_} | _ ]   = FileForm3,
+    [{atom,_,ok}, {'(',_} | _]               = FunctionForm,
     ok.
 
 macs(Epp) ->
