@@ -234,6 +234,8 @@ format_error({circular,M,A}) ->
     io_lib:format("circular macro '~ts/~p'", [M,A]);
 format_error({include,W,F}) ->
     io_lib:format("can't find include ~s \"~ts\"", [W,F]);
+format_error({moduledoc, Filename}) ->
+    io_lib:format("can't find file ~s", [Filename]);
 format_error({illegal,How,What}) ->
     io_lib:format("~s '-~s'", [How,What]);
 format_error({illegal_function,Macro}) ->
@@ -932,6 +934,9 @@ scan_toks([{'-',_Lh},{atom,_Ld,warning}=Warn|Toks], From, St) ->
     scan_err_warn(Toks, Warn, From, leave_prefix(St));
 scan_toks([{'-',_Lh},{atom,_Li,include}=Inc|Toks], From, St) ->
     scan_include(Toks, Inc, From, St);
+scan_toks([{'-',_Lh}=Def,{atom,_Li,D}=Doc|[{'{', _}|_]=Toks], From, St) when
+      D =:= doc; D =:= moduledoc ->
+    scan_filedoc(Toks, [Def, Doc], From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include_lib}=IncLib|Toks], From, St) ->
     scan_include_lib(Toks, IncLib, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,ifdef}=IfDef|Toks], From, St) ->
@@ -978,14 +983,29 @@ scan_toks(Toks0, From, St) ->
 	    wait_req_scan(St)
     end.
 
+%% Reads the content of the file and rewrites the AST as if
+%% the content had been written in-place.
+scan_filedoc([{'{',_}, {atom, _,file},
+                {',', _}, {string, A, DocFilename},
+                {'}', _}, {dot, _}=End], [_, ModuleDoc]=Module, From, #epp{name = CurrentFilename}=St) ->
+    Filename = filename:join(filename:dirname(CurrentFilename), DocFilename),
+    case file:read_file(Filename) of
+        {ok, Bin} ->
+            epp_reply(From, {ok, Module ++ [{string, A, Bin}, End]}),
+            wait_req_scan(St);
+        {error, _} ->
+            epp_reply(From, {error,{loc(ModuleDoc),epp,{moduledoc, DocFilename}}}),
+            wait_req_scan(St)
+    end.
+
 %% Determine whether we have passed the prefix where a -feature
 %% directive is allowed.
 in_prefix({atom, _, Atom}) ->
     %% These directives are allowed inside the prefix
     lists:member(Atom, ['module', 'feature',
                         'if', 'else', 'elif', 'endif', 'ifdef', 'ifndef',
-                        'define', 'undef',
-                        'include', 'include_lib']);
+                        'define', 'undef', 'include', 'include_lib',
+                        'moduledoc', 'doc']);
 in_prefix(_T) ->
     false.
 
