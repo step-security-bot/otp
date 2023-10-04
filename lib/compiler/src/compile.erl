@@ -351,7 +351,6 @@ format_error_reason(Class, Reason, Stack) ->
                   encoding=none    :: none | epp:source_encoding(),
                   errors=[]        :: errors(),
                   warnings=[]      :: warnings(),
-                  docs=[]          :: abstract_code(),
                   extra_chunks=[]  :: [{binary(), binary()}]}).
 
 internal({forms,Forms}, Opts0) ->
@@ -1574,18 +1573,16 @@ save_abstract_code(Code, St) ->
 
 -define(META_DOC_CHUNK, <<"Docs">>).
 
--doc "
-Adds documentation attributes to extra_chunks (beam file)
-".
+
+%% Adds documentation attributes to extra_chunks (beam file)
 beam_docs(Code, #compile{dir = Dir,
                          extra_chunks = ExtraChunks}=St) ->
     Docs = beam_doc:main(Dir, Code),
     MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
     {ok, Code, St#compile{extra_chunks = MetaDocs}}.
 
--doc "
-Strips documentation attributes from the code
-".
+
+%% Strips documentation attributes from the code
 remove_doc_attributes(Code, St) ->
     DocAttrFun = fun (Attr) -> not is_doc_attribute(Attr) end,
     {ok, lists:filter(DocAttrFun, Code), St}.
