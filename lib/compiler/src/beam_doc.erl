@@ -52,33 +52,38 @@ documentation format.
 -doc "
 Transforms an Erlang abstract syntax form into EEP-48 documentation format.
 ".
--spec main(term(), term()) -> term().
+-spec main(term(), term()) -> {ok, no_moduledoc | #docs_v1{}} | badarg.
 main(Dirname, AST) ->
     try
-        {ModuleDocAnno, ModuleDoc} = extract_moduledoc(AST),
-        DocFormat = extract_docformat(AST),
-        Docs = extract_documentation(AST, new_state(Dirname)),
-        #docs_v1{
-           format = DocFormat,
-           anno = ModuleDocAnno,
-           module_doc = #{ <<"en">> => ModuleDoc },
-           docs = Docs }
+        %% {ok, {ModuleDocAnno, ModuleDoc}} = extract_moduledoc(AST),
+        maybe
+            {ok, {ModuleDocAnno, ModuleDoc}} ?= extract_moduledoc(AST),
+            DocFormat = extract_docformat(AST),
+            Docs = extract_documentation(AST, new_state(Dirname)),
+            #docs_v1{ format = DocFormat,
+                      anno = ModuleDocAnno,
+                      module_doc = #{ <<"en">> => ModuleDoc },
+                      docs = Docs }
+        end
     catch E:R:ST ->
             erlang:raise(E, R, ST)
     end.
 
 -spec extract_docformat(AST :: [tuple()]) -> DocFormat :: binary().
 extract_docformat(AST) ->
-    case lists:keysearch(docformat, 3, AST) of
+    case keysearch(docformat, 3, AST) of
         false -> <<"text/markdown">>;
         {value, {attribute, _DocAnno, docformat, DocFormat}} ->
             unicode:characters_to_binary(DocFormat)
     end.
 
--spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary()}.
+-spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary()} | false.
 extract_moduledoc(AST) ->
-    {value, {attribute, ModuleDocAnno, moduledoc, ModuleDoc}} = lists:keysearch(moduledoc, 3, AST),
-    {ModuleDocAnno, unicode:characters_to_binary(string:trim(ModuleDoc))}.
+    case keysearch(moduledoc, 3, AST) of
+        {value, {attribute, _ModuleDocAnno, moduledoc, false}} -> {ok, no_moduledoc};
+        {value, {attribute, ModuleDocAnno, moduledoc, ModuleDoc}} ->
+            {ok, {ModuleDocAnno, unicode:characters_to_binary(string:trim(ModuleDoc))}}
+    end.
 
 -spec new_state(Dirname :: unicode:chardata()) -> internal_docs().
 new_state(Dirname) ->
