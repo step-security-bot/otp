@@ -189,7 +189,7 @@ files(Files) ->
 
 %% @doc Runs EDoc on a given set of source files. See {@link run/2} for
 %% details, including options.
-%% @equiv run([], Files, Options)
+%% @equiv run(Files, Options)
 
 -spec files(Files, Options) -> ok when
       Files :: [filename()],
