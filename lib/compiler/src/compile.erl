@@ -1575,12 +1575,9 @@ save_abstract_code(Code, St) ->
 %% Adds documentation attributes to extra_chunks (beam file)
 beam_docs(Code, #compile{dir = Dir,
                          extra_chunks = ExtraChunks}=St) ->
-    case beam_doc:main(Dir, Code) of
-        {ok, no_moduledoc} -> {ok, Code, St};
-        {ok, Docs} ->
-            MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
-            {ok, Code, St#compile{extra_chunks = MetaDocs}}
-    end.
+    Docs = beam_doc:main(Dir, Code),
+    MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
+    {ok, Code, St#compile{extra_chunks = MetaDocs}}.
 
 
 %% Strips documentation attributes from the code
