@@ -1,49 +1,79 @@
 -module(beam_doc_SUITE).
 
--export([all/0, simple_moduledoc/1]).
+-export([all/0, singleton_moduledoc/1, singleton_doc/1,
+         docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1, singleton_docformat/1]).
+
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [simple_moduledoc].
+    [singleton_moduledoc,
+     singleton_doc,
+     docmodule_with_doc_attributes,
+     hide_moduledoc,
+     docformat,
+    singleton_docformat].
 
 
 
-simple_moduledoc(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-
-    ModuleContent = <<"-module(moduledoc).
-
-                       -export([]).
-
-                       -moduledoc \"
-                       Moduledoc test module
-                       \".
-                       ">>,
-    {ModName, Filename} = create_file(PrivDir, ModuleContent),
-    %% positive test: checks that all works as expected
-    %% FileName = CreateFile("module_attr", ErlModName, ModuleFileContent),
-    {ok, ModName} = compile:file(Filename, [beam_docs]),
-    %% ct:pal("~p~n~p~n~p~n", [Result, ModuleAtom, Result =:= ModuleAtom]),
-
+singleton_moduledoc(Conf) ->
+    ModuleName = "singletonmoduledoc",
+    {ok, ModName} = compile_file(Conf, ModuleName),
 
     Mime = <<"text/markdown">>,
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     {ok, {docs_v1, _,_, Mime,ModuleDoc, _,_}} = code:get_doc(ModName),
     ok.
 
-create_dir(Dir) ->
-  ok = file:make_dir(Dir).
+singleton_doc(Conf) ->
+    ModuleName = "singletondoc",
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    Mime = <<"text/markdown">>,
+    Doc = #{<<"en">> => <<"Doc test module">>},
+    {ok, {docs_v1, 1,_, Mime, none, _,
+          [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    ok.
 
-create_file(PrivDir, ModuleContent) ->
-    Dir = "module_attr",
-    ModuleName = "moduledoc",
-    ModuleAtom = list_to_atom(ModuleName),
+docmodule_with_doc_attributes(Conf) ->
+    ModuleName = "docmodule_with_doc_attributes",
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    Mime = <<"text/markdown">>,
+    ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
+    Doc = #{<<"en">> => <<"Doc test module">>},
+    {ok, {docs_v1, _,_, Mime, ModuleDoc, _,
+          [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    ok.
+
+hide_moduledoc(Conf) ->
+    {ok, ModName} = compile_file(Conf, "hide_moduledoc"),
+    {ok, {docs_v1, _,_, _Mime, hidden, _, []}} = code:get_doc(ModName),
+    ok.
+
+docformat(Conf) ->
+    {ok, ModName} = compile_file(Conf, "docformat"),
+    ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
+    Meta = #{format => "text/asciidoc",
+             deprecated => "Use something else",
+             otp_doc_vsn => {1,0,0},
+             since => "1.0"},
+    Doc = #{<<"en">> => <<"Doc test module">>},
+    {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
+          [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    ok.
+
+singleton_docformat(Conf) ->
+    {ok, ModName} = compile_file(Conf, "singleton_docformat"),
+    ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
+    Meta = #{format => "text/asciidoc",
+              deprecated => "Use something else",
+              otp_doc_vsn => {1,0,0},
+              since => "1.0"},
+    Doc = #{<<"en">> => <<"Doc test module">>},
+    {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
+          [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    ok.
+
+
+compile_file(Conf, ModuleName) ->
     ErlModName = ModuleName ++ ".erl",
-
-    Dirname = filename:join(PrivDir, Dir),
-    Filename = filename:join(Dirname, ErlModName),
-    ok = filelib:ensure_dir(Filename),
-    ok = file:write_file(Filename, ModuleContent),
-
-    true = code:add_path(Dirname),
-    {ModuleAtom, Filename}.
+    Filename = filename:join(proplists:get_value(data_dir, Conf), ErlModName),
+    compile:file(Filename, [beam_docs]).

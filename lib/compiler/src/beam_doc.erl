@@ -31,7 +31,7 @@
 
 -export([main/2]).
 
--import(lists, [keysearch/3]).
+-import(lists, [foldl/3]).
 
 -include_lib("kernel/include/eep48.hrl").
 
@@ -49,6 +49,7 @@ documentation format.
 -type internal_docs() :: #docs{}.
 
 -define(DEFAULT_MODULE_DOC_LOC, 1).
+-define(DEFAULT_FORMAT, <<"text/markdown">>).
 
 -doc "
 Transforms an Erlang abstract syntax form into EEP-48 documentation format.
@@ -58,35 +59,44 @@ main(Dirname, AST) ->
     try
         {ModuleDocAnno, ModuleDoc} = extract_moduledoc(AST),
         DocFormat = extract_docformat(AST),
-        Docs = extract_documentation(AST, new_state(Dirname)),
-        #docs_v1{ format = DocFormat,
-                  anno = ModuleDocAnno,
-                  module_doc = create_module_doc(ModuleDoc),
-                  docs = Docs }
+        Docs = extract_documentation(ModuleDoc, AST, new_state(Dirname)),
+        DocV1 = #docs_v1{},
+        Meta = extract_meta(AST, DocV1#docs_v1.metadata),
+        DocV1#docs_v1{ format = DocFormat,
+                       anno = ModuleDocAnno,
+                       metadata = Meta,
+                       module_doc = create_module_doc(ModuleDoc),
+                       docs = Docs }
     catch E:R:ST ->
             erlang:raise(E, R, ST)
     end.
 
+extract_meta(AST, MetaData) ->
+    foldl(fun ({attribute, _ModuleDocAnno, moduledoc, MetaDoc}, Meta) when is_map(MetaDoc) ->
+                  maps:merge(Meta, MetaDoc);
+              (_, Meta) -> Meta
+          end, MetaData, AST).
+
 -spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary()} | false.
-extract_moduledoc(AST) ->
-    case keysearch(moduledoc, 3, AST) of
-        {value, {attribute, ModuleDocAnno, moduledoc, ModuleDoc}} ->
-            {ModuleDocAnno, unicode:characters_to_binary(string:trim(ModuleDoc))};
-        {value, {attribute, ModuleDocAnno, moduledoc, false}} ->
-            {ModuleDocAnno, hidden};
-        false ->
-            {?DEFAULT_MODULE_DOC_LOC, none}
-    end.
+extract_moduledoc([_]) ->
+    {?DEFAULT_MODULE_DOC_LOC, none};
+extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, false}| _AST]) ->
+    {ModuleDocAnno, hidden};
+extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, ModuleDoc}| _AST]) when is_list(ModuleDoc) ->
+    {ModuleDocAnno, unicode:characters_to_binary(string:trim(ModuleDoc))};
+extract_moduledoc([_| AST]) ->
+    extract_moduledoc(AST).
 
-
--spec extract_docformat(AST :: [tuple()]) -> DocFormat :: binary().
-extract_docformat(AST) ->
-    case keysearch(docformat, 3, AST) of
-        false -> <<"text/markdown">>;
-        {value, {attribute, _DocAnno, docformat, DocFormat}} ->
-            unicode:characters_to_binary(DocFormat)
-    end.
-
+extract_docformat([]) ->
+    ?DEFAULT_FORMAT;
+extract_docformat([{attribute, _ModuleDocAnno, moduledoc, MetaFormat} | Ls]) when is_map(MetaFormat) ->
+    case maps:get(format, MetaFormat, not_found) of
+        not_found -> extract_docformat(Ls);
+        Format when is_list(Format) -> unicode:characters_to_binary(Format);
+        Format when is_binary(Format) -> Format
+    end;
+extract_docformat([_ | Ls]) ->
+    extract_docformat(Ls).
 
 -doc "
 Creates a map containing the module documentation.
@@ -121,6 +131,11 @@ update_doc(#docs{}=State, Doc) ->
 -spec update_module(State :: internal_docs(), ModuleName :: unicode:chardata()) -> internal_docs().
 update_module(#docs{}=State, ModuleName) ->
     State#docs{module_name = ModuleName}.
+
+extract_documentation(hidden, _AST, _Dirname) -> [];
+extract_documentation(_, AST, Dirname) ->
+    extract_documentation(AST, new_state(Dirname)).
+
 
 -doc "
 Creates EEP-48 documentation format from an Erlang abstract form.
