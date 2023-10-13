@@ -240,7 +240,6 @@ fun_to_varargs(Else) ->
 extract_slogan(Doc, F, A) ->
     maybe
         [MaybeSlogan | Rest] = string:split(Doc, "\n"),
-        %% io:format("  MaybeSlogan: ~p~n",[MaybeSlogan]),
         {ok, Toks, _} ?= erl_scan:string(unicode:characters_to_list([MaybeSlogan,"."])),
         {ok, [{call,_,{atom,_,F},Args}]} ?= erl_parse:parse_exprs(Toks),
         A ?= length(Args),

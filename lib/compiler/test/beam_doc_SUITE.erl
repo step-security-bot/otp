@@ -1,7 +1,8 @@
--module(beam_doc_SUITE).
 
+-module(beam_doc_SUITE).
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
-         docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1, singleton_docformat/1]).
+         docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
+         singleton_docformat/1, singleton_meta/1, slogan/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -11,9 +12,11 @@ all() ->
      docmodule_with_doc_attributes,
      hide_moduledoc,
      docformat,
-    singleton_docformat].
+     singleton_docformat,
+     singleton_meta,
+     slogan].
 
-
+-define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
 singleton_moduledoc(Conf) ->
     ModuleName = "singletonmoduledoc",
@@ -63,13 +66,35 @@ docformat(Conf) ->
 singleton_docformat(Conf) ->
     {ok, ModName} = compile_file(Conf, "singleton_docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
-    Meta = #{format => "text/asciidoc",
-              deprecated => "Use something else",
-              otp_doc_vsn => {1,0,0},
-              since => "1.0"},
-    Doc = #{<<"en">> => <<"Doc test module">>},
+    Meta = #{format => <<"text/asciidoc">>,
+             deprecated => "Use something else",
+             otp_doc_vsn => {1,0,0},
+             since => "1.0"},
+    Doc = #{<<"en">> => <<"Doc test module\n\nMore info here">>},
     {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    ok.
+
+singleton_meta(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    Meta = #{ authors => [<<"Beep Bop">>], equiv => {main,3} },
+    Meta1 = #{equiv => {main,3}},
+    DocMain = #{<<"en">> => <<"Equivalent to `main/3`">>},
+    DocMain1 = #{<<"en">> => <<"Equivalent to `main(_)`">>},
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{function, main,0},_, _, DocMain, Meta},
+           {{function, main1,0},_, _, DocMain1, Meta1}]}} = code:get_doc(ModName),
+    ok.
+
+
+slogan(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    Doc = #{<<"en">> => <<"Returns ok.">>},
+    Slogan = [<<"main()">>],
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{function, main,0},_,Slogan, Doc, #{}}]}} = code:get_doc(ModName),
     ok.
 
 
