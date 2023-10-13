@@ -21,6 +21,22 @@
 %%
 
 -module(public_key).
+-moduledoc """
+API module for public-key infrastructure.
+
+Provides functions to handle public-key infrastructure, for details see [public_key(6)](public_key_app.md).
+
+## Common Records and ASN.1 Types
+
+> #### Note {: class=info }
+> All records used in this Reference Manual are generated from ASN.1 specifications and are documented in the User's Guide. See [Public-key Records](public_key_records.md).
+
+Use the following include directive to get access to the records and constant macros described here and in the User's Guide:
+
+```text
+ -include_lib("public_key/include/public_key.hrl").
+```
+""".
 
 -include("public_key.hrl").
 
@@ -110,75 +126,157 @@
               test_root_cert/0]).
 
 
+-doc "".
 -type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
+-doc "".
 -type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
+-doc "".
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
+-doc "".
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
+-doc "".
 -type dss_public_key()       :: integer().
+-doc "".
 -type rsa_pss_public_key()   ::  {rsa_pss_public_key(), #'RSASSA-PSS-params'{}}.
+-doc "".
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
+-doc "".
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
+-doc "".
 -type dsa_public_key()       :: {dss_public_key(), #'Dss-Parms'{}}.
+-doc "".
 -type public_key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
+-doc "".
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
+-doc "".
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
+-doc "".
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
+-doc "".
 -type ec_private_key()       :: #'ECPrivateKey'{}.
+-doc "".
 -type ed_public_key()        :: {#'ECPoint'{}, ed_params()}.
+-doc "".
 -type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()}.
+-doc "Macro names for object identifiers for EDDSA curves used by prefixing with ?".
 -type ed_oid_name()            ::  'id-Ed25519' | 'id-Ed448'.
+-doc "".
 -type ed_params()            ::  {namedCurve, ed_oid_name()}.
+-doc "".
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
                                 {rsa, Size::integer(), PubExp::integer()}. 
+-doc "".
 -type der_encoded()          :: binary().
+-doc "".
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
 			       | 'SubjectPublicKeyInfo' | 'DSAPrivateKey'
                                | 'DHParameter' | 'PrivateKeyInfo' |
 				 'CertificationRequest' | 'ContentInfo' | 'CertificateList' |
 				 'ECPrivateKey' | 'OneAsymmetricKey'| 'EcpkParameters'.
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type pem_entry()            :: {pki_asn1_type(), 
 				 der_or_encrypted_der(),
 				 not_encrypted | cipher_info()
 				}.
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type der_or_encrypted_der() :: binary().
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type cipher_info()          :: {cipher(),
                                  cipher_info_params()} .
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type cipher()               :: string() . % "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", 
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type cipher_info_params()   :: salt()
                               | {#'PBEParameter'{}, digest_type()}
                               | #'PBES2-params'{} .
 
+-doc """
+```text
+Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
+```
+
+`Salt` could be generated with [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
+""".
 -type salt()                 :: binary(). % crypto:strong_rand_bytes(8)
+-doc "ASN.1 type present in the Public Key applications ASN.1 specifications.".
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
+-doc "".
 -type digest_type()          :: none % None is for backwards compatibility
                               | sha1 % Backwards compatibility
                               | crypto:rsa_digest_type()
                               | crypto:dss_digest_type()
                               | crypto:ecdsa_digest_type().
+-doc "".
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
+-doc "Object identifier, a tuple of integers as generated by the `ASN.1` compiler.".
 -type oid()                  :: tuple().
+-doc "".
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
+-doc "".
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
+-doc "".
 -type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path | {revoked, crl_reason()} | atom().
 
+-doc "".
 -type combined_cert()        :: #cert{}.
+-doc "".
 -type cert()                 :: der_cert() | otp_cert().
+-doc "".
 -type der_cert()             :: der_encoded().
+-doc "".
 -type otp_cert()             :: #'OTPCertificate'{}.
+-doc "".
 -type public_key_info()      :: {key_oid_name(),  rsa_public_key() | #'ECPoint'{} | dss_public_key(),  public_key_params()}.
+-doc "Macro names for key object identifiers used by prefixing with ?".
 -type key_oid_name()              :: 'rsaEncryption' | 'id-RSASSA-PSS' | 'id-ecPublicKey' | 'id-Ed25519' | 'id-Ed448' | 'id-dsa'.
+-doc "".
 -type cert_opt()  :: {digest, public_key:digest_type()} |
                      {key, public_key:key_params() | public_key:private_key()} |
                      {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
                      {extensions, [#'Extension'{}]}.
+-doc "".
 -type chain_end()   :: root | peer.
+-doc "".
 -type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
+-doc "".
 -type conf_opt()    :: {cert, public_key:der_encoded()} |
                        {key,  public_key:private_key()} |
                        {cacerts, [public_key:der_encoded()]}.
+-doc "".
 -type test_config() ::
         #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
+-doc "".
 -type test_root_cert() ::
         #{cert := der_encoded(), key := public_key:private_key()}.
 
@@ -189,6 +287,12 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
+-doc """
+Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.
+
+Example `{ok, PemBin} = file:read_file("cert.pem"). PemEntries = public_key:pem_decode(PemBin).`
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_decode(binary()) -> [pem_entry()].
 %%
 %% Description: Decode PEM binary data and return
@@ -198,6 +302,8 @@ pem_decode(PemBin) when is_binary(PemBin) ->
     pubkey_pem:decode(PemBin).
 
 %%--------------------------------------------------------------------
+-doc "Creates a PEM binary.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_encode([pem_entry()]) -> binary().
 %%
 %% Description: Creates a PEM binary.
@@ -209,6 +315,8 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
 %% Description: Decodes a pem entry. pem_decode/1 returns a list of
 %% pem entries.
 %%--------------------------------------------------------------------
+-doc(#{equiv => pem_entry_decode/2}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_entry_decode(PemEntry) -> term() when PemEntry :: pem_entry() .
 
 pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
@@ -229,6 +337,12 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
 
+-doc """
+Decodes a PEM entry. `pem_decode/1` returns a list of PEM entries. Notice that if the PEM entry is of type 'SubjectPublickeyInfo', it is further decoded to an `t:rsa_public_key()` or `t:dsa_public_key()`.
+
+Password can be either an octet string or function which returns same type.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_entry_decode(PemEntry, Password) -> term() when
       PemEntry :: pem_entry(),
       Password :: iodata() | fun(() -> iodata()).
@@ -261,6 +375,8 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 %%
 %% Description: Creates a pem entry that can be feed to pem_encode/1.
 %%--------------------------------------------------------------------
+-doc(#{equiv => pem_entry_encode/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_entry_encode(Asn1Type, Entity) -> pem_entry() when Asn1Type :: pki_asn1_type(),
                                                              Entity :: term() .
 
@@ -296,6 +412,12 @@ pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
     {Asn1Type, Der, not_encrypted}.
 
+-doc """
+Creates a PEM entry that can be feed to `pem_encode/1`.
+
+If `Asn1Type` is `'SubjectPublicKeyInfo'`, `Entity` must be either an `t:rsa_public_key()`, `t:dsa_public_key()` or an `t:ec_public_key()` and this function creates the appropriate `'SubjectPublicKeyInfo'` entry.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pem_entry_encode(Asn1Type, Entity, InfoPwd) ->
                               pem_entry() when Asn1Type :: pki_asn1_type(),
                                                Entity :: term(),
@@ -323,6 +445,8 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
     
 %%--------------------------------------------------------------------
+-doc "Decodes a public-key ASN.1 DER encoded entity.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec der_decode(Asn1Type, Der) -> Entity when Asn1Type :: asn1_type(),
                                                Der :: der_encoded(),
                                                Entity :: term().
@@ -407,6 +531,8 @@ der_priv_key_decode(PKCS8Key) ->
     PKCS8Key.
 
 %%--------------------------------------------------------------------
+-doc "Encodes a public-key entity with ASN.1 DER encoding.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec der_encode(Asn1Type, Entity) -> Der when Asn1Type :: asn1_type(),
                                                Entity :: term(),
                                                Der :: binary() .
@@ -504,6 +630,7 @@ der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     end.
 
 %%--------------------------------------------------------------------
+-doc "Decodes an ASN.1 DER-encoded PKIX certificate. Option `otp` uses the customized ASN.1 specification OTP-PKIX.asn1 for decoding and also recursively decode most of the standard parts.".
 -spec pkix_decode_cert(Cert, Type) ->
           #'Certificate'{} | otp_cert()
               when Cert :: der_cert(),
@@ -527,6 +654,13 @@ pkix_decode_cert(DerCert, otp) when is_binary(DerCert) ->
     end.
 
 %%--------------------------------------------------------------------
+-doc """
+DER encodes a PKIX x509 certificate or part of such a certificate. This function must be used for encoding certificates or parts of certificates that are decoded/created in the `otp` format, whereas for the plain format this function directly calls `der_encode/2`.
+
+> #### Note {: class=info }
+> Subtle ASN-1 encoding errors in certificates may be worked around when decoding, this may have the affect that the encoding a certificate back to DER may generate different bytes then the supplied original.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_encode(Asn1Type, Entity, Type) -> Der
                                                  when Asn1Type :: asn1_type(),
                                                       Entity :: term(),
@@ -549,6 +683,8 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 %%
 %% Description: Public key decryption using the private key.
 %%--------------------------------------------------------------------
+-doc(#{equiv => decrypt_private/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key) ->
                              PlainText when CipherText :: binary(),
                                             Key :: rsa_private_key(),
@@ -556,6 +692,8 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
+-doc "Public-key decryption using the private key. See also `crypto:private_decrypt/4`".
+-doc(#{since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key, Options) ->
                              PlainText when CipherText :: binary(),
                                             Key :: rsa_private_key(),
@@ -571,6 +709,8 @@ decrypt_private(CipherText,
 %%--------------------------------------------------------------------
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
+-doc(#{equiv => decrypt_public/3}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key) ->
 			    PlainText
                                 when CipherText :: binary(),
@@ -579,6 +719,8 @@ decrypt_private(CipherText,
 decrypt_public(CipherText, Key) ->
     decrypt_public(CipherText, Key, []).
 
+-doc "Public-key decryption using the public key. See also `crypto:public_decrypt/4`".
+-doc(#{since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key, Options) ->
 			    PlainText
                                 when CipherText :: binary(),
@@ -592,6 +734,8 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %%--------------------------------------------------------------------
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
+-doc(#{equiv => encrypt_public/3}).
+-doc(#{since => <<"OTP 21.1,OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -601,6 +745,8 @@ encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 
 
+-doc "Public-key encryption using the public key. See also `crypto:public_encrypt/4`.".
+-doc(#{since => <<"OTP 21.1,OTP R14B">>}).
 -spec encrypt_public(PlainText, Key, Options) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -615,6 +761,8 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 %%
 %% Description: Public key encryption using the private key.
 %%--------------------------------------------------------------------
+-doc(#{equiv => encrypt_private/3}).
+-doc(#{since => <<"OTP 21.1,OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -624,6 +772,8 @@ encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
 
+-doc "Public-key encryption using the private key. See also `crypto:private_encrypt/4`.".
+-doc(#{since => <<"OTP 21.1,OTP R14B">>}).
 -spec encrypt_private(PlainText, Key, Options) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -649,6 +799,22 @@ dh_gex_group_sizes() ->
 %%--------------------------------------------------------------------
 %% Description: Select a precomputed group
 %%--------------------------------------------------------------------
+-doc """
+Selects a group for Diffie-Hellman key exchange with the key size in the range `MinSize...MaxSize` and as close to `SuggestedSize` as possible. If `Groups == undefined` a default set will be used, otherwise the group is selected from `Groups`.
+
+First a size, as close as possible to SuggestedSize, is selected. Then one group with that key size is randomly selected from the specified set of groups. If no size within the limits of `MinSize` and `MaxSize` is available, `{error,no_group_found}` is returned.
+
+The default set of groups is listed in `lib/public_key/priv/moduli`. This file may be regenerated like this:
+
+```text
+	$> cd $ERL_TOP/lib/public_key/priv/
+	$> generate
+         ---- wait until all background jobs has finished. It may take several days !
+	$> cat moduli-* > moduli
+	$> cd ..; make
+```
+""".
+-doc(#{since => <<"OTP 18.2">>}).
 -spec dh_gex_group(MinSize, SuggestedSize, MaxSize, Groups) ->
                           {ok,{Size,Group}} | {error,term()}
                               when MinSize :: pos_integer(),
@@ -665,6 +831,8 @@ dh_gex_group(Min, N, Max, Groups) ->
 %%--------------------------------------------------------------------
 %% Description: Generate a new key pair
 %%--------------------------------------------------------------------
+-doc "Generates a new key pair. Note that except for Diffie-Hellman the public key is included in the private key structure. See also `crypto:generate_key/2`".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec generate_key(DHparams | ECparams | RSAparams) ->
                           DHkeys | ECkey | RSAkey
                               when DHparams :: #'DHParameter'{},
@@ -724,6 +892,8 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
 %%--------------------------------------------------------------------
 %% Description: Compute shared secret
 %%--------------------------------------------------------------------
+-doc "Computes shared secret.".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec compute_key(OthersECDHkey, MyECDHkey) -> 
                          SharedSecret
                              when OthersECDHkey :: #'ECPoint'{},
@@ -740,6 +910,8 @@ compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
     ECCurve = ec_curve_spec(Param),
     crypto:compute_key(ecdh, Point, PrivKey, ECCurve).
 
+-doc "Computes shared secret.".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec compute_key(OthersDHkey, MyDHkey, DHparms) -> 
                          SharedSecret
                              when OthersDHkey :: crypto:dh_public(), % Was: binary(),
@@ -750,6 +922,12 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
     crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
 
 %%--------------------------------------------------------------------
+-doc """
+Translates signature algorithm OID to Erlang digest and signature types.
+
+The `AlgorithmId` is the signature OID from a certificate or a certificate revocation list.
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec pkix_sign_types(AlgorithmId) -> 
                              {DigestType, SignatureType}
                                  when AlgorithmId :: oid(),
@@ -794,6 +972,8 @@ pkix_sign_types(?'id-Ed448') ->
     {none, eddsa}.
 
 %%--------------------------------------------------------------------
+-doc "Translates OID to Erlang digest type".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
           
 pkix_hash_type(?'id-sha1') ->
@@ -812,6 +992,8 @@ pkix_hash_type('id-md5') ->
 %%--------------------------------------------------------------------
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
+-doc(#{equiv => sign/4}).
+-doc(#{since => <<"OTP 20.1">>}).
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
@@ -820,6 +1002,12 @@ pkix_hash_type('id-md5') ->
 sign(DigestOrPlainText, DigestType, Key) ->
     sign(DigestOrPlainText, DigestType, Key, []).
 
+-doc """
+Creates a digital signature.
+
+The `Msg` is either the binary "plain text" data to be signed or it is the hashed value of "plain text", that is, the digest.
+""".
+-doc(#{since => <<"OTP 20.1">>}).
 -spec sign(Msg, DigestType, Key, Options) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
@@ -845,6 +1033,8 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 %%--------------------------------------------------------------------
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
+-doc(#{equiv => verify/5}).
+-doc(#{since => <<"OTP 20.1,OTP R14B">>}).
 -spec verify(Msg, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
@@ -854,6 +1044,12 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 verify(DigestOrPlainText, DigestType, Signature, Key) ->
     verify(DigestOrPlainText, DigestType, Signature, Key, []).
 
+-doc """
+Verifies a digital signature.
+
+The `Msg` is either the binary "plain text" data or it is the hashed value of "plain text", that is, the digest.
+""".
+-doc(#{since => <<"OTP 20.1,OTP R14B">>}).
 -spec verify(Msg, DigestType, Signature, Key, Options) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
@@ -882,6 +1078,8 @@ verify(_,_,_,_,_) ->
     false.
 
 %%--------------------------------------------------------------------
+-doc "Creates a distribution point for CRLs issued by the same issuer as `Cert`. Can be used as input to `pkix_crls_validate/3`".
+-doc(#{since => <<"OTP 17.5">>}).
 -spec pkix_dist_point(Cert) -> DistPoint when Cert :: cert(),
                                               DistPoint :: #'DistributionPoint'{}.
 %% Description:  Creates a distribution point for CRLs issued by the same issuer as <c>Cert</c>.
@@ -906,6 +1104,8 @@ pkix_dist_point(OtpCert) ->
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point}.	
 %%--------------------------------------------------------------------
+-doc "Extracts distribution points from the certificates extensions.".
+-doc(#{since => <<"OTP 17.5">>}).
 -spec pkix_dist_points(Cert) -> DistPoints when Cert :: cert(),
                                                 DistPoints :: [ #'DistributionPoint'{} ].
 %% Description:  Extracts distributionpoints specified in the certificates extensions.
@@ -921,6 +1121,8 @@ pkix_dist_points(OtpCert) ->
 		[], Value).
 
 %%--------------------------------------------------------------------
+-doc "Checks whether the given distribution point matches the Issuing Distribution Point of the CRL, as described in RFC 5280. If the CRL doesn't have an Issuing Distribution Point extension, the distribution point always matches.".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec pkix_match_dist_point(CRL, DistPoint) ->
                                    boolean()
                                        when CRL :: der_encoded() | #'CertificateList'{},
@@ -955,6 +1157,8 @@ pkix_match_dist_point(#'CertificateList'{
     end.
 
 %%--------------------------------------------------------------------
+-doc "Signs an 'OTPTBSCertificate'. Returns the corresponding DER-encoded certificate.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{}, 
                                        Key :: private_key(),
                                        Der :: der_encoded() .
@@ -975,6 +1179,8 @@ pkix_sign(#'OTPTBSCertificate'{signature =
     pkix_encode('OTPCertificate', Cert, otp).
 
 %%--------------------------------------------------------------------
+-doc "Verifies PKIX x.509 certificate signature.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_verify(Cert, Key) -> boolean() when Cert :: der_cert(),
                                                Key :: public_key() .
 %%
@@ -1012,6 +1218,8 @@ pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
     end.
 
 %%--------------------------------------------------------------------
+-doc "Verify that `Cert` is the `CRL` signer.".
+-doc(#{since => <<"OTP 17.5">>}).
 -spec pkix_crl_verify(CRL, Cert) -> boolean()
                                         when CRL  :: der_encoded() | #'CertificateList'{},
                                              Cert :: cert().
@@ -1033,6 +1241,8 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
 				    PublicKey, PublicKeyParams).
 
 %%--------------------------------------------------------------------
+-doc "Checks if `IssuerCert` issued `Cert`.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_is_issuer(CertorCRL, IssuerCert) ->
           boolean() when CertorCRL :: cert() | #'CertificateList'{},
                          IssuerCert :: cert().
@@ -1055,6 +1265,8 @@ pkix_is_issuer(#'CertificateList'{tbsCertList = TBSCRL},
 			  pubkey_cert_records:transform(TBSCRL#'TBSCertList'.issuer, decode)).
 
 %%--------------------------------------------------------------------
+-doc "Checks if a certificate is self-signed.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_is_self_signed(Cert) -> boolean() when Cert::cert().
 %%
 %% Description: Checks if a Certificate is self signed. 
@@ -1066,6 +1278,8 @@ pkix_is_self_signed(Cert) when is_binary(Cert) ->
     pkix_is_self_signed(OtpCert).
   
 %%--------------------------------------------------------------------
+-doc "Checks if a certificate is a fixed Diffie-Hellman certificate.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_is_fixed_dh_cert(Cert) -> boolean() when Cert::cert().
 %%
 %% Description: Checks if a Certificate is a fixed Diffie-Hellman Cert.
@@ -1077,6 +1291,8 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
     pkix_is_fixed_dh_cert(OtpCert).
 
 %%--------------------------------------------------------------------
+-doc "Returns the x509 certificate issuer id, if it can be determined.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_issuer_id(Cert, IssuedBy) ->
 			    {ok, ID::cert_id()} | {error, Reason}
                                 when Cert::cert(),
@@ -1093,6 +1309,8 @@ pkix_issuer_id(Cert, Signed) when is_binary(Cert) ->
     pkix_issuer_id(OtpCert, Signed).
 
 %%--------------------------------------------------------------------
+-doc "Returns the X509 certificate subject id.".
+-doc(#{since => <<"OTP 23.1">>}).
 -spec pkix_subject_id(Cert) -> ID
               when Cert::cert(),
                    ID::cert_id() .
@@ -1106,6 +1324,8 @@ pkix_subject_id(Cert) when is_binary(Cert) ->
     pkix_subject_id(OtpCert).
 
 %%--------------------------------------------------------------------
+-doc "Returns the issuer of the `CRL`.".
+-doc(#{since => <<"OTP 17.5">>}).
 -spec pkix_crl_issuer(CRL) -> Issuer
                when CRL :: der_encoded() | #'CertificateList'{},
                     Issuer :: issuer_name() .
@@ -1118,6 +1338,8 @@ pkix_crl_issuer(#'CertificateList'{} = CRL) ->
       CRL#'CertificateList'.tbsCertList#'TBSCertList'.issuer, decode).
 
 %%--------------------------------------------------------------------
+-doc "Normalizes an issuer name so that it can be easily compared to another issuer name.".
+-doc(#{since => <<"OTP R14B">>}).
 -spec pkix_normalize_name(Issuer) -> Normalized 
                                          when Issuer :: issuer_name() | der_encoded(),
                                               Normalized :: issuer_name() .
@@ -1133,6 +1355,50 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
+-doc """
+Performs a basic path validation according to [RFC 5280.](http://www.ietf.org/rfc/rfc5280.txt) However, CRL validation is done separately by [pkix_crls_validate/3 ](`pkix_crls_validate/3`)and is to be called from the supplied `verify_fun`. The optional policy tree check is currently not implemented but an empty place holder list is returned instead.
+
+Available options:
+
+* __\{verify_fun, \{fun(), InitialUserState::term()\}__ - The fun must be defined as:
+
+  ```text
+  fun(OtpCert :: #'OTPCertificate'{},
+      Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
+               {extension, #'Extension'{}},
+      InitialUserState :: term()) ->
+  	{valid, UserState :: term()} |
+  	{valid_peer, UserState :: term()} |
+  	{fail, Reason :: term()} |
+  	{unknown, UserState :: term()}.
+  ```
+
+  If the verify callback fun returns `{fail, Reason}`, the verification process is immediately stopped. If the verify callback fun returns `{valid, UserState}`, the verification process is continued. This can be used to accept specific path validation errors, such as `selfsigned_peer`, as well as verifying application-specific extensions. If called with an extension unknown to the user application, the return value `{unknown, UserState}` is to be used.
+
+  > #### Warning {: class=warning }
+  > Note that user defined custom `verify_fun` may alter original path validation error (e.g `selfsigned_peer`). Use with caution.
+
+* __\{max_path_length, integer()\}__ - The `max_path_length` is the maximum number of non-self-issued intermediate certificates that can follow the peer certificate in a valid certification path. So, if `max_path_length` is 0, the PEER must be signed by the trusted ROOT-CA directly, if it is 1, the path can be PEER, CA, ROOT-CA, if it is 2, the path can be PEER, CA, CA, ROOT-CA, and so on.
+
+Explanations of reasons for a bad certificate:
+
+* __cert_expired__ - Certificate is no longer valid as its expiration date has passed.
+
+* __invalid_issuer__ - Certificate issuer name does not match the name of the issuer certificate in the chain.
+
+* __invalid_signature__ - Certificate was not signed by its issuer certificate in the chain.
+
+* __name_not_permitted__ - Invalid Subject Alternative Name extension.
+
+* __missing_basic_constraint__ - Certificate, required to have the basic constraints extension, does not have a basic constraints extension.
+
+* __invalid_key_usage__ - Certificate key is used in an invalid way according to the key-usage extension.
+
+* __\{revoked, crl_reason()\}__ - Certificate has been revoked.
+
+* __atom()__ - Application-specific error reason that is to be checked by the `verify_fun`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec pkix_path_validation(Cert, CertChain, Options) ->
           {ok, {PublicKeyInfo, PolicyTree}} |
           {error, {bad_cert, Reason :: bad_cert_reason()}}
@@ -1188,6 +1454,41 @@ pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
 	    {error, Reason}
     end.
 %--------------------------------------------------------------------
+-doc """
+Performs CRL validation. It is intended to be called from the verify fun of [pkix_path_validation/3 ](`pkix_path_validation/3`).
+
+Available options:
+
+* __\{update_crl, fun()\}__ - The fun has the following type specification:
+
+  ```text
+   fun(#'DistributionPoint'{}, #'CertificateList'{}) ->
+          #'CertificateList'{}
+  ```
+
+  The fun uses the information in the distribution point to access the latest possible version of the CRL. If this fun is not specified, Public Key uses the default implementation:
+
+  ```text
+   fun(_DP, CRL) -> CRL end
+  ```
+
+* __\{issuer_fun, fun()\}__ - The fun has the following type specification:
+
+  ```text
+  fun(#'DistributionPoint'{}, #'CertificateList'{},
+      {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
+  	{ok, #'OTPCertificate'{}, [der_encoded]}
+  ```
+
+  The fun returns the root certificate and certificate chain that has signed the CRL.
+
+  ```text
+   fun(DP, CRL, Issuer, UserState) -> {ok, RootCert, CertChain}
+  ```
+
+* __\{undetermined_details, boolean()\}__ - Defaults to false. When revocation status cannot be determined, and this option is set to true, details of why no CRLs where accepted are included in the return value.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec pkix_crls_validate(OTPcertificate, DPandCRLs, Options) ->
                                 CRLstatus when OTPcertificate :: #'OTPCertificate'{},
                                                DPandCRLs :: [DPandCRL],
@@ -1217,18 +1518,58 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 		       Options, pubkey_crl:init_revokation_state()).
 
 %--------------------------------------------------------------------
+-doc "".
 -type referenceIDs() :: [referenceID()] .
+-doc "".
 -type referenceID() :: {uri_id | dns_id | ip | srv_id | atom() | oid(),  string()}
                      | {ip, inet:ip_address() | string()} .
 
 %% Description: Validates a hostname to RFC 6125
 %%--------------------------------------------------------------------
+-doc(#{equiv => pkix_verify_hostname/3}).
+-doc(#{since => <<"OTP 19.3">>}).
 -spec pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()
                                                       when Cert :: cert(),
                                                            ReferenceIDs :: referenceIDs() .
 pkix_verify_hostname(Cert, ReferenceIDs) ->
     pkix_verify_hostname(Cert, ReferenceIDs, []).
 
+-doc """
+This function checks that the *Presented Identifier* (e.g hostname) in a peer certificate is in agreement with at least one of the *Reference Identifier* that the client expects to be connected to. The function is intended to be added as an extra client check of the peer certificate when performing [public_key:pkix_path_validation/3](`pkix_path_validation/3`)
+
+See [RFC 6125](https://tools.ietf.org/html/rfc6125) for detailed information about hostname verification. The [User's Guide](using_public_key.md#verify_hostname) and [code examples](using_public_key.md#verify_hostname_examples) describes this function more detailed.
+
+The option funs are described here:
+
+* __`match_fun`__  
+  ```text
+  fun(ReferenceId::ReferenceId() | FQDN::string(),
+      PresentedId::{dNSName,string()} | {uniformResourceIdentifier,string() |
+                   {iPAddress,list(byte())} | {OtherId::atom()|oid(),term()}})
+  ```
+
+  This function replaces the default host name matching rules. The fun should return a boolean to tell if the Reference ID and Presented ID matches or not. The match fun can also return a third value, value, the atom `default`, if the default matching rules shall apply. This makes it possible to augment the tests with a special case:
+
+  ```text
+  fun(....) -> true;   % My special case
+     (_, _) -> default % all others falls back to the inherit tests
+  end
+  ```
+
+  See `pkix_verify_hostname_match_fun/1` for a function that takes a protocol name as argument and returns a `fun/2` suitable for this option and [Re-defining the match operation](using_public_key.md#redefining_match_op) in the User's Guide for an example.
+  > #### Note {: class=info }
+  > Reference Id values given as binaries will be converted to strings, and ip references may be given in string format that is "10.0.1.1" or "1234::5678:9012" as well as on the format [inet:ip_address()](`t:inet:ip_address/0`)
+
+* __`fail_callback`__ - If a matching fails, there could be circumstances when the certificate should be accepted anyway. Think for example of a web browser where you choose to accept an outdated certificate. This option enables implementation of such an exception but for hostnames. This `fun/1` is called when no `ReferenceID` matches. The return value of the fun (a `t:boolean()`) decides the outcome. If `true` the the certificate is accepted otherwise it is rejected. See ["Pinning" a Certificate](using_public_key.md#pinning-a-certificate) in the User's Guide.
+
+* __`fqdn_fun`__ - This option augments the host name extraction from URIs and other Reference IDs. It could for example be a very special URI that is not standardised. The fun takes a Reference ID as argument and returns one of:
+  * the hostname
+  * the atom `default`: the default host name extract function will be used
+  * the atom `undefined`: a host name could not be extracted. The pkix_verify_hostname/3 will return `false`.
+
+  For an example, see [Hostname extraction](using_public_key.md#hostname_extraction) in the User's Guide.
+""".
+-doc(#{since => <<"OTP 19.3">>}).
 -spec pkix_verify_hostname(Cert, ReferenceIDs, Options) ->
                                   boolean()
                                       when Cert :: cert(),
@@ -1293,6 +1634,15 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 	    end
     end.
 
+-doc """
+The return value of calling this function is intended to be used in the `match_fun` option in `pkix_verify_hostname/3`.
+
+The returned fun augments the verify hostname matching according to the specific rules for the protocol in the argument.
+
+> #### Note {: class=info }
+> Currently supported https fun will allow wildcard certificate matching as specified by the HTTP standard. Note that for instance LDAP have a different set of wildcard matching rules. If you do not want to allow wildcard certificates (recommended from a security perspective) or otherwise customize the hostname match the default match function used by ssl application will be sufficient.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec pkix_verify_hostname_match_fun(Protocol) ->  Result when
       Protocol :: https,
       Result :: fun().
@@ -1324,6 +1674,12 @@ oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 
 %%--------------------------------------------------------------------
+-doc """
+Generates a short hash of an issuer name. The hash is returned as a string containing eight hexadecimal digits.
+
+The return value of this function is the same as the result of the commands `openssl crl -hash` and `openssl x509 -issuer_hash`, when passed the issuer name of a CRL or a certificate, respectively. This hash is used by the `c_rehash` tool to maintain a directory of symlinks to CRL files, in order to facilitate looking up a CRL by its issuer name.
+""".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec short_name_hash(Name) -> string() when Name :: issuer_name() .
 
 %% Description: Generates OpenSSL-style hash of a name.
@@ -1335,6 +1691,51 @@ short_name_hash({rdnSequence, _Attributes} = Name) ->
 
 
 %%--------------------------------------------------------------------
+-doc """
+Creates certificate configuration(s) consisting of certificate and its private key plus CA certificate bundle, for a client and a server, intended to facilitate automated testing of applications using X509-certificates, often through SSL/TLS. The test data can be used when you have control over both the client and the server in a test scenario.
+
+When this function is called with a map containing client and server chain specifications; it generates both a client and a server certificate chain where the `cacerts` returned for the server contains the root cert the server should trust and the intermediate certificates the server should present to connecting clients. The root cert the server should trust is the one used as root of the client certificate chain. Vice versa applies to the `cacerts` returned for the client. The root cert(s) can either be pre-generated with [pkix_test_root_cert/2 ](`pkix_test_root_cert/2`), or if options are specified; it is (they are) generated.
+
+When this function is called with a list of certificate options; it generates a configuration with just one node certificate where `cacerts` contains the root cert and the intermediate certs that should be presented to a peer. In this case the same root cert must be used for all peers. This is useful in for example an Erlang distributed cluster where any node, towards another node, acts either as a server or as a client depending on who connects to whom. The generated certificate contains a subject altname, which is not needed in a client certificate, but makes the certificate useful for both roles.
+
+Explanation of the options used to customize certificates in the generated chains:
+
+* __\{digest, digest_type()\}__ - Hash algorithm to be used for signing the certificate together with the key option. Defaults to sha that is sha1.
+
+* __\{key, key_params() | private_key()\}__ - Parameters to be used to call public_key:generate_key/1, to generate a key, or an existing key. Defaults to generating an ECDSA key. Note this could fail if Erlang/OTP is compiled with a very old cryptolib.
+
+* __\{validity, \{From::erlang:timestamp(), To::erlang:timestamp()\}\}__ - The validity period of the certificate.
+
+* __\{extensions, \[#'Extension'\{\}]\}__ - Extensions to include in the certificate.
+
+  Default extensions included in CA certificates if not otherwise specified are:
+
+  ```text
+  [#'Extension'{extnID = ?'id-ce-keyUsage',
+                extnValue = [keyCertSign, cRLSign],
+                critical = false},
+  #'Extension'{extnID = ?'id-ce-basicConstraints',
+               extnValue = #'BasicConstraints'{cA = true},
+               critical = true}]
+  ```
+
+  Default extensions included in the server peer cert if not otherwise specified are:
+
+  ```text
+  [#'Extension'{extnID = ?'id-ce-keyUsage',
+                extnValue = [digitalSignature, keyAgreement],
+                critical = false},
+  #'Extension'{extnID = ?'id-ce-subjectAltName',
+               extnValue = [{dNSName, Hostname}],
+               critical = false}]
+  ```
+
+  Hostname is the result of calling net_adm:localhost() in the Erlang node where this function is called.
+
+> #### Note {: class=info }
+> Note that the generated certificates and keys does not provide a formally correct PKIX-trust-chain and they cannot be used to achieve real security. This function is provided for testing purposes only.
+""".
+-doc(#{since => <<"OTP 20.1">>}).
 -spec pkix_test_data(ChainConf) -> TestConf when
       ChainConf :: #{server_chain:= chain_opts(),
                      client_chain:= chain_opts()} |
@@ -1356,6 +1757,8 @@ pkix_test_data(#{} = Chain) ->
     pubkey_cert:gen_test_certs(maps:merge(Default, Chain)).
 
 %%--------------------------------------------------------------------
+-doc "Generates a root certificate that can be used in multiple calls to `pkix_test_data/1` when you want the same root certificate for several generated certificates.".
+-doc(#{since => <<"OTP 20.2">>}).
 -spec pkix_test_root_cert(Name, Options) ->
                                  RootCert
                                      when Name :: string(),
@@ -1432,6 +1835,8 @@ ocsp_responder_id(CertDer) ->
     pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(CertDer, plain)).
 
 %%--------------------------------------------------------------------
+-doc "Returns the trusted CA certificates if any are loaded, otherwise uses `cacerts_load/0` to load them. The function fails if no `cacerts` could be loaded.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec cacerts_get() -> [combined_cert()].
 %%
 %% Description: Get loaded cacerts, if none are loaded it will try to
@@ -1441,6 +1846,8 @@ cacerts_get() ->
     pubkey_os_cacerts:get().
 
 %%--------------------------------------------------------------------
+-doc "Loads the OS supplied trusted CA certificates.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec cacerts_load() -> ok | {error, Reason::term()}.
 %%
 %% Description: (Re)Load OS provided cacerts
@@ -1449,6 +1856,8 @@ cacerts_load() ->
     pubkey_os_cacerts:load().
 
 %%--------------------------------------------------------------------
+-doc "Loads the trusted CA certificates from a file.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec cacerts_load(File::file:filename_all()) -> ok | {error, Reason::term()}.
 %%
 %% Description: (Re)Load cacerts from a file
@@ -1457,6 +1866,8 @@ cacerts_load(File) ->
     pubkey_os_cacerts:load([File]).
 
 %%--------------------------------------------------------------------
+-doc "Clears any loaded CA certificates, returns true if any was loaded.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec cacerts_clear() -> boolean().
 %%
 %% Description: Clears loaded cacerts, returns true if any was loaded.
@@ -2108,3 +2519,4 @@ handle_trace(csp,
              {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
              Stack) ->
     {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.
+

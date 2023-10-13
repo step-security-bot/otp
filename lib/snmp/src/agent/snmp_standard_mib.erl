@@ -18,6 +18,13 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_standard_mib).
+-moduledoc """
+Instrumentation Functions for STANDARD-MIB and SNMPv2-MIB
+
+The module `snmp_standard_mib` implements the instrumentation functions for the STANDARD-MIB and SNMPv2-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %%%-----------------------------------------------------------------
 %%% This module implements the configure- and reinit-functions
@@ -79,6 +86,21 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old rows with StorageType `volatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `standard.conf`.
+""".
 configure(Dir) ->
     case (catch do_configure(Dir)) of
 	ok ->
@@ -118,6 +140,21 @@ do_configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+Inserts all data in the configuration files into the database and destroys all old data, including the rows with StorageType `nonVolatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-STANDARD-MIB and SNMPv2-MIB, after this function has been called, is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `standard.conf`.
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -217,6 +254,7 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
+-doc "Resets all `snmp` counters to 0.".
 reset() ->
     snmpa_mpd:reset().
 
@@ -241,7 +279,14 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+-doc(#{equiv => inc/2}).
 inc(Name) -> inc(Name, 1).
+-doc """
+Name = atom()  
+N = integer()  
+
+Increments a variable in the MIB with `N`, or one if `N` is not specified.
+""".
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
@@ -470,6 +515,11 @@ sysUpTime(print) ->
 sysUpTime(get) ->
     sys_up_time(get).
 
+-doc """
+Time = int()  
+
+Gets the system up time in hundredth of a second.
+""".
 sys_up_time() ->
     snmpa:sys_up_time().
 
@@ -613,3 +663,4 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[STANDARD-MIB] " ++ F, A).
+

@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMirrorDC).
+-moduledoc """
+Functions for wxMirrorDC class
+
+`m:wxMirrorDC` is a simple wrapper class which is always associated with a real `m:wxDC` object and either forwards all of its operations to it without changes (no mirroring takes place) or exchanges `x` and `y` coordinates which makes it possible to reuse the same code to draw a figure and its mirror - i.e. reflection related to the diagonal line x == y.
+
+Since: 2.5.0
+
+This class is derived (and can use functions) from: `m:wxDC`
+
+wxWidgets docs: [wxMirrorDC](https://docs.wxwidgets.org/3.1/classwx_mirror_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/2]).
 
@@ -44,6 +55,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxMirrorDC() :: wx:wx_object().
 -export_type([wxMirrorDC/0]).
 %% @hidden
@@ -51,6 +63,13 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmirrordc.html#wxmirrordcwxmirrordc">external documentation</a>.
+-doc """
+Creates a (maybe) mirrored DC associated with the real `dc`.
+
+Everything drawn on `m:wxMirrorDC` will appear (and maybe mirrored) on `dc`.
+
+`mirror` specifies if we do mirror (if it is true) or not (if it is false).
+""".
 -spec new(Dc, Mirror) -> wxMirrorDC() when
 	Dc::wxDC:wxDC(), Mirror::boolean().
 new(#wx_ref{type=DcT}=Dc,Mirror)
@@ -60,6 +79,7 @@ new(#wx_ref{type=DcT}=Dc,Mirror)
   wxe_util:rec(?wxMirrorDC_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxMirrorDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMirrorDC),
@@ -250,3 +270,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(rb).
+-moduledoc """
+The Report Browser Tool
+
+The Report Browser (RB) tool is used to browse and format error reports written by the error logger handler `m:log_mf_h` in STDLIB.
+""".
 
 -behaviour(gen_server).
 
@@ -44,7 +49,34 @@
 %% Interface functions.
 %% For available options; see print_options().
 %%-----------------------------------------------------------------
+-doc(#{equiv => start/1}).
 start() -> start([]).
+-doc """
+Options = \[opt()]  
+opt() = \{start_log, FileName\} | \{max, MaxNoOfReports\} | \{report_dir, DirString\} | \{type, ReportType\} | \{abort_on_error, Bool\}  
+FileName = string() | atom() | pid()  
+MaxNoOfReports = integer() | all  
+DirString = string()  
+ReportType = type() | \[type()] | all  
+Bool = boolean()  
+
+Function `start/1` starts `rb_server` with the specified options, whereas function `start/0` starts with default options. `rb_server` must be started before reports can be browsed. When `rb_server` is started, the files in the specified directory are scanned. The other functions assume that the server has started.
+
+*Options:*
+
+* __`{start_log, FileName}`__ - Starts logging to file, registered name, or `io_device`. All reports are printed to the specified destination. Default is `standard_io`. Option `{start_log, standard_error}` is not allowed and will be replaced by default `standard_io`.
+
+* __`{max, MaxNoOfReports}`__ - Controls how many reports `rb_server` is to read at startup. This option is useful, as the directory can contain a large amount of reports. If this option is specified, the `MaxNoOfReports` latest reports are read. Default is `all`.
+
+* __`{report_dir, DirString}`__ - Defines the directory where the error log files are located. Default is the directory specified by application environment variable `error_logger_mf_dir`, see [sasl(6)](sasl_app.md).
+
+* __`{type, ReportType}`__ - Controls what kind of reports `rb_server` is to read at startup. `ReportType` is a supported type, `all`, or a list of supported types. Default is `all`.
+
+* __`{abort_on_error, Bool}`__ - Specifies if logging is to be ended if `rb` encounters an unprintable report. (You can get a report with an incorrect form if function `error_logger`, `error_msg`, or `info_msg` has been called with an invalid format string)
+
+  * If `Bool` is `true`, `rb` stops logging (and prints an error message to `stdout`) if it encounters a badly formatted report. If logging to file is enabled, an error message is appended to the log file as well.
+  * If `Bool` is `false` (the default value), `rb` prints an error message to `stdout` for every bad report it encounters, but the logging process is never ended. All printable reports are written. If logging to file is enabled, `rb` prints `* UNPRINTABLE REPORT *` in the log file at the location of an unprintable report.
+""".
 start(Options) ->
     supervisor:start_child(sasl_sup, 
 			   {rb_server, {rb, start_link, [Options]},
@@ -53,40 +85,129 @@ start(Options) ->
 start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
+-doc "Stops `rb_server`.".
 stop() -> 
     supervisor:terminate_child(sasl_sup, rb_server).
 
+-doc(#{equiv => rescan/1}).
 rescan() -> rescan([]).
+-doc """
+Options = \[opt()]  
+
+Rescans the report directory. `Options` is the same as for function `start/1`.
+""".
 rescan(Options) ->
     call({rescan, Options}).
 
+-doc(#{equiv => list/1}).
 list() -> list(all).
+-doc """
+Type = type()  
+type() = error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress  
+
+Lists all reports loaded in `rb_server`. Each report is given a unique number that can be used as a reference to the report in function `show/1`.
+
+If no `Type` is specified, all reports are listed.
+""".
 list(Type) -> call({list, Type}).
 
+-doc(#{equiv => log_list/1}).
+-doc(#{since => <<"OTP R16B02">>}).
 log_list() -> log_list(all).
+-doc """
+Type = type()  
+type() = error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress  
+
+Same as functions `list/0` or `list/1`, but the result is printed to a log file, if set; otherwise to `standard_io`.
+
+If no `Type` is specified, all reports are listed.
+""".
+-doc(#{since => <<"OTP R16B02">>}).
 log_list(Type) -> call({log_list, Type}).
 
+-doc(#{equiv => show/1}).
 show() -> 
     call(show).
 
+-doc """
+Report = integer() | type()  
+
+If argument `type` is specified, all loaded reports of this type are displayed. If an integer argument is specified, the report with this reference number is displayed. If no argument is specified, all reports are displayed.
+""".
 show(Number) when is_integer(Number) -> 
     call({show_number, Number});
 show(Type) when is_atom(Type) ->
     call({show_type, Type}).
 
+-doc """
+RegExp = string() | \{string(), Options\} | re:mp() | \{re:mp(), Options\}  
+
+All reports matching the regular expression `RegExp` are displayed. `RegExp` can be any of the following:
+
+* A string containing the regular expression
+* A tuple with the string and the options for compilation
+* A compiled regular expression
+* A compiled regular expression and the options for running it
+
+For a definition of valid regular expressions and options, see the `m:re` module in STDLIB and in particular function `re:run/3`.
+
+For details about data type `mp()`, see [`re:mp()`](`t:re:mp/0`).
+""".
 grep(RegExp) -> call({grep, RegExp}).
 
+-doc(#{equiv => filter/2}).
+-doc(#{since => <<"OTP R13B04">>}).
 filter(Filters) when is_list(Filters) ->
     call({filter, Filters}).
 
+-doc """
+Filters = \[filter()]  
+filter() = \{Key, Value\} | \{Key, Value, no\} | \{Key, RegExp, re\} | \{Key, RegExp, re, no\}  
+Key = term()  
+Value = term()  
+RegExp = string() | \{string(), Options\} | re:mp() | \{re:mp(), Options\}  
+Dates = \{DateFrom, DateTo\} | \{DateFrom, from\} | \{DateTo, to\}  
+DateFrom = DateTo = calendar:datetime()  
+
+Displays the reports that match the provided filters.
+
+When a filter includes the `no` atom, it excludes the reports that match that filter.
+
+The reports are matched using the `m:proplists` module in STDLIB. The report must be a proplist to be matched against any of the filters.
+
+If the filter has the form `{Key, RegExp, re}`, the report must contain an element with key equal to `Key` and the value must match the regular expression `RegExp`.
+
+If parameter `Dates` is specified, the reports are filtered according to the date when they occurred. If `Dates` has the form `{DateFrom, from}`, reports that occurred after `DateFrom` are displayed.
+
+If `Dates` has the form `{DateTo, to}`, reports that occurred before `DateTo` are displayed.
+
+If two `Dates` are specified, reports that occurred between those dates are returned.
+
+To filter only by dates, specify the empty list as the `Filters` parameter.
+
+For details about parameter `RegExp`, see `rb:grep/1`.
+
+For details about data type `mp()`, see [`re:mp()`](`t:re:mp/0`).
+
+For details about data type `datetime()`, see [`calendar:datetime()`](`t:calendar:datetime/0`).
+""".
+-doc(#{since => <<"OTP R13B04">>}).
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
     call({filter, {Filters, FDates}}).
 
+-doc """
+FileName = string() | atom() | pid()  
+
+Redirects all report output from the RB tool to the specified file, registered name, or `io_device`.
+""".
 start_log(FileName) -> call({start_log, FileName}).
 
+-doc "Closes the log file. The output from the RB tool is directed to `standard_io`.".
 stop_log() -> call(stop_log).
 
+-doc(#{equiv => help/0}).
 h() -> help().
+-doc "Displays online help information.".
 help() ->
     io:format("~nReport Browser Tool - usage~n"),
     io:format("===========================~n"),
@@ -930,3 +1051,4 @@ read_rep_msg(Fd, FilePosition) ->
 	end,
     ok = file:close(Fd),
     Res.
+

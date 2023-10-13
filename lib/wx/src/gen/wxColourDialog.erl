@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxColourDialog).
+-moduledoc """
+Functions for wxColourDialog class
+
+This class represents the colour chooser dialog.
+
+Starting from wxWidgets 3.1.3 and currently in the MSW port only, this dialog generates wxEVT_COLOUR_CHANGED events while it is being shown, i.e. from inside its `wxDialog:showModal/1` method, that notify the program about the change of the currently selected colour and allow it to e.g. preview the effect of selecting this colour. Note that if you react to this event, you should also correctly revert to the previously selected colour if the dialog is cancelled by the user.
+
+Example of using this class with dynamic feedback for the selected colour:
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_colour), [`wx_color()`](`t:wx:wx_colour/0`), `m:wxColourData`, `wxColourDialogEvent` (not implemented in wx), ?wxGetColourFromUser()
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxColourDialog](https://docs.wxwidgets.org/3.1/classwx_colour_dialog.html)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getColourData/1,new/0,new/1,new/2]).
 
@@ -67,6 +82,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxColourDialog() :: wx:wx_object().
 -export_type([wxColourDialog/0]).
 %% @hidden
@@ -77,12 +93,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialogwxcolourdialog">external documentation</a>.
+-doc "".
 -spec new() -> wxColourDialog().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxColourDialog_new_0),
   wxe_util:rec(?wxColourDialog_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxColourDialog() when
 	Parent::wxWindow:wxWindow().
 
@@ -91,6 +109,15 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialogwxcolourdialog">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a parent window, and optionally a pointer to a block of colour data, which will be copied to the colour dialog's colour data.
+
+Custom colours from colour data object will be used in the dialog's colour palette. Invalid entries in custom colours list will be ignored on some platforms(GTK) or replaced with white colour on platforms where custom colours palette has fixed size (MSW).
+
+See: `m:wxColourData`
+""".
 -spec new(Parent, [Option]) -> wxColourDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'data', wxColourData:wxColourData()}.
@@ -104,6 +131,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxColourDialog_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxColourDialog(), Parent::wxWindow:wxWindow().
 
@@ -112,6 +140,7 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialogcreate">external documentation</a>.
+-doc "Same as `new/2`.".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxColourDialog(), Parent::wxWindow:wxWindow(),
 	Option :: {'data', wxColourData:wxColourData()}.
@@ -126,6 +155,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxColourDialog_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialoggetcolourdata">external documentation</a>.
+-doc "Returns the colour data associated with the colour dialog.".
 -spec getColourData(This) -> wxColourData:wxColourData() when
 	This::wxColourDialog().
 getColourData(#wx_ref{type=ThisT}=This) ->
@@ -134,6 +164,7 @@ getColourData(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxColourDialog_GetColourData).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxColourDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourDialog),
@@ -573,3 +604,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

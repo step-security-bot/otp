@@ -19,6 +19,37 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSlider).
+-moduledoc """
+Functions for wxSlider class
+
+A slider is a control with a handle which can be pulled back and forth to change the value.
+
+On Windows, the track bar control is used.
+
+On GTK+, tick marks are only available for version 2.16 and later.
+
+Slider generates the same events as `m:wxScrollBar` but in practice the most convenient way to process `m:wxSlider` updates is by handling the slider-specific `wxEVT_SLIDER` event which carries `m:wxCommandEvent` containing just the latest slider position.
+
+Styles
+
+This class supports the following styles:
+
+The difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED
+
+The EVT_SCROLL_THUMBRELEASE event is only emitted when actually dragging the thumb using the mouse and releasing it (This EVT_SCROLL_THUMBRELEASE event is also followed by an EVT_SCROLL_CHANGED event).
+
+The EVT_SCROLL_CHANGED event also occurs when using the keyboard to change the thumb position, and when clicking next to the thumb (In all these cases the EVT_SCROLL_THUMBRELEASE event does not happen). In short, the EVT_SCROLL_CHANGED event is triggered when scrolling/ moving has finished independently of the way it had started. Please see the page_samples_widgets ("Slider" page) to see the difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED in action.
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `m:wxScrollBar`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSlider](https://docs.wxwidgets.org/3.1/classwx_slider.html)
+
+## Events
+
+Event types emitted from this class: [`scroll_top`](`m:wxScrollEvent`), [`scroll_bottom`](`m:wxScrollEvent`), [`scroll_lineup`](`m:wxScrollEvent`), [`scroll_linedown`](`m:wxScrollEvent`), [`scroll_pageup`](`m:wxScrollEvent`), [`scroll_pagedown`](`m:wxScrollEvent`), [`scroll_thumbtrack`](`m:wxScrollEvent`), [`scroll_thumbrelease`](`m:wxScrollEvent`), [`scroll_changed`](`m:wxScrollEvent`), [`scroll_top`](`m:wxScrollEvent`), [`scroll_bottom`](`m:wxScrollEvent`), [`scroll_lineup`](`m:wxScrollEvent`), [`scroll_linedown`](`m:wxScrollEvent`), [`scroll_pageup`](`m:wxScrollEvent`), [`scroll_pagedown`](`m:wxScrollEvent`), [`scroll_thumbtrack`](`m:wxScrollEvent`), [`scroll_thumbrelease`](`m:wxScrollEvent`), [`scroll_changed`](`m:wxScrollEvent`), [`command_slider_updated`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/6,create/7,destroy/1,getLineSize/1,getMax/1,getMin/1,getPageSize/1,
   getThumbLength/1,getValue/1,new/0,new/5,new/6,setLineSize/2,setPageSize/2,
@@ -64,6 +95,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSlider() :: wx:wx_object().
 -export_type([wxSlider/0]).
 %% @hidden
@@ -73,12 +105,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxSlider().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxSlider_new_0),
   wxe_util:rec(?wxSlider_new_0).
 
 %% @equiv new(Parent,Id,Value,MinValue,MaxValue, [])
+-doc "".
 -spec new(Parent, Id, Value, MinValue, MaxValue) -> wxSlider() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
 
@@ -87,6 +121,11 @@ new(Parent,Id,Value,MinValue,MaxValue)
   new(Parent,Id,Value,MinValue,MaxValue, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
+-doc """
+Constructor, creating and showing a slider.
+
+See: `create/7`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Value, MinValue, MaxValue, [Option]) -> wxSlider() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -106,6 +145,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Value,MinValue,MaxValue, Options)
   wxe_util:rec(?wxSlider_new_6).
 
 %% @equiv create(This,Parent,Id,Value,MinValue,MaxValue, [])
+-doc "".
 -spec create(This, Parent, Id, Value, MinValue, MaxValue) -> boolean() when
 	This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer().
 
@@ -114,6 +154,11 @@ create(This,Parent,Id,Value,MinValue,MaxValue)
   create(This,Parent,Id,Value,MinValue,MaxValue, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidercreate">external documentation</a>.
+-doc """
+Used for two-step slider construction.
+
+See `new/6` for further details.
+""".
 -spec create(This, Parent, Id, Value, MinValue, MaxValue, [Option]) -> boolean() when
 	This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -134,6 +179,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Value,MinValue,M
   wxe_util:rec(?wxSlider_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetlinesize">external documentation</a>.
+-doc """
+Returns the line size.
+
+See: `setLineSize/2`
+""".
 -spec getLineSize(This) -> integer() when
 	This::wxSlider().
 getLineSize(#wx_ref{type=ThisT}=This) ->
@@ -142,6 +192,11 @@ getLineSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetLineSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetmax">external documentation</a>.
+-doc """
+Gets the maximum slider value.
+
+See: `getMin/1`, `setRange/3`
+""".
 -spec getMax(This) -> integer() when
 	This::wxSlider().
 getMax(#wx_ref{type=ThisT}=This) ->
@@ -150,6 +205,11 @@ getMax(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetMax).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetmin">external documentation</a>.
+-doc """
+Gets the minimum slider value.
+
+See: `getMin/1`, `setRange/3`
+""".
 -spec getMin(This) -> integer() when
 	This::wxSlider().
 getMin(#wx_ref{type=ThisT}=This) ->
@@ -158,6 +218,11 @@ getMin(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetMin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetpagesize">external documentation</a>.
+-doc """
+Returns the page size.
+
+See: `setPageSize/2`
+""".
 -spec getPageSize(This) -> integer() when
 	This::wxSlider().
 getPageSize(#wx_ref{type=ThisT}=This) ->
@@ -166,6 +231,13 @@ getPageSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetthumblength">external documentation</a>.
+-doc """
+Returns the thumb length.
+
+Only for:wxmsw
+
+See: `setThumbLength/2`
+""".
 -spec getThumbLength(This) -> integer() when
 	This::wxSlider().
 getThumbLength(#wx_ref{type=ThisT}=This) ->
@@ -174,6 +246,11 @@ getThumbLength(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetThumbLength).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetvalue">external documentation</a>.
+-doc """
+Gets the current slider value.
+
+See: `getMin/1`, `getMax/1`, `setValue/2`
+""".
 -spec getValue(This) -> integer() when
 	This::wxSlider().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -182,6 +259,11 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSlider_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetlinesize">external documentation</a>.
+-doc """
+Sets the line size for the slider.
+
+See: `getLineSize/1`
+""".
 -spec setLineSize(This, LineSize) -> 'ok' when
 	This::wxSlider(), LineSize::integer().
 setLineSize(#wx_ref{type=ThisT}=This,LineSize)
@@ -190,6 +272,11 @@ setLineSize(#wx_ref{type=ThisT}=This,LineSize)
   wxe_util:queue_cmd(This,LineSize,?get_env(),?wxSlider_SetLineSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetpagesize">external documentation</a>.
+-doc """
+Sets the page size for the slider.
+
+See: `getPageSize/1`
+""".
 -spec setPageSize(This, PageSize) -> 'ok' when
 	This::wxSlider(), PageSize::integer().
 setPageSize(#wx_ref{type=ThisT}=This,PageSize)
@@ -198,6 +285,11 @@ setPageSize(#wx_ref{type=ThisT}=This,PageSize)
   wxe_util:queue_cmd(This,PageSize,?get_env(),?wxSlider_SetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetrange">external documentation</a>.
+-doc """
+Sets the minimum and maximum slider values.
+
+See: `getMin/1`, `getMax/1`
+""".
 -spec setRange(This, MinValue, MaxValue) -> 'ok' when
 	This::wxSlider(), MinValue::integer(), MaxValue::integer().
 setRange(#wx_ref{type=ThisT}=This,MinValue,MaxValue)
@@ -206,6 +298,13 @@ setRange(#wx_ref{type=ThisT}=This,MinValue,MaxValue)
   wxe_util:queue_cmd(This,MinValue,MaxValue,?get_env(),?wxSlider_SetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetthumblength">external documentation</a>.
+-doc """
+Sets the slider thumb length.
+
+Only for:wxmsw
+
+See: `getThumbLength/1`
+""".
 -spec setThumbLength(This, Len) -> 'ok' when
 	This::wxSlider(), Len::integer().
 setThumbLength(#wx_ref{type=ThisT}=This,Len)
@@ -214,6 +313,7 @@ setThumbLength(#wx_ref{type=ThisT}=This,Len)
   wxe_util:queue_cmd(This,Len,?get_env(),?wxSlider_SetThumbLength).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetvalue">external documentation</a>.
+-doc "Sets the slider position.".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxSlider(), Value::integer().
 setValue(#wx_ref{type=ThisT}=This,Value)
@@ -222,6 +322,7 @@ setValue(#wx_ref{type=ThisT}=This,Value)
   wxe_util:queue_cmd(This,Value,?get_env(),?wxSlider_SetValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the slider.".
 -spec destroy(This::wxSlider()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSlider),
@@ -596,3 +697,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDisplayChangedEvent).
+-moduledoc """
+Functions for wxDisplayChangedEvent class
+
+A display changed event is sent to top-level windows when the display resolution has changed.
+
+This event is currently emitted under Windows only.
+
+Only for:wxmsw
+
+See: `m:wxDisplay`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxDisplayChangedEvent](https://docs.wxwidgets.org/3.1/classwx_display_changed_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxDisplayChangedEventType`](`t:wxDisplayChangedEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -26,8 +45,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxDisplayChangedEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxDisplayChangedEventType() :: 'display_changed'.
 -export_type([wxDisplayChangedEvent/0, wxDisplayChanged/0, wxDisplayChangedEventType/0]).
 %% @hidden
@@ -53,3 +74,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

@@ -19,6 +19,7 @@
 %%
 %%
 -module(dyntrace).
+-moduledoc "".
 
 %%% @doc The Dynamic tracing interface module
 %%%
@@ -97,8 +98,11 @@
 -compile(no_native).
 -on_load(on_load/0).
 
+-doc "".
 -type probe_arg() :: integer() | iolist().
+-doc "".
 -type int_p_arg() :: integer() | iolist() | undef.
+-doc "".
 -type n_probe_label() :: 0..1023.
 
 %% The *_maybe() types use atom() instead of a stricter 'undef'
@@ -106,9 +110,40 @@
 %% because the driver will allow any atom to be used as a "not
 %% present" indication, we'll allow any atom in the types.
 
+-doc "".
 -type integer_maybe() :: integer() | atom().
+-doc "".
 -type iolist_maybe() :: iolist() | atom().
 
+-doc """
+The Dynamic tracing interface module
+
+This Dynamic tracing interface module, with the corresponding NIFs, should work on any operating system platform where user-space DTrace/Systemtap (and in the future LttNG UST) probes are supported.
+
+It is recommended that you use the `dyntrace:p()` function to add Dynamic trace probes to your Erlang code. This function can accept up to four integer arguments and four string arguments; the integer argument(s) must come before any string argument.
+
+If using DTrace, enable the dynamic trace probe using the 'dtrace' command, for example:
+
+dtrace -s /your/path/to/lib/runtime_tools-1.8.7/examples/user-probe.d
+
+Then, back at the Erlang shell, try this example:
+
+```text
+   1> dyntrace:put_tag("GGOOOAAALL!!!!!").
+   true
+  
+   2> dyntrace:p(7, 8, 9, "one", "four").
+   true
+```
+
+Output from the example D script `user-probe.d` looks like:
+
+```text
+   <0.34.0> GGOOOAAALL!!!!! 7 8 9 0 'one' 'four' '' ''
+```
+
+If the expected type of variable is not present, e.g. integer when integer() is expected, or an I/O list when iolist() is expected, then the driver will ignore the user's input and use a default value of 0 or NULL, respectively.
+""".
 on_load() ->
     PrivDir = code:priv_dir(runtime_tools),
     LibName = "dyntrace",
@@ -150,16 +185,19 @@ on_load() ->
 %%% NIF placeholders
 %%%
 
+-doc "".
 -spec available() -> true | false.
 
 available() ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 -spec user_trace_s1(iolist()) -> true | false | error | badarg.
 
 user_trace_s1(_Message) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 -spec user_trace_i4s4(binary() | undefined,
                       integer_maybe(), integer_maybe(),
                           integer_maybe(), integer_maybe(),
@@ -170,6 +208,7 @@ user_trace_s1(_Message) ->
 user_trace_i4s4(_, _, _, _, _, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 -spec user_trace_n(n_probe_label(), binary() | undefined,
                    integer_maybe(), integer_maybe(),
                    integer_maybe(), integer_maybe(),
@@ -180,57 +219,75 @@ user_trace_i4s4(_, _, _, _, _, _, _, _, _) ->
 user_trace_n(_, _, _, _, _, _, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_ports(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_running_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_running_ports(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_call(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_send(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_receive(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 trace_garbage_collection(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_procs(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_ports(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_running_procs(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_running_ports(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_call(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_send(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_receive(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
+-doc "".
 enabled_garbage_collection(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
@@ -238,11 +295,13 @@ enabled_garbage_collection(_TraceTag, _TracerState, _Tracee) ->
 %%% Erlang support functions
 %%%
 
+-doc "".
 -spec p() -> true | false | error | badarg.
 
 p() ->
     user_trace_int(undef, undef, undef, undef, undef, undef, undef, undef).
 
+-doc "".
 -spec p(probe_arg()) -> true | false | error | badarg.
 
 p(I1) when is_integer(I1) ->
@@ -250,6 +309,7 @@ p(I1) when is_integer(I1) ->
 p(S1) ->
     user_trace_int(undef, undef, undef, undef, S1, undef, undef, undef).
 
+-doc "".
 -spec p(probe_arg(), probe_arg()) -> true | false | error | badarg.
 
 p(I1, I2) when is_integer(I1), is_integer(I2) ->
@@ -259,6 +319,7 @@ p(I1, S1) when is_integer(I1) ->
 p(S1, S2) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, undef, undef).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg()) -> true | false | error | badarg.
 
 p(I1, I2, I3) when is_integer(I1), is_integer(I2), is_integer(I3) ->
@@ -270,6 +331,7 @@ p(I1, S1, S2) when is_integer(I1) ->
 p(S1, S2, S3) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, S3, undef).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
 
@@ -284,6 +346,7 @@ p(I1, S1, S2, S3) when is_integer(I1) ->
 p(S1, S2, S3, S4) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg()) ->
       true | false | error | badarg.
@@ -297,6 +360,7 @@ p(I1, I2, S1, S2, S3) when is_integer(I1), is_integer(I2) ->
 p(I1, S1, S2, S3, S4) when is_integer(I1) ->
     user_trace_int(I1, undef, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -308,6 +372,7 @@ p(I1, I2, I3, S1, S2, S3) when is_integer(I1), is_integer(I2), is_integer(I3) ->
 p(I1, I2, S1, S2, S3, S4) when is_integer(I1), is_integer(I2) ->
     user_trace_int(I1, I2, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -317,6 +382,7 @@ p(I1, I2, I3, I4, S1, S2, S3) when is_integer(I1), is_integer(I2), is_integer(I3
 p(I1, I2, I3, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3) ->
     user_trace_int(I1, I2, I3, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -324,6 +390,7 @@ p(I1, I2, I3, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3
 p(I1, I2, I3, I4, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3), is_integer(I4) ->
     user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4).
 
+-doc "".
 -spec user_trace_int(int_p_arg(), int_p_arg(), int_p_arg(), int_p_arg(),
                      int_p_arg(), int_p_arg(), int_p_arg(), int_p_arg()) ->
       true | false | error | badarg.
@@ -337,11 +404,13 @@ user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4) ->
             false
     end.
 
+-doc "".
 -spec pn(n_probe_label()) -> true | false | error | badarg.
 
 pn(ProbeLabel) ->
     user_trace_n_int(ProbeLabel, undef, undef, undef, undef, undef, undef, undef, undef).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg()) -> true | false | error | badarg.
 
 pn(ProbeLabel, I1) when is_integer(I1) ->
@@ -349,6 +418,7 @@ pn(ProbeLabel, I1) when is_integer(I1) ->
 pn(ProbeLabel, S1) ->
     user_trace_n_int(ProbeLabel, undef, undef, undef, undef, S1, undef, undef, undef).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg()) -> true | false | error | badarg.
 
 pn(ProbeLabel, I1, I2) when is_integer(I1), is_integer(I2) ->
@@ -358,6 +428,7 @@ pn(ProbeLabel, I1, S1) when is_integer(I1) ->
 pn(ProbeLabel, S1, S2) ->
     user_trace_n_int(ProbeLabel, undef, undef, undef, undef, S1, S2, undef, undef).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg()) -> true | false | error | badarg.
 
 pn(ProbeLabel, I1, I2, I3) when is_integer(I1), is_integer(I2), is_integer(I3) ->
@@ -369,6 +440,7 @@ pn(ProbeLabel, I1, S1, S2) when is_integer(I1) ->
 pn(ProbeLabel, S1, S2, S3) ->
     user_trace_n_int(ProbeLabel, undef, undef, undef, undef, S1, S2, S3, undef).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
 
@@ -383,6 +455,7 @@ pn(ProbeLabel, I1, S1, S2, S3) when is_integer(I1) ->
 pn(ProbeLabel, S1, S2, S3, S4) ->
     user_trace_n_int(ProbeLabel, undef, undef, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg()) ->
       true | false | error | badarg.
@@ -396,6 +469,7 @@ pn(ProbeLabel, I1, I2, S1, S2, S3) when is_integer(I1), is_integer(I2) ->
 pn(ProbeLabel, I1, S1, S2, S3, S4) when is_integer(I1) ->
     user_trace_n_int(ProbeLabel, I1, undef, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -407,6 +481,7 @@ pn(ProbeLabel, I1, I2, I3, S1, S2, S3) when is_integer(I1), is_integer(I2), is_i
 pn(ProbeLabel, I1, I2, S1, S2, S3, S4) when is_integer(I1), is_integer(I2) ->
     user_trace_n_int(ProbeLabel, I1, I2, undef, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -416,6 +491,7 @@ pn(ProbeLabel, I1, I2, I3, I4, S1, S2, S3) when is_integer(I1), is_integer(I2), 
 pn(ProbeLabel, I1, I2, I3, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3) ->
     user_trace_n_int(ProbeLabel, I1, I2, I3, undef, S1, S2, S3, S4).
 
+-doc "".
 -spec pn(n_probe_label(), probe_arg(), probe_arg(), probe_arg(), probe_arg(),
         probe_arg(), probe_arg(), probe_arg(), probe_arg()) ->
       true | false | error | badarg.
@@ -423,6 +499,7 @@ pn(ProbeLabel, I1, I2, I3, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), 
 pn(ProbeLabel, I1, I2, I3, I4, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3), is_integer(I4) ->
     user_trace_n_int(ProbeLabel, I1, I2, I3, I4, S1, S2, S3, S4).
 
+-doc "".
 -spec user_trace_n_int(n_probe_label(),
                        int_p_arg(), int_p_arg(), int_p_arg(), int_p_arg(),
                        int_p_arg(), int_p_arg(), int_p_arg(), int_p_arg()) ->
@@ -437,25 +514,31 @@ user_trace_n_int(ProbeLabel, I1, I2, I3, I4, S1, S2, S3, S4) ->
             false
     end.
 
+-doc "".
 -spec put_tag(undefined | iodata()) -> binary() | undefined.
 put_tag(Data) ->
     erlang:dt_put_tag(unicode:characters_to_binary(Data)).
 
+-doc "".
 -spec get_tag() -> binary() | undefined.
 get_tag() ->
     erlang:dt_get_tag().
 
+-doc "".
 -spec get_tag_data() -> binary() | undefined.
 %% Gets tag if set, otherwise the spread tag data from last incoming message
 get_tag_data() ->
     erlang:dt_get_tag_data().
 
+-doc "".
 -spec spread_tag(boolean()) -> true | {non_neg_integer(), binary() | []}.
 %% Makes the tag behave as a sequential trace token, will spread with 
 %% messages to be picked up by someone using get_tag_data 
 spread_tag(B) ->			   
     erlang:dt_spread_tag(B).
 
+-doc "".
 -spec restore_tag(true | {non_neg_integer(), binary() | []}) -> true.
 restore_tag(T) ->
     erlang:dt_restore_tag(T).
+

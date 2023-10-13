@@ -63,6 +63,7 @@
 %%   1. It is the set of warnings that will be collected.
 %%   2. It is also the set of tags for warnings that will be returned.
 %%
+-doc "".
 -type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
                        | ?WARN_CALLGRAPH | ?WARN_CONTRACT_EXTRA_RETURN
                        | ?WARN_CONTRACT_MISSING_RETURN | ?WARN_CONTRACT_NOT_EQUAL
@@ -80,8 +81,10 @@
 %% This is the representation of each warning as they will be returned
 %% to dialyzer's callers
 %%
+-doc "".
 -type file_location() :: {File :: file:filename(),
                           Location :: erl_anno:location()}.
+-doc "".
 -type dial_warning() :: {Tag :: dial_warn_tag(),
                          Id :: file_location(),
                          Msg :: {atom(), [term()]}}.
@@ -114,6 +117,7 @@
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
+-doc "See section [Warning options](`m:dialyzer#warning_options`) for a description of the warning options.".
 -type warn_option()   :: 'error_handling'
                        | 'no_behaviours'
                        | 'no_contracts'
@@ -137,6 +141,7 @@
                        | 'no_extra_return'
                        | 'missing_return'
                        | 'no_missing_return'.
+-doc "Option `from` defaults to `byte_code`. Options `init_plt` and `plts` change the default.".
 -type dial_option()   :: {'files', [FileName :: file:filename()]}
                        | {'files_rec', [DirName :: file:filename()]}
                        | {'defines', [{Macro :: atom(), Value :: term()}]}
@@ -164,7 +169,9 @@
                        | {'warning_files_rec', [DirName :: file:filename()]}
                        | {'error_location', error_location()}.
 -type dial_options()  :: [dial_option()].
+-doc "".
 -type filename_opt()  :: 'basename' | 'fullpath'.
+-doc "If the value of this option is `line`, an integer `Line` is used as `Location` in messages. If the value is `column`, a pair `{Line, Column}` is used as `Location`. The default is `column`.".
 -type error_location():: 'column' | 'line'.
 -type format()        :: 'formatted' | 'raw'.
 -type iopt()          :: boolean().
@@ -258,3 +265,4 @@
 	    Var
 	end).
 -define(timing(Server, Msg, Expr), ?timing(Server, Msg, _T, Expr)).
+

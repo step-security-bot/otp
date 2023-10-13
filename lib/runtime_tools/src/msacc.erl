@@ -26,35 +26,51 @@
 %%
 
 -module(msacc).
+-moduledoc """
+Microstate accounting utility function
+
+This module provides a user interface for analysing erlang:statistics(microstate_accounting) data.
+""".
 -export([available/0, start/0, start/1, stop/0, reset/0, to_file/1,
          from_file/1, stats/0, stats/2, print/0, print/1, print/2,
          print/3]).
 
+-doc "".
 -type msacc_data() :: [msacc_data_thread()].
 
+-doc "".
 -type msacc_data_thread() :: #{ '$type' := msacc_data,
                                 type := msacc_type(), id := msacc_id(),
                                 counters := msacc_data_counters() }.
+-doc "".
 -type msacc_data_counters() :: #{ msacc_state() => non_neg_integer()}.
 
+-doc "".
 -type msacc_stats() :: [msacc_stats_thread()].
+-doc "".
 -type msacc_stats_thread() :: #{ '$type' := msacc_stats,
                                  type := msacc_type(), id := msacc_id(),
                                  system := float(),
                                  counters := msacc_stats_counters()}.
+-doc "".
 -type msacc_stats_counters() :: #{ msacc_state() => #{ thread := float(),
                                                        system := float()}}.
 
 
+-doc "".
 -type msacc_type() :: aux | async | dirty_cpu_scheduler
                     | dirty_io_scheduler | poll | scheduler.
+-doc "".
 -type msacc_id() :: non_neg_integer().
+-doc "".
 -type msacc_state() :: alloc | aux | bif | busy_wait | check_io |
                        emulator | ets | gc | gc_fullsweep | nif |
                        other | port | send | sleep | timers.
 
+-doc "".
 -type msacc_print_options() :: #{ system => boolean() }.
 
+-doc "".
 -spec available() -> boolean().
 available() ->
     try
@@ -64,18 +80,22 @@ available() ->
             false
     end.
 
+-doc "".
 -spec start() -> boolean().
 start() ->
     erlang:system_flag(microstate_accounting, true).
 
+-doc "".
 -spec stop() -> boolean().
 stop() ->
     erlang:system_flag(microstate_accounting, false).
 
+-doc "".
 -spec reset() -> boolean().
 reset() ->
     erlang:system_flag(microstate_accounting, reset).
 
+-doc "".
 -spec start(Time) -> true when
       Time :: timeout().
 start(Tmo) ->
@@ -83,32 +103,38 @@ start(Tmo) ->
     timer:sleep(Tmo),
     stop().
 
+-doc "".
 -spec to_file(Filename) -> ok | {error, file:posix()} when
       Filename :: file:name_all().
 to_file(Filename) ->
     file:write_file(Filename, io_lib:format("~p.~n",[stats()])).
 
+-doc "".
 -spec from_file(Filename) -> msacc_data() when
       Filename :: file:name_all().
 from_file(Filename) ->
     {ok, [Stats]} = file:consult(Filename),
     Stats.
 
+-doc "".
 -spec print() -> ok.
 print() ->
     print(stats()).
 
+-doc "".
 -spec print(DataOrStats) -> ok when
       DataOrStats :: msacc_data() | msacc_stats().
 print(Stats) ->
     print(Stats, #{}).
 
+-doc "".
 -spec print(DataOrStats, Options) -> ok when
       DataOrStats :: msacc_data() | msacc_stats(),
       Options :: msacc_print_options().
 print(Stats, Options) ->
     print(group_leader(), Stats, Options).
 
+-doc "".
 -spec print(FileOrDevice, DataOrStats, Options) -> ok when
       FileOrDevice :: file:filename() | io:device(),
       DataOrStats :: msacc_data() | msacc_stats(),
@@ -121,6 +147,7 @@ print(Filename, Stats, Options) when is_list(Filename) ->
 print(Device, Stats, Options) ->
     DefaultOpts = #{ system => false },
     print_int(Device, Stats, maps:merge(DefaultOpts, Options)).
+-doc "".
 print_int(Device, [#{ '$type' := msacc_data, id := _Id }|_] = Stats, Options) ->
     TypeStats = stats(type, Stats),
     io:format(Device, "~s", [print_stats_overview(Stats, Options)]),
@@ -143,6 +170,7 @@ print_int(Device, [#{ '$type' := msacc_stats }|_] = Stats, Options) ->
     io:format(Device, "~s", [print_stats_type(Stats, Options)]).
 
 
+-doc "".
 -spec stats() -> msacc_data().
 stats() ->
     Fun = fun F(K,{PerfCount,StateCount}) ->
@@ -158,6 +186,7 @@ stats() ->
                 end, erlang:statistics(microstate_accounting)),
     statssort(UsStats).
 
+-doc "".
 -spec stats(Analysis, Stats) -> non_neg_integer() when
       Analysis :: system_realtime | system_runtime,
       Stats :: msacc_data();
@@ -185,6 +214,7 @@ stats(runtime, Stats) ->
 stats(type, Stats) ->
     statssort(merge_threads(Stats, [])).
 
+-doc "".
 print_stats_overview(Stats, _Options) ->
     RunTime = stats(system_runtime, Stats),
     RealTime = stats(system_realtime, Stats) div length(Stats),
@@ -202,15 +232,18 @@ print_stats_overview(Stats, _Options) ->
                    [NumSize, AvgSchedRunTime]),
      io_lib:format("~n",[])].
 
+-doc "".
 print_stats_threads(Stats, Options) ->
     [io_lib:format("~nStats per thread:~n", []),
      [print_thread_info(Thread, Options) || Thread <- Stats]].
 
+-doc "".
 print_stats_type(Stats, Options) ->
     [io_lib:format("~nStats per type:~n", []),
      [print_thread_info(Thread, Options) || Thread <- Stats]].
 
 
+-doc "".
 print_stats_header([#{ counters := Cnt }|_], #{ system := PrintSys }) ->
     [io_lib:format("~14s", ["Thread"]),
      map(fun(Counter, _) when PrintSys->
@@ -220,6 +253,7 @@ print_stats_header([#{ counters := Cnt }|_], #{ system := PrintSys }) ->
          end, Cnt),
      io_lib:format("~n",[])].
 
+-doc "".
 print_thread_info(#{ '$type' := msacc_stats,
                      counters := Cnt } = Thread, #{ system := PrintSys }) ->
     [case maps:find(id, Thread) of
@@ -235,6 +269,7 @@ print_thread_info(#{ '$type' := msacc_stats,
              end, Cnt),
     io_lib:format("~n",[])].
 
+-doc "".
 get_total(Cnt, Base) ->
     maps:fold(fun(_, {Val,_}, Time) ->
                       %% Have to handle ERTS_MSACC_STATE_COUNTERS
@@ -242,12 +277,14 @@ get_total(Cnt, Base) ->
                  (_, Val, Time) -> Time + Val
               end, Base, Cnt).
 
+-doc "".
 get_thread_perc(#{ '$type' := msacc_data, counters := Cnt } = Thread,
                 SystemTime) ->
     ThreadTime = get_total(Cnt, 0),
     Thread#{ '$type' := msacc_stats,
              system => percentage(ThreadTime,SystemTime),
              counters => get_thread_perc(Cnt, ThreadTime, SystemTime)}.
+-doc "".
 get_thread_perc(Cnt, ThreadTime, SystemTime) ->
     maps:map(fun F(Key, {Val, C}) ->
                     M = F(Key, Val),
@@ -259,6 +296,7 @@ get_thread_perc(Cnt, ThreadTime, SystemTime) ->
 
 %% This code is a little bit messy as it has to be able to deal with
 %% both [msacc_data()] and [msacc_stats()].
+-doc "".
 merge_threads([#{ '$type' := msacc_stats,
                   type := Type,
                   counters := Cnt } = M0|R], Acc) ->
@@ -299,6 +337,7 @@ merge_threads([#{ '$type' := msacc_data,
 merge_threads([], Acc) ->
     Acc.
 
+-doc "".
 add_counters(M1, M2) ->
     maps:map(
       fun(Key, #{ thread := Thr1, system := Sys1, cnt := Cnt1}) ->
@@ -315,6 +354,7 @@ add_counters(M1, M2) ->
          (Key, V1) -> maps:get(Key, M2) + V1
       end, M1).
 
+-doc "".
 percentage(Divident, Divisor) ->
     if Divisor == 0 andalso Divident /= 0 ->
             100.0;
@@ -324,6 +364,7 @@ percentage(Divident, Divisor) ->
             Divident / Divisor * 100
     end.
 
+-doc "".
 keyfind(Key, Value, [H|T]) ->
     case maps:find(Key, H) of
         {ok, Value} ->
@@ -334,6 +375,7 @@ keyfind(Key, Value, [H|T]) ->
 keyfind(_, _, []) ->
     false.
 
+-doc "".
 keyreplace(Key, Value, NewMap, [H|T]) ->
     case maps:find(Key, H) of
         {ok, Value} ->
@@ -344,6 +386,7 @@ keyreplace(Key, Value, NewMap, [H|T]) ->
 keyreplace(_, _, _, []) ->
     [].
 
+-doc "".
 statssort(Stats) ->
     lists:sort(fun(#{ type := Type1, id := Id1},
                    #{ type := Type2, id := Id2}) ->
@@ -352,5 +395,7 @@ statssort(Stats) ->
                        Type1 < Type2
                end, Stats).
 
+-doc "".
 map(Fun,Map) ->
     [ Fun(K,V) || {K,V} <- maps:to_list(Map) ].
+

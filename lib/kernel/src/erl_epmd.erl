@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(erl_epmd).
+-moduledoc """
+Erlang interface towards epmd
+
+This module communicates with the EPMD daemon, see [epmd](`p:erts:epmd_cmd.md`). To implement your own epmd module please see [ERTS User's Guide: How to Implement an Alternative Node Discovery for Erlang Distribution](`p:erts:alt_disco.md`)
+""".
 
 -behaviour(gen_server).
 
@@ -68,6 +73,8 @@
 start() ->
     gen_server:start({local, erl_epmd}, ?MODULE, [], []).
 
+-doc "This function is invoked as this module is added as a child of the `erl_distribution` supervisor.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec start_link() -> {ok, pid()} | ignore | {error,term()}.
 start_link() ->
     gen_server:start_link({local, erl_epmd}, ?MODULE, [], []).
@@ -81,6 +88,8 @@ stop() ->
 %% return {port, P, Version} | noport
 %%
 
+-doc(#{equiv => port_please/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec port_please(Name, Host) -> {port, Port, Version} | noport | closed | {error, term()} when
 	  Name :: atom() | string(),
 	  Host :: atom() | string() | inet:ip_address(),
@@ -90,6 +99,8 @@ stop() ->
 port_please(Node, Host) ->
   port_please(Node, Host, infinity).
 
+-doc "Requests the distribution port for the given node of an EPMD instance. Together with the port it returns a distribution protocol version which has been 5 since Erlang/OTP R6.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec port_please(Name, Host, Timeout) -> {port, Port, Version} | noport | closed | {error, term()} when
 	  Name :: atom() | string(),
 	  Host :: atom() | string() | inet:ip_address(),
@@ -131,6 +142,8 @@ getepmdbyname(HostName, Timeout) when is_list(HostName) ->
 getepmdbyname(HostName, _Timeout) ->
     {ok, HostName}.
 
+-doc "Called by the distribution module to get which port the local node should listen to when accepting new distribution requests.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec listen_port_please(Name, Host) -> {ok, Port} when
       Name :: atom() | string(),
       Host :: atom() | string() | inet:ip_address(),
@@ -155,6 +168,17 @@ names() ->
     {ok, H} = inet:gethostname(),
     names(H).
 
+-doc """
+Called by [`net_adm:names/0`](`m:net_adm`). `Host` defaults to the localhost. Returns the names and associated port numbers of the Erlang nodes that `epmd` registered at the specified host. Returns `{error, address}` if `epmd` is not operational.
+
+*Example:*
+
+```text
+(arne@dunn)1> erl_epmd:names(localhost).
+{ok,[{"arne",40262}]}
+```
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec names(Host) -> {ok, [{Name, Port}]} | {error, Reason} when
       Host :: atom() | string() | inet:ip_address(),
       Name :: string(),
@@ -169,6 +193,8 @@ names(HostName) ->
             Else
     end.
 
+-doc(#{equiv => register_node/3}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec register_node(Name, Port) -> Result when
 	  Name :: string(),
 	  Port :: non_neg_integer(),
@@ -178,6 +204,12 @@ names(HostName) ->
 register_node(Name, PortNo) ->
 	register_node(Name, PortNo, inet).
 
+-doc """
+Registers the node with `epmd` and tells epmd what port will be used for the current node. It returns a creation number. This number is incremented on each register to help differentiate a new node instance connecting to epmd with the same name.
+
+After the node has successfully registered with epmd it will automatically attempt reconnect to the daemon if the connection is broken.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec register_node(Name, Port, Driver) -> Result when
 	  Name :: string(),
 	  Port :: non_neg_integer(),
@@ -192,6 +224,12 @@ register_node(Name, PortNo, inet6_tcp) ->
 register_node(Name, PortNo, Family) ->
     gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
 
+-doc """
+Called by the distribution module to resolves the `Host` to an IP address of a remote node.
+
+As an optimization this function may also return the port and version of the remote node. If port and version are returned `port_please/3` will not be called.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec address_please(Name, Host, AddressFamily) -> Success | {error, term()} when
 	  Name :: string(),
 	  Host :: string() | inet:ip_address(),
@@ -627,3 +665,4 @@ parse_line(_) -> error.
 parse_name([$\s | Buf], Name) -> {reverse(Name), Buf};
 parse_name([C | Buf], Name) -> parse_name(Buf, [C|Name]);
 parse_name([], _Name) -> error.
+

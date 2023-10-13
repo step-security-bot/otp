@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxScreenDC).
+-moduledoc """
+Functions for wxScreenDC class
+
+A `m:wxScreenDC` can be used to paint on the screen. This should normally be constructed as a temporary stack object; don't store a `m:wxScreenDC` object.
+
+When using multiple monitors, `m:wxScreenDC` corresponds to the entire virtual screen composed of all of them. Notice that coordinates on `m:wxScreenDC` can be negative in this case, see `wxDisplay:getGeometry/1` for more.
+
+See: `m:wxDC`, `m:wxMemoryDC`, `m:wxPaintDC`, `m:wxClientDC`, `m:wxWindowDC`
+
+This class is derived (and can use functions) from: `m:wxDC`
+
+wxWidgets docs: [wxScreenDC](https://docs.wxwidgets.org/3.1/classwx_screen_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
 
@@ -44,6 +57,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxScreenDC() :: wx:wx_object().
 -export_type([wxScreenDC/0]).
 %% @hidden
@@ -51,12 +65,14 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscreendc.html#wxscreendcwxscreendc">external documentation</a>.
+-doc "Constructor.".
 -spec new() -> wxScreenDC().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxScreenDC_new),
   wxe_util:rec(?wxScreenDC_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxScreenDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScreenDC),
@@ -247,3 +263,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

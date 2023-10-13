@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFilePickerCtrl).
+-moduledoc """
+Functions for wxFilePickerCtrl class
+
+This control allows the user to select a file. The generic implementation is a button which brings up a `m:wxFileDialog` when clicked. Native implementation may differ but this is usually a (small) widget which give access to the file-chooser dialog. It is only available if `wxUSE_FILEPICKERCTRL` is set to 1 (the default).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxFileDialog`, `m:wxFileDirPickerEvent`
+
+This class is derived (and can use functions) from: `m:wxPickerBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFilePickerCtrl](https://docs.wxwidgets.org/3.1/classwx_file_picker_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_filepicker_changed`](`m:wxFileDirPickerEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getPath/1,new/0,new/2,new/3,setPath/2]).
 
@@ -65,6 +84,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFilePickerCtrl() :: wx:wx_object().
 -export_type([wxFilePickerCtrl/0]).
 %% @hidden
@@ -75,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
+-doc "".
 -spec new() -> wxFilePickerCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFilePickerCtrl_new_0),
   wxe_util:rec(?wxFilePickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxFilePickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -89,6 +111,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
+-doc "Initializes the object and calls `create/4` with all the parameters.".
 -spec new(Parent, Id, [Option]) -> wxFilePickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'path', unicode:chardata()}
@@ -114,6 +137,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxFilePickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -122,6 +146,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlcreate">external documentation</a>.
+-doc """
+Creates this widget with the given parameters.
+
+Return: true if the control was successfully created or false if creation failed.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'path', unicode:chardata()}
@@ -148,6 +177,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxFilePickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlgetpath">external documentation</a>.
+-doc "Returns the absolute path of the currently selected file.".
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFilePickerCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
@@ -156,6 +186,11 @@ getPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFilePickerCtrl_GetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlsetpath">external documentation</a>.
+-doc """
+Sets the absolute path of the currently selected file.
+
+If the control uses `wxFLP_FILE_MUST_EXIST` and does not use `wxFLP_USE_TEXTCTRL` style, the `filename` must be a name of an existing file and will be simply ignored by the native wxGTK implementation if this is not the case (the generic implementation used under the other platforms accepts even invalid file names currently, but this is subject to change in the future, don't rely on being able to use non-existent paths with it).
+""".
 -spec setPath(This, Filename) -> 'ok' when
 	This::wxFilePickerCtrl(), Filename::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Filename)
@@ -165,6 +200,7 @@ setPath(#wx_ref{type=ThisT}=This,Filename)
   wxe_util:queue_cmd(This,Filename_UC,?get_env(),?wxFilePickerCtrl_SetPath).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxFilePickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFilePickerCtrl),
@@ -568,3 +604,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

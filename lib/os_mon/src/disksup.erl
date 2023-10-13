@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(disksup).
+-moduledoc "".
 -behaviour(gen_server).
 
 %% API
@@ -34,6 +35,7 @@
 %% Other exports
 -export([format_status/2, parse_df/2]).
 
+-doc "".
 -type time() :: pos_integer() | {TimeUnit :: erlang:time_unit(), Time :: pos_integer()}.
 
 -record(state, {threshold, timeout, os, diskdata = [],port}).
@@ -42,21 +44,27 @@
 %% API
 %%----------------------------------------------------------------------
 
+-doc "".
 start_link() ->
     gen_server:start_link({local, disksup}, disksup, [], []).
 
+-doc "".
 get_disk_data() ->
     os_mon:call(disksup, get_disk_data, infinity).
 
+-doc "".
 get_disk_info() ->
     os_mon:call(disksup, get_disk_info, infinity).
 
+-doc "".
 get_disk_info(Path) ->
     os_mon:call(disksup, {get_disk_info, Path}, infinity).
 
+-doc "".
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
 
+-doc "".
 -spec set_check_interval(time()) -> ok.
 set_check_interval(Value) ->
     case param_type(disk_space_check_interval, Value) of
@@ -66,8 +74,10 @@ set_check_interval(Value) ->
             erlang:error(badarg)
     end.
 
+-doc "".
 get_almost_full_threshold() ->
     os_mon:call(disksup, get_almost_full_threshold, infinity).
+-doc "".
 set_almost_full_threshold(Float) ->
     case param_type(disk_almost_full_threshold, Float) of
 	true ->
@@ -76,6 +86,7 @@ set_almost_full_threshold(Float) ->
 	    erlang:error(badarg)
     end.
 
+-doc "".
 dummy_reply(get_disk_data) ->
     [{"none", 0, 0}];
 dummy_reply(get_disk_info) ->
@@ -96,6 +107,7 @@ dummy_reply(get_almost_full_threshold) ->
 dummy_reply({set_almost_full_threshold, _}) ->
     ok.
 
+-doc "".
 param_type(disk_space_check_interval, {TimeUnit, Time}) ->
     try erlang:convert_time_unit(Time, TimeUnit, millisecond) of
         MsTime when MsTime > 0 -> true;
@@ -111,6 +123,7 @@ param_type(disk_almost_full_threshold, Val) when is_number(Val),
 param_type(disksup_posix_only, Val) when Val==true; Val==false -> true;
 param_type(_Param, _Val) -> false.
 
+-doc "".
 param_default(disk_space_check_interval) -> 30;
 param_default(disk_almost_full_threshold) -> 0.80;
 param_default(disksup_posix_only) -> false.
@@ -119,6 +132,7 @@ param_default(disksup_posix_only) -> false.
 %% gen_server callbacks
 %%----------------------------------------------------------------------
 
+-doc "".
 init([]) ->  
     process_flag(trap_exit, true),
     process_flag(priority, low),
@@ -160,6 +174,7 @@ init([]) ->
 		threshold=round(Threshold*100),
 		timeout=Timeout}}.
 
+-doc "".
 handle_call(get_disk_data, _From, State) ->
     {reply, State#state.diskdata, State};
 
@@ -187,9 +202,11 @@ handle_call({set_almost_full_threshold, Float}, _From, State) ->
 handle_call({set_threshold, Threshold}, _From, State) -> % test only
     {reply, ok, State#state{threshold=Threshold}}.
 
+-doc "".
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+-doc "".
 handle_info(timeout, State) ->
     NewDiskData = check_disk_space(State#state.os, State#state.port,
 				   State#state.threshold),
@@ -200,6 +217,7 @@ handle_info({'EXIT', _Port, Reason}, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-doc "".
 terminate(_Reason, State) ->
     clear_alarms(),
     case State#state.port of
@@ -214,6 +232,7 @@ terminate(_Reason, State) ->
 %% Other exports
 %%----------------------------------------------------------------------
 
+-doc "".
 format_status(_Opt, [_PDict, #state{os = OS, threshold = Threshold,
 				    timeout = Timeout,
 				    diskdata = DiskData}]) ->
@@ -226,6 +245,7 @@ format_status(_Opt, [_PDict, #state{os = OS, threshold = Threshold,
 %% Internal functions
 %%----------------------------------------------------------------------
 
+-doc "".
 get_os(PosixOnly) ->
     case os:type() of
 	{unix, sunos} ->
@@ -243,9 +263,11 @@ get_os(PosixOnly) ->
 
 %%--Port handling functions---------------------------------------------
 
+-doc "".
 start_portprogram() -> 
     open_port({spawn, "sh -s disksup 2>&1"}, [stream]).
 
+-doc "".
 my_cmd(Cmd0, Port) ->
     %% Insert a new line after the command, in case the command
     %% contains a comment character
@@ -253,6 +275,7 @@ my_cmd(Cmd0, Port) ->
     Port ! {self(), {command, [Cmd, 10]}},
     get_reply(Port, []).
 
+-doc "".
 get_reply(Port, O) ->
     receive 
         {Port, {data, N}} -> 
@@ -264,14 +287,17 @@ get_reply(Port, O) ->
 	    exit({port_died, Reason})
     end.
 
+-doc "".
 newline([13|_], B) -> {ok, lists:reverse(B)};
 newline([H|T], B) -> newline(T, [H|B]);
 newline([], B) -> {more, B}.
 
 %%-- Looking for Cmd location ------------------------------------------
+-doc "".
 find_cmd(Cmd) ->
     os:find_executable(Cmd).
 
+-doc "".
 find_cmd(Cmd, Path) ->
     %% try to find it at the specific location
     case os:find_executable(Cmd, Path) of
@@ -282,9 +308,11 @@ find_cmd(Cmd, Path) ->
     end.
 
 %%-- Run "df" based on OS ----------------------------------------------
+-doc "".
 run_df(OS, Port) ->
     run_df("", OS, Port).
 
+-doc "".
 run_df(Path, {unix, solaris}, Port) ->
     my_cmd("/usr/bin/df -lk " ++ Path, Port);
 run_df(Path, {unix, irix}, Port) ->
@@ -310,15 +338,18 @@ run_df(Path, {unix, darwin}, Port) ->
 %%--Get disk info-------------------------------------------------------
 %% We use as many absolute paths as possible below as there may be stale
 %% NFS handles in the PATH which cause these commands to hang.
+-doc "".
 get_disk_info(OS, Port) ->
     get_disk_info("", OS, Port).
 
+-doc "".
 get_disk_info(Path, OS, Port) ->
     case do_get_disk_info(Path, OS, Port) of
         [] -> dummy_reply({get_disk_info, Path});
         DiskInfo -> DiskInfo
     end.
 
+-doc "".
 do_get_disk_info("", {win32, _}, not_used) ->
   Result = os_mon_sysinfo:get_disk_info(),
   disk_info_win32(Result);
@@ -356,6 +387,7 @@ do_get_disk_info(Path, {unix, darwin}=OS, Port) ->
     Result = run_df(Path, OS, Port),
     disk_info_susv3(skip_to_eol(Result)).
 
+-doc "".
 disk_info_win32([]) ->
     [];
 disk_info_win32([H|T]) ->
@@ -373,6 +405,7 @@ disk_info_win32([H|T]) ->
     end.
 
 % This code works for Linux and FreeBSD as well
+-doc "".
 disk_info_solaris("") ->
     [];
 disk_info_solaris("\n") ->
@@ -386,6 +419,7 @@ disk_info_solaris(Str) ->
     end.
 
 %% Irix: like Linux with an extra FS type column and no '%'.
+-doc "".
 disk_info_irix("") -> [];
 disk_info_irix("\n") -> [];
 disk_info_irix(Str) ->
@@ -397,6 +431,7 @@ disk_info_irix(Str) ->
     end.
 
 % Parse per SUSv3 specification, notably recent OS X
+-doc "".
 disk_info_susv3("") ->
     [];
 disk_info_susv3("\n") ->
@@ -413,6 +448,7 @@ disk_info_susv3(Str) ->
 
 %% We use as many absolute paths as possible below as there may be stale
 %% NFS handles in the PATH which cause these commands to hang.
+-doc "".
 check_disk_space({win32,_}, not_used, Threshold) ->
     Result = os_mon_sysinfo:get_disk_info(),
     check_disks_win32(Result, Threshold);
@@ -448,6 +484,7 @@ check_disk_space({unix, darwin}=OS, Port, Threshold) ->
     check_disks_susv3(skip_to_eol(Result), Threshold).
 
 % This code works for Linux and FreeBSD as well
+-doc "".
 check_disks_solaris("", _Threshold) ->
     [];
 check_disks_solaris("\n", _Threshold) ->
@@ -557,6 +594,7 @@ parse_df(Input0, Flavor) ->
     end.
 
 % Parse per SUSv3 specification, notably recent OS X
+-doc "".
 check_disks_susv3("", _Threshold) ->
     [];
 check_disks_susv3("\n", _Threshold) ->
@@ -577,6 +615,7 @@ check_disks_susv3(Str, Threshold) ->
     end.
 
 %% Irix: like Linux with an extra FS type column and no '%'.
+-doc "".
 check_disks_irix("", _Threshold) -> [];
 check_disks_irix("\n", _Threshold) -> [];
 check_disks_irix(Str, Threshold) ->
@@ -589,6 +628,7 @@ check_disks_irix(Str, Threshold) ->
 	    check_disks_irix(skip_to_eol(Str),Threshold)
     end.
 
+-doc "".
 check_disks_win32([], _Threshold) ->
     [];
 check_disks_win32([H|T], Threshold) ->
@@ -611,6 +651,7 @@ check_disks_win32([H|T], Threshold) ->
 
 %%--Alarm handling------------------------------------------------------
 
+-doc "".
 set_alarm(AlarmId, AlarmDescr) ->
     case get(AlarmId) of
 	set ->
@@ -620,6 +661,7 @@ set_alarm(AlarmId, AlarmDescr) ->
 	    put(AlarmId, set)
     end.
 
+-doc "".
 clear_alarm(AlarmId) ->
     case get(AlarmId) of
 	set ->
@@ -629,6 +671,7 @@ clear_alarm(AlarmId) ->
 	    ok
     end.
 
+-doc "".
 clear_alarms() ->
     lists:foreach(fun({{disk_almost_full, _MntOn} = AlarmId, set}) ->
 			  alarm_handler:clear_alarm(AlarmId);
@@ -640,12 +683,15 @@ clear_alarms() ->
 %%--Auxiliary-----------------------------------------------------------
 
 %% Type conversion
+-doc "".
 minutes_to_ms(Minutes) ->
     trunc(60000*Minutes).
 
+-doc "".
 skip_to_eol([]) ->
     [];
 skip_to_eol([$\n | T]) ->
     T;
 skip_to_eol([_ | T]) ->
     skip_to_eol(T).
+

@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxListView).
+-moduledoc """
+Functions for wxListView class
+
+This class currently simply presents a simpler to use interface for the `m:wxListCtrl` \- it can be thought of as a `façade` for that complicated class.
+
+Using it is preferable to using `m:wxListCtrl` directly whenever possible because in the future some ports might implement `m:wxListView` but not the full set of `m:wxListCtrl` features.
+
+Other than different interface, this class is identical to `m:wxListCtrl`. In particular, it uses the same events, same window styles and so on.
+
+See: `setColumnImage/3`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxListView](https://docs.wxwidgets.org/3.1/classwx_list_view.html)
+""".
 -include("wxe.hrl").
 -export([clearColumnImage/2,focus/2,getFirstSelected/1,getFocusedItem/1,getNextSelected/2,
   isSelected/2,select/2,select/3,setColumnImage/3]).
@@ -63,6 +78,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxListView() :: wx:wx_object().
 -export_type([wxListView/0]).
 %% @hidden
@@ -72,6 +88,11 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewclearcolumnimage">external documentation</a>.
+-doc """
+Resets the column image - after calling this function, no image will be shown.
+
+See: `setColumnImage/3`
+""".
 -spec clearColumnImage(This, Col) -> 'ok' when
 	This::wxListView(), Col::integer().
 clearColumnImage(#wx_ref{type=ThisT}=This,Col)
@@ -80,6 +101,7 @@ clearColumnImage(#wx_ref{type=ThisT}=This,Col)
   wxe_util:queue_cmd(This,Col,?get_env(),?wxListView_ClearColumnImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewfocus">external documentation</a>.
+-doc "Sets focus to the item with the given `index`.".
 -spec focus(This, Index) -> 'ok' when
 	This::wxListView(), Index::integer().
 focus(#wx_ref{type=ThisT}=This,Index)
@@ -88,6 +110,13 @@ focus(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxListView_Focus).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetfirstselected">external documentation</a>.
+-doc """
+Returns the first selected item in a (presumably) multiple selection control.
+
+Together with `getNextSelected/2` it can be used to iterate over all selected items in the control.
+
+Return: The first selected item, if any, -1 otherwise.
+""".
 -spec getFirstSelected(This) -> integer() when
 	This::wxListView().
 getFirstSelected(#wx_ref{type=ThisT}=This) ->
@@ -96,6 +125,11 @@ getFirstSelected(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListView_GetFirstSelected).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetfocuseditem">external documentation</a>.
+-doc """
+Returns the currently focused item or -1 if none.
+
+See: `isSelected/2`, `focus/2`
+""".
 -spec getFocusedItem(This) -> integer() when
 	This::wxListView().
 getFocusedItem(#wx_ref{type=ThisT}=This) ->
@@ -104,6 +138,11 @@ getFocusedItem(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListView_GetFocusedItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewgetnextselected">external documentation</a>.
+-doc """
+Used together with `getFirstSelected/1` to iterate over all selected items in the control.
+
+Return: Returns the next selected item or -1 if there are no more of them.
+""".
 -spec getNextSelected(This, Item) -> integer() when
 	This::wxListView(), Item::integer().
 getNextSelected(#wx_ref{type=ThisT}=This,Item)
@@ -113,6 +152,11 @@ getNextSelected(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListView_GetNextSelected).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewisselected">external documentation</a>.
+-doc """
+Returns true if the item with the given `index` is selected, false otherwise.
+
+See: `getFirstSelected/1`, `getNextSelected/2`
+""".
 -spec isSelected(This, Index) -> boolean() when
 	This::wxListView(), Index::integer().
 isSelected(#wx_ref{type=ThisT}=This,Index)
@@ -122,6 +166,7 @@ isSelected(#wx_ref{type=ThisT}=This,Index)
   wxe_util:rec(?wxListView_IsSelected).
 
 %% @equiv select(This,N, [])
+-doc "".
 -spec select(This, N) -> 'ok' when
 	This::wxListView(), N::integer().
 
@@ -130,6 +175,11 @@ select(This,N)
   select(This,N, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewselect">external documentation</a>.
+-doc """
+Selects or unselects the given item.
+
+Notice that this method inherits the unusual behaviour of `wxListCtrl:setItemState/4` which sends a wxEVT_LIST_ITEM_SELECTED event when it is used to select an item, contrary to the usual rule that only the user actions result in selection.
+""".
 -spec select(This, N, [Option]) -> 'ok' when
 	This::wxListView(), N::integer(),
 	Option :: {'on', boolean()}.
@@ -142,6 +192,11 @@ select(#wx_ref{type=ThisT}=This,N, Options)
   wxe_util:queue_cmd(This,N, Opts,?get_env(),?wxListView_Select).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewsetcolumnimage">external documentation</a>.
+-doc """
+Sets the column image for the specified column.
+
+To use the column images, the control must have a valid image list with at least one image.
+""".
 -spec setColumnImage(This, Col, Image) -> 'ok' when
 	This::wxListView(), Col::integer(), Image::integer().
 setColumnImage(#wx_ref{type=ThisT}=This,Col,Image)
@@ -518,3 +573,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

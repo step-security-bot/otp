@@ -19,6 +19,27 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxBitmapButton).
+-moduledoc """
+Functions for wxBitmapButton class
+
+A bitmap button is a control that contains a bitmap.
+
+Notice that since wxWidgets 2.9.1 bitmap display is supported by the base `m:wxButton` class itself and the only tiny advantage of using this class is that it allows specifying the bitmap in its constructor, unlike `m:wxButton`. Please see the base class documentation for more information about images support in `m:wxButton`.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxButton`
+
+This class is derived (and can use functions) from: `m:wxButton` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxBitmapButton](https://docs.wxwidgets.org/3.1/classwx_bitmap_button.html)
+
+## Events
+
+Event types emitted from this class: [`command_button_clicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,new/0,new/3,new/4,newCloseButton/2]).
 
@@ -63,6 +84,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxBitmapButton() :: wx:wx_object().
 -export_type([wxBitmapButton/0]).
 %% @hidden
@@ -73,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonwxbitmapbutton">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxBitmapButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxBitmapButton_new_0),
   wxe_util:rec(?wxBitmapButton_new_0).
 
 %% @equiv new(Parent,Id,Bitmap, [])
+-doc "".
 -spec new(Parent, Id, Bitmap) -> wxBitmapButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
 
@@ -87,6 +111,13 @@ new(Parent,Id,Bitmap)
   new(Parent,Id,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonwxbitmapbutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a button.
+
+Remark: The bitmap parameter is normally the only bitmap you need to provide, and wxWidgets will draw the button correctly in its different states. If you want more control, call any of the functions `SetBitmapPressed()` (not implemented in wx), `wxButton:setBitmapFocus/2`, `wxButton:setBitmapDisabled/2`.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Bitmap, [Option]) -> wxBitmapButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -107,6 +138,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=BitmapT}=Bitmap, Options)
   wxe_util:rec(?wxBitmapButton_new_4).
 
 %% @equiv create(This,Parent,Id,Bitmap, [])
+-doc "".
 -spec create(This, Parent, Id, Bitmap) -> boolean() when
 	This::wxBitmapButton(), Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap().
 
@@ -115,6 +147,11 @@ create(This,Parent,Id,Bitmap)
   create(This,Parent,Id,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttoncreate">external documentation</a>.
+-doc """
+Button creation function for two-step creation.
+
+For more details, see `new/4`.
+""".
 -spec create(This, Parent, Id, Bitmap, [Option]) -> boolean() when
 	This::wxBitmapButton(), Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -136,6 +173,15 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=Bit
   wxe_util:rec(?wxBitmapButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonnewclosebutton">external documentation</a>.
+-doc """
+Helper function creating a standard-looking "Close" button.
+
+To get the best results, platform-specific code may need to be used to create a small, title bar-like "Close" button. This function is provided to avoid the need to test for the current platform and creates the button with as native look as possible.
+
+Return: The new button.
+
+Since: 2.9.5
+""".
 -spec newCloseButton(Parent, Winid) -> wxBitmapButton() when
 	Parent::wxWindow:wxWindow(), Winid::integer().
 newCloseButton(#wx_ref{type=ParentT}=Parent,Winid)
@@ -145,6 +191,7 @@ newCloseButton(#wx_ref{type=ParentT}=Parent,Winid)
   wxe_util:rec(?wxBitmapButton_NewCloseButton).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxBitmapButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapButton),
@@ -534,3 +581,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

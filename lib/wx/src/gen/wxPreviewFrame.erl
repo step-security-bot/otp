@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPreviewFrame).
+-moduledoc """
+Functions for wxPreviewFrame class
+
+This class provides the default method of managing the print preview interface. Member functions may be overridden to replace functionality, or the class may be used without derivation.
+
+See: `m:wxPreviewCanvas`, `m:wxPreviewControlBar`, `m:wxPrintPreview`
+
+This class is derived (and can use functions) from: `m:wxFrame` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPreviewFrame](https://docs.wxwidgets.org/3.1/classwx_preview_frame.html)
+""".
 -include("wxe.hrl").
 -export([createCanvas/1,createControlBar/1,destroy/1,initialize/1,new/2,new/3,
   onCloseWindow/2]).
@@ -71,6 +82,7 @@
   showFullScreen/3,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPreviewFrame() :: wx:wx_object().
 -export_type([wxPreviewFrame/0]).
 %% @hidden
@@ -81,6 +93,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Preview,Parent, [])
+-doc "".
 -spec new(Preview, Parent) -> wxPreviewFrame() when
 	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow().
 
@@ -89,6 +102,11 @@ new(Preview,Parent)
   new(Preview,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframewxpreviewframe">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a print preview object plus other normal frame arguments. The print preview object will be destroyed by the frame when it closes.
+""".
 -spec new(Preview, Parent, [Option]) -> wxPreviewFrame() when
 	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(),
 	Option :: {'title', unicode:chardata()}
@@ -109,6 +127,11 @@ new(#wx_ref{type=PreviewT}=Preview,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxPreviewFrame_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframecreatecontrolbar">external documentation</a>.
+-doc """
+Creates a `m:wxPreviewControlBar`.
+
+Override this function to allow a user-defined preview control bar object to be created.
+""".
 -spec createControlBar(This) -> 'ok' when
 	This::wxPreviewFrame().
 createControlBar(#wx_ref{type=ThisT}=This) ->
@@ -116,6 +139,11 @@ createControlBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_CreateControlBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframecreatecanvas">external documentation</a>.
+-doc """
+Creates a `m:wxPreviewCanvas`.
+
+Override this function to allow a user-defined preview canvas object to be created.
+""".
 -spec createCanvas(This) -> 'ok' when
 	This::wxPreviewFrame().
 createCanvas(#wx_ref{type=ThisT}=This) ->
@@ -123,6 +151,13 @@ createCanvas(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_CreateCanvas).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframeinitialize">external documentation</a>.
+-doc """
+Initializes the frame elements and prepares for showing it.
+
+Calling this method is equivalent to calling `InitializeWithModality()` (not implemented in wx) with wxPreviewFrame_AppModal argument, please see its documentation for more details.
+
+Please notice that this function is virtual mostly for backwards compatibility only, there is no real need to override it as it's never called by wxWidgets itself.
+""".
 -spec initialize(This) -> 'ok' when
 	This::wxPreviewFrame().
 initialize(#wx_ref{type=ThisT}=This) ->
@@ -130,6 +165,7 @@ initialize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewFrame_Initialize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframeonclosewindow">external documentation</a>.
+-doc "Enables any disabled frames in the application, and deletes the print preview object, implicitly deleting any printout objects associated with the print preview object.".
 -spec onCloseWindow(This, Event) -> 'ok' when
 	This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent().
 onCloseWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
@@ -138,6 +174,7 @@ onCloseWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
   wxe_util:queue_cmd(This,Event,?get_env(),?wxPreviewFrame_OnCloseWindow).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxPreviewFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewFrame),
@@ -597,3 +634,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

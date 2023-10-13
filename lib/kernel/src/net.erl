@@ -19,6 +19,11 @@
 %%
 
 -module(net).
+-moduledoc """
+Network interface.
+
+This module provides an API for the network interface.
+""".
 
 %% Administrative and utility functions
 -export([
@@ -70,16 +75,24 @@
 -deprecated({sleep,     1, "use 'receive after T -> ok end' instead"}).
 
 
+-doc "".
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
                         notrailers | running | noarp | promisc |
                         master | slave |
                         multicast | portsel | automedia | dynamic.
+-doc "".
 -type ifaddrs_flags() :: [ifaddrs_flag()].
 
 %% Note that not all of these fields are mandatory.
 %% Actually there are (error) cases when only the name will be included.
 %% And broadaddr and dstaddr are mutually exclusive!
 
+-doc """
+This type defines all addresses (and flags) associated with the interface.
+
+> #### Note {: class=info }
+> Not all fields of this map has to be present. The flags field can be used to test for some of the fields. For example `broadaddr` will only be present if the `broadcast` flag is present in flags.
+""".
 -type ifaddrs() :: #{name      := string(),
                      flags     := ifaddrs_flags(),
                      addr      => socket:sockaddr(),
@@ -87,15 +100,45 @@
                      broadaddr => socket:sockaddr(),
                      dstaddr   => socket:sockaddr()}.
 
+-doc """
+* __all__ - All interfaces
+
+* __default__ - Interfaces with address family `inet` *and* `inet6`
+
+* __inet | inet6 | packet__ - Interfaces with *only* the specified address family
+""".
 -type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
+-doc """
+The `family` field can only have the (above) specified values (and not all the values of socket:domain()).
+
+The use of the `flags` field is that any flag provided must exist for the interface.
+
+For example, if `family` is set to `inet` and `flags` to `[broadcast, multicast]` only interfaces with address family `inet` and the flags `broadcast` and `multicast` will be listed.
+""".
 -type ifaddrs_filter_map() :: #{family := default | local |
                                 inet | inet6 | packet | all,
                                 flags  := any | [ifaddrs_flag()]}.
+-doc """
+For each `ifaddrs` entry, return either `true` to keep the entry or `false` to discard the entry.
+
+For example, to get an interface list which only contains non-`loopback` `inet` interfaces:
+
+```text
+	net:getifaddrs(fun(#{addr  := #{family := inet},
+	                     flags := Flags}) ->
+			       not lists:member(loopback, Flags);
+			  (_) ->
+			       false
+		       end).
+```
+""".
 -type ifaddrs_filter_fun() :: fun((ifaddrs()) -> boolean()).
 
+-doc "".
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
+-doc "".
 -type name_info_flag()          :: namereqd |
                                    dgram |
                                    nofqdn |
@@ -104,14 +147,19 @@
 %% The following (ext) flags has been removed
 %% (as they are deprecated by later version of gcc):
 %%    idn_allow_unassigned | idn_use_std3_ascii_rules.
+-doc "".
 -type name_info_flag_ext()      :: idn.
+-doc "".
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
+-doc "".
 -type address_info()            :: #{family   := socket:domain(),
                                      socktype := socket:type(),
                                      protocol := socket:protocol(),
                                      address  := socket:sockaddr()}.
+-doc "".
 -type network_interface_name()  :: string().
+-doc "".
 -type network_interface_index() :: non_neg_integer().
 
 
@@ -169,6 +217,8 @@ command(Cmd) ->
 %%
 %%
 
+-doc "Returns the name of the current host.".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec gethostname() -> {ok, HostName} | {error, Reason} when
       HostName :: string(),
       Reason   :: term().
@@ -181,6 +231,8 @@ gethostname() ->
 %%
 %%
 
+-doc(#{equiv => getnameinfo/2}).
+-doc(#{since => <<"OTP 22.0">>}).
 -spec getnameinfo(SockAddr) -> {ok, Info} | {error, Reason} when
       SockAddr :: socket:sockaddr(),
       Info     :: name_info(),
@@ -188,6 +240,12 @@ gethostname() ->
 getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
+-doc """
+Address-to-name translation in a protocol-independant manner.
+
+This function is the inverse of [`getaddrinfo`](`getaddrinfo/1`). It converts a socket address to a corresponding host and service.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
       SockAddr :: socket:sockaddr(),
       Flags    :: name_info_flags() | undefined,
@@ -204,6 +262,8 @@ getnameinfo(SockAddr, Flags)
 %%
 %% There is also a "hint" argument that we "at some point" should implement.
 
+-doc(#{equiv => getaddrinfo/2}).
+-doc(#{since => <<"OTP 22.0">>}).
 -spec getaddrinfo(Host) -> {ok, Info} | {error, Reason} when
       Host    :: string(),
       Info    :: [address_info()],
@@ -211,6 +271,14 @@ getnameinfo(SockAddr, Flags)
 getaddrinfo(Host) when is_list(Host) ->
     getaddrinfo(Host, undefined).
 
+-doc """
+Network address and service translation.
+
+This function is the inverse of [`getnameinfo`](`getnameinfo/1`). It converts host and service to a corresponding socket address.
+
+One of the `Host` and `Service` may be `undefined` but *not* both.
+""".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec getaddrinfo(Host, undefined) -> {ok, Info} | {error, Reason} when
       Host    :: string(),
       Info    :: [address_info()],
@@ -235,12 +303,16 @@ getaddrinfo(Host, Service)
 %% getifaddrs - Get interface addresses
 %%
 
+-doc(#{equiv => getifaddrs/2}).
+-doc(#{since => <<"OTP 22.3">>}).
 -spec getifaddrs() -> {ok, IfAddrs} | {error, Reason} when
       IfAddrs :: [ifaddrs()],
       Reason  :: term().
 getifaddrs() ->
     getifaddrs(default).
 
+-doc(#{equiv => getifaddrs/2}).
+-doc(#{since => <<"OTP 22.3">>}).
 -spec getifaddrs(Filter) -> {ok, IfAddrs} | {error, Reason} when
       Filter    :: ifaddrs_filter(),
       IfAddrs   :: [ifaddrs()],
@@ -257,6 +329,14 @@ getifaddrs(Filter) when is_function(Filter, 1) ->
 getifaddrs(Namespace) when is_list(Namespace) ->
     getifaddrs(default, Namespace).
 
+-doc """
+Get interface addresses.
+
+This function is used to get the machines interface addresses, possibly filtered according to `Filter`.
+
+By default, a filter with the content: `#{family => default, flags => any}` is used. This will return all interfaces with addresses in the `inet` and `inet6` families.
+""".
+-doc(#{since => <<"OTP 22.3">>}).
 -spec getifaddrs(Filter, Namespace) -> {ok, IfAddrs} | {error, Reason} when
       Filter    :: ifaddrs_filter(),
       Namespace :: file:filename_all(),
@@ -791,6 +871,8 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
 %%
 %%
 
+-doc "Mappings between network interface names and indexes.".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec if_name2index(Name) -> {ok, Idx} | {error, Reason} when
       Name   :: network_interface_name(),
       Idx    :: network_interface_index(),
@@ -817,6 +899,8 @@ if_name2index(Name) when is_list(Name) ->
 %%
 %%
 
+-doc "Mappings between network interface index and names.".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec if_index2name(Idx) -> {ok, Name} | {error, Reason} when
       Idx    :: network_interface_index(),
       Name   :: network_interface_name(),
@@ -842,6 +926,8 @@ if_index2name(Idx) when is_integer(Idx) ->
 %%
 %%
 
+-doc "Get network interface names and indexes.".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec if_names() -> {ok, Names} | {error, Reason} when
       Names  :: [{Idx, If}],
       Idx    :: network_interface_index(),
@@ -921,3 +1007,4 @@ win_name2index(Name) ->
 
 %% d(F, A) ->
 %%     io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
+

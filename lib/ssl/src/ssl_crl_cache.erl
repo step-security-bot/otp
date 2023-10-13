@@ -22,6 +22,11 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_crl_cache).
+-moduledoc """
+CRL cache
+
+Implements an internal CRL (Certificate Revocation List) cache. In addition to implementing the `m:ssl_crl_cache_api` behaviour the following functions are available.
+""".
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
@@ -29,7 +34,11 @@
 -behaviour(ssl_crl_cache_api).
 
 -export_type([crl_src/0, uri/0]).
+-doc "".
+-doc(#{title => <<"DATA TYPES">>}).
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-doc "".
+-doc(#{title => <<"DATA TYPES">>}).
 -type uri()     :: uri_string:uri_string().
 
 -export([lookup/3, select/2, fresh_crl/2]).
@@ -72,9 +81,19 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 %% API 
 %%====================================================================
 
+-doc(#{equiv => insert/2}).
+-doc(#{since => <<"OTP 18.0">>}).
 insert(CRLs) ->
     insert(?NO_DIST_POINT, CRLs).
 
+-doc """
+CRLSrc = [crl_src()](`t:crl_src/0`)]\}  
+URI = [uri()](`t:uri/0`)  
+Reason = term()  
+
+Insert CRLs, available to fetch on DER format from `URI`, into the ssl applications local cache.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 insert(URI, {file, File}) when is_list(URI) ->				     
     case file:read_file(File) of
 	{ok, PemBin} ->
@@ -88,6 +107,13 @@ insert(URI, {file, File}) when is_list(URI) ->
 insert(URI, {der, CRLs}) ->	
     do_insert(URI, CRLs).
 
+-doc """
+Entries = [crl_src()](`t:crl_src/0`)]\}  
+Reason = crl_reason()  
+
+Delete CRLs from the ssl applications local cache.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 delete({file, File}) ->
     case file:read_file(File) of
 	{ok, PemBin} ->
@@ -188,4 +214,5 @@ handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
     CRLs;
 handle_http(_, Rest, CRLDbInfo) ->
     get_crls(Rest, CRLDbInfo).
+
 

@@ -31,12 +31,18 @@
 %% syntax tree, at the correct places.</p>
 
 -module(erl_recomment).
+-moduledoc """
+Inserting comments into abstract Erlang syntax trees
+
+This module contains functions for inserting comments, described by position, indentation and text, as attachments on an abstract syntax tree, at the correct places.
+""".
 
 -export([recomment_forms/2, quick_recomment_forms/2, recomment_tree/2]).
 
 
 %% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
 %% tree. See the {@link erl_syntax} module for details.
+-doc "".
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 %% =====================================================================
@@ -54,6 +60,9 @@
 %% comments. Comments within function definitions or declarations
 %% ("forms") are simply ignored.
 
+-doc """
+Like `recomment_forms/2`, but only inserts top-level comments. Comments within function definitions or declarations ("forms") are simply ignored.
+""".
 -spec quick_recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
         syntaxTree().
 
@@ -118,12 +127,26 @@ quick_recomment_forms(Tree, Cs) ->
 %% @see recomment_tree/2
 %% @see quick_recomment_forms/2
 
+-doc """
+Attaches comments to the syntax tree/trees representing a program. The given `Forms` should be a single syntax tree of type `form_list`, or a list of syntax trees representing "program forms". The syntax trees must contain valid position information (for details, see `recomment_tree/2`). The result is a corresponding syntax tree of type `form_list` in which all comments in the list `Comments` have been attached at the proper places.
+
+Assuming `Forms` represents a program (or any sequence of "program forms"), any comments whose first lines are not directly associated with a specific program form will become standalone comments inserted between the neighbouring program forms. Furthermore, comments whose column position is less than or equal to one will not be attached to a program form that begins at a conflicting line number (this can happen with preprocessor-generated `line`\-attributes).
+
+If `Forms` is a syntax tree of some other type than `form_list`, the comments will be inserted directly using `recomment_tree/2`, and any comments left over from that process are added as postcomments on the result.
+
+Entries in `Comments` represent multi-line comments. For each entry, `Line` is the line number and `Column` the left column of the comment (the column of the first comment-introducing "`%`" character). `Indentation` is the number of character positions between the last non-whitespace character before the comment (or the left margin) and the left column of the comment. `Text` is a list of strings representing the consecutive comment lines in top-down order, where each string contains all characters following (but not including) the comment-introducing "`%`" and up to (but not including) the terminating newline. (Cf. module `erl_comment_scan`.)
+
+Evaluation exits with reason `{bad_position, Pos}` if the associated position information `Pos` of some subtree in the input does not have a recognizable format, or with reason `{bad_tree, L, C}` if insertion of a comment at line `L`, column `C`, fails because the tree structure is ill-formed.
+
+*See also: *`m:erl_comment_scan`, `quick_recomment_forms/2`, `recomment_tree/2`.
+""".
 -spec recomment_forms(erl_syntax:forms(), [erl_comment_scan:comment()]) ->
         syntaxTree().
 
 recomment_forms(Tree, Cs) ->
     recomment_forms(Tree, Cs, true).
 
+-doc "".
 recomment_forms(Tree, Cs, Insert) when is_list(Tree) ->
     recomment_forms(erl_syntax:form_list(Tree), Cs, Insert);
 recomment_forms(Tree, Cs, Insert) ->
@@ -146,6 +169,7 @@ recomment_forms(Tree, Cs, Insert) ->
 	    revert_tree(append_comments(Cs1, Tree1))
     end.
 
+-doc "".
 append_comments([C | Cs], Tree) ->
     append_comments(Cs, node_add_postcomment(C, Tree));
 append_comments([], Tree) ->
@@ -154,12 +178,14 @@ append_comments([], Tree) ->
 %% This part goes over each comment in turn and inserts it into the
 %% proper place in the given list of program forms:
 
+-doc "".
 recomment_forms_1([C | Cs], Ns, Insert) ->
     Ns1 = recomment_forms_2(C, Ns, Insert),
     recomment_forms_1(Cs, Ns1, Insert);
 recomment_forms_1([], Ns, _Insert) ->
     Ns.
 
+-doc "".
 recomment_forms_2(C, [N | Ns] = Nodes, Insert) ->
     {L, Col, Ind, Text} = C,
     Min = node_min(N),
@@ -201,6 +227,7 @@ recomment_forms_2(C, [], _Top) ->
 %% Creating a leaf node for a standalone comment. Note that we try to
 %% preserve the original starting column rather than the indentation.
 
+-doc "".
 standalone_comment({L, Col, _Ind, Text}) ->
     leaf_node(L, L + comment_delta(Text),
 	      erl_syntax:set_pos(erl_syntax:comment(Col - 1, Text), anno(L))).
@@ -208,6 +235,7 @@ standalone_comment({L, Col, _Ind, Text}) ->
 %% Compute delta between first and last line of a comment, given
 %% the lines of text.
 
+-doc "".
 comment_delta(Text) ->
     case length(Text) of
 	N when N > 0 ->
@@ -223,9 +251,11 @@ comment_delta(Text) ->
 -record(filter, {file = undefined :: file:filename() | 'undefined',
 		 line = 0         :: integer()}).
 
+-doc "".
 filter_forms(Fs) ->
     filter_forms(Fs, false, #filter{}).
 
+-doc "".
 filter_forms([F | Fs], Kill, S) ->
     case check_file_attr(F) of
 	{true, A1, A2} ->
@@ -259,6 +289,7 @@ filter_forms([], _, _) ->
 
 %% This structure matching gets a bit painful...
 
+-doc "".
 check_file_attr(F) ->
     case node_type(F) of
 	tree_node ->
@@ -277,6 +308,7 @@ check_file_attr(F) ->
 	    false
     end.
 
+-doc "".
 check_file_attr_1(L1, L2) ->
     case node_subtrees(L1) of
 	[N1 | _] ->
@@ -296,6 +328,7 @@ check_file_attr_1(L1, L2) ->
 	    false
     end.
 
+-doc "".
 check_file_attr_2(L) ->
     case node_subtrees(L) of
 	[N1, N2 | _] ->
@@ -342,6 +375,15 @@ check_file_attr_2(L) ->
 %%
 %% @see recomment_forms/2
 
+-doc """
+Attaches comments to a syntax tree. The result is a pair `{NewTree, Remainder}` where `NewTree` is the given `Tree` where comments from the list `Comments` have been attached at the proper places. `Remainder` is the list of entries in `Comments` which have not been inserted, because their line numbers are greater than those of any node in the tree. The entries in `Comments` are inserted in order; if two comments become attached to the same node, they will appear in the same order in the program text.
+
+The nodes of the syntax tree must contain valid position information. This can be single integers, assumed to represent a line number, or 2- or 3-tuples where the first or second element is an integer, in which case the leftmost integer element is assumed to represent the line number. Line numbers less than one are ignored (usually, the default line number for newly created nodes is zero).
+
+For details on the `Line`, `Column` and `Indentation` fields, and the behaviour in case of errors, see `recomment_forms/2`.
+
+*See also: *`recomment_forms/2`.
+""".
 -spec recomment_tree(syntaxTree(), [erl_comment_scan:comment()]) ->
         {syntaxTree(), [erl_comment_scan:comment()]}.
 
@@ -354,9 +396,11 @@ recomment_tree(Tree, Cs) ->
 %% are nested; only `build_tree' and `revert_tree' knows about
 %% such things.
     
+-doc "".
 insert_comments(Cs, Node) ->
     insert_comments(Cs, Node, []).
 
+-doc "".
 insert_comments([C | Cs], Node, Cs1) ->
     {L, Col, Ind, _Text} = C,
     Max = node_max(Node),
@@ -372,6 +416,7 @@ insert_comments([], Node, Cs) ->
 %% Here, we assume that the comment is located on some line not
 %% below the last element of the given node.
 
+-doc "".
 insert(Node, L, Col, Ind, C) ->
     case node_type(Node) of
 	list_node ->
@@ -401,6 +446,7 @@ insert(Node, L, Col, Ind, C) ->
 	    end
     end.
 
+-doc "".
 insert_1(Node, L, Col, Ind, C) ->
     case node_type(Node) of
 	tree_node ->
@@ -418,6 +464,7 @@ insert_1(Node, L, Col, Ind, C) ->
 %% in the list; since we have decided to insert here, we're
 %% screwed if there isn't one.
 
+-doc "".
 insert_in_list([Node | Ns], L, Col, Ind, C) ->
     Max = node_max(Node),
     
@@ -445,11 +492,13 @@ insert_in_list([], L, Col, _, _) ->
 
 %% The comment belongs to the current subrange
 
+-doc "".
 insert_here(Node, L, Col, Ind, C, Ns) ->
     [insert(Node, L, Col, Ind, C) | Ns].
 
 %% The comment should be inserted later
 
+-doc "".
 insert_later(Node, L, Col, Ind, C, Ns) ->
     [Node | insert_in_list(Ns, L, Col, Ind, C)].
 
@@ -457,9 +506,11 @@ insert_later(Node, L, Col, Ind, C, Ns) ->
 %% or leaf node in the given node list, or the integer -1 (minus
 %% one) if no such element exists.
 
+-doc "".
 next_min_in_list(Ts) ->
     next_min_in_list(Ts, []).
 
+-doc "".
 next_min_in_list([T | Ts], Ack) ->
     next_min_in_node(T, [Ts | Ack]);
 next_min_in_list([], [T | Ts]) ->
@@ -467,6 +518,7 @@ next_min_in_list([], [T | Ts]) ->
 next_min_in_list([], []) ->
     -1.
 
+-doc "".
 next_min_in_node(Node, Ack) ->
     case node_type(Node) of
 	leaf_node ->
@@ -480,6 +532,7 @@ next_min_in_node(Node, Ack) ->
 %% Building an extended syntax tree from an `erl_syntax' abstract
 %% syntax tree.
 
+-doc "".
 build_tree(Node) ->
     L = get_line(Node),
     case erl_syntax:subtrees(Node) of
@@ -507,9 +560,11 @@ build_tree(Node) ->
 %% take the trouble to find the maximum line number in the subtree
 %% taken over all its elements.
 
+-doc "".
 build_list(Ts) ->
     build_list(Ts, 0, 0, []).
 
+-doc "".
 build_list([T | Ts], Min, Max, Ack) ->
     Node = build_tree(T),
     Min1 = minpos(node_min(Node), Min),
@@ -518,9 +573,11 @@ build_list([T | Ts], Min, Max, Ack) ->
 build_list([], Min, Max, Ack) ->
     list_node(Min, Max, lists:reverse(Ack)).
 
+-doc "".
 build_list_list(Ls) ->
     build_list_list(Ls, 0, 0, []).
 
+-doc "".
 build_list_list([L | Ls], Min, Max, Ack) ->
     Node = build_list(L),
     Min1 = minpos(node_min(Node), Min),
@@ -533,6 +590,7 @@ build_list_list([], Min, Max, Ack) ->
 %% Note that the new comments are inserted after the original
 %% attributes are restored.
 
+-doc "".
 revert_tree(Node) ->
     case node_type(Node) of
 	leaf_node ->
@@ -548,11 +606,13 @@ revert_tree(Node) ->
 	    revert_list(node_subtrees(Node))
     end.
 
+-doc "".
 revert_list([T | Ts]) ->
     [revert_tree(T) | revert_list(Ts)];
 revert_list([]) ->
     [].
 
+-doc "".
 add_comments(Node, Tree) ->
     case node_precomments(Node) of
 	[] ->
@@ -563,6 +623,7 @@ add_comments(Node, Tree) ->
 			   erl_syntax:add_precomments(Cs1, Tree))
     end.
 
+-doc "".
 add_comments_1(Node, Tree) ->
     case node_postcomments(Node) of
 	[] ->
@@ -572,15 +633,18 @@ add_comments_1(Node, Tree) ->
 	    erl_syntax:add_postcomments(Cs1, Tree)
     end.
 
+-doc "".
 expand_comments([C | Cs]) ->
     [expand_comment(C) | expand_comments(Cs)];
 expand_comments([]) ->
     [].
 
+-doc "".
 expand_comment(C) ->
     {L, _Col, Ind, Text} = C,
     erl_syntax:set_pos(erl_syntax:comment(Ind, Text), anno(L)).
 
+-doc "".
 anno(Location) ->
     erl_anno:new(Location).
 
@@ -630,11 +694,13 @@ anno(Location) ->
 
 -type extendedSyntaxTree() :: #tree{} | #leaf{} | #list{}.
 
+-doc "".
 leaf_node(Min, Max, Value) ->
     #leaf{min = Min,
 	  max = Max,
 	  value = Value}.
 
+-doc "".
 tree_node(Min, Max, Type, Attrs, Subtrees) ->
     #tree{min = Min,
 	  max = Max,
@@ -642,11 +708,13 @@ tree_node(Min, Max, Type, Attrs, Subtrees) ->
 	  attrs = Attrs,
 	  subtrees = Subtrees}.
 
+-doc "".
 list_node(Min, Max, Subtrees) ->
     #list{min = Min,
 	  max = Max,
 	  subtrees = Subtrees}.
 
+-doc "".
 node_type(#leaf{}) ->
     leaf_node;
 node_type(#tree{}) ->
@@ -654,6 +722,7 @@ node_type(#tree{}) ->
 node_type(#list{}) ->
     list_node.
 
+-doc "".
 node_min(#leaf{min = Min}) ->
     Min;
 node_min(#tree{min = Min}) ->
@@ -661,6 +730,7 @@ node_min(#tree{min = Min}) ->
 node_min(#list{min = Min}) ->
     Min.
 
+-doc "".
 node_max(#leaf{max = Max}) ->
     Max;
 node_max(#tree{max = Max}) ->
@@ -668,6 +738,7 @@ node_max(#tree{max = Max}) ->
 node_max(#list{max = Max}) ->
     Max.
 
+-doc "".
 node_kill_range(Node) ->
     case Node of
 	#leaf{} ->
@@ -678,11 +749,13 @@ node_kill_range(Node) ->
 	    Node#list{min = -1, max = -1}
     end.
 
+-doc "".
 node_precomments(#leaf{precomments = Cs}) ->
     Cs;
 node_precomments(#tree{precomments = Cs}) ->
     Cs.
 
+-doc "".
 node_add_precomment(C, Node) ->
     case Node of
 	#leaf{} ->
@@ -691,11 +764,13 @@ node_add_precomment(C, Node) ->
 	    Node#tree{precomments = [C | Node#tree.precomments]}
     end.
 
+-doc "".
 node_postcomments(#leaf{postcomments = Cs}) ->
     Cs;
 node_postcomments(#tree{postcomments = Cs}) ->
     Cs.
 
+-doc "".
 node_add_postcomment(C, Node) ->
     case Node of
 	#leaf{} ->
@@ -706,17 +781,21 @@ node_add_postcomment(C, Node) ->
 		      [C | Node#tree.postcomments]}
     end.
 
+-doc "".
 node_subtrees(#tree{subtrees = Subtrees}) ->
     Subtrees;
 node_subtrees(#list{subtrees = Subtrees}) ->
     Subtrees.
 
+-doc "".
 leaf_node_value(#leaf{value = Value}) ->
     Value.
 
+-doc "".
 tree_node_type(#tree{type = Type}) ->
     Type.
 
+-doc "".
 set_node_subtrees(Node, Subtrees) ->
     case Node of
 	#tree{} ->
@@ -725,6 +804,7 @@ set_node_subtrees(Node, Subtrees) ->
 	    Node#list{subtrees = Subtrees}
     end.
 
+-doc "".
 tree_node_attrs(#tree{attrs = Attrs}) ->
     Attrs.
 
@@ -737,22 +817,26 @@ tree_node_attrs(#tree{attrs = Attrs}) ->
 %% numbers, since zero (or negative) numbers may occur, but they
 %% represent the "undefined" line number.)
 
+-doc "".
 minpos(X, Y) when X < Y ->
     minpos1(X, Y);
 minpos(X, Y) ->
     minpos1(Y, X).
 
+-doc "".
 minpos1(X, Y) when X < 1 ->
     minpos2(Y);
 minpos1(X, _) ->
     X.
 
+-doc "".
 minpos2(X) when X < 1 ->
     0;
 minpos2(X) ->
     X.
 
 -dialyzer({no_opaque, get_line/1}).
+-doc "".
 get_line(Node) ->
     case erl_syntax:get_pos(Node) of
 	L when is_integer(L) ->
@@ -777,3 +861,4 @@ get_line(Node) ->
 
 
 %% =====================================================================
+

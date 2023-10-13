@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDirPickerCtrl).
+-moduledoc """
+Functions for wxDirPickerCtrl class
+
+This control allows the user to select a directory. The generic implementation is a button which brings up a `m:wxDirDialog` when clicked. Native implementation may differ but this is usually a (small) widget which give access to the dir-chooser dialog. It is only available if `wxUSE_DIRPICKERCTRL` is set to 1 (the default).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxDirDialog`, `m:wxFileDirPickerEvent`
+
+This class is derived (and can use functions) from: `m:wxPickerBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxDirPickerCtrl](https://docs.wxwidgets.org/3.1/classwx_dir_picker_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_dirpicker_changed`](`m:wxFileDirPickerEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getPath/1,new/0,new/2,new/3,setPath/2]).
 
@@ -65,6 +84,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxDirPickerCtrl() :: wx:wx_object().
 -export_type([wxDirPickerCtrl/0]).
 %% @hidden
@@ -75,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirpickerctrl.html#wxdirpickerctrlwxdirpickerctrl">external documentation</a>.
+-doc "".
 -spec new() -> wxDirPickerCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxDirPickerCtrl_new_0),
   wxe_util:rec(?wxDirPickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxDirPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -89,6 +111,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirpickerctrl.html#wxdirpickerctrlwxdirpickerctrl">external documentation</a>.
+-doc "Initializes the object and calls `create/4` with all the parameters.".
 -spec new(Parent, Id, [Option]) -> wxDirPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'path', unicode:chardata()}
@@ -112,6 +135,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxDirPickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxDirPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -120,6 +144,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirpickerctrl.html#wxdirpickerctrlcreate">external documentation</a>.
+-doc """
+Creates the widgets with the given parameters.
+
+Return: true if the control was successfully created or false if creation failed.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxDirPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'path', unicode:chardata()}
@@ -144,6 +173,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxDirPickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirpickerctrl.html#wxdirpickerctrlgetpath">external documentation</a>.
+-doc "Returns the absolute path of the currently selected directory.".
 -spec getPath(This) -> unicode:charlist() when
 	This::wxDirPickerCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
@@ -152,6 +182,11 @@ getPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDirPickerCtrl_GetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirpickerctrl.html#wxdirpickerctrlsetpath">external documentation</a>.
+-doc """
+Sets the absolute path of the currently selected directory.
+
+If the control uses `wxDIRP_DIR_MUST_EXIST` and does not use `wxDIRP_USE_TEXTCTRL` style, the `dirname` must be a name of an existing directory and will be simply ignored by the native wxGTK implementation if this is not the case.
+""".
 -spec setPath(This, Dirname) -> 'ok' when
 	This::wxDirPickerCtrl(), Dirname::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Dirname)
@@ -161,6 +196,7 @@ setPath(#wx_ref{type=ThisT}=This,Dirname)
   wxe_util:queue_cmd(This,Dirname_UC,?get_env(),?wxDirPickerCtrl_SetPath).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxDirPickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDirPickerCtrl),
@@ -564,3 +600,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

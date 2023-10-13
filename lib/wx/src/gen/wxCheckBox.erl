@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxCheckBox).
+-moduledoc """
+Functions for wxCheckBox class
+
+A checkbox is a labelled box which by default is either on (checkmark is visible) or off (no checkmark). Optionally (when the wxCHK_3STATE style flag is set) it can have a third state, called the mixed or undetermined state. Often this is used as a "Does Not Apply" state.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxRadioButton`, `m:wxCommandEvent`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxCheckBox](https://docs.wxwidgets.org/3.1/classwx_check_box.html)
+
+## Events
+
+Event types emitted from this class: [`command_checkbox_clicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,get3StateValue/1,getValue/1,is3State/1,
   is3rdStateAllowedForUser/1,isChecked/1,new/0,new/3,new/4,set3StateValue/2,
@@ -64,6 +83,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxCheckBox() :: wx:wx_object().
 -export_type([wxCheckBox/0]).
 %% @hidden
@@ -73,12 +93,18 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
+-doc """
+Default constructor.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new() -> wxCheckBox().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxCheckBox_new_0),
   wxe_util:rec(?wxCheckBox_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxCheckBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -87,6 +113,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
+-doc """
+Constructor, creating and showing a checkbox.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxCheckBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -107,6 +138,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxCheckBox_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -115,6 +147,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxcreate">external documentation</a>.
+-doc """
+Creates the checkbox for two-step construction.
+
+See `new/4` for details.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -136,6 +173,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxCheckBox_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxgetvalue">external documentation</a>.
+-doc """
+Gets the state of a 2-state checkbox.
+
+Return: Returns true if it is checked, false otherwise.
+""".
 -spec getValue(This) -> boolean() when
 	This::wxCheckBox().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -145,6 +187,11 @@ getValue(#wx_ref{type=ThisT}=This) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxget3statevalue">external documentation</a>.
 %%<br /> Res = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
+-doc """
+Gets the state of a 3-state checkbox.
+
+Asserts when the function is used with a 2-state checkbox.
+""".
 -spec get3StateValue(This) -> wx:wx_enum() when
 	This::wxCheckBox().
 get3StateValue(#wx_ref{type=ThisT}=This) ->
@@ -153,6 +200,11 @@ get3StateValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCheckBox_Get3StateValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxis3rdstateallowedforuser">external documentation</a>.
+-doc """
+Returns whether or not the user can set the checkbox to the third state.
+
+Return: true if the user can set the third state of this checkbox, false if it can only be set programmatically or if it's a 2-state checkbox.
+""".
 -spec is3rdStateAllowedForUser(This) -> boolean() when
 	This::wxCheckBox().
 is3rdStateAllowedForUser(#wx_ref{type=ThisT}=This) ->
@@ -161,6 +213,11 @@ is3rdStateAllowedForUser(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCheckBox_Is3rdStateAllowedForUser).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxis3state">external documentation</a>.
+-doc """
+Returns whether or not the checkbox is a 3-state checkbox.
+
+Return: true if this checkbox is a 3-state checkbox, false if it's a 2-state checkbox.
+""".
 -spec is3State(This) -> boolean() when
 	This::wxCheckBox().
 is3State(#wx_ref{type=ThisT}=This) ->
@@ -169,6 +226,7 @@ is3State(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCheckBox_Is3State).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxischecked">external documentation</a>.
+-doc "This is just a maybe more readable synonym for `getValue/1`: just as the latter, it returns true if the checkbox is checked and false otherwise.".
 -spec isChecked(This) -> boolean() when
 	This::wxCheckBox().
 isChecked(#wx_ref{type=ThisT}=This) ->
@@ -177,6 +235,11 @@ isChecked(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCheckBox_IsChecked).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxsetvalue">external documentation</a>.
+-doc """
+Sets the checkbox to the given state.
+
+This does not cause a `wxEVT_CHECKBOX` event to get emitted.
+""".
 -spec setValue(This, State) -> 'ok' when
 	This::wxCheckBox(), State::boolean().
 setValue(#wx_ref{type=ThisT}=This,State)
@@ -186,6 +249,13 @@ setValue(#wx_ref{type=ThisT}=This,State)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxset3statevalue">external documentation</a>.
 %%<br /> State = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
+-doc """
+Sets the checkbox to the given state.
+
+This does not cause a `wxEVT_CHECKBOX` event to get emitted.
+
+Asserts when the checkbox is a 2-state checkbox and setting the state to wxCHK_UNDETERMINED.
+""".
 -spec set3StateValue(This, State) -> 'ok' when
 	This::wxCheckBox(), State::wx:wx_enum().
 set3StateValue(#wx_ref{type=ThisT}=This,State)
@@ -194,6 +264,7 @@ set3StateValue(#wx_ref{type=ThisT}=This,State)
   wxe_util:queue_cmd(This,State,?get_env(),?wxCheckBox_Set3StateValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the checkbox.".
 -spec destroy(This::wxCheckBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckBox),
@@ -568,3 +639,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

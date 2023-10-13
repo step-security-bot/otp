@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxBoxSizer).
+-moduledoc """
+Functions for wxBoxSizer class
+
+The basic idea behind a box sizer is that windows will most often be laid out in rather simple basic geometry, typically in a row or a column or several hierarchies of either.
+
+For more information, please see overview_sizer_box.
+
+See: `m:wxSizer`, [Overview sizer](https://docs.wxwidgets.org/3.1/overview_sizer.html#overview_sizer)
+
+This class is derived (and can use functions) from: `m:wxSizer`
+
+wxWidgets docs: [wxBoxSizer](https://docs.wxwidgets.org/3.1/classwx_box_sizer.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getOrientation/1,new/1]).
 
@@ -33,6 +46,7 @@
   setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,
   show/2,show/3,showItems/2]).
 
+-doc "".
 -type wxBoxSizer() :: wx:wx_object().
 -export_type([wxBoxSizer/0]).
 %% @hidden
@@ -40,6 +54,11 @@ parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxboxsizer.html#wxboxsizerwxboxsizer">external documentation</a>.
+-doc """
+Constructor for a `m:wxBoxSizer`.
+
+`orient` may be either of wxVERTICAL or wxHORIZONTAL for creating either a column sizer or a row sizer.
+""".
 -spec new(Orient) -> wxBoxSizer() when
 	Orient::integer().
 new(Orient)
@@ -48,6 +67,7 @@ new(Orient)
   wxe_util:rec(?wxBoxSizer_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxboxsizer.html#wxboxsizergetorientation">external documentation</a>.
+-doc "Returns the orientation of the box sizer, either wxVERTICAL or wxHORIZONTAL.".
 -spec getOrientation(This) -> integer() when
 	This::wxBoxSizer().
 getOrientation(#wx_ref{type=ThisT}=This) ->
@@ -56,6 +76,7 @@ getOrientation(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxBoxSizer_GetOrientation).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxBoxSizer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBoxSizer),
@@ -160,3 +181,4 @@ add(This,Width,Height, Options) -> wxSizer:add(This,Width,Height, Options).
 add(This,Width,Height) -> wxSizer:add(This,Width,Height).
 %% @hidden
 add(This,Window) -> wxSizer:add(This,Window).
+

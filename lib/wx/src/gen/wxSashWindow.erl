@@ -19,6 +19,27 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSashWindow).
+-moduledoc """
+Functions for wxSashWindow class
+
+`m:wxSashWindow` allows any of its edges to have a sash which can be dragged to resize the window. The actual content window will be created by the application as a child of `m:wxSashWindow`.
+
+The window (or an ancestor) will be notified of a drag via a `m:wxSashEvent` notification.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxSashEvent`, `m:wxSashLayoutWindow`, [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSashWindow](https://docs.wxwidgets.org/3.1/classwx_sash_window.html)
+
+## Events
+
+Event types emitted from this class: [`sash_dragged`](`m:wxSashEvent`)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getMaximumSizeX/1,getMaximumSizeY/1,getMinimumSizeX/1,getMinimumSizeY/1,
   getSashVisible/2,new/0,new/1,new/2,setMaximumSizeX/2,setMaximumSizeY/2,
@@ -64,6 +85,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSashWindow() :: wx:wx_object().
 -export_type([wxSashWindow/0]).
 %% @hidden
@@ -72,12 +94,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxSashWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxSashWindow_new_0),
   wxe_util:rec(?wxSashWindow_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxSashWindow() when
 	Parent::wxWindow:wxWindow().
 
@@ -86,6 +110,7 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
+-doc "Constructs a sash window, which can be a child of a frame, dialog or any other non-control window.".
 -spec new(Parent, [Option]) -> wxSashWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -106,6 +131,11 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
+-doc """
+Returns true if a sash is visible on the given edge, false otherwise.
+
+See: `setSashVisible/3`
+""".
 -spec getSashVisible(This, Edge) -> boolean() when
 	This::wxSashWindow(), Edge::wx:wx_enum().
 getSashVisible(#wx_ref{type=ThisT}=This,Edge)
@@ -115,6 +145,7 @@ getSashVisible(#wx_ref{type=ThisT}=This,Edge)
   wxe_util:rec(?wxSashWindow_GetSashVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizex">external documentation</a>.
+-doc "Gets the maximum window size in the x direction.".
 -spec getMaximumSizeX(This) -> integer() when
 	This::wxSashWindow().
 getMaximumSizeX(#wx_ref{type=ThisT}=This) ->
@@ -123,6 +154,7 @@ getMaximumSizeX(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSashWindow_GetMaximumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetmaximumsizey">external documentation</a>.
+-doc "Gets the maximum window size in the y direction.".
 -spec getMaximumSizeY(This) -> integer() when
 	This::wxSashWindow().
 getMaximumSizeY(#wx_ref{type=ThisT}=This) ->
@@ -131,6 +163,7 @@ getMaximumSizeY(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSashWindow_GetMaximumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizex">external documentation</a>.
+-doc "Gets the minimum window size in the x direction.".
 -spec getMinimumSizeX(This) -> integer() when
 	This::wxSashWindow().
 getMinimumSizeX(#wx_ref{type=ThisT}=This) ->
@@ -139,6 +172,7 @@ getMinimumSizeX(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSashWindow_GetMinimumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowgetminimumsizey">external documentation</a>.
+-doc "Gets the minimum window size in the y direction.".
 -spec getMinimumSizeY(This) -> integer() when
 	This::wxSashWindow().
 getMinimumSizeY(#wx_ref{type=ThisT}=This) ->
@@ -147,6 +181,7 @@ getMinimumSizeY(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSashWindow_GetMinimumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizex">external documentation</a>.
+-doc "Sets the maximum window size in the x direction.".
 -spec setMaximumSizeX(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMaximumSizeX(#wx_ref{type=ThisT}=This,Min)
@@ -155,6 +190,7 @@ setMaximumSizeX(#wx_ref{type=ThisT}=This,Min)
   wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMaximumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizey">external documentation</a>.
+-doc "Sets the maximum window size in the y direction.".
 -spec setMaximumSizeY(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMaximumSizeY(#wx_ref{type=ThisT}=This,Min)
@@ -163,6 +199,7 @@ setMaximumSizeY(#wx_ref{type=ThisT}=This,Min)
   wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMaximumSizeY).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizex">external documentation</a>.
+-doc "Sets the minimum window size in the x direction.".
 -spec setMinimumSizeX(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeX(#wx_ref{type=ThisT}=This,Min)
@@ -171,6 +208,7 @@ setMinimumSizeX(#wx_ref{type=ThisT}=This,Min)
   wxe_util:queue_cmd(This,Min,?get_env(),?wxSashWindow_SetMinimumSizeX).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizey">external documentation</a>.
+-doc "Sets the minimum window size in the y direction.".
 -spec setMinimumSizeY(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeY(#wx_ref{type=ThisT}=This,Min)
@@ -180,6 +218,11 @@ setMinimumSizeY(#wx_ref{type=ThisT}=This,Min)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
+-doc """
+Call this function to make a sash visible or invisible on a particular edge.
+
+See: `getSashVisible/2`
+""".
 -spec setSashVisible(This, Edge, Visible) -> 'ok' when
 	This::wxSashWindow(), Edge::wx:wx_enum(), Visible::boolean().
 setSashVisible(#wx_ref{type=ThisT}=This,Edge,Visible)
@@ -188,6 +231,7 @@ setSashVisible(#wx_ref{type=ThisT}=This,Edge,Visible)
   wxe_util:queue_cmd(This,Edge,Visible,?get_env(),?wxSashWindow_SetSashVisible).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxSashWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSashWindow),
@@ -561,3 +605,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

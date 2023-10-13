@@ -19,6 +19,34 @@
 %%
 
 -module(ct_ssh).
+-moduledoc """
+SSH/SFTP client module.
+
+SSH/SFTP client module.
+
+This module uses application `SSH`, which provides detailed information about, for example, functions, types, and options.
+
+Argument `Server` in the SFTP functions is only to be used for SFTP sessions that have been started on existing SSH connections (that is, when the original connection type is `ssh`). Whenever the connection type is `sftp`, use the SSH connection reference only.
+
+The following options are valid for specifying an SSH/SFTP connection (that is, can be used as configuration elements):
+
+```text
+ [{ConnType, Addr},
+  {port, Port},
+  {user, UserName}
+  {password, Pwd}
+  {user_dir, String}
+  {public_key_alg, PubKeyAlg}
+  {connect_timeout, Timeout}
+  {key_cb, KeyCallbackMod}]
+```
+
+`ConnType = ssh | sftp`.
+
+For other types, see `m:ssh`.
+
+All time-out parameters in `ct_ssh` functions are values in milliseconds.
+""".
 
 %% SSH Functions
 -export([connect/1, connect/2, connect/3,
@@ -57,22 +85,48 @@
 
 -record(state, {ssh_ref, conn_type, target}).
 
+-doc "Handle for a specific SSH/SFTP connection, see module `m:ct`.".
 -type handle() :: pid().
+-doc "Return value from an `m:ssh_sftp` function.".
 -type ssh_sftp_return() :: term().
+-doc "For `target_name`, see module `m:ct`.".
 -type connection() :: handle() | ct:target_name().
 
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
 
+-doc "Equivalent to [`ct_ssh:connect(KeyOrName, host, [])`](`connect/3`).".
 connect(KeyOrName) ->
     connect(KeyOrName, host).
 
+-doc "Equivalent to [`ct_ssh:connect(KeyOrName, ConnType, [])`](`connect/3`).".
 connect(KeyOrName, ConnType) when is_atom(ConnType) ->
     connect(KeyOrName, ConnType, []);
 
 connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
     connect(KeyOrName, host, ExtraOpts).
 
+-doc """
+KeyOrName = Key | Name  
+Key = atom()  
+Name = target_name()  
+ConnType = ssh | sftp | host  
+ExtraOpts = ssh_connect_options()  
+Handle = handle()  
+Reason = term()  
+
+Opens an SSH or SFTP connection using the information associated with `KeyOrName`.
+
+If `Name` (an alias name for `Key`) is used to identify the connection, this name can be used as connection reference for subsequent calls. Only one open connection at a time associated with `Name` is possible. If `Key` is used, the returned handle must be used for subsequent calls (multiple connections can be opened using the configuration data specified by `Key`).
+
+For information on how to create a new `Name`, see `ct:require/2`.
+
+For `target_name`, see module `m:ct`.
+
+`ConnType` always overrides the type specified in the address tuple in the configuration data (and in `ExtraOpts`). So it is possible to, for example, open an SFTP connection directly using data originally specifying an SSH connection. Value `host` means that the connection type specified by the host option (either in the configuration data or in `ExtraOpts`) is used.
+
+`ExtraOpts` (optional) are extra SSH options to be added to the configuration data for `KeyOrName`. The extra options override any existing options with the same key in the configuration data. For details on valid SSH options, see application [`SSH`](`p:ssh:index.html`).
+""".
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->
@@ -147,6 +201,12 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
 	    end
     end.
 
+-doc """
+SSH = connection()  
+Reason = term()  
+
+Closes an SSH/SFTP connection.
+""".
 disconnect(SSH) ->
     case get_handle(SSH) of
 	{ok,Pid} ->
@@ -161,54 +221,122 @@ disconnect(SSH) ->
 	    Error
     end.
 
+-doc "Equivalent to [`ct_ssh:session_open(SSH, DefaultTimeout)`](`session_open/2`).".
 session_open(SSH) ->
     call(SSH, {session_open,?DEFAULT_TIMEOUT}).
 
+-doc """
+SSH = connection()  
+Timeout = integer()  
+ChannelId = integer()  
+Reason = term()  
+
+Opens a channel for an SSH session.
+""".
 session_open(SSH, Timeout) ->
     call(SSH, {session_open,Timeout}).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Reason = term()  
+
+Closes an SSH session channel.
+""".
 session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
+-doc "Equivalent to [`ct_ssh:exec(SSH, Command, DefaultTimeout)`](`exec/3`).".
 exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+Command = string()  
+Timeout = integer()  
+Data = list()  
+Reason = term()  
+
+Requests server to perform `Command`. A session channel is opened automatically for the request. `Data` is received from the server as a result of the command.
+""".
 exec(SSH, Command, Timeout) when is_list(Command) ->
     exec(SSH, undefined, Command, Timeout);
 
 exec(SSH, ChannelId, Command) when is_integer(ChannelId) ->
     exec(SSH, ChannelId, Command, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Command = string()  
+Timeout = integer()  
+Data = list()  
+Reason = term()  
+
+Requests server to perform `Command`. A previously opened session channel is used for the request. `Data` is received from the server as a result of the command.
+""".
 exec(SSH, ChannelId, Command, Timeout) ->
     call(SSH, {exec,ChannelId,Command,Timeout}).
 
+-doc "Equivalent to [`ct_ssh:receive_response(SSH, ChannelId, close)`](`receive_response/3`).".
 receive_response(SSH, ChannelId) ->
     receive_response(SSH, ChannelId, close, ?DEFAULT_TIMEOUT).
 
+-doc "Equivalent to [`ct_ssh:receive_response(SSH, ChannelId, End, DefaultTimeout)`](`receive_response/4`).".
 receive_response(SSH, ChannelId, End) when is_function(End) ->
     receive_response(SSH, ChannelId, End, ?DEFAULT_TIMEOUT);
 
 receive_response(SSH, ChannelId, Timeout) when is_integer(Timeout) ->
     receive_response(SSH, ChannelId, close, Timeout).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+End = Fun | close | timeout  
+Timeout = integer()  
+Data = list()  
+Reason = term()  
+
+Receives expected data from server on the specified session channel.
+
+If `End == close`, data is returned to the caller when the channel is closed by the server. If a time-out occurs before this happens, the function returns `{timeout,Data}` (where `Data` is the data received so far).
+
+If `End == timeout`, a time-out is expected and `{ok,Data}` is returned both in the case of a time-out and when the channel is closed.
+
+If `End` is a fun, this fun is called with one argument, the data value in a received `ssh_cm` message (see `m:ssh_connection`. The fun is to return either `true` to end the receiving operation (and have the so far collected data returned) or `false` to wait for more data from the server. Even if a fun is supplied, the function returns immediately if the server closes the channel).
+""".
 receive_response(SSH, ChannelId, End, Timeout) ->
     call(SSH, {receive_response,ChannelId,End,Timeout}).
 
+-doc "Equivalent to [`ct_ssh:send(SSH, ChannelId, 0, Data, DefaultTimeout)`](`send/5`).".
 send(SSH, ChannelId, Data) ->
     send(SSH, ChannelId, 0, Data, ?DEFAULT_TIMEOUT).
 
+-doc "Equivalent to [`ct_ssh:send(SSH, ChannelId, 0, Data, Timeout)`](`send/5`).".
 send(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
     send(SSH, ChannelId, 0, Data, Timeout);
 
 send(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send(SSH, ChannelId, Type, Data, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Type = integer()  
+Data = list()  
+Timeout = integer()  
+Reason = term()  
+
+Sends data to server on specified session channel.
+""".
 send(SSH, ChannelId, Type, Data, Timeout) ->
     call(SSH, {send,ChannelId,Type,Data,Timeout}).
 
+-doc "Equivalent to [`ct_ssh:send_and_receive(SSH, ChannelId, Data, close)`](`send_and_receive/4`).".
 send_and_receive(SSH, ChannelId, Data) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, ?DEFAULT_TIMEOUT).
 
+-doc "Equivalent to [`ct_ssh;send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`).".
 send_and_receive(SSH, ChannelId, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, ?DEFAULT_TIMEOUT);
 
@@ -218,6 +346,7 @@ send_and_receive(SSH, ChannelId, Data, Timeout) when is_integer(Timeout) ->
 send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, ?DEFAULT_TIMEOUT).
 
+-doc "Equivalent to [`ct_ssh:send_and_receive(SSH, ChannelId, 0, Data, End, Timeout)`](`send_and_receive/6`).".
 send_and_receive(SSH, ChannelId, Data, End, Timeout) when is_integer(Timeout) ->
     send_and_receive(SSH, ChannelId, 0, Data, End, Timeout);
 
@@ -227,16 +356,42 @@ send_and_receive(SSH, ChannelId, Type, Data, Timeout) when is_integer(Type) ->
 send_and_receive(SSH, ChannelId, Type, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, Type, Data, End, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Type = integer()  
+Data = list()  
+End = Fun | close | timeout  
+Timeout = integer()  
+Reason = term()  
+
+Sends data to server on specified session channel and waits to receive the server response.
+
+For details on argument `End`, see [`ct_ssh:receive_response/4`](`receive_response/4`).
+""".
 send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
     call(SSH, {send_and_receive,ChannelId,Type,Data,End,Timeout}).
 
+-doc "Equivalent to [`ct_ssh:subsystem(SSH, ChannelId, Subsystem, DefaultTimeout)`](`subsystem/4`).".
 subsystem(SSH, ChannelId, Subsystem) ->
     subsystem(SSH, ChannelId, Subsystem, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Subsystem = string()  
+Timeout = integer()  
+Status = success | failure  
+Reason = term()  
+
+Sends a request to execute a predefined subsystem.
+""".
 subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
 
 
+-doc "Equivalent to [`ct_ssh:shell(SSH, ChannelId, DefaultTimeout)`](`shell/3`).".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec shell(SSH, ChannelId) -> Result when
       SSH :: handle() | ct:target_name(),
       ChannelId :: ssh:ssh_channel_id(),
@@ -244,6 +399,15 @@ subsystem(SSH, ChannelId, Subsystem, Timeout) ->
 shell(SSH, ChannelId) ->
     shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
 
+-doc """
+SSH = connection()  
+ChannelId = integer()  
+Timeout = integer()  
+Reason = term()  
+
+Requests that the user default shell (typically defined in `/etc/passwd` in Unix systems) is executed at the server end.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec shell(SSH, ChannelId, Timeout) -> Result when
       SSH :: handle() | ct:target_name(),
       ChannelId :: ssh:ssh_channel_id(),
@@ -256,63 +420,203 @@ shell(SSH, ChannelId, Timeout) ->
 %%%-----------------------------------------------------------------
 %%%------------------------ SFTP COMMANDS --------------------------
 
+-doc """
+SSH = connection()  
+Server = pid()  
+Reason = term()  
+
+Starts an SFTP session on an already existing SSH connection. `Server` identifies the new session and must be specified whenever SFTP requests are to be sent.
+""".
 sftp_connect(SSH) ->
     call(SSH, sftp_connect).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_file(SSH, File) ->
     call(SSH, {read_file,sftp,File}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_file(SSH, Server, File) ->
     call(SSH, {read_file,Server,File}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write_file(SSH, File, Iolist) ->
     call(SSH, {write_file,sftp,File,Iolist}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write_file(SSH, Server, File, Iolist) ->
     call(SSH, {write_file,Server,File,Iolist}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 list_dir(SSH, Path) ->
     call(SSH, {list_dir,sftp,Path}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 list_dir(SSH, Server, Path) ->
     call(SSH, {list_dir,Server,Path}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 open(SSH, File, Mode) ->
     call(SSH, {open,sftp,File,Mode}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 open(SSH, Server, File, Mode) ->
     call(SSH, {open,Server,File,Mode}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 opendir(SSH, Path) ->
     call(SSH, {opendir,sftp,Path}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 opendir(SSH, Server, Path) ->
     call(SSH, {opendir,Server,Path}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 close(SSH, Handle) ->
     call(SSH, {close,sftp,Handle}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 close(SSH, Server, Handle) ->
     call(SSH, {close,Server,Handle}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read(SSH, Handle, Len) ->
     call(SSH, {read,sftp,Handle,Len}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read(SSH, Server, Handle, Len) ->
     call(SSH, {read,Server,Handle,Len}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 pread(SSH, Handle, Position, Length) ->
     call(SSH, {pread,sftp,Handle,Position,Length}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 pread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {pread,Server,Handle,Position,Length}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 aread(SSH, Handle, Len) ->
     call(SSH, {aread,sftp,Handle,Len}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 aread(SSH, Server, Handle, Len) ->
     call(SSH, {aread,Server,Handle,Len}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 -spec apread(SSH, Handle, Position, Length) -> Result when
       SSH :: connection(),
       Handle :: term(),
@@ -322,97 +626,314 @@ aread(SSH, Server, Handle, Len) ->
 apread(SSH, Handle, Position, Length) ->
     call(SSH, {apread,sftp,Handle,Position,Length}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 apread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {apread,Server,Handle,Position,Length}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write(SSH, Handle, Data) ->
     call(SSH, {write,sftp,Handle,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write(SSH, Server, Handle, Data) ->
     call(SSH, {write,Server,Handle,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 pwrite(SSH, Handle, Position, Data) ->
     call(SSH, {pwrite,sftp,Handle,Position,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 pwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {pwrite,Server,Handle,Position,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 awrite(SSH, Handle, Data) ->
     call(SSH, {awrite,sftp,Handle, Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 awrite(SSH, Server, Handle, Data) ->
     call(SSH, {awrite,Server,Handle, Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 apwrite(SSH, Handle, Position, Data) ->
     call(SSH, {apwrite,sftp,Handle,Position,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 apwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {apwrite,Server,Handle,Position,Data}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 position(SSH, Handle, Location) ->
     call(SSH, {position,sftp,Handle,Location}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 position(SSH, Server, Handle, Location) ->
     call(SSH, {position,Server,Handle,Location}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_file_info(SSH, Name) ->
     call(SSH, {read_file_info,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_file_info(SSH, Server, Name) ->
     call(SSH, {read_file_info,Server,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 get_file_info(SSH, Handle) ->
     call(SSH, {get_file_info,sftp,Handle}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 get_file_info(SSH, Server, Handle) ->
     call(SSH, {get_file_info,Server,Handle}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_link_info(SSH, Name) ->
     call(SSH, {read_link_info,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_link_info(SSH, Server, Name) ->
     call(SSH, {read_link_info,Server,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write_file_info(SSH, Name, Info) ->
     call(SSH, {write_file_info,sftp,Name,Info}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 write_file_info(SSH, Server, Name, Info) ->
     call(SSH, {write_file_info,Server,Name,Info}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_link(SSH, Name) ->
     call(SSH, {read_link,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 read_link(SSH, Server, Name) ->
     call(SSH, {read_link,Server,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 make_symlink(SSH, Name, Target) ->
     call(SSH, {make_symlink,sftp,Name,Target}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 make_symlink(SSH, Server, Name, Target) ->
     call(SSH, {make_symlink,Server,Name,Target}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 rename(SSH, OldName, NewName) ->
     call(SSH, {rename,sftp,OldName,NewName}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 rename(SSH, Server, OldName, NewName) ->
     call(SSH, {rename,Server,OldName,NewName}).
 
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 delete(SSH, Name) ->
     call(SSH, {delete,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 delete(SSH, Server, Name) ->
     call(SSH, {delete,Server,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 make_dir(SSH, Name) ->
     call(SSH, {make_dir,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 make_dir(SSH, Server, Name) ->
     call(SSH, {make_dir,Server,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 del_dir(SSH, Name) ->
     call(SSH, {del_dir,sftp,Name}).
 
+-doc """
+SSH = connection()  
+Result = ssh_sftp_return() | \{error, Reason\}  
+Reason = term()  
+
+For information and other types, see `m:ssh_sftp`.
+""".
 del_dir(SSH, Server, Name) ->
     call(SSH, {del_dir,Server,Name}).
 
@@ -868,3 +1389,4 @@ debug(Str) ->
 debug(_Str, _Args) ->
     %%    io:format("~n--- ct_ssh debug ---~n" ++ _Str ++ "~n", _Args),
     ok.
+

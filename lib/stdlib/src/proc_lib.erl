@@ -18,6 +18,27 @@
 %% %CopyrightEnd%
 %%
 -module(proc_lib).
+-moduledoc """
+Functions for asynchronous and synchronous start of processes adhering to the OTP design principles.
+
+This module is used to start processes adhering to the [OTP Design Principles](`p:system:design_principles.md`). Specifically, the functions in this module are used by the OTP standard behaviors (for example, `gen_server` and `gen_statem`) when starting new processes. The functions can also be used to start *special processes*, user-defined processes that comply to the OTP design principles. For an example, see section [sys and proc_lib](`p:system:spec_proc.md`) in OTP Design Principles.
+
+Some useful information is initialized when a process starts. The registered names, or the process identifiers, of the parent process, and the parent ancestors, are stored together with information about the function initially called in the process.
+
+While in "plain Erlang", a process is said to terminate normally only for exit reason `normal`, a process started using `proc_lib` is also said to terminate normally if it exits with reason `shutdown` or `{shutdown,Term}`. `shutdown` is the reason used when an application (supervision tree) is stopped.
+
+When a process that is started using `proc_lib` terminates abnormally (that is, with another exit reason than `normal`, `shutdown`, or `{shutdown,Term}`), a *crash report* is generated, which is written to terminal by the default logger handler setup by Kernel. For more information about how crash reports were logged prior to Erlang/OTP 21.0, see [SASL Error Logging](`p:sasl:error_logging.md`) in the SASL User's Guide.
+
+Unlike in "plain Erlang", `proc_lib` processes will not generate *error reports*, which are written to the terminal by the emulator. All exceptions are converted to *exits* which are ignored by the default `logger` handler.
+
+The crash report contains the previously stored information, such as ancestors and initial function, the termination reason, and information about other processes that terminate as a result of this process terminating.
+
+## See Also
+
+`m:error_logger`
+
+`m:logger`
+""".
 
 %% This module is used to set some initial information
 %% in each created process. 
@@ -50,6 +71,7 @@
 %% This shall be spawn_option() -- monitor options and must be kept in sync
 %% (with erlang:spawn_opt_options())
 %%
+-doc "A restricted set of [spawn options](`t:spawn_option/0`). Most notably `monitor` is *not* part of these options.".
 -type start_spawn_option() :: 'link'
                             | {'priority', erlang:priority_level()}
                             | {'fullsweep_after', non_neg_integer()}
@@ -75,8 +97,10 @@
                 end
         end).
 
+-doc "See [`erlang:spawn_opt/2,3,4,5`](`erlang:spawn_opt/4`).".
 -type spawn_option()   :: erlang:spawn_opt_option().
 
+-doc "".
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
                         | {X :: integer(), Y :: integer(), Z :: integer()}.
@@ -85,6 +109,7 @@
 
 %%-----------------------------------------------------------------------------
 
+-doc(#{equiv => spawn/4}).
 -spec spawn(Fun) -> pid() when
       Fun :: function().
 
@@ -93,6 +118,7 @@ spawn(F) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,F]).
 
+-doc(#{equiv => spawn/4}).
 -spec spawn(Module, Function, Args) -> pid() when
       Module :: module(),
       Function :: atom(),
@@ -103,6 +129,7 @@ spawn(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
+-doc(#{equiv => spawn_link/4}).
 -spec spawn_link(Fun) -> pid() when
       Fun :: function().
 
@@ -111,6 +138,7 @@ spawn_link(F) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,F]).
 
+-doc(#{equiv => spawn_link/4}).
 -spec spawn_link(Module, Function, Args) -> pid() when
       Module :: module(),
       Function :: atom(),
@@ -121,6 +149,7 @@ spawn_link(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
+-doc(#{equiv => spawn/4}).
 -spec spawn(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -130,6 +159,7 @@ spawn(Node, F) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,F]).
 
+-doc "Spawns a new process and initializes it as described in the beginning of this manual page. The process is spawned using the [`spawn`](`erlang:spawn/1`) BIFs.".
 -spec spawn(Node, Module, Function, Args) -> pid() when
       Node :: node(),
       Module :: module(),
@@ -141,6 +171,7 @@ spawn(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
+-doc(#{equiv => spawn_link/4}).
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -150,6 +181,7 @@ spawn_link(Node, F) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,F]).
 
+-doc "Spawns a new process and initializes it as described in the beginning of this manual page. The process is spawned using the [`spawn_link`](`erlang:spawn_link/1`) BIFs.".
 -spec spawn_link(Node, Module, Function, Args) -> pid() when
       Node :: node(),
       Module :: module(),
@@ -161,6 +193,7 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
+-doc(#{equiv => spawn_opt/5}).
 -spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [spawn_option()].
@@ -170,6 +203,7 @@ spawn_opt(F, Opts) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
+-doc(#{equiv => spawn_opt/5}).
 -spec spawn_opt(Node, Function, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Function :: function(),
@@ -180,6 +214,7 @@ spawn_opt(Node, F, Opts) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,F], Opts).
 
+-doc(#{equiv => spawn_opt/5}).
 -spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Module :: module(),
       Function :: atom(),
@@ -191,6 +226,7 @@ spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
+-doc "Spawns a new process and initializes it as described in the beginning of this manual page. The process is spawned using the [`erlang:spawn_opt`](`erlang:spawn_opt/2`) BIFs.".
 -spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Module :: module(),
@@ -208,6 +244,11 @@ spawn_mon(M,F,A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_monitor(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
+-doc """
+This function does the same as (and does call) the [`hibernate/3`](`erlang:hibernate/3`) BIF, but ensures that exception handling and logging continues to work as expected when the process wakes up.
+
+Always use this function instead of the BIF for processes started using `proc_lib` functions.
+""".
 -spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
       Function :: atom(),
@@ -275,6 +316,7 @@ exit_reason(throw, Reason, Stacktrace) ->
     {{nocatch, Reason}, Stacktrace}.
 
 
+-doc(#{equiv => start/5}).
 -spec start(Module, Function, Args) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -284,6 +326,7 @@ exit_reason(throw, Reason, Stacktrace) ->
 start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     start(M, F, A, infinity).
 
+-doc(#{equiv => start/5}).
 -spec start(Module, Function, Args, Time) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -294,6 +337,24 @@ start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
     sync_start(spawn_mon(M, F, A), Timeout).
 
+-doc """
+Starts a new process synchronously. Spawns the process and waits for it to start.
+
+To indicate a succesful start, the started process *must* call [`init_ack(Parent, Ret)`](`init_ack/2`) where `Parent` is the process that evaluates this function, or [`init_ack(Ret)`](`init_ack/1`). `Ret` is then returned by this function.
+
+If the process fails to start, it *must* fail; preferably by calling [`init_fail(Parent, Ret, Exception)` ](`init_fail/3`)where `Parent` is the process that evaluates this function, or [`init_fail(Ret, Exception)`](`init_fail/2`). `Ret` is then returned by this function, and the started process fails with `Exception`.
+
+If the process instead fails before calling `init_ack/1,2` or `init_fail/2,3`, this function returns `{error, Reason}` where `Reason` depends a bit on the exception just like for a process link `{'EXIT',Pid,Reason}` message.
+
+If `Time` is specified as an integer, this function waits for `Time` milliseconds for the new process to call `init_ack/1,2` or `init_fail/2,3`, otherwise the process gets killed and `Ret = {error, timeout}` is returned.
+
+Argument `SpawnOpts`, if specified, is passed as the last argument to the [`spawn_opt/2,3,4,5`](`erlang:spawn_opt/2`) BIF.
+
+> #### Note {: class=info }
+> Using spawn option `monitor` is not allowed. It causes the function to fail with reason `badarg`.
+>
+> Using spawn option `link` will set a link to the spawned process, just like [start_link/3,4,5](`start_link/3`).
+""".
 -spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -325,6 +386,7 @@ sync_start({Pid, Ref}, Timeout) ->
     end.
 
 
+-doc(#{equiv => start_link/5}).
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -334,6 +396,7 @@ sync_start({Pid, Ref}, Timeout) ->
 start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     start_link(M, F, A, infinity).
 
+-doc(#{equiv => start_link/5}).
 -spec start_link(Module, Function, Args, Time) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -344,6 +407,19 @@ start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
     sync_start(?MODULE:spawn_opt(M, F, A, [link,monitor]), Timeout).
 
+-doc """
+Starts a new process synchronously. Spawns the process and waits for it to start. A link is atomically set on the newly spawned process.
+
+> #### Note {: class=info }
+> If the started process gets killed or crashes with a reason that is not `normal`, the process link will kill the calling process so this function does not return, unless the calling process traps exits. For example, if this function times out it will kill the spawned process, and then the link might kill the calling process.
+
+Besides setting a link on the spawned process this function behaves like [start/3,4,5](`start/3`).
+
+When the calling process traps exits; if this function returns due to the spawned process exiting (any error return), this function receives (consumes) the `'EXIT'` message, also when this function times out and kills the spawned process.
+
+> #### Note {: class=info }
+> Using spawn option `monitor` is not allowed. It causes the function to fail with reason `badarg`.
+""".
 -spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
@@ -358,6 +434,8 @@ start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
       ?MODULE:spawn_opt(M, F, A, [link,monitor|SpawnOpts]), Timeout).
 
 
+-doc(#{equiv => start_monitor/5}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(Module, Function, Args) -> {Ret, Mon} when
       Module :: module(),
       Function :: atom(),
@@ -368,6 +446,8 @@ start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
 start_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     start_monitor(M, F, A, infinity).
 
+-doc(#{equiv => start_monitor/5}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(Module, Function, Args, Time) -> {Ret, Mon} when
       Module :: module(),
       Function :: atom(),
@@ -379,6 +459,21 @@ start_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
 start_monitor(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
     sync_start_monitor(spawn_mon(M, F, A), Timeout).
 
+-doc """
+Starts a new process synchronously. Spawns the process and waits for it to start. A monitor is atomically set on the newly spawned process.
+
+Besides setting a monitor on the spawned process this function behaves like [start/3,4,5](`start/3`).
+
+The return value is `{Ret, Mon}` where `Ret` corresponds to the `Ret` argument in the call to `init_ack/1,2` or `init_fail/2,3`, and `Mon` is the monitor reference of the monitor that has been set up.
+
+If this function returns due to the spawned process exiting, that is returns any error value, a `'DOWN'` message will be delivered to the calling process, also when this function times out and kills the spawned process.
+
+> #### Note {: class=info }
+> Using spawn option `monitor` is not allowed. It causes the function to fail with reason `badarg`.
+>
+> Using spawn option `link` will set a link to the spawned process, just like [start_link/3,4,5](`start_link/3`).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(Module, Function, Args, Time, SpawnOpts) -> {Ret, Mon} when
       Module :: module(),
       Function :: atom(),
@@ -441,6 +536,38 @@ await_DOWN(Pid, Ref) ->
     end.
 
 
+-doc """
+This function must only be used by a process that has been started by a [`start[_link|_monitor]/3,4,5`](`start/3`) function. It tells `Parent` that the process has initialized itself and started.
+
+Function `init_ack/1` uses the parent value previously stored by the start function used.
+
+If neither this function nor [`init_fail/2,3`](`init_fail/2`) is called by the started process, the start function returns an error tuple when the started process exits, or when the start function time-out (if used) has passed, see [`start/3,4,5`](`start/3`).
+
+> #### Warning {: class=warning }
+> Do not use this function to return an error indicating that the process start failed. When doing so the start function can return before the failing process has exited, which may block VM resources required for a new start attempt to succeed. Use [`init_fail/2,3`](`init_fail/2`) for that purpose.
+
+The following example illustrates how this function and `proc_lib:start_link/3` are used:
+
+```text
+-module(my_proc).
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() ->
+    proc_lib:start_link(my_proc, init, [self()]).
+
+init(Parent) ->
+    case do_initialization() of
+        ok ->
+            proc_lib:init_ack(Parent, {ok, self()});
+        {error, Reason} ->
+            exit(Reason)
+    end,
+    loop().
+
+...
+```
+""".
 -spec init_ack(Parent, Ret) -> 'ok' when
       Parent :: pid(),
       Ret :: term().
@@ -449,6 +576,7 @@ init_ack(Parent, Return) ->
     Parent ! {ack, self(), Return},
     ok.
 
+-doc(#{equiv => init_ack/2}).
 -spec init_ack(Ret) -> 'ok' when
       Ret :: term().
 
@@ -456,6 +584,45 @@ init_ack(Return) ->
     [Parent|_] = get('$ancestors'),
     init_ack(Parent, Return).
 
+-doc """
+Parent = [pid()](`t:erlang:pid/0`)  
+Ret = [term()](`t:erlang:term/0`)  
+Exception = \{Class, Reason\} | \{Class, Reason, Stacktrace\}  
+
+This function must only be used by a process that has been started by a [`start[_link|_monitor]/3,4,5`](`start/3`) function. It tells `Parent` that the process has failed to initialize, and immediately raises an exception according to `Exception`. The start function then returns `Ret`.
+
+See `erlang:raise/3` for a description of `Class`, `Reason` and `Stacktrace`.
+
+Function `init_fail/2` uses the parent value previously stored by the start function used.
+
+> #### Warning {: class=warning }
+> Do not consider catching the exception from this function. That would defeat its purpose. A process started by a [`start[_link|_monitor]/3,4,5`](`start/3`) function should end in a value (that will be ignored) or an exception that will be handled by this module. See [Description](`m:proc_lib`).
+
+If neither this function nor [`init_ack/1,2`](`init_ack/1`) is called by the started process, the start function returns an error tuple when the started process exits, or when the start function time-out (if used) has passed, see [`start/3,4,5`](`start/3`).
+
+The following example illustrates how this function and `proc_lib:start_link/3` can be used:
+
+```text
+-module(my_proc).
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() ->
+    proc_lib:start_link(my_proc, init, [self()]).
+
+init(Parent) ->
+    case do_initialization() of
+        ok ->
+            proc_lib:init_ack(Parent, {ok, self()});
+        {error, Reason} = Error ->
+            proc_lib:init_fail(Parent, Error, {exit, normal})
+    end,
+    loop().
+
+...
+```
+""".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec init_fail(_, _, _) -> no_return().
 init_fail(Parent, Return, Exception) ->
     _ = Parent ! {nack, self(), Return},
@@ -472,6 +639,8 @@ init_fail(Parent, Return, Exception) ->
               [Parent, Return, Exception])
     end.
 
+-doc(#{equiv => init_fail/3}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec init_fail(_, _) -> no_return().
 init_fail(Return, Exception) ->
     [Parent|_] = get('$ancestors'),
@@ -481,6 +650,14 @@ init_fail(Return, Exception) ->
 %% Fetch the initial call of a proc_lib spawned process.
 %% -----------------------------------------------------
 
+-doc """
+Extracts the initial call of a process that was started using one of the spawn or start functions in this module. `Process` can either be a pid, an integer tuple (from which a pid can be created), or the process information of a process `Pid` fetched through an `erlang:process_info(Pid)` function call.
+
+> #### Note {: class=info }
+> The list `Args` no longer contains the arguments, but the same number of atoms as the number of arguments; the first atom is `'Argument__1'`, the second `'Argument__2'`, and so on. The reason is that the argument list could waste a significant amount of memory, and if the argument list contained funs, it could be impossible to upgrade the code for the module.
+>
+> If the process was spawned using a fun, `initial_call/1` no longer returns the fun, but the module, function for the local function implementing the fun, and the arity, for example, `{some_module,-work/3-fun-0-,0}` (meaning that the fun was created in function `some_module:work/3`). The reason is that keeping the fun would prevent code upgrade for the module, and that a significant amount of memory could be wasted.
+""".
 -spec initial_call(Process) -> {Module, Function, Args} | 'false' when
       Process :: dict_or_pid(),
       Module :: module(),
@@ -508,6 +685,17 @@ make_dummy_args(N, Acc) ->
 %% This function is typically called from c:i() and c:regs().
 %% -----------------------------------------------------
 
+-doc """
+This function is used by functions `c:i/0` and `c:regs/0` to present process information.
+
+This function extracts the initial call of a process that was started using one of the spawn or start functions in this module, and translates it to more useful information. `Process` can either be a pid, an integer tuple (from which a pid can be created), or the process information of a process `Pid` fetched through an `erlang:process_info(Pid)` function call.
+
+If the initial call is to one of the system-defined behaviors such as `gen_server` or `gen_event`, it is translated to more useful information. If a `gen_server` is spawned, the returned `Module` is the name of the callback module and `Function` is `init` (the function that initiates the new server).
+
+A `supervisor` and a `supervisor_bridge` are also `gen_server` processes. To return information that this process is a supervisor and the name of the callback module, `Module` is `supervisor` and `Function` is the name of the supervisor callback module. `Arity` is `1`, as the `init/1` function is called initially in the callback module.
+
+By default, `{proc_lib,init_p,5}` is returned if no information about the initial call can be found. It is assumed that the caller knows that the process has been spawned with the `proc_lib` module.
+""".
 -spec translate_initial_call(Process) -> {Module, Function, Arity} when
       Process :: dict_or_pid(),
       Module :: module(),
@@ -837,11 +1025,19 @@ report_cb(#{label:={proc_lib,crash}, report:=CrashReport}, Extra) ->
                 encoding => utf8},
     do_format(CrashReport, maps:merge(Default,Extra)).
 
+-doc "Equivalent to [`format(CrashReport, latin1)`](`format/2`).".
 -spec format(CrashReport) -> string() when
       CrashReport :: [term()].
 format(CrashReport) ->
     format(CrashReport, latin1).
 
+-doc """
+> #### Note {: class=info }
+> This function is deprecated in the sense that the `error_logger` is no longer the preferred interface for logging in Erlang/OTP. A new [logging API](`p:kernel:logger_chapter.md`) was added in Erlang/OTP 21.0, but legacy `error_logger` handlers can still be used. New Logger handlers do not need to use this function, since the formatting callback (`report_cb`) is included as metadata in the log event.
+
+This function can be used by a user-defined legacy `error_logger` event handler to format a crash report. The crash report is sent using `m:logger`, and the event to be handled is of the format `{error_report, GL, {Pid, crash_report, CrashReport}}`, where `GL` is the group leader pid of process `Pid` that sent the crash report.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 -spec format(CrashReport, Encoding) -> string() when
       CrashReport :: [term()],
       Encoding :: latin1 | unicode | utf8.
@@ -849,6 +1045,13 @@ format(CrashReport) ->
 format(CrashReport, Encoding) ->
     format(CrashReport, Encoding, unlimited).
 
+-doc """
+> #### Note {: class=info }
+> This function is deprecated in the sense that the `error_logger` is no longer the preferred interface for logging in Erlang/OTP. A new [logging API](`p:kernel:logger_chapter.md`) was added in Erlang/OTP 21.0, but legacy `error_logger` handlers can still be used. New Logger handlers do not need to used this function, since the formatting callback (`report_cb`) is included as metadata in the log event.
+
+This function can be used by a user-defined legacy `error_logger` event handler to format a crash report. When Depth is specified as a positive integer, it is used in the format string to limit the output as follows: `io_lib:format("~P", [Term,Depth])`.
+""".
+-doc(#{since => <<"OTP 18.1">>}).
 -spec format(CrashReport, Encoding, Depth) -> string() when
       CrashReport :: [term()],
       Encoding :: latin1 | unicode | utf8,
@@ -1109,12 +1312,26 @@ size(_, S) ->
 %%% -----------------------------------------------------------
 %%% Stop a process and wait for it to terminate
 %%% -----------------------------------------------------------
+-doc "Equivalent to [`stop(Process, normal, infinity)`](`stop/3`).".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec stop(Process) -> 'ok' when
       Process :: pid() | RegName | {RegName,node()},
       RegName :: atom().
 stop(Process) ->
     stop(Process, normal, infinity).
 
+-doc """
+Orders the process to exit with the specified `Reason` and waits for it to terminate.
+
+Returns `ok` if the process exits with the specified `Reason` within `Timeout` milliseconds.
+
+If the call times out, a `timeout` exception is raised.
+
+If the process does not exist, a `noproc` exception is raised.
+
+The implementation of this function is based on the `terminate` system message, and requires that the process handles system messages correctly. For information about system messages, see `m:sys` and section [sys and proc_lib](`p:system:spec_proc.md`) in OTP Design Principles.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec stop(Process, Reason, Timeout) -> 'ok' when
       Process :: pid() | RegName | {RegName,node()},
       RegName :: atom(),
@@ -1150,3 +1367,4 @@ stop(Process, Reason, Timeout) ->
 	demonitor(Mref, [flush]),
 	exit(timeout)
     end.
+

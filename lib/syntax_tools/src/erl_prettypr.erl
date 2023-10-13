@@ -31,6 +31,11 @@
 %% the module `erl_syntax'.
 
 -module(erl_prettypr).
+-moduledoc """
+Pretty printing of abstract Erlang syntax trees.
+
+This module is a front end to the pretty-printing library module `prettypr`, for text formatting of abstract syntax trees defined by the module `erl_syntax`.
+""".
 
 -export([format/1, format/2, best/1, best/2, layout/1, layout/2,
 	 get_ctxt_precedence/1, set_ctxt_precedence/2,
@@ -51,8 +56,10 @@
 -define(NOUSER, undefined).
 -define(NOHOOK, none).
 
+-doc "".
 -type hook() :: 'none'
               | fun((syntaxTree(), _, _) -> prettypr:document()).
+-doc "".
 -type clause_t() :: 'case_expr' | 'fun_expr'
                   | 'if_expr' | 'maybe_expr' | 'receive_expr' | 'try_expr'
                   | {'function', prettypr:document()}
@@ -69,6 +76,7 @@
                encoding = epp:default_encoding() :: epp:source_encoding(),
 	       empty_lines = sets:new() :: sets:set(integer())}).
 
+-doc "".
 -type context() :: #ctxt{}.
 
 %% =====================================================================
@@ -80,6 +88,11 @@
 %%
 %% @see set_ctxt_precedence/2
 
+-doc """
+Returns the operator precedence field of the prettyprinter context.
+
+*See also: *`set_ctxt_precedence/2`.
+""".
 -spec get_ctxt_precedence(context()) -> integer().
 
 get_ctxt_precedence(Ctxt) ->
@@ -93,14 +106,21 @@ get_ctxt_precedence(Ctxt) ->
 %% @see //stdlib/erl_parse
 %% @see get_ctxt_precedence/1
 
+-doc """
+Updates the operator precedence field of the prettyprinter context. See the [`//stdlib/erl_parse`](`m:erl_parse`) module for operator precedences.
+
+*See also: *[//stdlib/erl_parse](`m:erl_parse`), `get_ctxt_precedence/1`.
+""".
 -spec set_ctxt_precedence(context(), integer()) -> context().
 
 set_ctxt_precedence(Ctxt, Prec) ->
     set_prec(Ctxt, Prec).
 
+-doc "".
 set_prec(Ctxt, Prec) ->
     Ctxt#ctxt{prec = Prec}.    % used internally
 
+-doc "".
 reset_prec(Ctxt) ->
     set_prec(Ctxt, 0).    % used internally
 
@@ -108,6 +128,11 @@ reset_prec(Ctxt) ->
 %% @doc Returns the paper widh field of the prettyprinter context.
 %% @see set_ctxt_paperwidth/2
 
+-doc """
+Returns the paper widh field of the prettyprinter context.
+
+*See also: *`set_ctxt_paperwidth/2`.
+""".
 -spec get_ctxt_paperwidth(context()) -> integer().
 
 get_ctxt_paperwidth(Ctxt) ->
@@ -123,6 +148,13 @@ get_ctxt_paperwidth(Ctxt) ->
 %%
 %% @see get_ctxt_paperwidth/1
 
+-doc """
+Updates the paper widh field of the prettyprinter context.
+
+Note: changing this value (and passing the resulting context to a continuation function) does not affect the normal formatting, but may affect user-defined behaviour in hook functions.
+
+*See also: *`get_ctxt_paperwidth/1`.
+""".
 -spec set_ctxt_paperwidth(context(), integer()) -> context().
 
 set_ctxt_paperwidth(Ctxt, W) ->
@@ -132,6 +164,11 @@ set_ctxt_paperwidth(Ctxt, W) ->
 %% @doc Returns the line widh field of the prettyprinter context.
 %% @see set_ctxt_linewidth/2
 
+-doc """
+Returns the line widh field of the prettyprinter context.
+
+*See also: *`set_ctxt_linewidth/2`.
+""".
 -spec get_ctxt_linewidth(context()) -> integer().
 
 get_ctxt_linewidth(Ctxt) ->
@@ -147,6 +184,13 @@ get_ctxt_linewidth(Ctxt) ->
 %%
 %% @see get_ctxt_linewidth/1
 
+-doc """
+Updates the line widh field of the prettyprinter context.
+
+Note: changing this value (and passing the resulting context to a continuation function) does not affect the normal formatting, but may affect user-defined behaviour in hook functions.
+
+*See also: *`get_ctxt_linewidth/1`.
+""".
 -spec set_ctxt_linewidth(context(), integer()) -> context().
 
 set_ctxt_linewidth(Ctxt, W) ->
@@ -156,6 +200,11 @@ set_ctxt_linewidth(Ctxt, W) ->
 %% @doc Returns the hook function field of the prettyprinter context.
 %% @see set_ctxt_hook/2
 
+-doc """
+Returns the hook function field of the prettyprinter context.
+
+*See also: *`set_ctxt_hook/2`.
+""".
 -spec get_ctxt_hook(context()) -> hook().
 
 get_ctxt_hook(Ctxt) ->
@@ -165,6 +214,11 @@ get_ctxt_hook(Ctxt) ->
 %% @doc Updates the hook function field of the prettyprinter context.
 %% @see get_ctxt_hook/1
 
+-doc """
+Updates the hook function field of the prettyprinter context.
+
+*See also: *`get_ctxt_hook/1`.
+""".
 -spec set_ctxt_hook(context(), hook()) -> context().
 
 set_ctxt_hook(Ctxt, Hook) ->
@@ -174,6 +228,11 @@ set_ctxt_hook(Ctxt, Hook) ->
 %% @doc Returns the user data field of the prettyprinter context.
 %% @see set_ctxt_user/2
 
+-doc """
+Returns the user data field of the prettyprinter context.
+
+*See also: *`set_ctxt_user/2`.
+""".
 -spec get_ctxt_user(context()) -> term().
 
 get_ctxt_user(Ctxt) ->
@@ -183,6 +242,11 @@ get_ctxt_user(Ctxt) ->
 %% @doc Updates the user data field of the prettyprinter context.
 %% @see get_ctxt_user/1
 
+-doc """
+Updates the user data field of the prettyprinter context.
+
+*See also: *`get_ctxt_user/1`.
+""".
 -spec set_ctxt_user(context(), term()) -> context().
 
 set_ctxt_user(Ctxt, X) ->
@@ -193,6 +257,7 @@ set_ctxt_user(Ctxt, X) ->
 %% @spec format(Tree::syntaxTree()) -> string()
 %% @equiv format(Tree, [])
 
+-doc "Equivalent to [format(Tree, [])](`format/2`).".
 -spec format(syntaxTree()) -> string().
 
 format(Node) ->
@@ -203,6 +268,7 @@ format(Node) ->
 %%
 %% An abstract syntax tree. See the {@link erl_syntax} module for
 %% details.
+-doc "".
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 %% =====================================================================
@@ -281,6 +347,47 @@ format(Node) ->
 %% @see get_ctxt_user/1
 %% @see set_ctxt_user/2
 
+-doc """
+Prettyprint-formats an abstract Erlang syntax tree as text. For example, if you have a `.beam` file that has been compiled with `debug_info`, the following should print the source code for the module (as it looks in the debug info representation):
+
+```text
+     {ok,{_,[{abstract_code,{_,AC}}]}} =
+             beam_lib:chunks("myfile.beam",[abstract_code]),
+     io:put_chars(erl_prettypr:format(erl_syntax:form_list(AC)))
+```
+
+Available options:
+* __\{hook, none | [`hook()`](`t:hook/0`)\}__ - Unless the value is `none`, the given function is called for each node whose list of annotations is not empty; see below for details. The default value is `none`.
+
+* __\{paper, integer()\}__ - Specifies the preferred maximum number of characters on any line, including indentation. The default value is 80.
+
+* __\{ribbon, integer()\}__ - Specifies the preferred maximum number of characters on any line, not counting indentation. The default value is 65.
+
+* __\{user, term()\}__ - User-specific data for use in hook functions. The default value is `undefined`.
+
+* __\{encoding, epp:source_encoding()\}__ - Specifies the encoding of the generated file.
+
+A hook function (cf. the [`hook()`](`t:hook/0`) type) is passed the current syntax tree node, the context, and a continuation. The context can be examined and manipulated by functions such as `get_ctxt_user/1` and `set_ctxt_user/2`. The hook must return a "document" data structure (see `layout/2` and `best/2`); this may be constructed in part or in whole by applying the continuation function. For example, the following is a trivial hook:
+
+```text
+      fun (Node, Ctxt, Cont) -> Cont(Node, Ctxt) end
+```
+
+which yields the same result as if no hook was given. The following, however:
+
+```text
+      fun (Node, Ctxt, Cont) ->
+          Doc = Cont(Node, Ctxt),
+          prettypr:beside(prettypr:text("<b>"),
+                          prettypr:beside(Doc,
+                                          prettypr:text("</b>")))
+      end
+```
+
+will place the text of any annotated node (regardless of the annotation data) between HTML "boldface begin" and "boldface end" tags.
+
+*See also: *`m:erl_syntax`, `best/2`, `format/1`, `get_ctxt_user/1`, `layout/2`, `set_ctxt_user/2`.
+""".
 -spec format(syntaxTree(), [term()]) -> string().
 
 format(Node, Options) ->
@@ -293,6 +400,7 @@ format(Node, Options) ->
 %% @spec best(Tree::syntaxTree()) -> empty | prettypr:document()
 %% @equiv best(Tree, [])
 
+-doc "Equivalent to [best(Tree, [])](`best/2`).".
 -spec best(syntaxTree()) -> 'empty' | prettypr:document().
 
 best(Node) ->
@@ -314,6 +422,11 @@ best(Node) ->
 %% @see format/2
 %% @see prettypr:best/3
 
+-doc """
+Creates a fixed "best" abstract layout for a syntax tree. This is similar to the `layout/2` function, except that here, the final layout has been selected with respect to the given options. The atom `empty` is returned if no such layout could be produced. For information on the options, see the `format/2` function.
+
+*See also: *`best/1`, `format/2`, `layout/2`, `prettypr:best/3`.
+""".
 -spec best(syntaxTree(), [term()]) -> 'empty' | prettypr:document().
 
 best(Node, Options) ->
@@ -326,6 +439,7 @@ best(Node, Options) ->
 %% @spec layout(Tree::syntaxTree()) -> prettypr:document()
 %% @equiv layout(Tree, [])
 
+-doc "Equivalent to [layout(Tree, [])](`layout/2`).".
 -spec layout(syntaxTree()) -> prettypr:document().
 
 layout(Node) ->
@@ -351,6 +465,13 @@ layout(Node) ->
 %% @see format/2
 %% @see layout/1
 
+-doc """
+Creates an abstract document layout for a syntax tree. The result represents a set of possible layouts (cf. module `prettypr`). For information on the options, see `format/2`; note, however, that the `paper` and `ribbon` options are ignored by this function.
+
+This function provides a low-level interface to the pretty printer, returning a flexible representation of possible layouts, independent of the paper width eventually to be used for formatting. This can be included as part of another document and/or further processed directly by the functions in the `prettypr` module, or used in a hook function (see `format/2` for details).
+
+*See also: *`m:prettypr`, `format/2`, `layout/1`.
+""".
 -spec layout(syntaxTree(), [term()]) -> prettypr:document().
 
 layout(Node, Options) ->
@@ -363,6 +484,7 @@ layout(Node, Options) ->
                                              epp:default_encoding()),
               empty_lines = proplists:get_value(empty_lines, Options, sets:new())}).
 
+-doc "".
 lay(Node, Ctxt) ->
     case erl_syntax:get_ann(Node) of
 	[] ->
@@ -379,6 +501,7 @@ lay(Node, Ctxt) ->
 
 %% This handles attached comments:
 
+-doc "".
 lay_1(Node, Ctxt) ->
     case erl_syntax:has_comments(Node) of
 	true ->
@@ -392,6 +515,7 @@ lay_1(Node, Ctxt) ->
 
 %% For pre-comments, all padding is ignored.
 
+-doc "".
 lay_precomments([], D) ->
     D;
 lay_precomments(Cs, D) ->
@@ -399,6 +523,7 @@ lay_precomments(Cs, D) ->
 
 %% For postcomments, individual padding is added.
 
+-doc "".
 lay_postcomments([], D) ->
     D;
 lay_postcomments(Cs, D) ->
@@ -407,6 +532,7 @@ lay_postcomments(Cs, D) ->
 %% Format (including padding, if `Pad' is `true', otherwise not)
 %% and stack the listed comments above each other.
 
+-doc "".
 stack_comments([C | Cs], Pad) ->
     D = stack_comment_lines(erl_syntax:comment_text(C)),
     D1 = case Pad of
@@ -431,6 +557,7 @@ stack_comments([C | Cs], Pad) ->
 %% Stack lines of text above each other and prefix each string in
 %% the list with a single `%' character.
 
+-doc "".
 stack_comment_lines([S | Ss]) ->
     D = text(add_comment_prefix(S)),
     case Ss of
@@ -442,11 +569,13 @@ stack_comment_lines([S | Ss]) ->
 stack_comment_lines([]) ->
     empty().
 
+-doc "".
 add_comment_prefix(S) ->
     [$% | S].
 
 %% This part ignores annotations and comments:
 
+-doc "".
 lay_2(Node, Ctxt) ->
     case erl_syntax:type(Node) of
 	%% We list literals and other common cases first.
@@ -1266,6 +1395,7 @@ lay_2(Node, Ctxt) ->
 
     end.
 
+-doc "".
 attribute_type(Node) ->
     N = erl_syntax:attribute_name(Node),
     case catch erl_syntax:concrete(N) of
@@ -1285,11 +1415,13 @@ attribute_type(Node) ->
             N
     end.
 
+-doc "".
 is_subtype(Name, [Var, _]) ->
     (erl_syntax:is_atom(Name, is_subtype) andalso
      erl_syntax:type(Var) =:= variable);
 is_subtype(_, _) -> false.
 
+-doc "".
 unfold_function_names(Ns) ->
     F = fun ({Atom, Arity}) ->
 		erl_syntax:arity_qualifier(erl_syntax:atom(Atom),
@@ -1298,6 +1430,7 @@ unfold_function_names(Ns) ->
     erl_syntax:list([F(N) || N <- Ns]).
 
 %% Macros are not handled well.
+-doc "".
 dodge_macros(Type) ->
     F = fun (T) ->
                 case erl_syntax:type(T) of
@@ -1312,9 +1445,11 @@ dodge_macros(Type) ->
         end,
     erl_syntax_lib:map(F, Type).
 
+-doc "".
 lay_parentheses(D, _Ctxt) ->
     beside(floating(text("(")), beside(D, floating(text(")")))).
 
+-doc "".
 maybe_parentheses(D, Prec, Ctxt) ->
     case Ctxt#ctxt.prec of
 	P when P > Prec ->
@@ -1323,12 +1458,14 @@ maybe_parentheses(D, Prec, Ctxt) ->
 	    D
     end.
 
+-doc "".
 lay_string(S, Ctxt) ->
     %% S includes leading/trailing double-quote characters. The segment
     %% width is 2/3 of the ribbon width - this seems to work well.
     W = (Ctxt#ctxt.ribbon * 2) div 3,
     lay_string_1(S, length(S), W).
 
+-doc "".
 lay_string_1(S, L, W) when L > W, W > 0 ->
     %% Note that L is the minimum, not the exact, printed length.
     case split_string(S, W - 1, L) of
@@ -1341,12 +1478,14 @@ lay_string_1(S, L, W) when L > W, W > 0 ->
 lay_string_1(S, _L, _W) ->
     text(S).
 
+-doc "".
 split_string(Xs, N, L) ->
     split_string_1(Xs, N, L, []).
 
 %% We only split strings at whitespace, if possible. We must make sure
 %% we do not split an escape sequence.
 
+-doc "".
 split_string_1([$\s | Xs], N, L, As) when N =< 0, L >= 5 ->
     {lists:reverse([$\s | As]), Xs};
 split_string_1([$\t | Xs], N, L, As) when N =< 0, L >= 5 ->
@@ -1362,6 +1501,7 @@ split_string_1([X | Xs], N, L, As) ->
 split_string_1([], _N, _L, As) ->
     {lists:reverse(As), ""}.
 
+-doc "".
 split_string_2([$^, X | Xs], N, L, As) ->
     split_string_1(Xs, N - 2, L - 2, [X, $^ | As]);
 split_string_2([$x, ${ | Xs], N, L, As) ->
@@ -1375,6 +1515,7 @@ split_string_2([X1, X2 | Xs], N, L, As) when
 split_string_2([X | Xs], N, L, As) ->
     split_string_1(Xs, N - 1, L - 1, [X | As]).
 
+-doc "".
 split_string_3([$} | Xs], N, L, As) ->
     split_string_1(Xs, N - 1, L - 1, [$} | As]);
 split_string_3([X | Xs], N, L, As) when
@@ -1388,6 +1529,7 @@ split_string_3([X | Xs], N, L, As) when
 %% that the elements have type `clause'; it just sets up the proper
 %% context and arranges the elements suitably for clauses.
 
+-doc "".
 lay_clauses(Cs, Type, Ctxt) ->
     vertical(seq(Cs, floating(text(";")),
 		 Ctxt#ctxt{clause = Type},
@@ -1397,13 +1539,16 @@ lay_clauses(Cs, Type, Ctxt) ->
 %% can be `none', which has different interpretations in different
 %% contexts.
 
+-doc "".
 make_fun_clause(P, G, B, Ctxt) ->
     make_fun_clause(none, P, G, B, Ctxt).
 
+-doc "".
 make_fun_clause(N, P, G, B, Ctxt) ->
     D = make_fun_clause_head(N, P, Ctxt),
     make_case_clause(D, G, B, Ctxt).
 
+-doc "".
 make_fun_clause_head(N, P, Ctxt) ->
     D = lay_parentheses(P, Ctxt),
     if N =:= none ->
@@ -1412,9 +1557,11 @@ make_fun_clause_head(N, P, Ctxt) ->
 	    beside(N, D)
     end.
 
+-doc "".
 make_case_clause(P, G, B, Ctxt) ->
     append_clause_body(B, append_guard(G, P, Ctxt), Ctxt).
 
+-doc "".
 make_if_clause(_P, G, B, Ctxt) ->
     %% We ignore the patterns; they should be empty anyway.
     G1 = if G =:= none ->
@@ -1424,18 +1571,22 @@ make_if_clause(_P, G, B, Ctxt) ->
 	 end,
     append_clause_body(B, G1, Ctxt).
 
+-doc "".
 append_clause_body(B, D, Ctxt) ->
     append_clause_body(B, D, floating(text(" ->")), Ctxt).
 
+-doc "".
 append_clause_body(B, D, S, Ctxt) ->
     sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)]).
 
+-doc "".
 append_guard(none, D, _) ->
     D;
 append_guard(G, D, Ctxt) ->
     par([D, follow(text("when"), G, Ctxt#ctxt.sub_indent)],
 	Ctxt#ctxt.break_indent).
 
+-doc "".
 lay_bit_types([T], Ctxt) ->
     lay(T, Ctxt);
 lay_bit_types([T | Ts], Ctxt) ->
@@ -1443,6 +1594,7 @@ lay_bit_types([T | Ts], Ctxt) ->
 	   beside(floating(text("-")),
 		  lay_bit_types(Ts, Ctxt))).
 
+-doc "".
 lay_error_info({L, M, T}=T0, Ctxt) when is_integer(L), is_atom(M) ->
     case catch M:format_error(T) of
 	S when is_list(S) ->
@@ -1457,15 +1609,18 @@ lay_error_info({L, M, T}=T0, Ctxt) when is_integer(L), is_atom(M) ->
 lay_error_info(T, Ctxt) ->
     lay_concrete(T, Ctxt).
 
+-doc "".
 lay_concrete(T, Ctxt) ->
     lay(erl_syntax:abstract(T), Ctxt).
 
+-doc "".
 lay_type_assoc(Name, Value, Ctxt) ->
     Ctxt1 = reset_prec(Ctxt),
     D1 = lay(Name, Ctxt1),
     D2 = lay(Value, Ctxt1),
     par([D1, floating(text("=>")), D2], Ctxt1#ctxt.break_indent).
 
+-doc "".
 lay_type_application(Name, Arguments, Ctxt) ->
     {PrecL, Prec} = func_prec(), %
     D1 = lay(Name, set_prec(Ctxt, PrecL)),
@@ -1477,6 +1632,7 @@ lay_type_application(Name, Arguments, Ctxt) ->
                                  floating(text(")"))))),
     maybe_parentheses(D, Prec, Ctxt).
 
+-doc "".
 seq([H | T], Separator, Ctxt, Fun) ->
     case T of
 	[] ->
@@ -1488,11 +1644,13 @@ seq([H | T], Separator, Ctxt, Fun) ->
 seq([], _, _, _) ->
     [empty()].
 
+-doc "".
 maybe_append(none, D) ->
     D;
 maybe_append(Suffix, D) ->
     beside(D, Suffix).
 
+-doc "".
 vertical([D]) ->
     D;
 vertical([D | Ds]) ->
@@ -1500,6 +1658,7 @@ vertical([D | Ds]) ->
 vertical([]) ->
     [].
 
+-doc "".
 vertical_sep(_Sep, [D]) ->
     D;
 vertical_sep(Sep, [D | Ds]) ->
@@ -1507,11 +1666,13 @@ vertical_sep(Sep, [D | Ds]) ->
 vertical_sep(_Sep, []) ->
     [].
 
+-doc "".
 spaces(N) when N > 0 ->
     [$\040 | spaces(N - 1)];
 spaces(_) ->
     [].
 
+-doc "".
 tidy_float([$., C | Cs]) ->
     [$., C | tidy_float_1(Cs)];  % preserve first decimal digit
 tidy_float([$e | _] = Cs) ->
@@ -1521,6 +1682,7 @@ tidy_float([C | Cs]) ->
 tidy_float([]) ->
     [].
 
+-doc "".
 tidy_float_1([$0, $0, $0 | Cs]) ->
     tidy_float_2(Cs);    % cut mantissa at three consecutive zeros.
 tidy_float_1([$e | _] = Cs) ->
@@ -1530,6 +1692,7 @@ tidy_float_1([C | Cs]) ->
 tidy_float_1([]) ->
     [].
 
+-doc "".
 tidy_float_2([$e, $+, $0]) -> [];
 tidy_float_2([$e, $+, $0 | Cs]) -> tidy_float_2([$e, $+ | Cs]);
 tidy_float_2([$e, $+ | _] = Cs) -> Cs;
@@ -1540,6 +1703,7 @@ tidy_float_2([$e | Cs]) -> tidy_float_2([$e, $+ | Cs]);
 tidy_float_2([_C | Cs]) -> tidy_float_2(Cs);
 tidy_float_2([]) -> [].
 
+-doc "".
 lay_clause_expressions([H], Ctxt) ->
 	lay(H, Ctxt);
 lay_clause_expressions([H | T], Ctxt) ->
@@ -1554,6 +1718,7 @@ lay_clause_expressions([H | T], Ctxt) ->
 lay_clause_expressions([], _) ->
     empty().
 
+-doc "".
 is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
     try sets:is_element(get_line(H) + 1, EmptyLines)
     catch error:badarith -> false
@@ -1563,8 +1728,10 @@ is_last_and_before_empty_line(H, [H2 | _], #ctxt{empty_lines = EmptyLines}) ->
     catch error:badarith -> false
     end.
 
+-doc "".
 get_line(Tree) ->
     Anno = erl_syntax:get_pos(Tree),
     erl_anno:line(Anno).
 
 %% =====================================================================
+

@@ -48,6 +48,7 @@
                    {uid, non_neg_integer()} |
                    {gid, non_neg_integer()}.
 
+-doc "".
 -type name_in_archive() :: string().
 
 -type extract_opt() :: {cwd, string()} |
@@ -163,6 +164,7 @@
           pos = 0 :: non_neg_integer(),
           func :: file_op()
          }).
+-doc "".
 -opaque tar_descriptor() :: #reader{}.
 -export_type([tar_descriptor/0]).
 
@@ -407,3 +409,4 @@
 -define(BILLION, 1000000000).
 
 -define(EPOCH, {{1970,1,1}, {0,0,0}}).
+

@@ -30,6 +30,33 @@
 %%
 
 -module(erl_prim_loader).
+-moduledoc """
+Low-level Erlang loader.
+
+This module is used to load all Erlang modules into the system. The start script is also fetched with this low-level loader.
+
+`erl_prim_loader` knows about the environment and how to fetch modules.
+
+Command-line flag `-loader Loader` can be used to choose the method used by `erl_prim_loader`. Two `Loader` methods are supported by the Erlang runtime system: `efile` and `inet`.
+
+## Command-Line Flags
+
+The `erl_prim_loader` module interprets the following command-line flags:
+
+* __`-loader Loader`__ - Specifies the name of the loader used by `erl_prim_loader`. `Loader` can be `efile` (use the local file system) or `inet` (load using the `boot_server` on another Erlang node).
+
+  If flag `-loader` is omitted, it defaults to `efile`.
+
+* __`-loader_debug`__ - Makes the `efile` loader write some debug information, such as the reason for failures, while it handles files.
+
+* __`-hosts Hosts`__ - Specifies which other Erlang nodes the `inet` loader can use. This flag is mandatory if flag `-loader inet` is present. On each host, there must be on Erlang node with the `m:erl_boot_server`, which handles the load requests. `Hosts` is a list of IP addresses (hostnames are not acceptable).
+
+* __`-setcookie Cookie`__ - Specifies the cookie of the Erlang runtime system. This flag is mandatory if flag `-loader inet` is present.
+
+## See Also
+
+`m:init`, `m:erl_boot_server`
+""".
 
 %% If the macro DEBUG is defined during compilation, 
 %% debug printouts are done through erlang:display/1.
@@ -173,16 +200,23 @@ init_ack(Pid) ->
     Pid ! {self(),ok},
     ok.
 
+-doc "Sets the path of the loader if `m:init` interprets a `path` command in the start script.".
 -spec set_path(Path) -> 'ok' when
       Path :: [Dir :: string()].
 set_path(Paths) when is_list(Paths) ->
     request({set_path,Paths}).
 
+-doc "Gets the path set in the loader. The path is set by the `m:init` process according to information found in the start script.".
 -spec get_path() -> {'ok', Path} when
       Path :: [Dir :: string()].
 get_path() ->
     request({get_path,[]}).
 
+-doc """
+Fetches a file using the low-level loader. `Filename` is either an absolute filename or only the name of the file, for example, `"lists.beam"`. If an internal path is set to the loader, this path is used to find the file. `FullName` is the complete name of the fetched file. `Bin` is the contents of the file as a binary.
+
+`Filename` can also be a file in an archive, for example, `$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For information about archive files, see `m:code`.
+""".
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
       Filename :: atom() | string(),
       Bin :: binary(),
@@ -192,18 +226,40 @@ get_file(File) when is_atom(File) ->
 get_file(File) ->
     check_file_result(get_file, File, request({get_file,File})).
 
+-doc """
+Lists all the files in a directory. Returns `{ok, Filenames}` if successful, otherwise `error`. `Filenames` is a list of the names of all the files in the directory. The names are not sorted.
+
+`Dir` can also be a directory in an archive, for example, `$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about archive files, see `m:code`.
+""".
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
       Dir :: string(),
       Filenames :: [Filename :: string()].
 list_dir(Dir) ->
     check_file_result(list_dir, Dir, request({list_dir,Dir})).
 
+-doc """
+Retrieves information about a file. Returns `{ok, FileInfo}` if successful, otherwise `error`. `FileInfo` is a record `file_info`, defined in the Kernel include file `file.hrl`. Include the following directive in the module from which the function is called:
+
+```text
+-include_lib("kernel/include/file.hrl").
+```
+
+For more information about the record `file_info`, see `m:file`.
+
+`Filename` can also be a file in an archive, for example, `$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia`. For information about archive files, see `m:code`.
+""".
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
       FileInfo :: file:file_info().
 read_file_info(File) ->
     check_file_result(read_file_info, File, request({read_file_info,File})).
 
+-doc """
+Works like `read_file_info/1` except that if `Filename` is a symbolic link, information about the link is returned in the `file_info` record and the `type` field of the record is set to `symlink`.
+
+If `Filename` is not a symbolic link, this function returns exactly the same result as `read_file_info/1`. On platforms that do not support symbolic links, this function is always equivalent to `read_file_info/1`.
+""".
+-doc(#{since => <<"OTP 17.1.2">>}).
 -spec read_link_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
       FileInfo :: file:file_info().
@@ -1577,3 +1633,4 @@ load_prim_archive(ArchiveFile, FileInfo, ParserFun) ->
 	Error ->
 	    Error
     end.
+

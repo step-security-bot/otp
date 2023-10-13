@@ -19,6 +19,27 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxRadioButton).
+-moduledoc """
+Functions for wxRadioButton class
+
+A radio button item is a button which usually denotes one of several mutually exclusive options. It has a text label next to a (usually) round button.
+
+You can create a group of mutually-exclusive radio buttons by specifying `wxRB_GROUP` for the first in the group. The group ends when another radio button group is created, or there are no more radio buttons.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `m:wxRadioBox`, `m:wxCheckBox`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxRadioButton](https://docs.wxwidgets.org/3.1/classwx_radio_button.html)
+
+## Events
+
+Event types emitted from this class: [`command_radiobutton_selected`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getValue/1,new/0,new/3,new/4,setValue/2]).
 
@@ -62,6 +83,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxRadioButton() :: wx:wx_object().
 -export_type([wxRadioButton/0]).
 %% @hidden
@@ -71,12 +93,18 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobutton.html#wxradiobuttonwxradiobutton">external documentation</a>.
+-doc """
+Default constructor.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new() -> wxRadioButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxRadioButton_new_0),
   wxe_util:rec(?wxRadioButton_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxRadioButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -85,6 +113,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobutton.html#wxradiobuttonwxradiobutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a radio button.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxRadioButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -105,6 +138,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxRadioButton_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxRadioButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -113,6 +147,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobutton.html#wxradiobuttoncreate">external documentation</a>.
+-doc """
+Creates the choice for two-step construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxRadioButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -134,6 +173,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxRadioButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobutton.html#wxradiobuttongetvalue">external documentation</a>.
+-doc "Returns true if the radio button is checked, false otherwise.".
 -spec getValue(This) -> boolean() when
 	This::wxRadioButton().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -142,6 +182,15 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxRadioButton_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobutton.html#wxradiobuttonsetvalue">external documentation</a>.
+-doc """
+Sets the radio button to checked or unchecked status.
+
+This does not cause a `wxEVT_RADIOBUTTON` event to get emitted.
+
+If the radio button belongs to a radio group exactly one button in the group may be checked and so this method can be only called with `value` set to true. To uncheck a radio button in a group you must check another button in the same group.
+
+Note: Under MSW, the focused radio button is always selected, i.e. its value is true. And, conversely, calling `SetValue(true)` will also set focus to the radio button if the focus had previously been on another radio button in the same group - as otherwise setting it on wouldn't work.
+""".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxRadioButton(), Value::boolean().
 setValue(#wx_ref{type=ThisT}=This,Value)
@@ -150,6 +199,7 @@ setValue(#wx_ref{type=ThisT}=This,Value)
   wxe_util:queue_cmd(This,Value,?get_env(),?wxRadioButton_SetValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the radio button item.".
 -spec destroy(This::wxRadioButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRadioButton),
@@ -524,3 +574,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -30,6 +30,18 @@
 %%               [{report,{eunit_surefire,[{dir,"."}]}}]).'''
 
 -module(eunit_surefire).
+-moduledoc """
+Surefire reports for EUnit (Format used by Maven and Atlassian Bamboo for example to integrate test results). Based on initial code from Paul Guyot.
+
+Example: Generate XML result file in the current directory:
+
+```text
+     eunit:test([fib, eunit_examples],
+                [{report,{eunit_surefire,[{dir,"."}]}}]).
+```
+
+*See also: *`m:eunit`.
+""".
 
 -behaviour(eunit_listener).
 
@@ -87,12 +99,15 @@
 		testsuites = [] :: [#testsuite{}]
 	       }).
 
+-doc "".
 start() ->
     start([]).
 
+-doc "".
 start(Options) ->
     eunit_listener:start(?MODULE, Options).
 
+-doc "".
 init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
     ensure_xmldir(XMLDir),
@@ -104,6 +119,7 @@ init(Options) ->
 	    St
     end.
 
+-doc "".
 terminate({ok, _Data}, St) ->
     TestSuites = St#state.testsuites,
     XmlDir = St#state.xmldir,
@@ -114,6 +130,7 @@ terminate({error, _Reason}, _St) ->
     %% Just terminate.
     ok.
 
+-doc "".
 handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
     %% Run this code both for groups and tests; test is a bit
     %% surprising: This is a workaround for the fact that we don't get
@@ -132,6 +149,7 @@ handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
 	_ ->
 	    St
     end.
+-doc "".
 handle_end(group, Data, St) ->
     %% Retrieve existing test suite:
     case proplists:get_value(id, Data) of
@@ -167,6 +185,7 @@ handle_end(test, Data, St) ->
 
 %% Cancel group does not give information on the individual cancelled test case
 %% We ignore this event...
+-doc "".
 handle_cancel(group, Data, St) ->
     %% ...except when it tells us that a fixture setup or cleanup failed.
     case proplists:get_value(reason, Data) of
@@ -213,9 +232,11 @@ handle_cancel(test, Data, St) ->
 		     testcases=[TestCase|TestSuite#testsuite.testcases] },
     St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
+-doc "".
 format_name({Module, Function, _Arity}, Line) ->
     lists:flatten([atom_to_list(Module), ":", integer_to_list(Line), " ",
                    atom_to_list(Function)]).
+-doc "".
 format_desc(undefined) ->
     "";
 format_desc(Desc) when is_binary(Desc) ->
@@ -223,13 +244,16 @@ format_desc(Desc) when is_binary(Desc) ->
 format_desc(Desc) when is_list(Desc) ->
     Desc.
 
+-doc "".
 lookup_suite_by_group_id(GroupId, TestSuites) ->
     #testsuite{} = lists:keyfind(GroupId, #testsuite.id, TestSuites).
 
+-doc "".
 store_suite(#testsuite{id=GroupId} = TestSuite, TestSuites) ->
     lists:keystore(GroupId, #testsuite.id, TestSuites, TestSuite).
 
 %% Add testcase to testsuite depending on the result of the test.
+-doc "".
 add_testcase_to_testsuite(ok, TestCaseTmp, TestSuite) ->
     TestCase = TestCaseTmp#testcase{ result = ok },
     TestSuite#testsuite{
@@ -256,12 +280,14 @@ add_testcase_to_testsuite({error, Exception}, TestCaseTmp, TestSuite) ->
 	      testcases = [TestCase|TestSuite#testsuite.testcases] }
     end.
 
+-doc "".
 ensure_xmldir(XMLDir) ->
     Steps = [
         fun filelib:ensure_dir/1,
         fun file:make_dir/1],
     lists:foldl(fun ensure_xmldir/2, XMLDir, Steps).
 
+-doc "".
 ensure_xmldir(Fun, XMLDir) ->
     case Fun(XMLDir) of
         ok -> XMLDir;
@@ -273,10 +299,12 @@ ensure_xmldir(Fun, XMLDir) ->
 %% Write a report to the XML directory.
 %% This function opens the report file, calls write_report_to/2 and closes the file.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_reports(TestSuites, XmlDir) ->
     lists:foreach(fun(TestSuite) -> write_report(TestSuite, XmlDir) end,
                   TestSuites).
 
+-doc "".
 write_report(#testsuite{name = Name} = TestSuite, XmlDir) ->
     Filename = filename:join(XmlDir, lists:flatten(["TEST-", escape_suitename(Name)], ".xml")),
     case file:open(Filename, [write,{encoding,utf8}]) of
@@ -292,6 +320,7 @@ write_report(#testsuite{name = Name} = TestSuite, XmlDir) ->
 %% ----------------------------------------------------------------------------
 %% Actually write a report.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_report_to(TestSuite, FileDescriptor) ->
     write_header(FileDescriptor),
     write_start_tag(TestSuite, FileDescriptor),
@@ -301,6 +330,7 @@ write_report_to(TestSuite, FileDescriptor) ->
 %% ----------------------------------------------------------------------------
 %% Write the XML header.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_header(FileDescriptor) ->
     io:format(FileDescriptor, "~ts~ts", [<<"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>">>, ?NEWLINE]).
 
@@ -308,6 +338,7 @@ write_header(FileDescriptor) ->
 %% Write the testsuite start tag, with attributes describing the statistics
 %% of the test suite.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_start_tag(
         #testsuite{
             name = Name,
@@ -331,6 +362,7 @@ write_start_tag(
 %% ----------------------------------------------------------------------------
 %% Recursive function to write the test cases.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_testcases([], _FileDescriptor) -> void;
 write_testcases([TestCase| Tail], FileDescriptor) ->
     write_testcase(TestCase, FileDescriptor),
@@ -339,6 +371,7 @@ write_testcases([TestCase| Tail], FileDescriptor) ->
 %% ----------------------------------------------------------------------------
 %% Write the testsuite end tag.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_end_tag(FileDescriptor) ->
     io:format(FileDescriptor, "~ts~ts", [<<"</testsuite>">>, ?NEWLINE]).
 
@@ -347,6 +380,7 @@ write_end_tag(FileDescriptor) ->
 %% If the test case was successful and if there was no output, we write an empty
 %% tag.
 %% ----------------------------------------------------------------------------
+-doc "".
 write_testcase(
         #testcase{
             name = Name,
@@ -374,6 +408,7 @@ write_testcase(
 %% Aborted tests are represented with an error tag.
 %% Skipped tests are represented with a skipped tag.
 %% ----------------------------------------------------------------------------
+-doc "".
 format_testcase_result(ok) -> [<<>>];
 format_testcase_result({failed, {error, {Type, _}, _} = Exception}) when is_atom(Type) ->
     [?INDENT, ?INDENT, <<"<failure type=\"">>, escape_attr(atom_to_list(Type)), <<"\">">>, ?NEWLINE,
@@ -415,14 +450,17 @@ format_testcase_result({skipped, Term}) ->
 %% Empty output is simply the empty string.
 %% Other output is inside a <system-out> xml tag.
 %% ----------------------------------------------------------------------------
+-doc "".
 format_testcase_output(Output) ->
     [?INDENT, ?INDENT, <<"<system-out>">>, escape_text(Output), ?NEWLINE, ?INDENT, ?INDENT, <<"</system-out>">>, ?NEWLINE].
 
 %% ----------------------------------------------------------------------------
 %% Return the time in the SECS.MILLISECS format.
 %% ----------------------------------------------------------------------------
+-doc "".
 format_time(Time) ->
     format_time_s(lists:reverse(integer_to_list(Time))).
+-doc "".
 format_time_s([Digit]) -> ["0.00", Digit];
 format_time_s([Digit1, Digit2]) -> ["0.0", Digit2, Digit1];
 format_time_s([Digit1, Digit2, Digit3]) -> ["0.", Digit3, Digit2, Digit1];
@@ -432,6 +470,7 @@ format_time_s([Digit1, Digit2, Digit3 | Tail]) -> [lists:reverse(Tail), $., Digi
 %% Escape a suite's name to generate the filename.
 %% Remark: we might overwrite another testsuite's file.
 %% ----------------------------------------------------------------------------
+-doc "".
 escape_suitename(Binary) when is_binary(Binary) ->
     escape_suitename(binary_to_list(Binary));
 escape_suitename("module '" ++ String) ->
@@ -439,6 +478,7 @@ escape_suitename("module '" ++ String) ->
 escape_suitename(String) ->
     escape_suitename(String, []).
 
+-doc "".
 escape_suitename([], Acc) -> lists:reverse(Acc);
 escape_suitename([$  | Tail], Acc) -> escape_suitename(Tail, [$_ | Acc]);
 escape_suitename([$' | Tail], Acc) -> escape_suitename(Tail, Acc);
@@ -453,6 +493,7 @@ escape_suitename([Char | Tail], Acc) -> escape_suitename(Tail, [Char | Acc]).
 %% Escape text for XML text nodes.
 %% Replace < with &lt;, > with &gt; and & with &amp;
 %% ----------------------------------------------------------------------------
+-doc "".
 escape_text(Text) when is_binary(Text) -> escape_text(binary_to_list(Text));
 escape_text(Text) -> escape_xml(to_utf8(lists:flatten(Text)), [], false).
 
@@ -461,9 +502,11 @@ escape_text(Text) -> escape_xml(to_utf8(lists:flatten(Text)), [], false).
 %% Escape text for XML attribute nodes.
 %% Replace < with &lt;, > with &gt; and & with &amp;
 %% ----------------------------------------------------------------------------
+-doc "".
 escape_attr(Text) when is_binary(Text) -> escape_attr(binary_to_list(Text));
 escape_attr(Text) -> escape_xml(to_utf8(lists:flatten(Text)), [], true).
 
+-doc "".
 escape_xml([], Acc, _ForAttr) -> lists:reverse(Acc);
 escape_xml([$< | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $l, $& | Acc], ForAttr);
 escape_xml([$> | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $g, $& | Acc], ForAttr);
@@ -477,6 +520,7 @@ escape_xml([Char | Tail], Acc, ForAttr) when
 escape_xml([Char | Tail], Acc, ForAttr) when is_integer(Char) -> escape_xml(Tail, [Char | Acc], ForAttr).
 
 %% the input may be utf8 or latin1; the resulting list is unicode
+-doc "".
 to_utf8(Desc) when is_binary(Desc) ->
 	case unicode:characters_to_list(Desc) of
 		{_,_,_} -> unicode:characters_to_list(Desc, latin1);
@@ -489,3 +533,4 @@ to_utf8(Desc) when is_list(Desc) ->
 		_:_ ->
 			Desc
 	end.
+

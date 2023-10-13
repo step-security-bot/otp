@@ -281,6 +281,251 @@
 %% @end
 
 -module(merl).
+-moduledoc """
+Metaprogramming in Erlang. Merl is a more user friendly interface to the `erl_syntax` module, making it easy both to build new ASTs from scratch and to match and decompose existing ASTs. For details that are outside the scope of Merl itself, please see the documentation of `m:erl_syntax`.
+
+### Quick start
+
+To enable the full power of Merl, your module needs to include the Merl header file:
+
+```text
+     -include_lib("syntax_tools/include/merl.hrl").
+```
+
+Then, you can use the `?Q(Text)` macros in your code to create ASTs or match on existing ASTs. For example:
+
+```text
+     Tuple = ?Q("{foo, 42}"),
+     ?Q("{foo, _@Number}") = Tuple,
+     Call = ?Q("foo:bar(_@Number)")
+```
+
+Calling `merl:print(Call)` will then print the following code:
+
+```text
+     foo:bar(42)
+```
+
+The `?Q` macros turn the quoted code fragments into ASTs, and lifts metavariables such as `_@Tuple` and `_@Number` to the level of your Erlang code, so you can use the corresponding Erlang variables `Tuple` and `Number` directly. This is the most straightforward way to use Merl, and in many cases it's all you need.
+
+You can even write case switches using `?Q` macros as patterns. For example:
+
+```text
+     case AST of
+         ?Q("{foo, _@Foo}") -> handle(Foo);
+         ?Q("{bar, _@Bar}") when erl_syntax:is_integer(Bar) -> handle(Bar);
+         _ -> handle_default()
+     end
+```
+
+These case switches only allow `?Q(...)` or `_` as clause patterns, and the guards may contain any expressions, not just Erlang guard expressions.
+
+If the macro `MERL_NO_TRANSFORM` is defined before the `merl.hrl` header file is included, the parse transform used by Merl will be disabled, and in that case, the match expressions `?Q(...) = ...`, case switches using `?Q(...)` patterns, and automatic metavariables like `_@Tuple` cannot be used in your code, but the Merl macros and functions still work. To do metavariable substitution, you need to use the `?Q(Text, Map)` macro, e.g.:
+
+```text
+     Tuple = ?Q("{foo, _@bar, _@baz}", [{bar, Bar}, {baz,Baz}])
+```
+
+The text given to a `?Q(Text)` macro can be either a single string, or a list of strings. The latter is useful when you need to split a long expression over multiple lines, e.g.:
+
+```text
+     ?Q(["case _@Expr of",
+         "  {foo, X} -> f(X);",
+         "  {bar, X} -> g(X)",
+         "  _ -> h(X)"
+         "end"])
+```
+
+If there is a syntax error somewhere in the text (like the missing semicolon in the second clause above) this allows Merl to generate an error message pointing to the exact line in your source code. (Just remember to comma-separate the strings in the list, otherwise Erlang will concatenate the string fragments as if they were a single string.)
+
+### Metavariable syntax
+
+There are several ways to write a metavariable in your quoted code:
+* Atoms starting with `@`, for example `'@foo'` or `'@Foo'`
+* Variables starting with `_@`, for example `_@bar` or `_@Bar`
+* Strings starting with `"'@`, for example `"'@File"`
+* Integers starting with 909, for example `9091` or `909123`
+
+Following the prefix, one or more `_` or `0` characters may be used to indicate "lifting" of the variable one or more levels, and after that, a `@` or `9` character indicates a glob metavariable (matching zero or more elements in a sequence) rather than a normal metavariable. For example:
+* `'@_foo'` is lifted one level, and `_@__foo` is lifted two levels
+* `_@@bar` is a glob variable, and `_@_@bar` is a lifted glob variable
+* `90901` is a lifted variable,`90991` is a glob variable, and `9090091` is a glob variable lifted two levels
+
+(Note that the last character in the name is never considered to be a lift or glob marker, hence, `_@__` and `90900` are only lifted one level, not two. Also note that globs only matter for matching; when doing substitutions, a non-glob variable can be used to inject a sequence of elements, and vice versa.)
+
+If the name after the prefix and any lift and glob markers is `_` or `0`, the variable is treated as an anonymous catch-all pattern in matches. For example, `_@_`, `_@@_`, `_@__`, or even `_@__@_`.
+
+Finally, if the name without any prefixes or lift/glob markers begins with an uppercase character, as in `_@Foo` or `_@_@Foo`, it will become a variable on the Erlang level, and can be used to easily deconstruct and construct syntax trees:
+
+```text
+     case Input of
+         ?Q("{foo, _@Number}") -> ?Q("foo:bar(_@Number)");
+         ...
+```
+
+We refer to these as "automatic metavariables". If in addition the name ends with `@`, as in `_@Foo@`, the value of the variable as an Erlang term will be automatically converted to the corresponding abstract syntax tree when used to construct a larger tree. For example, in:
+
+```text
+     Bar = {bar, 42},
+     Foo = ?Q("{foo, _@Bar@}")
+```
+
+(where Bar is just some term, not a syntax tree) the result `Foo` will be a syntax tree representing `{foo, {bar, 42}}`. This avoids the need for temporary variables in order to inject data, as in
+
+```text
+     TmpBar = erl_syntax:abstract(Bar),
+     Foo = ?Q("{foo, _@TmpBar}")
+```
+
+If the context requires an integer rather than a variable, an atom, or a string, you cannot use the uppercase convention to mark an automatic metavariable. Instead, if the integer (without the `909`\-prefix and lift/glob markers) ends in a `9`, the integer will become an Erlang-level variable prefixed with `Q`, and if it ends with `99` it will also be automatically abstracted. For example, the following will increment the arity of the exported function f:
+
+```text
+     case Form of
+         ?Q("-export([f/90919]).") ->
+             Q2 = erl_syntax:concrete(Q1) + 1,
+             ?Q("-export([f/909299]).");
+         ...
+```
+
+### When to use the various forms of metavariables
+
+Merl can only parse a fragment of text if it follows the basic syntactical rules of Erlang. In most places, a normal Erlang variable can be used as metavariable, for example:
+
+```text
+     ?Q("f(_@Arg)") = Expr
+```
+
+but if you want to match on something like the name of a function, you have to use an atom as metavariable:
+
+```text
+     ?Q("'@Name'() -> _@@_." = Function
+```
+
+(note the anonymous glob variable `_@@_` to ignore the function body).
+
+In some contexts, only a string or an integer is allowed. For example, the directive `-file(Name, Line)` requires that `Name` is a string literal and `Line` an integer literal:
+
+```text
+     ?Q("-file(\"'@File\", 9090).") = ?Q("-file(\"foo.erl\", 42).")).
+```
+
+This will extract the string literal `"foo.erl"` into the variable `Foo`. Note the use of the anonymous variable `9090` to ignore the line number. To match and also bind a metavariable that must be an integer literal, we can use the convention of ending the integer with a 9, turning it into a Q-prefixed variable on the Erlang level (see the previous section).
+
+#### Globs
+
+Whenever you want to match out a number of elements in a sequence (zero or more) rather than a fixed set of elements, you need to use a glob. For example:
+
+```text
+     ?Q("{_@@Elements}") = ?Q({a, b, c})
+```
+
+will bind Elements to the list of individual syntax trees representing the atoms `a`, `b`, and `c`. This can also be used with static prefix and suffix elements in the sequence. For example:
+
+```text
+     ?Q("{a, b, _@@Elements}") = ?Q({a, b, c, d})
+```
+
+will bind Elements to the list of the `c` and `d` subtrees, and
+
+```text
+     ?Q("{_@@Elements, c, d}") = ?Q({a, b, c, d})
+```
+
+will bind Elements to the list of the `a` and `b` subtrees. You can even use plain metavariables in the prefix or suffix:
+
+```text
+     ?Q("{_@First, _@@Rest}") = ?Q({a, b, c})
+```
+
+or
+
+```text
+     ?Q("{_@@_, _@Last}") = ?Q({a, b, c})
+```
+
+(ignoring all but the last element). You cannot however have two globs as part of the same sequence.
+
+#### Lifted metavariables
+
+In some cases, the Erlang syntax rules make it impossible to place a metavariable directly where you would like it. For example, you cannot write:
+
+```text
+     ?Q("-export([_@@Name]).")
+```
+
+to match out all name/arity pairs in the export list, or to insert a list of exports in a declaration, because the Erlang parser only allows elements on the form `A/I` (where `A` is an atom and `I` an integer) in the export list. A variable like the above is not allowed, but neither is a single atom or integer, so `'@@Name'` or `909919` wouldn't work either.
+
+What you have to do in such cases is to write your metavariable in a syntactically valid position, and use lifting markers to denote where it should really apply, as in:
+
+```text
+     ?Q("-export(['@_@Name'/0]).")
+```
+
+This causes the variable to be lifted (after parsing) to the next higher level in the syntax tree, replacing that entire subtree. In this case, the `'@_@Name'/0` will be replaced with `'@@Name'`, and the `/0` part was just used as dummy notation and will be discarded.
+
+You may even need to apply lifting more than once. To match the entire export list as a single syntax tree, you can write:
+
+```text
+     ?Q("-export(['@__Name'/0]).")
+```
+
+using two underscores, but with no glob marker this time. This will make the entire `['@__Name'/0]` part be replaced with `'@Name'`.
+
+Sometimes, the tree structure of a code fragment isn't very obvious, and parts of the structure may be invisible when printed as source code. For instance, a simple function definition like the following:
+
+```text
+     zero() -> 0.
+```
+
+consists of the name (the atom `zero`), and a list of clauses containing the single clause `() -> 0`. The clause consists of an argument list (empty), a guard (empty), and a body (which is always a list of expressions) containing the single expression `0`. This means that to match out the name and the list of clauses of any function, you'll need to use a pattern like `?Q("'@Name'() -> _@_@Body.")`, using a dummy clause whose body is a glob lifted one level.
+
+To visualize the structure of a syntax tree, you can use the function `merl:show(T)`, which prints a summary. For example, entering
+
+```text
+     merl:show(merl:quote("inc(X, Y) when Y > 0 -> X + Y."))
+```
+
+in the Erlang shell will print the following (where the `+` signs separate groups of subtrees on the same level):
+
+```text
+     function: inc(X, Y) when ... -> X + Y.
+       atom: inc
+       +
+       clause: (X, Y) when ... -> X + Y
+         variable: X
+         variable: Y
+         +
+         disjunction: Y > 0
+           conjunction: Y > 0
+             infix_expr: Y > 0
+               variable: Y
+               +
+               operator: >
+               +
+               integer: 0
+         +
+         infix_expr: X + Y
+           variable: X
+           +
+           operator: +
+           +
+           variable: Y
+```
+
+This shows another important non-obvious case: a clause guard, even if it's as simple as `Y > 0`, always consists of a single disjunction of one or more conjunctions of tests, much like a tuple of tuples. Thus:
+* `"when _@Guard ->"` will only match a guard with exactly one test
+* `"when _@@Guard ->"` will match a guard with one or more comma-separated tests (but no semicolons), binding `Guard` to the list of tests
+* `"when _@_Guard ->"` will match just like the previous pattern, but binds `Guard` to the conjunction subtree
+* `"when _@_@Guard ->"` will match an arbitrary nonempty guard, binding `Guard` to the list of conjunction subtrees
+* `"when _@__Guard ->"` will match like the previous pattern, but binds `Guard` to the whole disjunction subtree
+* and finally, `"when _@__@Guard ->"` will match any clause, binding `Guard` to `[]` if the guard is empty and to `[Disjunction]` otherwise
+
+Thus, the following pattern matches all possible clauses:
+
+```text
+     "(_@Args) when _@__@Guard -> _@Body"
+```
+""".
 
 -export([term/1, var/1, print/1, show/1]).
 
@@ -294,22 +539,30 @@
 
 %% NOTE: this module may not include merl.hrl!
 
+-doc "".
 -type tree() :: erl_syntax:syntaxTree().
 
+-doc "".
 -type tree_or_trees() :: tree() | [tree()].
 
+-doc "".
 -type pattern() :: tree() | template().
 
+-doc "".
 -type pattern_or_patterns() :: pattern() | [pattern()].
 
+-doc "".
 -type env() :: [{Key::id(), pattern_or_patterns()}].
 
+-doc "".
 -type id() :: atom() | integer().
 
 %% A list of strings or binaries is assumed to represent individual lines,
 %% while a flat string or binary represents source code containing newlines.
+-doc "".
 -type text() :: string() | binary() | [string()] | [binary()].
 
+-doc "".
 -type location() :: erl_anno:location().
 
 
@@ -317,6 +570,7 @@
 %% Compiling and loading code directly to memory
 
 %% @equiv compile(Code, [])
+-doc "Equivalent to [compile(Code, [])](`compile/2`).".
 compile(Code) ->
     compile(Code, []).
 
@@ -324,6 +578,11 @@ compile(Code) ->
 %% into a binary BEAM object.
 %% @see compile_and_load/2
 %% @see compile/1
+-doc """
+Compile a syntax tree or list of syntax trees representing a module into a binary BEAM object.
+
+*See also: *`compile/1`, `compile_and_load/2`.
+""".
 compile(Code, Options) when not is_list(Code)->
     case type(Code) of
         form_list -> compile(erl_syntax:form_list_elements(Code));
@@ -336,6 +595,7 @@ compile(Code, Options0) when is_list(Options0) ->
 
 
 %% @equiv compile_and_load(Code, [])
+-doc "Equivalent to [compile_and_load(Code, [])](`compile_and_load/2`).".
 compile_and_load(Code) ->
     compile_and_load(Code, []).
 
@@ -343,6 +603,11 @@ compile_and_load(Code) ->
 %% and load the resulting module into memory.
 %% @see compile/2
 %% @see compile_and_load/1
+-doc """
+Compile a syntax tree or list of syntax trees representing a module and load the resulting module into memory.
+
+*See also: *`compile/2`, `compile_and_load/1`.
+""".
 compile_and_load(Code, Options) ->
     case compile(Code, Options) of
         {ok, ModuleName, Binary} ->
@@ -356,6 +621,7 @@ compile_and_load(Code, Options) ->
 %% Utility functions
 
 
+-doc "Create a variable.".
 -spec var(atom()) -> tree().
 
 %% @doc Create a variable.
@@ -364,6 +630,7 @@ var(Name) ->
     erl_syntax:variable(Name).
 
 
+-doc "Create a syntax tree for a constant term.".
 -spec term(term()) -> tree().
 
 %% @doc Create a syntax tree for a constant term.
@@ -375,6 +642,7 @@ term(Term) ->
 %% @doc Pretty-print a syntax tree or template to the standard output. This
 %% is a utility function for development and debugging.
 
+-doc "Pretty-print a syntax tree or template to the standard output. This is a utility function for development and debugging.".
 print(Ts) when is_list(Ts) ->
     lists:foreach(fun print/1, Ts);
 print(T) ->
@@ -384,12 +652,14 @@ print(T) ->
 %% @doc Print the structure of a syntax tree or template to the standard
 %% output. This is a utility function for development and debugging.
 
+-doc "Print the structure of a syntax tree or template to the standard output. This is a utility function for development and debugging.".
 show(Ts) when is_list(Ts) ->
     lists:foreach(fun show/1, Ts);
 show(T) ->
     io:put_chars(pp(tree(T), 0)),
     io:nl().
 
+-doc "".
 pp(T, I) ->
     [lists:duplicate(I, $\s),
      limit(lists:flatten([atom_to_list(type(T)), ": ",
@@ -399,6 +669,7 @@ pp(T, I) ->
      pp_1(lists:filter(fun (X) -> X =/= [] end, subtrees(T)), I+2)
     ].
 
+-doc "".
 pp_1([G], I) ->
     pp_2(G, I);
 pp_1([G | Gs], I) ->
@@ -406,10 +677,12 @@ pp_1([G | Gs], I) ->
 pp_1([], _I) ->
     [].
 
+-doc "".
 pp_2(G, I) ->
     [pp(E, I) || E <- G].
 
 %% limit string to N characters, stay on a single line and compact whitespace
+-doc "".
 limit([$\n | Cs], N) -> limit([$\s | Cs], N);
 limit([$\r | Cs], N) -> limit([$\s | Cs], N);
 limit([$\v | Cs], N) -> limit([$\s | Cs], N);
@@ -429,6 +702,11 @@ limit(_, _) -> [].
 %% Parsing and instantiating code fragments
 
 
+-doc """
+Equivalent to [qquote(1, Text, Env)](`qquote/3`).
+
+Parse text and substitute meta-variables.
+""".
 -spec qquote(Text::text(), Env::env()) -> tree_or_trees().
 
 %% @doc Parse text and substitute meta-variables.
@@ -439,6 +717,13 @@ qquote(Text, Env) ->
     qquote(1, Text, Env).
 
 
+-doc """
+Parse text and substitute meta-variables. Takes an initial scanner starting position as first argument.
+
+The macro `?Q(Text, Env)` expands to `merl:qquote(?LINE, Text, Env)`.
+
+*See also: *`quote/2`.
+""".
 -spec qquote(StartPos::location(), Text::text(), Env::env()) -> tree_or_trees().
 
 %% @doc Parse text and substitute meta-variables. Takes an initial scanner
@@ -452,6 +737,11 @@ qquote(StartPos, Text, Env) ->
     subst(quote(StartPos, Text), Env).
 
 
+-doc """
+Equivalent to [quote(1, Text)](`quote/2`).
+
+Parse text.
+""".
 -spec quote(Text::text()) -> tree_or_trees().
 
 %% @doc Parse text.
@@ -462,6 +752,13 @@ quote(Text) ->
     quote(1, Text).
 
 
+-doc """
+Parse text. Takes an initial scanner starting position as first argument.
+
+The macro `?Q(Text)` expands to `merl:quote(?LINE, Text)`.
+
+*See also: *`quote/1`.
+""".
 -spec quote(StartPos::location(), Text::text()) -> tree_or_trees().
 
 %% @doc Parse text. Takes an initial scanner starting position as first
@@ -477,6 +774,7 @@ quote({Line, Col}, Text)
 quote(StartPos, Text) when is_integer(StartPos) ->
     quote_1(StartPos, undefined, Text).
 
+-doc "".
 quote_1(StartLine, StartCol, Text) ->
     %% be backwards compatible as far as R12, ignoring any starting column
     StartPos = case erlang:system_info(version) of
@@ -490,6 +788,7 @@ quote_1(StartLine, StartCol, Text) ->
     {ok, Ts, _} = erl_scan:string(FlatText, StartPos),
     merge_comments(StartLine, erl_comment_scan:string(FlatText), parse_1(Ts)).
 
+-doc "".
 parse_1(Ts) ->
     %% if dot tokens are present, it is assumed that the text represents
     %% complete forms, not dot-terminated expressions or similar
@@ -499,9 +798,11 @@ parse_1(Ts) ->
             parse_2(Ts)
     end.
 
+-doc "".
 split_forms(Ts) ->
     split_forms(Ts, [], []).
 
+-doc "".
 split_forms([{dot,_}=T|Ts], Fs, As) ->
     split_forms(Ts, [lists:reverse(As, [T]) | Fs], []);
 split_forms([T|Ts], Fs, As) ->
@@ -513,6 +814,7 @@ split_forms([], [], _) ->
 split_forms([], _, [T|_]) ->
     fail("incomplete form after ~p", [T]).
 
+-doc "".
 parse_forms([Ts | Tss]) ->
     case erl_parse:parse_form(Ts) of
         {ok, Form} -> [Form | parse_forms(Tss)];
@@ -521,6 +823,7 @@ parse_forms([Ts | Tss]) ->
 parse_forms([]) ->
     [].
 
+-doc "".
 parse_2(Ts) ->
     %% one or more comma-separated expressions?
     %% (recall that Ts has no dot tokens if we get to this stage)
@@ -531,6 +834,7 @@ parse_2(Ts) ->
             parse_3(Ts ++ [{'end',A}, {dot,A}], [E])
     end.
 
+-doc "".
 parse_3(Ts, Es) ->
     %% try-clause or clauses?
     A = a0(),
@@ -542,6 +846,7 @@ parse_3(Ts, Es) ->
             parse_4(Ts, [E|Es])
     end.
 
+-doc "".
 parse_4(Ts, Es) ->
     %% fun-clause or clauses? (`(a)' is also a pattern, but `(a,b)' isn't,
     %% so fun-clauses must be tried before normal case-clauses
@@ -552,6 +857,7 @@ parse_4(Ts, Es) ->
             parse_5(Ts, [E|Es])
     end.
 
+-doc "".
 parse_5(Ts, Es) ->
     %% case-clause or clauses?
     A = a0(),
@@ -564,6 +870,7 @@ parse_5(Ts, Es) ->
 
 -dialyzer({nowarn_function, parse_error/1}). % no local return
 
+-doc "".
 parse_error({L, M, R}) when is_atom(M), is_integer(L) ->
     fail("~w: ~ts", [L, M:format_error(R)]);
 parse_error({{L,C}, M, R}) when is_atom(M), is_integer(L), is_integer(C) ->
@@ -587,13 +894,20 @@ parse_error(R) ->
 %% syntax trees are free from metavariables, so pattern() :: tree() |
 %% template() is in fact a wider type than template().
 
+-doc "".
 -type template() :: tree()
                   | {id()}
                   | {'*',id()}
                   | {template, atom(), term(), [[template()]]}.
 
+-doc "".
 -type template_or_templates() :: template() | [template()].
 
+-doc """
+Turn a syntax tree or list of trees into a template or templates. Templates can be instantiated or matched against, and reverted back to normal syntax trees using `tree/1`. If the input is already a template, it is not modified further.
+
+*See also: *`match/2`, `subst/2`, `tree/1`.
+""".
 -spec template(pattern_or_patterns()) -> template_or_templates().
 
 %% @doc Turn a syntax tree or list of trees into a template or templates.
@@ -610,6 +924,7 @@ template(Trees) when is_list(Trees) ->
 template(Tree) ->
     template_0(Tree).
 
+-doc "".
 template_0({template, _, _, _}=Template) -> Template;
 template_0({'*',_}=Template) -> Template;
 template_0({_}=Template) -> Template;
@@ -623,6 +938,7 @@ template_0(Tree) ->
 
 %% returns either a template or a lifted metavariable {String}, or 'false'
 %% if Tree contained no metavariables
+-doc "".
 template_1(Tree) ->
     case subtrees(Tree) of
         [] ->
@@ -644,6 +960,7 @@ template_1(Tree) ->
             end
     end.
 
+-doc "".
 template_2([G | Gs], As, Bool) ->
     case template_3(G, [], false) of
         {"v_"++Cs}=V when Cs =/= [] -> V;  % lift further
@@ -658,6 +975,7 @@ template_2([G | Gs], As, Bool) ->
 template_2([], _As, false) -> false;
 template_2([], As, true) -> lists:reverse(As).
 
+-doc "".
 template_3([T | Ts], As, Bool) ->
     case template_1(T) of
         {"v_"++Cs} when Cs =/= [] -> {"v"++Cs};  % lift
@@ -677,6 +995,7 @@ template_3([], As, true) -> lists:reverse(As).
 %% automatically wrapped in a call to merl:term/1, so e.g. `_@Foo@ in the
 %% template becomes `merl:term(Foo)' in the meta-template.
 
+-doc "Turn a template into a syntax tree representing the template. Meta-variables in the template are turned into normal Erlang variables if their names (after the metavariable prefix characters) begin with an uppercase character. E.g., `_@Foo` in the template becomes the variable `Foo` in the meta-template. Furthermore, variables ending with `@` are automatically wrapped in a call to merl:term/1, so e.g. `` _@Foo@ in the template becomes `merl:term(Foo) `` in the meta-template.".
 -spec meta_template(template_or_templates()) -> tree_or_trees().
 
 meta_template(Templates) when is_list(Templates) ->
@@ -684,6 +1003,7 @@ meta_template(Templates) when is_list(Templates) ->
 meta_template(Template) ->
     meta_template_1(Template).
 
+-doc "".
 meta_template_1({template, Type, Attrs, Groups}) ->
     erl_syntax:tuple(
       [erl_syntax:atom(template),
@@ -698,6 +1018,7 @@ meta_template_1({'*',Var}=V) ->
 meta_template_1(Leaf) ->
     erl_syntax:abstract(Leaf).
 
+-doc "".
 meta_template_2(Var, V) when is_atom(Var) ->
     case atom_to_list(Var) of
         [C|_]=Name when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
@@ -734,6 +1055,7 @@ meta_template_2(Var, V) when is_integer(Var) ->
 
 
 
+-doc "Return an ordered list of the metavariables in the template.".
 -spec template_vars(template_or_templates()) -> [id()].
 
 %% @doc Return an ordered list of the metavariables in the template.
@@ -741,11 +1063,13 @@ meta_template_2(Var, V) when is_integer(Var) ->
 template_vars(Template) ->
     template_vars(Template, []).
 
+-doc "".
 template_vars(Templates, Vars) when is_list(Templates) ->
     lists:foldl(fun template_vars_1/2, Vars, Templates);
 template_vars(Template, Vars) ->
     template_vars_1(Template, Vars).
 
+-doc "".
 template_vars_1({template, _, _, Groups}, Vars) ->
     lists:foldl(fun (G, V) -> lists:foldl(fun template_vars_1/2, V, G) end,
                 Vars, Groups);
@@ -757,6 +1081,11 @@ template_vars_1(_, Vars) ->
     Vars.
 
 
+-doc """
+Revert a template to a normal syntax tree. Any remaining metavariables are turned into `@`\-prefixed atoms or `909`\-prefixed integers.
+
+*See also: *`template/1`.
+""".
 -spec tree(template_or_templates()) -> tree_or_trees().
 
 %% @doc Revert a template to a normal syntax tree. Any remaining
@@ -769,6 +1098,7 @@ tree(Templates) when is_list(Templates) ->
 tree(Template) ->
     tree_1(Template).
 
+-doc "".
 tree_1({template, Type, Attrs, Groups}) ->
     %% flattening here is needed for templates created via source transforms
     Gs = [lists:flatten([tree_1(T) || T <- G]) || G <- Groups],
@@ -785,6 +1115,7 @@ tree_1(Leaf) ->
     Leaf.  % any syntax tree, not necessarily atomic (due to substitutions)
 
 
+-doc "Substitute metavariables in a pattern or list of patterns, yielding a syntax tree or list of trees as result. Both for normal metavariables and glob metavariables, the substituted value may be a single element or a list of elements. For example, if a list representing `1, 2, 3` is substituted for `var` in either of `[foo, _@var, bar]` or `[foo, _@var, bar]`, the result represents `[foo, 1, 2, 3, bar]`.".
 -spec subst(pattern_or_patterns(), env()) -> tree_or_trees().
 
 %% @doc Substitute metavariables in a pattern or list of patterns, yielding
@@ -799,10 +1130,16 @@ subst(Trees, Env) when is_list(Trees) ->
 subst(Tree, Env) ->
     subst_0(Tree, Env).
 
+-doc "".
 subst_0(Tree, Env) ->
     tree_1(subst_1(template(Tree), Env)).
 
 
+-doc """
+Like subst/2, but does not convert the result from a template back to a tree. Useful if you want to do multiple separate substitutions.
+
+*See also: *`subst/2`, `tree/1`.
+""".
 -spec tsubst(pattern_or_patterns(), env()) -> template_or_templates().
 
 %% @doc Like subst/2, but does not convert the result from a template back
@@ -815,6 +1152,7 @@ tsubst(Trees, Env) when is_list(Trees) ->
 tsubst(Tree, Env) ->
     subst_1(template(Tree), Env).
 
+-doc "".
 subst_1({template, Type, Attrs, Groups}, Env) ->
     Gs1 = [lists:flatten([subst_1(T, Env) || T <- G]) || G <- Groups],
     {template, Type, Attrs, Gs1};
@@ -832,6 +1170,11 @@ subst_1(Leaf, _Env) ->
     Leaf.
 
 
+-doc """
+Alpha converts a pattern (renames variables). Similar to tsubst/1, but only renames variables (including globs).
+
+*See also: *`tsubst/2`.
+""".
 -spec alpha(pattern_or_patterns(), [{id(), id()}]) -> template_or_templates().
 
 %% @doc Alpha converts a pattern (renames variables). Similar to tsubst/1,
@@ -843,6 +1186,7 @@ alpha(Trees, Env) when is_list(Trees) ->
 alpha(Tree, Env) ->
     alpha_1(template(Tree), Env).
 
+-doc "".
 alpha_1({template, Type, Attrs, Groups}, Env) ->
     Gs1 = [lists:flatten([alpha_1(T, Env) || T <- G]) || G <- Groups],
     {template, Type, Attrs, Gs1};
@@ -860,6 +1204,11 @@ alpha_1(Leaf, _Env) ->
     Leaf.
 
 
+-doc """
+Match a pattern against a syntax tree (or patterns against syntax trees) returning an environment mapping variable names to subtrees; the environment is always sorted on keys. Note that multiple occurrences of metavariables in the pattern is not allowed, but is not checked.
+
+*See also: *`switch/2`, `template/1`.
+""".
 -spec match(pattern_or_patterns(), tree_or_trees()) ->
                    {ok, env()} | error.
 
@@ -884,6 +1233,7 @@ match(Pattern, Tree) ->
         error -> error
     end.
 
+-doc "".
 match_1([P|Ps], [T | Ts], Dict) ->
     match_1(Ps, Ts, match_template(template(P), T, Dict));
 match_1([], [], Dict) ->
@@ -892,6 +1242,7 @@ match_1(_, _, _Dict) ->
     erlang:error(merl_match_arity).
 
 %% match a template against a syntax tree
+-doc "".
 match_template({template, Type, _, Gs}, Tree, Dict) ->
     case type(Tree) of
         Type -> match_template_1(Gs, subtrees(Tree), Dict);
@@ -909,6 +1260,7 @@ match_template(Tree1, Tree2, Dict) ->
         false -> throw(error)  % different trees
     end.
 
+-doc "".
 match_template_1([G1 | Gs1], [G2 | Gs2], Dict) ->
     match_template_2(G1, G2, match_template_1(Gs1, Gs2, Dict));
 match_template_1([], [], Dict) ->
@@ -916,6 +1268,7 @@ match_template_1([], [], Dict) ->
 match_template_1(_, _, _Dict) ->
     throw(error).  % shape mismatch
 
+-doc "".
 match_template_2([{Var} | Ts1], [_ | Ts2], Dict)
   when Var =:= '_' ; Var =:= 0 ->
     match_template_2(Ts1, Ts2, Dict);  % anonymous variable
@@ -931,6 +1284,7 @@ match_template_2(_, _, _Dict) ->
     throw(error).  % shape mismatch
 
 %% match the tails in reverse order; no further globs allowed
+-doc "".
 match_glob([{'*',Var} | _], _, _, _) ->
     fail("multiple glob variables in same match group: ~w", [Var]);
 match_glob([T1 | Ts1], [T2 | Ts2], Var, Dict) ->
@@ -944,6 +1298,7 @@ match_glob(_, _, _, _Dict) ->
 
 
 %% compare two syntax trees for equivalence
+-doc "".
 compare_trees(T1, T2) ->
     Type1 = type(T1),
     case type(T2) of
@@ -964,6 +1319,7 @@ compare_trees(T1, T2) ->
             false  % different tree types
     end.
 
+-doc "".
 compare_trees_1([G1 | Gs1], [G2 | Gs2]) ->
     compare_trees_2(G1, G2) andalso compare_trees_1(Gs1, Gs2);
 compare_trees_1([], []) ->
@@ -971,6 +1327,7 @@ compare_trees_1([], []) ->
 compare_trees_1(_, _) ->
     false.  % shape mismatch
 
+-doc "".
 compare_trees_2([T1 | Ts1], [T2 | Ts2]) ->
     compare_trees(T1, T2) andalso compare_trees_2(Ts1, Ts2);
 compare_trees_2([], []) ->
@@ -978,6 +1335,7 @@ compare_trees_2([], []) ->
 compare_trees_2(_, _) ->
     false.  % shape mismatch
 
+-doc "".
 compare_leaves(Type, T1, T2) ->
     case Type of
         atom ->
@@ -1015,22 +1373,35 @@ compare_leaves(Type, T1, T2) ->
 %%
 %% @see match/2
 
+-doc "".
 -type switch_clause() ::
           {pattern_or_patterns(), guarded_actions()}
         | {pattern_or_patterns(), guard_test(), switch_action()}
         | default_action().
 
+-doc "".
 -type guarded_actions() :: guarded_action() | [guarded_action()].
 
+-doc "".
 -type guarded_action() :: switch_action() | {guard_test(), switch_action()}.
 
+-doc "".
 -type switch_action() :: fun( (env()) -> any() ).
 
+-doc "".
 -type guard_test() :: fun( (env()) -> boolean() ).
 
+-doc "".
 -type default_action() :: fun( () -> any() ).
 
 
+-doc """
+Match against one or more clauses with patterns and optional guards.
+
+Note that clauses following a default action will be ignored.
+
+*See also: *`match/2`.
+""".
 -spec switch(tree_or_trees(), [switch_clause()]) -> any().
 
 switch(Trees, [{Patterns, GuardedActions} | Cs]) when is_list(GuardedActions) ->
@@ -1046,6 +1417,7 @@ switch(_Trees, []) ->
 switch(_Tree, _) ->
     erlang:error(merl_switch_badarg).
 
+-doc "".
 switch_1(Trees, Patterns, GuardedActions, Cs) ->
     case match(Patterns, Trees) of
         {ok, Env} ->
@@ -1054,6 +1426,7 @@ switch_1(Trees, Patterns, GuardedActions, Cs) ->
             switch(Trees, Cs)
     end.
 
+-doc "".
 switch_2(Env, [{Guard, Action} | Bs], Trees, Cs)
   when is_function(Guard, 1), is_function(Action, 1) ->
     case Guard(Env) of
@@ -1073,12 +1446,15 @@ switch_2(_Env, _, _Trees, _Cs) ->
 
 -dialyzer({nowarn_function, fail/1}). % no local return
 
+-doc "".
 fail(Text) ->
     fail(Text, []).
 
+-doc "".
 fail(Fs, As) ->
     throw({error, lists:flatten(io_lib:format(Fs, As))}).
 
+-doc "".
 flatten_text([L | _]=Lines) when is_list(L) ->
     lists:foldr(fun(S, T) -> S ++ [$\n | T] end, "", Lines);
 flatten_text([B | _]=Lines) when is_binary(B) ->
@@ -1088,6 +1464,7 @@ flatten_text(Text) when is_binary(Text) ->
 flatten_text(Text) ->
     Text.
 
+-doc "".
 -spec metavar(tree()) -> {string()} | false.
 
 %% Check if a syntax tree represents a metavariable. If not, 'false' is
@@ -1137,12 +1514,14 @@ metavar(Tree) ->
 %% wrappers around erl_syntax functions to provide more uniform shape of
 %% generic subtrees (maybe this can be fixed in syntax_tools one day)
 
+-doc "".
 type(T) ->
     case erl_syntax:type(T) of
         nil  -> list;
         Type -> Type
     end.
 
+-doc "".
 subtrees(T) ->
     case erl_syntax:type(T) of
         tuple ->
@@ -1196,6 +1575,7 @@ subtrees(T) ->
             erl_syntax:subtrees(T)
     end.
 
+-doc "".
 make_tree(list, [P, []]) -> erl_syntax:list(P);
 make_tree(list, [P, [S]]) -> erl_syntax:list(P, S);
 make_tree(tuple, [E]) -> erl_syntax:tuple(E);
@@ -1211,11 +1591,13 @@ make_tree(record_field, [[N], [E]]) -> erl_syntax:record_field(N, E);
 make_tree(Type, Groups) ->
     erl_syntax:make_tree(Type, Groups).
 
+-doc "".
 merge_comments(_StartLine, [], [T]) -> T;
 merge_comments(_StartLine, [], Ts) -> Ts;
 merge_comments(StartLine, Comments, Ts) ->
     merge_comments(StartLine, Comments, Ts, []).
 
+-doc "".
 merge_comments(_StartLine, [], [], [T]) -> T;
 merge_comments(_StartLine, [], [T], []) -> T;
 merge_comments(_StartLine, [], Ts, Acc) ->
@@ -1243,12 +1625,16 @@ merge_comments(StartLine, [C|Cs], [T|Ts], Acc) ->
             merge_comments(StartLine, Cs, [Tc|Ts], Acc)
     end.
 
+-doc "".
 a0() ->
     anno(0).
 
+-doc "".
 anno(Location) ->
     erl_anno:new(Location).
 
+-doc "".
 get_line(Tree) ->
     Anno = erl_syntax:get_pos(Tree),
     erl_anno:line(Anno).
+

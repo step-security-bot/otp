@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxAuiManagerEvent).
+-moduledoc """
+Functions for wxAuiManagerEvent class
+
+Event used to indicate various actions taken with `m:wxAuiManager`.
+
+See `m:wxAuiManager` for available event types.
+
+See: `m:wxAuiManager`, `m:wxAuiPaneInfo`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxAuiManagerEvent](https://docs.wxwidgets.org/3.1/classwx_aui_manager_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxAuiManagerEventType`](`t:wxAuiManagerEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([canVeto/1,getButton/1,getDC/1,getManager/1,getPane/1,getVeto/1,setButton/2,
   setCanVeto/2,setDC/2,setManager/2,setPane/2,veto/1,veto/2]).
@@ -27,8 +44,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxAuiManagerEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxAuiManagerEventType() :: 'aui_pane_button' | 'aui_pane_close' | 'aui_pane_maximize' | 'aui_pane_restore' | 'aui_pane_activated' | 'aui_render' | 'aui_find_manager'.
 -export_type([wxAuiManagerEvent/0, wxAuiManager/0, wxAuiManagerEventType/0]).
 %% @hidden
@@ -36,6 +55,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetmanager">external documentation</a>.
+-doc "Sets the `m:wxAuiManager` this event is associated with.".
 -spec setManager(This, Manager) -> 'ok' when
 	This::wxAuiManagerEvent(), Manager::wxAuiManager:wxAuiManager().
 setManager(#wx_ref{type=ThisT}=This,#wx_ref{type=ManagerT}=Manager) ->
@@ -44,6 +64,7 @@ setManager(#wx_ref{type=ThisT}=This,#wx_ref{type=ManagerT}=Manager) ->
   wxe_util:queue_cmd(This,Manager,?get_env(),?wxAuiManagerEvent_SetManager).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventgetmanager">external documentation</a>.
+-doc "Return: The `m:wxAuiManager` this event is associated with.".
 -spec getManager(This) -> wxAuiManager:wxAuiManager() when
 	This::wxAuiManagerEvent().
 getManager(#wx_ref{type=ThisT}=This) ->
@@ -52,6 +73,7 @@ getManager(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiManagerEvent_GetManager).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetpane">external documentation</a>.
+-doc "Sets the pane this event is associated with.".
 -spec setPane(This, Pane) -> 'ok' when
 	This::wxAuiManagerEvent(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 setPane(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
@@ -60,6 +82,7 @@ setPane(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
   wxe_util:queue_cmd(This,Pane,?get_env(),?wxAuiManagerEvent_SetPane).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventgetpane">external documentation</a>.
+-doc "Return: The pane this event is associated with.".
 -spec getPane(This) -> wxAuiPaneInfo:wxAuiPaneInfo() when
 	This::wxAuiManagerEvent().
 getPane(#wx_ref{type=ThisT}=This) ->
@@ -68,6 +91,7 @@ getPane(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiManagerEvent_GetPane).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetbutton">external documentation</a>.
+-doc "Sets the ID of the button clicked that triggered this event.".
 -spec setButton(This, Button) -> 'ok' when
 	This::wxAuiManagerEvent(), Button::integer().
 setButton(#wx_ref{type=ThisT}=This,Button)
@@ -76,6 +100,7 @@ setButton(#wx_ref{type=ThisT}=This,Button)
   wxe_util:queue_cmd(This,Button,?get_env(),?wxAuiManagerEvent_SetButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventgetbutton">external documentation</a>.
+-doc "Return: The ID of the button that was clicked.".
 -spec getButton(This) -> integer() when
 	This::wxAuiManagerEvent().
 getButton(#wx_ref{type=ThisT}=This) ->
@@ -84,6 +109,7 @@ getButton(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiManagerEvent_GetButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetdc">external documentation</a>.
+-doc "".
 -spec setDC(This, Pdc) -> 'ok' when
 	This::wxAuiManagerEvent(), Pdc::wxDC:wxDC().
 setDC(#wx_ref{type=ThisT}=This,#wx_ref{type=PdcT}=Pdc) ->
@@ -92,6 +118,7 @@ setDC(#wx_ref{type=ThisT}=This,#wx_ref{type=PdcT}=Pdc) ->
   wxe_util:queue_cmd(This,Pdc,?get_env(),?wxAuiManagerEvent_SetDC).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventgetdc">external documentation</a>.
+-doc "".
 -spec getDC(This) -> wxDC:wxDC() when
 	This::wxAuiManagerEvent().
 getDC(#wx_ref{type=ThisT}=This) ->
@@ -100,6 +127,7 @@ getDC(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiManagerEvent_GetDC).
 
 %% @equiv veto(This, [])
+-doc "".
 -spec veto(This) -> 'ok' when
 	This::wxAuiManagerEvent().
 
@@ -108,6 +136,7 @@ veto(This)
   veto(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventveto">external documentation</a>.
+-doc "Cancels the action indicated by this event if `canVeto/1` is true.".
 -spec veto(This, [Option]) -> 'ok' when
 	This::wxAuiManagerEvent(),
 	Option :: {'veto', boolean()}.
@@ -120,6 +149,11 @@ veto(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxAuiManagerEvent_Veto).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventgetveto">external documentation</a>.
+-doc """
+Return: true if this event was vetoed.
+
+See: `veto/2`
+""".
 -spec getVeto(This) -> boolean() when
 	This::wxAuiManagerEvent().
 getVeto(#wx_ref{type=ThisT}=This) ->
@@ -128,6 +162,7 @@ getVeto(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiManagerEvent_GetVeto).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventsetcanveto">external documentation</a>.
+-doc "Sets whether or not this event can be vetoed.".
 -spec setCanVeto(This, Can_veto) -> 'ok' when
 	This::wxAuiManagerEvent(), Can_veto::boolean().
 setCanVeto(#wx_ref{type=ThisT}=This,Can_veto)
@@ -136,6 +171,11 @@ setCanVeto(#wx_ref{type=ThisT}=This,Can_veto)
   wxe_util:queue_cmd(This,Can_veto,?get_env(),?wxAuiManagerEvent_SetCanVeto).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanagerevent.html#wxauimanagereventcanveto">external documentation</a>.
+-doc """
+Return: true if this event can be vetoed.
+
+See: `veto/2`
+""".
 -spec canVeto(This) -> boolean() when
 	This::wxAuiManagerEvent().
 canVeto(#wx_ref{type=ThisT}=This) ->
@@ -162,3 +202,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

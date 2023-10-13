@@ -18,6 +18,34 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_local_db).
+-moduledoc """
+The SNMP built-in database
+
+The module `snmpa_local_db` contains functions for implementing tables (and variables) using the SNMP built-in database. The database exists in two instances, one volatile and one persistent. The volatile database is implemented with ets. The persistent database is implemented with dets.
+
+There is a scaling problem with this database.
+
+* Insertions and deletions are inefficient for large tables.
+
+This problem is best solved by using Mnesia instead.
+
+The following functions describe the interface to `snmpa_local_db`. Each function has a Mnesia equivalent. The argument `NameDb` is a tuple `{Name, Db}` where `Name` is the symbolic name of the managed object (as defined in the MIB), and `Db` is either `volatile` or `persistent`. `mnesia` is not possible since all these functions are `snmpa_local_db` specific.
+
+## Common Data Types
+
+In the functions defined below, the following types are used:
+
+* `NameDb = {Name, Db}`
+* `Name = atom(), Db = volatile | persistent`
+* `RowIndex = [int()]`
+* `Cols = [Col] | [{Col, Value}], Col = int(), Value = term()`
+
+where `RowIndex` denotes the last part of the OID, that specifies the index of the row in the table. `Cols` is a list of column numbers in case of a get operation, and a list of column numbers and values in case of a set operation.
+
+## See Also
+
+ets(3), dets(3), snmp_generic(3)
+""".
 
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").
@@ -114,6 +142,11 @@ unregister_notify_client(Client) ->
 backup(BackupDir) ->
     call({backup, BackupDir}).
 
+-doc """
+Reason = term()  
+
+This function can be used to manually dump the database to file.
+""".
 dump() ->
     call(dump).
 
@@ -237,8 +270,17 @@ dets_filename1(Dir) -> Dir.
 %%-----------------------------------------------------------------
 %% Functions for debugging.
 %%-----------------------------------------------------------------
+-doc(#{equiv => print/2}).
 print()          -> call(print).
+-doc(#{equiv => print/2}).
 print(Table)     -> call({print,Table,volatile}).
+-doc """
+TableName = atom()  
+
+Prints the contents of the database on screen. This is useful for debugging since the `STANDARD-MIB` and `OTP-SNMPEA-MIB` (and maybe your own MIBs) are stored in `snmpa_local_db`.
+
+`TableName` is an atom for a table in the database. When no name is supplied, the whole database is shown.
+""".
 print(Table, Db) -> call({print,Table,Db}).
 
 variable_get({Name, Db}) ->
@@ -262,26 +304,40 @@ variable_delete(Name) ->
     call({variable_delete, Name, volatile}).
 
 
+-doc """
+Creates a table. If the table already exist, the old copy is destroyed.
+
+Returns `false` if the `NameDb` argument is incorrectly specified, `true` otherwise.
+""".
 table_create({Name, Db}) ->
     call({table_create, Name, Db});
 table_create(Name) ->
     call({table_create, Name, volatile}).
 
+-doc "Checks if a table exists.".
 table_exists({Name, Db}) ->
     call({table_exists, Name, Db});
 table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
+-doc "Deletes a table.".
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
 table_delete(Name) ->
     call({table_delete, Name, volatile}).
 
+-doc "Deletes the row in the table.".
 table_delete_row({Name, Db}, RowIndex) ->
     call({table_delete_row, Name, Db, RowIndex});
 table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
+-doc """
+Row = \{Val1, Val2, ..., ValN\}  
+Val1 = Val2 = ... = ValN = term()  
+
+`Row` is a tuple with values for all columns, including the index columns.
+""".
 table_get_row({Name, Db}, RowIndex) ->
     call({table_get_row, Name, Db, RowIndex});
 table_get_row(Name, RowIndex) ->
@@ -307,6 +363,12 @@ table_max_col({Name, Db}, Col) ->
 table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
+-doc """
+Row = \{Val1, Val2, ..., ValN\}  
+Val1 = Val2 = ... = ValN = term()  
+
+Creates a row in a table. `Row` is a tuple with values for all columns, including the index columns.
+""".
 table_create_row({Name, Db}, RowIndex, Row) ->
     call({table_create_row, Name, Db,RowIndex, Row});
 table_create_row(Name, RowIndex, Row) ->
@@ -315,6 +377,7 @@ table_create_row(NameDb, RowIndex, Status, Cols) ->
     Row = table_construct_row(NameDb, RowIndex, Status, Cols),
     table_create_row(NameDb, RowIndex, Row).
 
+-doc "Performs an ets/dets matching on the table. See Stdlib documentation, module ets, for a description of `Pattern` and the return values.".
 match({Name, Db}, Pattern) ->
     call({match, Name, Db, Pattern});    
 match(Name, Pattern) ->
@@ -1244,3 +1307,4 @@ dets_lookup(#dets{shadow = Shadow}, Key) ->
 dets_close(#dets{tab = Tab, shadow = Shadow}) ->
     ets:delete(Shadow),
     dets:close(Tab).
+

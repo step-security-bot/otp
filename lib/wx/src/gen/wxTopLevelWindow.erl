@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxTopLevelWindow).
+-moduledoc """
+Functions for wxTopLevelWindow class
+
+`m:wxTopLevelWindow` is a common base class for `m:wxDialog` and `m:wxFrame`. It is an abstract base class meaning that you never work with objects of this class directly, but all of its methods are also applicable for the two classes above.
+
+Note that the instances of `m:wxTopLevelWindow` are managed by wxWidgets in the internal top level window list.
+
+See: `m:wxDialog`, `m:wxFrame`
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxTopLevelWindow](https://docs.wxwidgets.org/3.1/classwx_top_level_window.html)
+
+## Events
+
+Event types emitted from this class: [`maximize`](`m:wxMaximizeEvent`), [`move`](`m:wxMoveEvent`), [`show`](`m:wxShowEvent`)
+""".
 -include("wxe.hrl").
 -export([centerOnScreen/1,centerOnScreen/2,centreOnScreen/1,centreOnScreen/2,
   getIcon/1,getIcons/1,getTitle/1,iconize/1,iconize/2,isActive/1,isFullScreen/1,
@@ -66,6 +83,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxTopLevelWindow() :: wx:wx_object().
 -export_type([wxTopLevelWindow/0]).
 %% @hidden
@@ -74,6 +92,13 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticon">external documentation</a>.
+-doc """
+Returns the standard icon of the window.
+
+The icon will be invalid if it hadn't been previously set by `setIcon/2`.
+
+See: `getIcons/1`
+""".
 -spec getIcon(This) -> wxIcon:wxIcon() when
 	This::wxTopLevelWindow().
 getIcon(#wx_ref{type=ThisT}=This) ->
@@ -82,6 +107,13 @@ getIcon(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_GetIcon).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgeticons">external documentation</a>.
+-doc """
+Returns all icons associated with the window, there will be none of them if neither `setIcon/2` nor `setIcons/2` had been called before.
+
+Use `getIcon/1` to get the main icon of the window.
+
+See: `m:wxIconBundle`
+""".
 -spec getIcons(This) -> wxIconBundle:wxIconBundle() when
 	This::wxTopLevelWindow().
 getIcons(#wx_ref{type=ThisT}=This) ->
@@ -90,6 +122,11 @@ getIcons(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_GetIcons).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowgettitle">external documentation</a>.
+-doc """
+Gets a string containing the window title.
+
+See: `setTitle/2`
+""".
 -spec getTitle(This) -> unicode:charlist() when
 	This::wxTopLevelWindow().
 getTitle(#wx_ref{type=ThisT}=This) ->
@@ -98,6 +135,7 @@ getTitle(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_GetTitle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisactive">external documentation</a>.
+-doc "Returns true if this window is currently active, i.e. if the user is currently working with it.".
 -spec isActive(This) -> boolean() when
 	This::wxTopLevelWindow().
 isActive(#wx_ref{type=ThisT}=This) ->
@@ -106,6 +144,7 @@ isActive(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_IsActive).
 
 %% @equiv iconize(This, [])
+-doc "".
 -spec iconize(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -114,6 +153,13 @@ iconize(This)
   iconize(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowiconize">external documentation</a>.
+-doc """
+Iconizes or restores the window.
+
+Note that in wxGTK the change to the window state is not immediate, i.e. `isIconized/1` will typically return false right after a call to `iconize/2` and its return value will only change after the control flow returns to the event loop and the notification about the window being really iconized is received.
+
+See: `isIconized/1`, `Restore()` (not implemented in wx), (), `m:wxIconizeEvent`
+""".
 -spec iconize(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'iconize', boolean()}.
@@ -126,6 +172,11 @@ iconize(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_Iconize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisfullscreen">external documentation</a>.
+-doc """
+Returns true if the window is in fullscreen mode.
+
+See: `showFullScreen/3`
+""".
 -spec isFullScreen(This) -> boolean() when
 	This::wxTopLevelWindow().
 isFullScreen(#wx_ref{type=ThisT}=This) ->
@@ -134,6 +185,7 @@ isFullScreen(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_IsFullScreen).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowisiconized">external documentation</a>.
+-doc "Returns true if the window is iconized.".
 -spec isIconized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isIconized(#wx_ref{type=ThisT}=This) ->
@@ -142,6 +194,7 @@ isIconized(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_IsIconized).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowismaximized">external documentation</a>.
+-doc "Returns true if the window is maximized.".
 -spec isMaximized(This) -> boolean() when
 	This::wxTopLevelWindow().
 isMaximized(#wx_ref{type=ThisT}=This) ->
@@ -150,6 +203,7 @@ isMaximized(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTopLevelWindow_IsMaximized).
 
 %% @equiv maximize(This, [])
+-doc "".
 -spec maximize(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -158,6 +212,13 @@ maximize(This)
   maximize(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowmaximize">external documentation</a>.
+-doc """
+Maximizes or restores the window.
+
+Note that, just as with `iconize/2`, the change to the window state is not immediate in at least wxGTK port.
+
+See: `Restore()` (not implemented in wx), `iconize/2`
+""".
 -spec maximize(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'maximize', boolean()}.
@@ -170,6 +231,7 @@ maximize(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_Maximize).
 
 %% @equiv requestUserAttention(This, [])
+-doc "".
 -spec requestUserAttention(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -178,6 +240,15 @@ requestUserAttention(This)
   requestUserAttention(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowrequestuserattention">external documentation</a>.
+-doc """
+Use a system-dependent way to attract users attention to the window when it is in background.
+
+`flags` may have the value of either `?wxUSER_ATTENTION_INFO` (default) or `?wxUSER_ATTENTION_ERROR` which results in a more drastic action. When in doubt, use the default value.
+
+Note: This function should normally be only used when the application is not already in foreground.
+
+This function is currently implemented for Win32 where it flashes the window icon in the taskbar, and for wxGTK with task bars supporting it.
+""".
 -spec requestUserAttention(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'flags', integer()}.
@@ -190,6 +261,15 @@ requestUserAttention(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_RequestUserAttention).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticon">external documentation</a>.
+-doc """
+Sets the icon for this window.
+
+Remark: The window takes a 'copy' of `icon`, but since it uses reference counting, the copy is very quick. It is safe to delete `icon` after calling this function.
+
+Note: In wxMSW, `icon` must be either 16x16 or 32x32 icon.
+
+See: `m:wxIcon`, `setIcons/2`
+""".
 -spec setIcon(This, Icon) -> 'ok' when
 	This::wxTopLevelWindow(), Icon::wxIcon:wxIcon().
 setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
@@ -198,6 +278,15 @@ setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   wxe_util:queue_cmd(This,Icon,?get_env(),?wxTopLevelWindow_SetIcon).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowseticons">external documentation</a>.
+-doc """
+Sets several icons of different sizes for this window: this allows using different icons for different situations (e.g.
+
+task switching bar, taskbar, window title bar) instead of scaling, with possibly bad looking results, the only icon set by `setIcon/2`.
+
+Note: In wxMSW, `icons` must contain a 16x16 or 32x32 icon, preferably both.
+
+See: `m:wxIconBundle`
+""".
 -spec setIcons(This, Icons) -> 'ok' when
 	This::wxTopLevelWindow(), Icons::wxIconBundle:wxIconBundle().
 setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
@@ -206,6 +295,7 @@ setIcons(#wx_ref{type=ThisT}=This,#wx_ref{type=IconsT}=Icons) ->
   wxe_util:queue_cmd(This,Icons,?get_env(),?wxTopLevelWindow_SetIcons).
 
 %% @equiv centerOnScreen(This, [])
+-doc "".
 -spec centerOnScreen(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -214,6 +304,7 @@ centerOnScreen(This)
   centerOnScreen(This, []).
 
 %% @equiv centreOnScreen(This, [])
+-doc "".
 -spec centreOnScreen(This) -> 'ok' when
 	This::wxTopLevelWindow().
 
@@ -222,6 +313,7 @@ centreOnScreen(This)
   centreOnScreen(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
+-doc "See: `centreOnScreen/2`.".
 -spec centerOnScreen(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'dir', integer()}.
@@ -231,6 +323,11 @@ centerOnScreen(This, Options)
   centreOnScreen(This, Options).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowcentreonscreen">external documentation</a>.
+-doc """
+Centres the window on screen.
+
+See: `wxWindow:centreOnParent/2`
+""".
 -spec centreOnScreen(This, [Option]) -> 'ok' when
 	This::wxTopLevelWindow(),
 	Option :: {'dir', integer()}.
@@ -243,6 +340,15 @@ centreOnScreen(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTopLevelWindow_CentreOnScreen).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsetshape">external documentation</a>.
+-doc """
+If the platform supports it, sets the shape of the window to that depicted by `region`.
+
+The system will not display or respond to any mouse event for the pixels that lie outside of the region. To reset the window to the normal rectangular shape simply call `setShape/2` again with an empty `m:wxRegion`. Returns true if the operation is successful.
+
+This method is available in this class only since wxWidgets 2.9.3, previous versions only provided it in `m:wxTopLevelWindow`.
+
+Note that windows with non default shape have a fixed size and can't be resized using `wxWindow:setSize/6`.
+""".
 -spec setShape(This, Region) -> boolean() when
 	This::wxTopLevelWindow(), Region::wxRegion:wxRegion() | wxGraphicsPath:wxGraphicsPath().
 setShape(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
@@ -258,6 +364,11 @@ setShape(#wx_ref{type=ThisT}=This,#wx_ref{type=RegionT}=Region) ->
   wxe_util:rec(?wxTopLevelWindow_SetShape).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowsettitle">external documentation</a>.
+-doc """
+Sets the window title.
+
+See: `getTitle/1`
+""".
 -spec setTitle(This, Title) -> 'ok' when
 	This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
@@ -267,6 +378,7 @@ setTitle(#wx_ref{type=ThisT}=This,Title)
   wxe_util:queue_cmd(This,Title_UC,?get_env(),?wxTopLevelWindow_SetTitle).
 
 %% @equiv showFullScreen(This,Show, [])
+-doc "".
 -spec showFullScreen(This, Show) -> boolean() when
 	This::wxTopLevelWindow(), Show::boolean().
 
@@ -275,6 +387,17 @@ showFullScreen(This,Show)
   showFullScreen(This,Show, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoplevelwindow.html#wxtoplevelwindowshowfullscreen">external documentation</a>.
+-doc """
+Depending on the value of `show` parameter the window is either shown full screen or restored to its normal state.
+
+`style` is a bit list containing some or all of the following values, which indicate what elements of the window to hide in full-screen mode:
+
+This function has not been tested with MDI frames.
+
+Note: Showing a window full screen also actually `wxWindow:show/2`s the window if it isn't shown.
+
+See: `EnableFullScreenView()` (not implemented in wx), `isFullScreen/1`
+""".
 -spec showFullScreen(This, Show, [Option]) -> boolean() when
 	This::wxTopLevelWindow(), Show::boolean(),
 	Option :: {'style', integer()}.
@@ -655,3 +778,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

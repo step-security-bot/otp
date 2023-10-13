@@ -18,6 +18,74 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_index).
+-moduledoc """
+Abstract Data Type for SNMP Indexing
+
+The module `snmp_index` implements an Abstract Data Type (ADT) for an SNMP index structure for SNMP tables. It is implemented as an ets table of the ordered_set data-type, which means that all operations are O(log n). In the table, the key is an ASN.1 OBJECT IDENTIFIER.
+
+This index is used to separate the implementation of the SNMP ordering from the actual implementation of the table. The SNMP ordering, that is implementation of GET NEXT, is implemented in this module.
+
+For example, suppose there is an SNMP table, which is best implemented in Erlang as one process per SNMP table row. Suppose further that the INDEX in the SNMP table is an OCTET STRING. The index structure would be created as follows:
+
+```text
+snmp_index:new(string)
+```
+
+For each new process we create, we insert an item in an `snmp_index` structure:
+
+```text
+new_process(Name, SnmpIndex) ->
+  Pid = start_process(),
+  NewSnmpIndex = 
+    snmp_index:insert(SnmpIndex, Name, Pid),
+  <...>
+```
+
+With this structure, we can now map an OBJECT IDENTIFIER in e.g. a GET NEXT request, to the correct process:
+
+```text
+get_next_pid(Oid, SnmpIndex) ->
+  {ok, {_, Pid}} = snmp_index:get_next(SnmpIndex, Oid),
+  Pid.
+```
+
+## Common data types
+
+The following data types are used in the functions below:
+
+* `index()`
+* `oid() = [byte()]`
+* `key_types = type_spec() | {type_spec(), type_spec(), ...}`
+* `type_spec() = fix_string | string | integer`
+* `key() = key_spec() | {key_spec(), key_spec(), ...}`
+* `key_spec() = string() | integer()`
+
+The `index()` type denotes an snmp index structure.
+
+The `oid()` type is used to represent an ASN.1 OBJECT IDENTIFIER.
+
+The `key_types()` type is used when creating the index structure, and the `key()` type is used when inserting and deleting items from the structure.
+
+The `key_types()` type defines the types of the SNMP INDEX columns for the table. If the table has one single INDEX column, this type should be a single atom, but if the table has multiple INDEX columns, it should be a tuple with atoms.
+
+If the INDEX column is of type INTEGER, or derived from INTEGER, the corresponding type should be `integer`. If it is a variable length type (e.g. OBJECT IDENTIFIER, OCTET STRING), the corresponding type should be `string`. Finally, if the type is of variable length, but with a fixed size restriction (e.g. IpAddress), the corresponding type should be `fix_string`.
+
+For example, if the SNMP table has two INDEX columns, the first one an OCTET STRING with size 2, and the second one an OBJECT IDENTIFIER, the corresponding `key_types` parameter would be `{fix_string, string}`.
+
+The `key()` type correlates to the `key_types()` type. If the `key_types()` is a single atom, the corresponding `key()` is a single type as well, but if the `key_types()` is a tuple, `key` must be a tuple of the same size.
+
+In the example above, valid `keys` could be `{"hi", "mom"}` and `{"no", "thanks"}`, whereas `"hi"`, `{"hi", 42}` and `{"hello", "there"}` would be invalid.
+
+> #### Warning {: class=warning }
+> [](){: id=1 }
+> All API functions that update the index return a `NewIndex` term. This is for backward compatibility with a previous implementation that used a B+ tree written purely in Erlang for the index. The `NewIndex` return value can now be ignored. The return value is now the unchanged table identifier for the ets table.
+>
+> The implementation using ets tables introduces a semantic incompatibility with older implementations. In those older implementations, using pure Erlang terms, the index was garbage collected like any other Erlang term and did not have to be deleted when discarded. An ets table is deleted only when the process creating it explicitly deletes it or when the creating process terminates.
+>
+> A new interface `delete/1` is now added to handle the case when a process wants to discard an index table (i.e. to build a completely new). Any application using transient snmp indexes has to be modified to handle this.
+>
+> As an snmp adaption usually keeps the index for the whole of the systems lifetime, this is rarely a problem.
+""".
 
 -export([new/1, new/2, 
 	 insert/3, 
@@ -51,6 +119,12 @@
 %% Returns: handle()
 %%-----------------------------------------------------------------
 
+-doc """
+KeyTypes = key_types()  
+Index = index()  
+
+Creates a new snmp index structure. The `key_types()` type is described above.
+""".
 new(KeyTypes) ->
     ?vlog("new -> entry with"
 	  "~n   KeyTypes: ~p", [KeyTypes]),
@@ -83,6 +157,13 @@ do_new(KeyTypes, EtsName, EtsOpts) ->
     end.
 
 
+-doc """
+Index = index()  
+KeyOid = oid()  
+Value = term()  
+
+Gets the item with key `KeyOid`. Could be used from within an SNMP instrumentation function.
+""".
 get(#tab{id = OrdSet}, KeyOid) ->
     ?vlog("get -> entry with"
 	  "~n   OrdSet: ~p"
@@ -96,6 +177,13 @@ get(#tab{id = OrdSet}, KeyOid) ->
 
       
 
+-doc """
+Index = index()  
+KeyOid = NextKeyOid = oid()  
+Value = term()  
+
+Gets the next item in the SNMP lexicographic ordering, after `KeyOid` in the index structure. `KeyOid` does not have to refer to an existing item in the index.
+""".
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
@@ -107,6 +195,13 @@ get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
 	    get(Tab, Key)
     end.
 
+-doc """
+Index = index()  
+KeyOid = oid()  
+Value = term()  
+
+Gets the last item in the index structure.
+""".
 get_last(#tab{id = OrdSet} = Tab) ->
     ?vlog("get_last -> entry with"
 	  "~n   Tab: ~p", [Tab]),
@@ -117,17 +212,43 @@ get_last(#tab{id = OrdSet} = Tab) ->
 	    get(Tab, Key)
     end.
 
+-doc """
+Index = NewIndex = index()  
+Key = key()  
+Value = term()  
+
+Inserts a new key value tuple into the index structure. If an item with the same key already exists, the new `Value` overwrites the old value.
+""".
 insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
     Tab.
 
+-doc """
+Index = NewIndex = index()  
+Key = key()  
+
+Deletes a key and its value from the index structure. Returns a new structure.
+""".
 delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
     ets:delete(OrdSet, key_to_oid_i(Key, KeyTypes)),
     Tab.
 
+-doc """
+Index = NewIndex = index()  
+Key = key()  
+
+Deletes a complete index structure (i.e. the ets table holding the index). The index can no longer be referenced after this call. See the [warning note](`m:snmp_index#1`) above.
+""".
 delete(#tab{id = OrdSet}) ->
     ets:delete(OrdSet).
 
+-doc """
+Index = index()  
+Key = key()  
+KeyOid = NextKeyOid = oid()  
+
+Converts `Key` to an OBJECT IDENTIFIER.
+""".
 key_to_oid(#tab{keys = KeyTypes}, Key) ->
     key_to_oid_i(Key, KeyTypes).
 
@@ -161,4 +282,5 @@ keys_to_oid(0, _Key, Oid, _Types) -> Oid;
 keys_to_oid(N, Key, Oid, Types) ->
     Oid2 = lists:append(key_to_oid_i(element(N, Key), element(N, Types)), Oid),
     keys_to_oid(N-1, Key, Oid2, Types).
+
 

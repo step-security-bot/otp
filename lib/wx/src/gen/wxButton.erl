@@ -19,6 +19,39 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxButton).
+-moduledoc """
+Functions for wxButton class
+
+A button is a control that contains a text string, and is one of the most common elements of a GUI.
+
+It may be placed on a `m:wxDialog` or on a `m:wxPanel` panel, or indeed on almost any other window.
+
+By default, i.e. if none of the alignment styles are specified, the label is centered both horizontally and vertically. If the button has both a label and a bitmap, the alignment styles above specify the location of the rectangle combining both the label and the bitmap and the bitmap position set with `wxButton::SetBitmapPosition()` (not implemented in wx) defines the relative position of the bitmap with respect to the label (however currently non-default alignment combinations are not implemented on all platforms).
+
+Since version 2.9.1 `m:wxButton` supports showing both text and an image (currently only when using wxMSW, wxGTK or wxOSX/Cocoa ports), see `SetBitmap()` (not implemented in wx) and `setBitmapLabel/2`, `setBitmapDisabled/2` &c methods. In the previous wxWidgets versions this functionality was only available in (the now trivial) `m:wxBitmapButton` class which was only capable of showing an image without text.
+
+A button may have either a single image for all states or different images for the following states (different images are not currently supported under macOS where the normal image is used for all states):
+
+All of the bitmaps must be of the same size and the normal bitmap must be set first (to a valid bitmap), before setting any other ones. Also, if the size of the bitmaps is changed later, you need to change the size of the normal bitmap before setting any other bitmaps with the new size (and you do need to reset all of them as their original values can be lost when the normal bitmap size changes).
+
+The position of the image inside the button be configured using `SetBitmapPosition()` (not implemented in wx). By default the image is on the left of the text.
+
+Please also notice that GTK+ uses a global setting called `gtk-button-images` to determine if the images should be shown in the buttons at all. If it is off (which is the case in e.g. Gnome 2.28 by default), no images will be shown, consistently with the native behaviour.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxBitmapButton`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxButton](https://docs.wxwidgets.org/3.1/classwx_button.html)
+
+## Events
+
+Event types emitted from this class: [`command_button_clicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getBitmapDisabled/1,getBitmapFocus/1,getBitmapLabel/1,
   getDefaultSize/0,getDefaultSize/1,new/0,new/2,new/3,setBitmapDisabled/2,
@@ -64,6 +97,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxButton() :: wx:wx_object().
 -export_type([wxButton/0]).
 %% @hidden
@@ -73,12 +107,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxButton_new_0),
   wxe_util:rec(?wxButton_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxButton() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -87,6 +123,15 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a button.
+
+The preferred way to create standard buttons is to use default value of `label`. If no label is supplied and `id` is one of standard IDs from this list, a standard label will be used. In other words, if you use a predefined `wxID_XXX` constant, just omit the label completely rather than specifying it. In particular, help buttons (the ones with `id` of `wxID_HELP`) under macOS can't display any label at all and while `m:wxButton` will detect if the standard "Help" label is used and ignore it, using any other label will prevent the button from correctly appearing as a help button and so should be avoided.
+
+In addition to that, the button will be decorated with stock icons under GTK+ 2.
+
+See: `create/4`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, [Option]) -> wxButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'label', unicode:chardata()}
@@ -108,6 +153,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxButton_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -116,6 +162,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
+-doc """
+Button creation function for two-step creation.
+
+For more details, see `new/3`.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'label', unicode:chardata()}
@@ -138,12 +189,20 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+-doc """
+Returns the default size for the buttons.
+
+It is advised to make all the dialog buttons of the same size and this function allows retrieving the (platform, and current font dependent) size which should be the best suited for this.
+
+The optional `win` argument is new since wxWidgets 3.1.3 and allows to get a per-monitor DPI specific size.
+""".
 -spec getDefaultSize() -> {W::integer(), H::integer()}.
 getDefaultSize() ->
   wxe_util:queue_cmd(?get_env(), ?wxButton_GetDefaultSize_STAT_0),
   wxe_util:rec(?wxButton_GetDefaultSize_STAT_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+-doc "".
 -spec getDefaultSize(Win) -> {W::integer(), H::integer()} when
 	Win::wxWindow:wxWindow().
 getDefaultSize(#wx_ref{type=WinT}=Win) ->
@@ -152,6 +211,19 @@ getDefaultSize(#wx_ref{type=WinT}=Win) ->
   wxe_util:rec(?wxButton_GetDefaultSize_STAT_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
+-doc """
+This sets the button to be the default item in its top-level window (e.g.
+
+the panel or the dialog box containing it).
+
+As normal, pressing return causes the default button to be depressed when the return key is pressed.
+
+See also `wxWindow:setFocus/1` which sets the keyboard focus for windows and text panel items, and `wxTopLevelWindow::SetDefaultItem()` (not implemented in wx).
+
+Remark: Under Windows, only dialog box buttons respond to this function.
+
+Return: the old default item (possibly NULL)
+""".
 -spec setDefault(This) -> wxWindow:wxWindow() when
 	This::wxButton().
 setDefault(#wx_ref{type=ThisT}=This) ->
@@ -160,6 +232,7 @@ setDefault(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_SetDefault).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
+-doc "Sets the string label for the button.".
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
@@ -169,6 +242,13 @@ setLabel(#wx_ref{type=ThisT}=This,Label)
   wxe_util:queue_cmd(This,Label_UC,?get_env(),?wxButton_SetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapdisabled">external documentation</a>.
+-doc """
+Returns the bitmap for the disabled state, which may be invalid.
+
+See: `setBitmapDisabled/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapDisabled(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
@@ -177,6 +257,13 @@ getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapDisabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmapfocus">external documentation</a>.
+-doc """
+Returns the bitmap for the focused state, which may be invalid.
+
+See: `setBitmapFocus/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapFocus(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapFocus(#wx_ref{type=ThisT}=This) ->
@@ -185,6 +272,15 @@ getBitmapFocus(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapFocus).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttongetbitmaplabel">external documentation</a>.
+-doc """
+Returns the bitmap for the normal state.
+
+This is exactly the same as `GetBitmap()` (not implemented in wx) but uses a name backwards-compatible with `m:wxBitmapButton`.
+
+See: `SetBitmap()` (not implemented in wx), `setBitmapLabel/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec getBitmapLabel(This) -> wxBitmap:wxBitmap() when
 	This::wxButton().
 getBitmapLabel(#wx_ref{type=ThisT}=This) ->
@@ -193,6 +289,15 @@ getBitmapLabel(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxButton_GetBitmapLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapdisabled">external documentation</a>.
+-doc """
+Sets the bitmap for the disabled button appearance.
+
+If `bitmap` is invalid, the disabled bitmap is set to the automatically generated greyed out version of the normal bitmap, i.e. the same bitmap as is used by default if this method is not called at all. Use `SetBitmap()` (not implemented in wx) with an invalid bitmap to remove the bitmap completely (for all states).
+
+See: `getBitmapDisabled/1`, `setBitmapLabel/2`, `SetBitmapPressed()` (not implemented in wx), `setBitmapFocus/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapDisabled(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -201,6 +306,15 @@ setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapDisabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmapfocus">external documentation</a>.
+-doc """
+Sets the bitmap for the button appearance when it has the keyboard focus.
+
+If `bitmap` is invalid, the normal bitmap will be used in the focused state.
+
+See: `getBitmapFocus/1`, `setBitmapLabel/2`, `SetBitmapPressed()` (not implemented in wx), `setBitmapDisabled/2`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapFocus(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -209,6 +323,15 @@ setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapFocus).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbutton.html#wxbuttonsetbitmaplabel">external documentation</a>.
+-doc """
+Sets the bitmap label for the button.
+
+Remark: This is the bitmap used for the unselected state, and for all other states if no other bitmaps are provided.
+
+See: `SetBitmap()` (not implemented in wx), `getBitmapLabel/1`
+
+Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
+""".
 -spec setBitmapLabel(This, Bitmap) -> 'ok' when
 	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
@@ -217,6 +340,7 @@ setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxButton_SetBitmapLabel).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxButton),
@@ -589,3 +713,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

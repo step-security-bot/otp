@@ -46,14 +46,20 @@
 
 -define(DETS_CALL(Pid, Req), {'$dets_call', Pid, Req}).
 
+-doc "".
 -type access()      :: 'read' | 'read_write'.
+-doc "".
 -type auto_save()   :: 'infinity' | non_neg_integer().
 -type hash_bif()    :: 'phash' | 'phash2'.
+-doc "".
 -type keypos()      :: pos_integer().
 -type no_colls()    :: [{LogSize :: non_neg_integer(),
                          NoCollections :: non_neg_integer()}].
+-doc "".
 -type no_slots()    :: 'default' | non_neg_integer().
+-doc "".
 -type tab_name()    :: term().
+-doc "".
 -type type()        :: 'bag' | 'duplicate_bag' | 'set'.
 -type update_mode() :: 'dirty'
                      | 'new_dirty'
@@ -154,3 +160,4 @@
 	 }).
 
 -type cache() :: #cache{}.
+

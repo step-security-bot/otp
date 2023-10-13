@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPopupWindow).
+-moduledoc """
+Functions for wxPopupWindow class
+
+A special kind of top level window used for popup menus, combobox popups and such.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxDialog`, `m:wxFrame`
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPopupWindow](https://docs.wxwidgets.org/3.1/classwx_popup_window.html)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,new/0,new/1,new/2,position/3]).
 
@@ -62,6 +77,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPopupWindow() :: wx:wx_object().
 -export_type([wxPopupWindow/0]).
 %% @hidden
@@ -70,12 +86,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowwxpopupwindow">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxPopupWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPopupWindow_new_0),
   wxe_util:rec(?wxPopupWindow_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxPopupWindow() when
 	Parent::wxWindow:wxWindow().
 
@@ -84,6 +102,7 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowwxpopupwindow">external documentation</a>.
+-doc "Constructor.".
 -spec new(Parent, [Option]) -> wxPopupWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'flags', integer()}.
@@ -97,6 +116,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxPopupWindow_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxPopupWindow(), Parent::wxWindow:wxWindow().
 
@@ -105,6 +125,7 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowcreate">external documentation</a>.
+-doc "Create method for two-step creation.".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxPopupWindow(), Parent::wxWindow:wxWindow(),
 	Option :: {'flags', integer()}.
@@ -119,6 +140,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxPopupWindow_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowposition">external documentation</a>.
+-doc """
+Move the popup window to the right position, i.e. such that it is entirely visible.
+
+The popup is positioned at ptOrigin + size if it opens below and to the right (default), at ptOrigin - sizePopup if it opens above and to the left etc.
+""".
 -spec position(This, PtOrigin, SizePopup) -> 'ok' when
 	This::wxPopupWindow(), PtOrigin::{X::integer(), Y::integer()}, SizePopup::{W::integer(), H::integer()}.
 position(#wx_ref{type=ThisT}=This,{PtOriginX,PtOriginY} = PtOrigin,{SizePopupW,SizePopupH} = SizePopup)
@@ -127,6 +153,7 @@ position(#wx_ref{type=ThisT}=This,{PtOriginX,PtOriginY} = PtOrigin,{SizePopupW,S
   wxe_util:queue_cmd(This,PtOrigin,SizePopup,?get_env(),?wxPopupWindow_Position).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxPopupWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPopupWindow),
@@ -500,3 +527,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

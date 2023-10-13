@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGridSizer).
+-moduledoc """
+Functions for wxGridSizer class
+
+A grid sizer is a sizer which lays out its children in a two-dimensional table with all table fields having the same size, i.e. the width of each field is the width of the widest child, the height of each field is the height of the tallest child.
+
+See: `m:wxSizer`, [Overview sizer](https://docs.wxwidgets.org/3.1/overview_sizer.html#overview_sizer)
+
+This class is derived (and can use functions) from: `m:wxSizer`
+
+wxWidgets docs: [wxGridSizer](https://docs.wxwidgets.org/3.1/classwx_grid_sizer.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getCols/1,getHGap/1,getRows/1,getVGap/1,new/1,new/2,new/3,new/4,
   setCols/2,setHGap/2,setRows/2,setVGap/2]).
@@ -34,6 +45,7 @@
   setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,
   show/2,show/3,showItems/2]).
 
+-doc "".
 -type wxGridSizer() :: wx:wx_object().
 -export_type([wxGridSizer/0]).
 %% @hidden
@@ -41,6 +53,7 @@ parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Cols, [])
+-doc "".
 -spec new(Cols) -> wxGridSizer() when
 	Cols::integer().
 
@@ -49,6 +62,7 @@ new(Cols)
   new(Cols, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+-doc "".
 -spec new(Cols, [Option]) -> wxGridSizer() when
 	Cols::integer(),
 	Option :: {'gap', {W::integer(), H::integer()}}.
@@ -65,6 +79,7 @@ new(Cols, Options)
 %% new(Rows, Cols, Gap) -> wxGridSizer() when<br />
 %% 	Rows::integer(), Cols::integer(), Gap::{W::integer(), H::integer()}.<br />
 %% 
+-doc "".
 -spec new(Cols, Vgap, Hgap) -> wxGridSizer() when
 	Cols::integer(), Vgap::integer(), Hgap::integer();
       (Rows, Cols, Gap) -> wxGridSizer() when
@@ -79,6 +94,7 @@ new(Rows,Cols,{GapW,GapH} = Gap)
   wxe_util:rec(?wxGridSizer_new_3_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+-doc "".
 -spec new(Rows, Cols, Vgap, Hgap) -> wxGridSizer() when
 	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
@@ -87,6 +103,11 @@ new(Rows,Cols,Vgap,Hgap)
   wxe_util:rec(?wxGridSizer_new_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetcols">external documentation</a>.
+-doc """
+Returns the number of columns that has been specified for the sizer.
+
+Returns zero if the sizer is automatically adjusting the number of columns depending on number of its children. To get the effective number of columns or rows being currently used, see `GetEffectiveColsCount()` (not implemented in wx)
+""".
 -spec getCols(This) -> integer() when
 	This::wxGridSizer().
 getCols(#wx_ref{type=ThisT}=This) ->
@@ -95,6 +116,7 @@ getCols(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridSizer_GetCols).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergethgap">external documentation</a>.
+-doc "Returns the horizontal gap (in pixels) between cells in the sizer.".
 -spec getHGap(This) -> integer() when
 	This::wxGridSizer().
 getHGap(#wx_ref{type=ThisT}=This) ->
@@ -103,6 +125,11 @@ getHGap(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridSizer_GetHGap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetrows">external documentation</a>.
+-doc """
+Returns the number of rows that has been specified for the sizer.
+
+Returns zero if the sizer is automatically adjusting the number of rows depending on number of its children. To get the effective number of columns or rows being currently used, see `GetEffectiveRowsCount()` (not implemented in wx).
+""".
 -spec getRows(This) -> integer() when
 	This::wxGridSizer().
 getRows(#wx_ref{type=ThisT}=This) ->
@@ -111,6 +138,7 @@ getRows(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridSizer_GetRows).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizergetvgap">external documentation</a>.
+-doc "Returns the vertical gap (in pixels) between the cells in the sizer.".
 -spec getVGap(This) -> integer() when
 	This::wxGridSizer().
 getVGap(#wx_ref{type=ThisT}=This) ->
@@ -119,6 +147,7 @@ getVGap(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridSizer_GetVGap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetcols">external documentation</a>.
+-doc "Sets the number of columns in the sizer.".
 -spec setCols(This, Cols) -> 'ok' when
 	This::wxGridSizer(), Cols::integer().
 setCols(#wx_ref{type=ThisT}=This,Cols)
@@ -127,6 +156,7 @@ setCols(#wx_ref{type=ThisT}=This,Cols)
   wxe_util:queue_cmd(This,Cols,?get_env(),?wxGridSizer_SetCols).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersethgap">external documentation</a>.
+-doc "Sets the horizontal gap (in pixels) between cells in the sizer.".
 -spec setHGap(This, Gap) -> 'ok' when
 	This::wxGridSizer(), Gap::integer().
 setHGap(#wx_ref{type=ThisT}=This,Gap)
@@ -135,6 +165,7 @@ setHGap(#wx_ref{type=ThisT}=This,Gap)
   wxe_util:queue_cmd(This,Gap,?get_env(),?wxGridSizer_SetHGap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetrows">external documentation</a>.
+-doc "Sets the number of rows in the sizer.".
 -spec setRows(This, Rows) -> 'ok' when
 	This::wxGridSizer(), Rows::integer().
 setRows(#wx_ref{type=ThisT}=This,Rows)
@@ -143,6 +174,7 @@ setRows(#wx_ref{type=ThisT}=This,Rows)
   wxe_util:queue_cmd(This,Rows,?get_env(),?wxGridSizer_SetRows).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridsizer.html#wxgridsizersetvgap">external documentation</a>.
+-doc "Sets the vertical gap (in pixels) between the cells in the sizer.".
 -spec setVGap(This, Gap) -> 'ok' when
 	This::wxGridSizer(), Gap::integer().
 setVGap(#wx_ref{type=ThisT}=This,Gap)
@@ -151,6 +183,7 @@ setVGap(#wx_ref{type=ThisT}=This,Gap)
   wxe_util:queue_cmd(This,Gap,?get_env(),?wxGridSizer_SetVGap).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxGridSizer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridSizer),
@@ -255,3 +288,4 @@ add(This,Width,Height, Options) -> wxSizer:add(This,Width,Height, Options).
 add(This,Width,Height) -> wxSizer:add(This,Width,Height).
 %% @hidden
 add(This,Window) -> wxSizer:add(This,Window).
+

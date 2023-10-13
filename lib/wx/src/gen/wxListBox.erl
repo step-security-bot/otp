@@ -19,6 +19,31 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxListBox).
+-moduledoc """
+Functions for wxListBox class
+
+A listbox is used to select one or more of a list of strings.
+
+The strings are displayed in a scrolling box, with the selected string(s) marked in reverse video. A listbox can be single selection (if an item is selected, the previous selection is removed) or multiple selection (clicking an item toggles the item on or off independently of other selections).
+
+List box elements are numbered from zero and while the maximal number of elements is unlimited, it is usually better to use a virtual control, not requiring to add all the items to it at once, such as `wxDataViewCtrl` (not implemented in wx) or `m:wxListCtrl` with `wxLC_VIRTUAL` style, once more than a few hundreds items need to be displayed because this control is not optimized, neither from performance nor from user interface point of view, for large number of items.
+
+Notice that the list box doesn't support control characters other than `TAB`.
+
+Styles
+
+This class supports the following styles:
+
+See: `wxEditableListBox` (not implemented in wx), `m:wxChoice`, `m:wxComboBox`, `m:wxListCtrl`, `m:wxCommandEvent`
+
+This class is derived (and can use functions) from: `m:wxControlWithItems` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxListBox](https://docs.wxwidgets.org/3.1/classwx_list_box.html)
+
+## Events
+
+Event types emitted from this class: [`command_listbox_selected`](`m:wxCommandEvent`), [`command_listbox_doubleclicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/6,create/7,deselect/2,destroy/1,getSelections/1,hitTest/2,hitTest/3,
   insertItems/3,isSelected/2,new/0,new/2,new/3,set/2,setFirstItem/2]).
@@ -66,6 +91,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxListBox() :: wx:wx_object().
 -export_type([wxListBox/0]).
 %% @hidden
@@ -76,12 +102,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxListBox().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxListBox_new_0),
   wxe_util:rec(?wxListBox_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -90,6 +118,11 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxwxlistbox">external documentation</a>.
+-doc """
+Constructor, creating and showing a list box.
+
+See the other `new/3` constructor; the only difference is that this overload takes a `wxArrayString` (not implemented in wx) instead of a pointer to an array of `wxString` (not implemented in wx).
+""".
 -spec new(Parent, Id, [Option]) -> wxListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -111,6 +144,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxListBox_new_3).
 
 %% @equiv create(This,Parent,Id,Pos,Size,Choices, [])
+-doc "".
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
 	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -119,6 +153,7 @@ create(This,Parent,Id,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
   create(This,Parent,Id,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxcreate">external documentation</a>.
+-doc "".
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'style', integer()}
@@ -137,6 +172,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,{PosX,PosY} = Po
   wxe_util:rec(?wxListBox_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxdeselect">external documentation</a>.
+-doc """
+Deselects an item in the list box.
+
+Remark: This applies to multiple selection listboxes only.
+""".
 -spec deselect(This, N) -> 'ok' when
 	This::wxListBox(), N::integer().
 deselect(#wx_ref{type=ThisT}=This,N)
@@ -145,6 +185,15 @@ deselect(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxListBox_Deselect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxgetselections">external documentation</a>.
+-doc """
+Fill an array of ints with the positions of the currently selected items.
+
+Return: The number of selections.
+
+Remark: Use this with a multiple selection listbox.
+
+See: `wxControlWithItems:getSelection/1`, `wxControlWithItems:getStringSelection/1`, `wxControlWithItems:setSelection/2`
+""".
 -spec getSelections(This) -> Result when
 	Result ::{Res ::integer(), Selections::[integer()]},
 	This::wxListBox().
@@ -154,6 +203,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListBox_GetSelections).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxinsertitems">external documentation</a>.
+-doc "Insert the given number of strings before the specified position.".
 -spec insertItems(This, Items, Pos) -> 'ok' when
 	This::wxListBox(), Items::[unicode:chardata()], Pos::integer().
 insertItems(#wx_ref{type=ThisT}=This,Items,Pos)
@@ -164,6 +214,11 @@ insertItems(#wx_ref{type=ThisT}=This,Items,Pos)
   wxe_util:queue_cmd(This,Items_UCA,Pos,?get_env(),?wxListBox_InsertItems).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxisselected">external documentation</a>.
+-doc """
+Determines whether an item is selected.
+
+Return: true if the given item is selected, false otherwise.
+""".
 -spec isSelected(This, N) -> boolean() when
 	This::wxListBox(), N::integer().
 isSelected(#wx_ref{type=ThisT}=This,N)
@@ -173,6 +228,11 @@ isSelected(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxListBox_IsSelected).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxset">external documentation</a>.
+-doc """
+Replaces the current control contents with the given items.
+
+Notice that calling this method is usually much faster than appending them one by one if you need to add a lot of items.
+""".
 -spec set(This, Items) -> 'ok' when
 	This::wxListBox(), Items::[unicode:chardata()].
 set(#wx_ref{type=ThisT}=This,Items)
@@ -183,6 +243,15 @@ set(#wx_ref{type=ThisT}=This,Items)
   wxe_util:queue_cmd(This,Items_UCA,?get_env(),?wxListBox_Set).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxhittest">external documentation</a>.
+-doc """
+Returns the item located at `point`, or `wxNOT_FOUND` if there is no item located at `point`.
+
+It is currently implemented for wxMSW, wxMac and wxGTK2 ports.
+
+Return: Item located at point, or wxNOT_FOUND if unimplemented or the item does not exist.
+
+Since: 2.7.0
+""".
 -spec hitTest(This, Point) -> integer() when
 	This::wxListBox(), Point::{X::integer(), Y::integer()}.
 hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
@@ -192,6 +261,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
   wxe_util:rec(?wxListBox_HitTest_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistbox.html#wxlistboxhittest">external documentation</a>.
+-doc "This is an overloaded member function, provided for convenience. It differs from the above function only in what argument(s) it accepts.".
 -spec hitTest(This, X, Y) -> integer() when
 	This::wxListBox(), X::integer(), Y::integer().
 hitTest(#wx_ref{type=ThisT}=This,X,Y)
@@ -205,6 +275,7 @@ hitTest(#wx_ref{type=ThisT}=This,X,Y)
 %% setFirstItem(This, String) -> 'ok' when<br />
 %% 	This::wxListBox(), String::unicode:chardata().<br />
 %% 
+-doc "Set the specified item to be the first visible item.".
 -spec setFirstItem(This, N) -> 'ok' when
 	This::wxListBox(), N::integer();
       (This, String) -> 'ok' when
@@ -220,6 +291,7 @@ setFirstItem(#wx_ref{type=ThisT}=This,String)
   wxe_util:queue_cmd(This,String_UC,?get_env(),?wxListBox_SetFirstItem_1_1).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the list box.".
 -spec destroy(This::wxListBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListBox),
@@ -641,3 +713,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

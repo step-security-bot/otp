@@ -20,6 +20,21 @@
 %% Purpose : User interface to the Erlang debugger/interpreter.
 
 -module(i).
+-moduledoc """
+Debugger/Interpreter Interface.
+
+The `i` module provides short forms for some of the functions used by the graphical Debugger and some of the functions in module `m:int`, the Erlang interpreter.
+
+This module also provides facilities for displaying status information about interpreted processes and break points.
+
+It is possible to attach to interpreted processes by giving the corresponding process identity only. By default, an attachment window is displayed. Processes at other Erlang nodes can be attached manually or automatically.
+
+By preference, these functions can be included in module `m:shell_default`. By default, they are included in that module.
+
+## See Also
+
+`m:int`
+""".
 
 -export([help/0,ia/1,ia/2,ia/3,ia/4,iaa/1,iaa/2,
 	 ib/2,ib/3,ib/4,ibd/2,ibe/2,iba/3,ibc/3,ic/0,ii/1,ii/2,
@@ -29,6 +44,7 @@
 -import(io, [format/1,format/2]).
 -import(lists, [sort/1,foreach/2]).
 
+-doc "Returns the current version number of the interpreter. Same as the version number of the Debugger application.".
 -spec iv() -> atom().
 iv() ->
     Vsn = string:slice(filename:basename(code:lib_dir(debugger)), 9),
@@ -40,6 +56,7 @@ iv() ->
 %% running interpreted modules.
 %% -------------------------------------------
 
+-doc "Starts a new graphical monitor. This is the Monitor window, the main window of Debugger. All the Debugger and interpreter functionality is accessed from the Monitor window. This window displays the status of all processes that have been or are executing interpreted modules.".
 -spec im() -> pid().
 im() ->
     case debugger:start() of
@@ -56,6 +73,7 @@ im() ->
 %% Module(s) can be given with absolute path.
 %% -------------------------------------------
 
+-doc(#{equiv => ini/1}).
 -spec ii(AbsModule) -> {module, Module} | error when
       AbsModule :: Module | File,
       Module :: atom(),
@@ -76,6 +94,13 @@ ii(Module,_Options) ->
 %% removed from the set of modules interpreted.
 %% -------------------------------------------
 
+-doc """
+AbsModule = Module | File  
+ Module = atom()  
+ File = string()  
+
+Stops interpreting the specified module. `iq/1` stops interpreting the module only at the current node. `inq/1` stops interpreting the module at all known nodes.
+""".
 -spec iq(AbsModule) -> ok when
       AbsModule :: Module | File,
       Module :: atom(),
@@ -89,6 +114,14 @@ iq(Module) ->
 %% at all nodes using the broadcast facility.
 %% -------------------------------------------
 
+-doc """
+AbsModules = \[AbsModule]  
+AbsModule = Module | File  
+ Module = atom()  
+ File = string()  
+
+Interprets the specified module(s). `ii/1` interprets the module(s) only at the current node, see `int:i/1`. `ini/1` interprets the module(s) at all known nodes, see `int:ni/1`.
+""".
 -spec ini(AbsModules) -> ok when
       AbsModules :: [AbsModule],
       AbsModule :: Module | File,
@@ -104,6 +137,7 @@ ini(Module) ->
 ini(Module,_Options) ->
     int:ni(Module).
 
+-doc(#{equiv => iq/1}).
 -spec inq(AbsModule) -> ok when AbsModule :: Module | File,
     Module :: atom(),
     File :: string().
@@ -114,6 +148,12 @@ inq(Module) ->
 %% Add a new break point at Line in Module.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+
+Creates a breakpoint at `Line` in `Module`.
+""".
 -spec ib(Module, Line) -> ok | {error, break_exists}
             when Module :: atom(), Line :: integer().
 ib(Module,Line) ->
@@ -125,6 +165,12 @@ ib(Module,Line) ->
 %% all function clauses.
 %% -------------------------------------------
 
+-doc """
+Module = Name = atom()  
+Arity = integer()  
+
+Creates breakpoints at the first line of every clause of function `Module:Name/Arity`.
+""".
 -spec ib(Module, Name, Arity) -> ok | {error, function_not_found}
             when Module :: atom(), Name :: atom(), Arity :: integer().
 ib(Module,Function,Arity) ->
@@ -148,6 +194,12 @@ ib(Module,Function,Arity,Cond) ->
 %% Make an existing break point inactive.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+
+Makes the breakpoint at `Line` in `Module` inactive.
+""".
 -spec ibd(Module, Line) -> ok when Module :: atom(), Line :: integer().
 ibd(Mod,Line) ->
     int:disable_break(Mod,Line).
@@ -156,6 +208,12 @@ ibd(Mod,Line) ->
 %% Make an existing break point active.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+
+Makes the breakpoint at `Line` in `Module` active.
+""".
 -spec ibe(Module, Line) -> ok when Module :: atom(), Line :: integer().
 ibe(Mod,Line) ->
     int:enable_break(Mod,Line).
@@ -166,6 +224,13 @@ ibe(Mod,Line) ->
 %% Action is: enable, disable or delete.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+Action = enable | disable | delete  
+
+Sets the trigger action of the breakpoint at `Line` in `Module` to `Action`.
+""".
 -spec iba(Module, Line, Action) -> ok
              when
                  Module :: atom(),
@@ -187,6 +252,16 @@ iba(Mod,Line,Action) ->
 %% Fnk == {Module,Function,ExtraArgs}
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+Function = \{Module,Name\}  
+ Name = atom()  
+
+Sets the conditional test of the breakpoint at `Line` in `Module` to `Function`.
+
+The conditional test is performed by calling `Module:Name(Bindings)`, where `Bindings` is the current variable bindings. The function must return `true` (break) or `false` (do not break). To retrieve the value of a variable `Var`, use [int:get_binding(Var, Bindings)](`int:get_binding/2`).
+""".
 -spec ibc(Module, Line, Function) -> ok when
       Module :: atom(),
       Line :: integer(),
@@ -199,6 +274,12 @@ ibc(Mod,Line,Fnk) ->
 %% Delete break point.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+Line = integer()  
+
+Deletes the breakpoint at `Line` in `Module`.
+""".
 -spec ir(Module, Line) -> ok when Module :: atom(), Line :: integer().
 ir(Module,Line) ->
     int:delete_break(Module,Line).
@@ -207,6 +288,12 @@ ir(Module,Line) ->
 %% Delete break at entrance of specified function.
 %% -------------------------------------------
 
+-doc """
+Module = Name = atom()  
+Arity = integer()  
+
+Deletes the breakpoints at the first line of every clause of function `Module:Name/Arity`.
+""".
 -spec ir(Module, Name, Arity) -> ok | {error, function_not_found}
             when Module :: atom(), Name :: atom(), Arity :: integer().
 ir(Module,Function,Arity) ->
@@ -216,6 +303,11 @@ ir(Module,Function,Arity) ->
 %% Delete all break points in module.
 %% -------------------------------------------
 
+-doc """
+Module = atom()  
+
+Deletes all breakpoints in `Module`.
+""".
 -spec ir(Module) -> ok when Module :: atom().
 ir(Module) ->
     int:no_break(Module).
@@ -224,6 +316,7 @@ ir(Module) ->
 %% Delete all break points (for all modules).
 %% -------------------------------------------
 
+-doc "Deletes all breakpoints.".
 -spec ir() -> ok.
 ir() ->
     int:no_break().
@@ -232,6 +325,7 @@ ir() ->
 %% Print all interpreted modules.
 %% -------------------------------------------
 
+-doc "Makes a printout of all interpreted modules. Modules are printed together with the full path name of the corresponding source code file.".
 -spec il() -> ok.
 il() ->
     Mods = sort(int:interpreted()),
@@ -253,12 +347,18 @@ ilformat(A1, A2) ->
 %% Print all break points in modules.
 %% -------------------------------------------
 
+-doc "Prints all existing breakpoints.".
 -spec ipb() -> ok.
 ipb() ->
     Bps = lists:keysort(1,int:all_breaks()),
     bhformat("Module","Line","Status","Action","Condition"),
     pb_print(Bps).
 
+-doc """
+Module = atom()  
+
+Prints all existing breakpoints in `Module`.
+""".
 -spec ipb(Module) -> ok when Module :: atom().
 ipb(Module) when is_atom(Module) ->
     ipb1(Module);
@@ -291,6 +391,11 @@ bformat(A1, A2, A3, A4, A5) ->
 %% Flag can be all (true), no_tail or false.
 %% -------------------------------------------
 
+-doc """
+Flag = all | no_tail | false  
+
+Sets how to save call frames in the stack, see [int:stack_trace/1](`int:stack_trace/0`).
+""".
 -spec ist(Flag) -> true when Flag :: all | no_tail | false.
 ist(Flag) ->
     int:stack_trace(Flag),
@@ -302,6 +407,7 @@ ist(Flag) ->
 %% iaa(Flag) or ia([Flag,Flag,...])
 %% -------------------------------------------
 
+-doc(#{equiv => iaa/2}).
 -spec iaa(Flags) -> true when Flags :: [init | break | exit].
 iaa(Flag) ->
     iaa(Flag,{dbg_wx_trace,start,[]}).
@@ -316,6 +422,14 @@ iaa(Flag) ->
 %% The given Fnk must have arity 3 or 4.
 %% -------------------------------------------
 
+-doc """
+Flags = \[init | break | exit]  
+Function = \{Module,Name,Args\}  
+ Module = Name = atom()  
+ Args = \[term()]  
+
+Sets when and how to attach to a debugged process automatically, see [int:auto_attach/2](`int:auto_attach/0`). `Function` defaults to the standard function used by Debugger.
+""".
 -spec iaa(Flags, Function) -> true when
       Flags :: [init | break | exit],
       Function :: {Module,Name,Args},
@@ -330,6 +444,11 @@ iaa(Flag,Fnk) ->
 %% Attach to process.
 %% -------------------------------------------
 
+-doc """
+Pid = pid()  
+
+Attaches to the debugged process `Pid`. An Attach Process window is opened for the process.
+""".
 -spec ia(Pid) -> ok | no_proc when Pid :: pid().
 ia(Pid) ->
     ia(Pid,{dbg_wx_trace,start}).
@@ -339,6 +458,11 @@ ia(Pid) ->
 %% X,Y,Z is combined to a process identity.
 %% -------------------------------------------
 
+-doc """
+X = Y = Z = integer()  
+
+Same as `ia(Pid)`, where `Pid` is the result of calling the shell function `pid(X,Y,Z)`.
+""".
 -spec ia(X, Y, Z) -> ok | no_proc
             when X :: integer(), Y :: integer(), Z :: integer().
 ia(X,Y,Z) ->
@@ -349,6 +473,13 @@ ia(X,Y,Z) ->
 %% Use Fnk == {M,F} as the attaching interface.
 %% -------------------------------------------
 
+-doc """
+Pid = pid()  
+Function = \{Module,Name\}  
+ Module = Name = atom()  
+
+Attaches to the debugged process `Pid`. The interpreter calls `spawn(Module, Name, [Pid])` (and ignores the result).
+""".
 -spec ia(Pid, Function) -> ok | no_proc when
       Pid :: pid(),
       Function :: {Module,Name},
@@ -360,6 +491,13 @@ ia(Pid,Fnk) ->
 	true  -> int:attach(Pid,Fnk)
     end.
 
+-doc """
+X = Y = Z = integer()  
+Function = \{Module,Name\}  
+ Module = Name = atom()  
+
+Same as `ia(Pid, Function)`, where `Pid` is the result of calling the shell function `pid(X,Y,Z)`. An attached process is expected to call the unofficial function `int:attached(Pid)` and to be able to handle messages from the interpreter. For an example, see `dbg_wx_trace.erl`.
+""".
 -spec ia(X,Y,Z, Function) -> ok | no_proc when
       X :: integer(),
       Y :: integer(),
@@ -374,6 +512,7 @@ ia(X,Y,Z,Fnk) ->
 %% Print status for all interpreted processes.
 %% -------------------------------------------
 
+-doc "Prints the current status of all interpreted processes.".
 -spec ip() -> ok.
 ip() ->
     Stats = int:snapshot(),
@@ -404,6 +543,7 @@ hformat(A1, A2, A3, A4) ->
 %% interpreter.
 %% -------------------------------------------
 
+-doc "Clears information about processes executing interpreted code by removing all information about terminated processes.".
 -spec ic() -> ok.
 ic() ->
     int:clear().
@@ -412,6 +552,7 @@ ic() ->
 %% Help printout
 %% -------------------------------------------
 
+-doc "Prints help text.".
 -spec help() -> ok.
 help() ->
     format("iv()         -- print the current version of the interpreter~n"),
@@ -448,6 +589,7 @@ help() ->
     format("ist(Flag)    -- set stack trace flag~n"),
     format("                Flag is all (true),no_tail or false~n"),
     ok.
+
 
 
 

@@ -19,6 +19,15 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDateEvent).
+-moduledoc """
+Functions for wxDateEvent class
+
+This event class holds information about a date change and is used together with `m:wxDatePickerCtrl`. It also serves as a base class for `m:wxCalendarEvent`.
+
+This class is derived (and can use functions) from: `m:wxCommandEvent` `m:wxEvent`
+
+wxWidgets docs: [wxDateEvent](https://docs.wxwidgets.org/3.1/classwx_date_event.html)
+""".
 -include("wxe.hrl").
 -export([getDate/1]).
 
@@ -28,8 +37,10 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxDateEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxDateEventType() :: 'date_changed'.
 -export_type([wxDateEvent/0, wxDate/0, wxDateEventType/0]).
 %% @hidden
@@ -38,6 +49,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdateevent.html#wxdateeventgetdate">external documentation</a>.
+-doc "Returns the date.".
 -spec getDate(This) -> wx:wx_datetime() when
 	This::wxDateEvent().
 getDate(#wx_ref{type=ThisT}=This) ->
@@ -83,3 +95,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

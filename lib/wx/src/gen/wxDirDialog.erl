@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDirDialog).
+-moduledoc """
+Functions for wxDirDialog class
+
+This class represents the directory chooser dialog.
+
+Styles
+
+This class supports the following styles:
+
+Note: This flag cannot be used with the `wxDD_MULTIPLE` style.
+
+Remark: MacOS 10.11+ does not display a title bar on the dialog. Use `setMessage/2` to change the string displayed to the user at the top of the dialog after creation. The `wxTopLevelWindow:setTitle/2` method is provided for compatibility with pre-10.11 MacOS versions that do still support displaying the title bar.
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_dir), `m:wxFileDialog`
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxDirDialog](https://docs.wxwidgets.org/3.1/classwx_dir_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getMessage/1,getPath/1,new/1,new/2,setMessage/2,setPath/2]).
 
@@ -67,6 +86,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxDirDialog() :: wx:wx_object().
 -export_type([wxDirDialog/0]).
 %% @hidden
@@ -77,6 +97,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxDirDialog() when
 	Parent::wxWindow:wxWindow().
 
@@ -85,6 +106,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogwxdirdialog">external documentation</a>.
+-doc """
+Constructor.
+
+Use `wxDialog:showModal/1` to show the dialog.
+""".
 -spec new(Parent, [Option]) -> wxDirDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'title', unicode:chardata()}
@@ -106,6 +132,11 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxDirDialog_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialoggetpath">external documentation</a>.
+-doc """
+Returns the default or user-selected path.
+
+Note: This function can't be used with dialogs which have the `wxDD_MULTIPLE` style, use `GetPaths()` (not implemented in wx) instead.
+""".
 -spec getPath(This) -> unicode:charlist() when
 	This::wxDirDialog().
 getPath(#wx_ref{type=ThisT}=This) ->
@@ -114,6 +145,7 @@ getPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDirDialog_GetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialoggetmessage">external documentation</a>.
+-doc "Returns the message that will be displayed on the dialog.".
 -spec getMessage(This) -> unicode:charlist() when
 	This::wxDirDialog().
 getMessage(#wx_ref{type=ThisT}=This) ->
@@ -122,6 +154,7 @@ getMessage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDirDialog_GetMessage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogsetmessage">external documentation</a>.
+-doc "Sets the message that will be displayed on the dialog.".
 -spec setMessage(This, Message) -> 'ok' when
 	This::wxDirDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT}=This,Message)
@@ -131,6 +164,7 @@ setMessage(#wx_ref{type=ThisT}=This,Message)
   wxe_util:queue_cmd(This,Message_UC,?get_env(),?wxDirDialog_SetMessage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogsetpath">external documentation</a>.
+-doc "Sets the default path.".
 -spec setPath(This, Path) -> 'ok' when
 	This::wxDirDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
@@ -140,6 +174,7 @@ setPath(#wx_ref{type=ThisT}=This,Path)
   wxe_util:queue_cmd(This,Path_UC,?get_env(),?wxDirDialog_SetPath).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxDirDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDirDialog),
@@ -579,3 +614,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -18,6 +18,15 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_user_based_sm_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-USER-BASED-SM-MIB
+
+The module `snmp_user_based_sm_mib` implements the instrumentation functions for the SNMP-USER-BASED-SM-MIB, and functions for configuring the database.
+
+Note that authentication has been extended according to RFC 7860 (SNMP-USM-HMAC-SHA2-MIB).
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -80,6 +89,21 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old rows with StorageType `volatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `usm.conf`.
+""".
 configure(Dir) ->
     set_sname(),
     case db(usmUserTable) of
@@ -111,6 +135,21 @@ configure(Dir) ->
 %% Fails: exit(configuration_error) |
 %%        exit({unsupported_crypto, Function})
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+Inserts all data in the configuration files into the database and destroys all old data, including the rows with StorageType `nonVolatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-USER-BASED-SM-MIB, after this function has been called, is the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `usm.conf`.[](){: id=add_user }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -296,6 +335,28 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+EngineID = string()  
+Name = string()  
+SecName = string()  
+Clone = zeroDotZero | \[integer()]  
+AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol  
+AuthKeyC = string()  
+OwnAuthKeyC = string()  
+PrivP = usmNoPrivProtocol | usmDESPrivProtocol  
+PrivKeyC = string()  
+OwnPrivKeyC = string()  
+Public = string()  
+AuthKey = string()  
+PrivKey = string()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a USM security data (user) to the agent config. Equivalent to one line in the `usm.conf` file.
+
+[](){: id=delete_user }
+""".
 add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	 PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
     User = {EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
@@ -323,6 +384,13 @@ add_user(User) ->
 	    {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a USM security data (user) from the agent config.
+""".
 delete_user(Key) ->
     case table_del_row(usmUserTable, Key) of
 	true ->
@@ -1354,4 +1422,5 @@ info_msg(F, A) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[USER-BASED-SM-MIB]: " ++ F, A).
+
 

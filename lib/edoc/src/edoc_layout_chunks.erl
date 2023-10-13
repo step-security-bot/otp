@@ -39,6 +39,15 @@
 %% @see edoc_doclet_chunks
 %% @end
 -module(edoc_layout_chunks).
+-moduledoc """
+Convert EDoc module documentation to an [EEP-48](https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html)`docs_v1` chunk.
+
+This layout is only expected to work with `m:edoc_doclet_chunks`. Section [Using the EDoc API](chapter.html#Using_the_EDoc_API) in the EDoc User's Guide shows an example of using this module.
+
+This module breaks the convention stated in `edoc_doclet` to not rely on `edoc.hrl` in doclets and layouts. It uses `#entry{}` records directly to recover information that is not otherwise available to layouts.
+
+*See also: *`m:edoc_doclet_chunks`, [//stdlib/shell_docs](`m:shell_docs`).
+""".
 
 %-behaviour(edoc_layout).
 -export([module/2]).
@@ -58,6 +67,7 @@
 -include_lib("kernel/include/eep48.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
+-doc "The Docs v1 chunk according to EEP 48.".
 -type docs_v1() :: #docs_v1{anno :: erl_anno:anno(),
                             beam_language :: beam_language(),
                             format :: mime_type(),
@@ -66,6 +76,7 @@
                             docs :: [docs_v1_entry()]}.
 %% The Docs v1 chunk according to EEP 48.
 
+-doc "A tuple equivalent to the `#docs_v1_entry{}` record, but with the record name field skipped.".
 -type docs_v1_entry() :: {_KindNameArity :: {atom(), atom(), arity()},
                           _Anno :: erl_anno:anno(),
                           _Signature :: signature(),
@@ -74,14 +85,22 @@
 %% A tuple equivalent to the `#docs_v1_entry{}' record,
 %% but with the record name field skipped.
 
+-doc "".
 -type beam_language() :: atom().
+-doc "".
 -type mime_type() :: binary().
+-doc "".
 -type doc() :: #{doc_language() => doc_string()} | none | hidden.
+-doc "".
 -type doc_language() :: binary().
+-doc "".
 -type doc_string() :: binary().
+-doc "".
 -type metadata() :: map().
+-doc "".
 -type signature() :: [binary()].
 
+-doc "Subtype of [`xmerl_xpath:docNodes()`](`t:xmerl_xpath:docNodes/0`). It corresponds to `#xmlElement.content` as defined by `xmerl.hrl`, sans the `#xmlDecl{}`.".
 -type xmerl_doc_node() :: #xmlComment{}
                         | #xmlElement{}
                         | #xmlPI{}
@@ -89,8 +108,10 @@
 %% Subtype of {@link xmerl_xpath:docNodes()}.
 %% It corresponds to `#xmlElement.content' as defined by `xmerl.hrl', sans the `#xmlDecl{}'.
 
+-doc "".
 -type xmerl_attribute() :: #xmlAttribute{}.
 
+-doc "".
 -type xpath() :: string().
 
 -define(caught(Reason, M, F),
@@ -101,6 +122,7 @@
 %%
 
 %% @doc Convert EDoc module documentation to an EEP-48 style doc chunk.
+-doc "Convert EDoc module documentation to an EEP-48 style doc chunk.".
 -spec module(edoc:edoc_module(), proplists:proplist()) -> binary().
 module(Doc, Options) ->
     %% Require `entries' or fail.
@@ -115,6 +137,7 @@ module(Doc, Options) ->
 %%' Chunk construction
 %%
 
+-doc "".
 -spec edoc_to_chunk(edoc:edoc_module(), proplists:proplist()) -> docs_v1().
 edoc_to_chunk(Doc, Opts) ->
     [Doc] = xmerl_xpath:string("//module", Doc),
@@ -129,6 +152,7 @@ edoc_to_chunk(Doc, Opts) ->
     Docs = doc_entries(Doc, Opts),
     docs_v1(Anno, ModuleDoc, Metadata, Docs).
 
+-doc "".
 -spec doc_contents(XPath, Doc, Opts) -> doc() when
       XPath :: xpath(),
       Doc :: edoc:edoc_module(),
@@ -140,6 +164,7 @@ doc_contents(XPath, Doc, Opts) ->
 	show -> doc_contents_(XPath, Doc, Opts)
     end.
 
+-doc "".
 -spec doc_visibility(_, _, _) -> none | hidden | show.
 doc_visibility(_XPath, Doc, Opts) ->
     case {xpath_to_text("./@private", Doc, Opts),
@@ -159,29 +184,36 @@ doc_visibility(_XPath, Doc, Opts) ->
 	    show
     end.
 
+-doc "".
 doc_contents_(_XPath, Doc, Opts) ->
     Equiv = xpath_to_chunk("./equiv", Doc, Opts),
     Desc = xpath_to_chunk("./description/fullDescription", Doc, Opts),
     See = xpath_to_chunk("./see", Doc, Opts),
     doc_content(Equiv ++ Desc ++ See, Opts).
 
+-doc "".
 meta_deprecated(Doc, Opts) ->
     Deprecated = xpath_to_text("./deprecated/description/fullDescription", Doc, Opts),
     [{deprecated, Deprecated} || is_truthy(Deprecated)].
 
+-doc "".
 meta_since(Doc, Opts) ->
     Since = xpath_to_text("./since", Doc, Opts),
     [{since, Since} || is_truthy(Since)].
 
+-doc "".
 is_truthy(<<>>) -> false;
 is_truthy(B) when is_binary(B) -> true.
 
+-doc "".
 doc_entries(Doc, Opts) ->
     types(Doc, Opts) ++ callbacks(Doc, Opts) ++ functions(Doc, Opts).
 
+-doc "".
 types(Doc, Opts) ->
     [type(TD, Opts) || TD <- xmerl_xpath:string("//typedecls/typedecl", Doc)].
 
+-doc "".
 type(Doc, Opts) ->
     Name = xpath_to_atom("./typedef/erlangName/@name", Doc, Opts),
     [#xmlElement{content=Content}] = xmerl_xpath:string("./typedef/argtypes", Doc),
@@ -194,6 +226,7 @@ type(Doc, Opts) ->
 			      meta_type_sig(Name, Arity, Anno, entries(Opts))),
     docs_v1_entry(type, Name, Arity, Anno, Signature, EntryDoc, Metadata).
 
+-doc "".
 -spec meta_type_sig(atom(), arity(), erl_anno:anno(), [edoc:entry()]) -> Metadata when
       Metadata :: [{signature, [erl_parse:abstract_form()]}].
 meta_type_sig(Name, Arity, Anno, Entries) ->
@@ -205,6 +238,7 @@ meta_type_sig(Name, Arity, Anno, Entries) ->
 	    [{signature, [TypeAttr]}]
     end.
 
+-doc "".
 select_tag(#tag{name = type, line = Line, origin = code} = T,
 	   Name, Arity, Line) ->
     TypeTree = T#tag.form,
@@ -219,12 +253,14 @@ select_tag(#tag{name = type, line = Line, origin = code} = T,
     end;
 select_tag(_, _, _, _) -> false.
 
+-doc "".
 callbacks(_Doc, Opts) ->
     Entries = entries(Opts),
     Tags = edoc_data:get_all_tags(Entries),
     Callbacks = edoc_data:get_tags(callback, Tags),
     [callback(Cb, Opts) || Cb <- Callbacks].
 
+-doc "".
 callback(Cb = #tag{name = callback, origin = code}, Opts) ->
     #tag{line = Line,
 	 data = {{Name, Arity}, MaybeDoc},
@@ -239,9 +275,11 @@ callback(Cb = #tag{name = callback, origin = code}, Opts) ->
     Metadata = maps:from_list([{signature, [Form]}]),
     docs_v1_entry(callback, Name, Arity, Anno, Signature, EntryDoc, Metadata).
 
+-doc "".
 functions(Doc, Opts) ->
     [function(F, Opts) || F <- xmerl_xpath:string("//module/functions/function", Doc)].
 
+-doc "".
 function(Doc, Opts) ->
     Name = xpath_to_atom("./@name", Doc, Opts),
     Arity = xpath_to_integer("./@arity", Doc, Opts),
@@ -254,6 +292,7 @@ function(Doc, Opts) ->
 			      Spec),
     docs_v1_entry(function, Name, Arity, Anno, Signature, EntryDoc, Metadata).
 
+-doc "".
 -spec function_line_sig_spec(edoc:function_name(), proplists:proplist()) -> R when
       R :: {non_neg_integer(), signature(), [{signature, erl_parse:abstract_form()}]}.
 function_line_sig_spec(NA, Opts) ->
@@ -271,6 +310,7 @@ function_line_sig_spec(NA, Opts) ->
 	    {Line, Sig, [{signature, [Annotated]}]}
     end.
 
+-doc "".
 args_and_signature(E = #entry{}) ->
     %% At this point `#entry.args' might be two things:
     %% - a list of arg names if no `-spec' is present,
@@ -288,6 +328,7 @@ args_and_signature(E = #entry{}) ->
 	    {Args, format_signature(Name, Args)}
     end.
 
+-doc "".
 format_signature(Name, []) ->
     [<<(atom_to_binary(Name, utf8))/bytes, "()">>];
 format_signature(Name, [Arg]) ->
@@ -296,11 +337,13 @@ format_signature(Name, [Arg | Args]) ->
     [<<(atom_to_binary(Name, utf8))/bytes, "(", (atom_to_binary(Arg, utf8))/bytes, ",">>
      | format_signature(Args)].
 
+-doc "".
 format_signature([Arg]) ->
     [<<(atom_to_binary(Arg, utf8))/bytes, ")">>];
 format_signature([Arg | Args]) ->
     [<<(atom_to_binary(Arg, utf8))/bytes, ",">> | format_signature(Args)].
 
+-doc "".
 annotate_spec(ArgClauses, Spec, SourceFile, Line) ->
     try
 	annotate_spec_(ArgClauses, Spec)
@@ -309,6 +352,7 @@ annotate_spec(ArgClauses, Spec, SourceFile, Line) ->
 	    bounded_fun_arity_error(Vars, Spec, SourceFile, Line)
     end.
 
+-doc "".
 bounded_fun_arity_error(Vars, Spec, SourceFile, Line) ->
     edoc_report:warning(Line, SourceFile,
 			"cannot handle spec with constraints - arity mismatch.\n"
@@ -319,6 +363,7 @@ bounded_fun_arity_error(Vars, Spec, SourceFile, Line) ->
 			[[ VName || {var, _, VName} <- Vars ], erl_pp:attribute(Spec)]),
     Spec.
 
+-doc "".
 annotate_spec_(ArgClauses, {attribute, Pos, spec, Data} = Spec) ->
     {NA, SpecClauses} = Data,
     case catch lists:zip(ArgClauses, SpecClauses) of
@@ -331,6 +376,7 @@ annotate_spec_(ArgClauses, {attribute, Pos, spec, Data} = Spec) ->
 	    {attribute, Pos, spec, NewData}
     end.
 
+-doc "".
 annotate_clause(ArgNames, {type, Pos, 'fun', Data}) ->
     [{type, _, product, ArgTypes}, RetType] = Data,
     AnnArgTypes = [ ann_fun_type(Name, Pos, Type) || {Name, Type} <- lists:zip(ArgNames, ArgTypes) ],
@@ -341,6 +387,7 @@ annotate_clause(ArgNames, {type, Pos, 'bounded_fun', Data}) ->
     {NewClause, NewConstraints} = annotate_bounded_fun_clause(ArgNames, Clause, Constraints),
     {type, Pos, 'bounded_fun', [NewClause, NewConstraints]}.
 
+-doc "".
 ann_fun_type(_Name, _Pos, {ann_type,_,_} = AnnType) ->
     AnnType;
 ann_fun_type(Name, Pos, Type) ->
@@ -348,6 +395,7 @@ ann_fun_type(Name, Pos, Type) ->
     AnnType = erl_syntax:set_pos(erl_syntax:annotated_type(TypeVar, Type), Pos),
     erl_syntax:revert(AnnType).
 
+-doc "".
 annotate_bounded_fun_clause(ArgNames, {type, Pos, 'fun', Data}, Constraints) ->
     [{type, _, product, Args}, RetType] = Data,
     NewVarsAndConstraints = lists:foldl(fun ({Name, Arg}, Acc) ->
@@ -370,6 +418,7 @@ annotate_bounded_fun_clause(ArgNames, {type, Pos, 'fun', Data}, Constraints) ->
     NewData = [{type, Pos, product, lists:reverse(TypeVars)}, RetType],
     {{type, Pos, 'fun', NewData}, lists:reverse(NewConstraints2)}.
 
+-doc "".
 bounded_fun_arg(#{ arg := {Singleton, _, _} = Arg } = Acc) when atom =:= Singleton;
 								integer =:= Singleton ->
     #{new_vars := NVs} = Acc,
@@ -415,12 +464,14 @@ bounded_fun_arg(#{ arg := Type } = Acc) when remote_type =:= element(1, Type);
     Var = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:variable(Name), Pos)),
     bounded_fun_arg_(Var, Type, Acc).
 
+-doc "".
 bounded_fun_arg_(Var, Type, Acc) ->
     #{pos := Pos, new_vars := NVs, new_constraints := NCs} = Acc,
     C = {type, Pos, constraint, [{atom, Pos, is_subtype}, [Var, Type]]},
     Acc#{new_vars := [Var | NVs],
 	 new_constraints := [C | NCs]}.
 
+-doc "".
 get_constraint({var, _, Name}, Constraints) ->
     F = fun
 	    ({type, _, constraint, [_, [{var, _, CName}, _]]}) when Name =:= CName -> true;
@@ -431,6 +482,7 @@ get_constraint({var, _, Name}, Constraints) ->
 	[] -> no_constraint
     end.
 
+-doc "".
 get_mention({var, _, Name}, Constraints) ->
     F = fun
 	    ({type, _, constraint, _} = C) ->
@@ -443,37 +495,44 @@ get_mention({var, _, Name}, Constraints) ->
 	[] -> no_mention
     end.
 
+-doc "".
 -spec entries(proplists:proplist()) -> [edoc:entry()].
 entries(Opts) ->
     {entries, Entries} = lists:keyfind(entries, 1, Opts),
     Entries.
 
+-doc "".
 -spec source_file(proplists:proplist()) -> [edoc:entry()].
 source_file(Opts) ->
     {source, Source} = lists:keyfind(source, 1, Opts),
     Source.
 
+-doc "".
 -spec doc_content(_, _) -> doc().
 doc_content([], _Opts) -> #{};
 doc_content(Content, Opts) ->
     DocLanguage = proplists:get_value(lang, Opts, <<"en">>),
     #{DocLanguage => Content}.
 
+-doc "".
 docs_v1(Anno, ModuleDoc, Metadata, Docs) ->
     #docs_v1{anno = Anno,
              module_doc = ModuleDoc,
              metadata = Metadata,
              docs = Docs}.
 
+-doc "".
 anno(Doc, Opts) ->
     {source, File} = lists:keyfind(source, 1, Opts),
     Line = xpath_to_integer("./@line", Doc, Opts),
     erl_anno:set_file(File, erl_anno:new(Line)).
 
+-doc "".
 -spec docs_v1_entry(_, _, _, _, _, _, _) -> docs_v1_entry().
 docs_v1_entry(Kind, Name, Arity, Anno, Signature, EntryDoc, Metadata) ->
     {{Kind, Name, Arity}, Anno, Signature, EntryDoc, Metadata}.
 
+-doc "".
 -spec xpath_to_text(_, _, _) -> binary().
 xpath_to_text(XPath, Doc, Opts) ->
     case xmerl_xpath:string(XPath, Doc) of
@@ -487,9 +546,11 @@ xpath_to_text(XPath, Doc, Opts) ->
 	    erlang:error(multiple_nodes, [XPath, Doc, Opts])
     end.
 
+-doc "".
 xmerl_to_binary(XML, Opts) ->
     iolist_to_binary(chunk_to_text(xmerl_to_chunk(XML, Opts))).
 
+-doc "".
 chunk_to_text([]) -> [];
 chunk_to_text([Node | Nodes]) ->
     case Node of
@@ -497,12 +558,15 @@ chunk_to_text([Node | Nodes]) ->
 	{_Tag, _Attrs, SubNodes} -> [chunk_to_text(SubNodes) | chunk_to_text(Nodes)]
     end.
 
+-doc "".
 xpath_to_atom(XPath, Doc, Opts) ->
     binary_to_atom(xpath_to_text(XPath, Doc, Opts), utf8).
 
+-doc "".
 xpath_to_integer(XPath, Doc, Opts) ->
     binary_to_integer(xpath_to_text(XPath, Doc, Opts)).
 
+-doc "".
 xpath_to_chunk(XPath, Doc, Opts) ->
     XmerlDoc = xmerl_xpath:string(XPath, Doc),
     xmerl_to_chunk(XmerlDoc, Opts).
@@ -511,10 +575,12 @@ xpath_to_chunk(XPath, Doc, Opts) ->
 %%' Xmerl to chunk format
 %%
 
+-doc "".
 -spec xmerl_to_chunk([xmerl_doc_node()], proplists:proplist()) -> shell_docs:chunk_elements().
 xmerl_to_chunk(Contents, Opts) ->
     shell_docs:normalize(format_content(Contents, Opts)).
 
+-doc "".
 -spec format_content([xmerl_doc_node()], proplists:proplist()) -> shell_docs:chunk_elements().
 format_content(Contents, Opts) ->
     {SeeTags, OtherTags} = lists:partition(fun (#xmlElement{name = see}) -> true;
@@ -522,6 +588,7 @@ format_content(Contents, Opts) ->
 					   Contents),
     lists:flatten([ format_content_(T, Opts) || T <- OtherTags ] ++ rewrite_see_tags(SeeTags, Opts)).
 
+-doc "".
 -spec format_content_(xmerl_doc_node(), proplists:proplist()) -> shell_docs:chunk_elements().
 format_content_(#xmlPI{}, _)      -> [];
 format_content_(#xmlComment{}, _) -> [];
@@ -540,6 +607,7 @@ format_content_(#xmlElement{name = a} = E, Opts) ->
 format_content_(#xmlElement{} = E, Opts) ->
     format_element(E, Opts).
 
+-doc "".
 format_element(#xmlElement{} = E, Opts) ->
     #xmlElement{name = Name, content = Content, attributes = Attributes} = E,
     case {is_edoc_tag(Name), is_html_tag(Name)} of
@@ -554,10 +622,12 @@ format_element(#xmlElement{} = E, Opts) ->
 	    [{Name, format_attributes(Attributes), format_content(Content, Opts)}]
     end.
 
+-doc "".
 -spec format_attributes([xmerl_attribute()]) -> [shell_docs:chunk_element_attr()].
 format_attributes(Attrs) ->
     [ format_attribute(Attr) || Attr <- Attrs ].
 
+-doc "".
 -spec format_attribute(xmerl_attribute()) -> shell_docs:chunk_element_attr().
 format_attribute(#xmlAttribute{} = Attr) ->
     #xmlAttribute{name = Name, value = V} = Attr,
@@ -568,20 +638,24 @@ format_attribute(#xmlAttribute{} = Attr) ->
 	_ when is_integer(V) -> {Name, integer_to_binary(V)}
     end.
 
+-doc "".
 -spec is_edoc_tag(atom()) -> boolean().
 is_edoc_tag(fullDescription) -> true;
 is_edoc_tag(since) -> true;
 is_edoc_tag(_) -> false.
 
+-doc "".
 -spec is_html_tag(atom()) -> boolean().
 is_html_tag(Tag) ->
     Tags = shell_docs:supported_tags(),
     lists:member(Tag, Tags).
 
+-doc "".
 rewrite_a_tag(#xmlElement{name = a} = E) ->
     SimpleE = xmerl_lib:simplify_element(E),
     xmerl_lib:normalize_element(rewrite_docgen_link(SimpleE)).
 
+-doc "".
 rewrite_see_tags([], _Opts) -> [];
 rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags, Opts) ->
     Grouped = [ rewrite_see_tag(T) || T <- SeeTags ],
@@ -589,6 +663,7 @@ rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags, Opts) ->
     %% Convert strings to binaries in the entire new tree:
     [format_content_(xmerl_lib:normalize_element(NewXML), Opts)].
 
+-doc "".
 rewrite_see_tag(#xmlElement{name = see} = E) ->
     %% TODO: this is not formatted nicely by shell_docs...
     %% missing `p' around preceding description
@@ -596,6 +671,7 @@ rewrite_see_tag(#xmlElement{name = see} = E) ->
     {see, Attrs, XML} = rewrite_docgen_link(SeeTag),
     {a, Attrs, XML}.
 
+-doc "".
 rewrite_docgen_link({Tag, AttrL, SubEls} = E) when Tag =:= a; Tag =:= see ->
     Attrs = maps:from_list(AttrL),
     case {maps:get('docgen-rel', Attrs, false), maps:get('docgen-href', Attrs, false)} of
@@ -609,11 +685,13 @@ rewrite_docgen_link({Tag, AttrL, SubEls} = E) when Tag =:= a; Tag =:= see ->
 	    {Tag, maps:to_list(NewAttrs), SubEls}
     end.
 
+-doc "".
 inconsistent_docgen_attrs(Attrs) ->
     %% Only one of `docgen-rel` and `docgen-href` is found - should not happen!
     erlang:error({inconsistent_docgen_attrs, Attrs}).
 
 %% @doc `Rel' is actually a stringified {@link edoc_refs:docgen_rel()}.
+-doc "`Rel` is actually a stringified [`edoc_refs:docgen_rel()`](`t:edoc_refs:docgen_rel/0`).".
 -spec expand_docgen_rel(Rel) -> string() when
       Rel :: string().
 expand_docgen_rel(Rel)
@@ -621,6 +699,7 @@ expand_docgen_rel(Rel)
        Rel =:= "seecom"; Rel =:= "seecref"; Rel =:= "seefile" ; Rel =:= "seeguide" ->
     "https://erlang.org/doc/link/" ++ Rel.
 
+-doc "".
 rewrite_equiv_tag(#xmlElement{name = equiv} = E) ->
     NewE = case xmerl_lib:simplify_element(E) of
 	       {equiv, [], [{expr, [], Expr}]} ->
@@ -632,3 +711,4 @@ rewrite_equiv_tag(#xmlElement{name = equiv} = E) ->
     xmerl_lib:normalize_element(NewE).
 
 %%. vim: foldmethod=marker foldmarker=%%',%%.
+

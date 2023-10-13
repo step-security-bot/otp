@@ -19,6 +19,41 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFrame).
+-moduledoc """
+Functions for wxFrame class
+
+A frame is a window whose size and position can (usually) be changed by the user.
+
+It usually has thick borders and a title bar, and can optionally contain a menu bar, toolbar and status bar. A frame can contain any window that is not a frame or dialog.
+
+A frame that has a status bar and toolbar, created via the `createStatusBar/2` and `createToolBar/2` functions, manages these windows and adjusts the value returned by `wxWindow:getClientSize/1` to reflect the remaining size available to application windows.
+
+Remark: An application should normally define an `m:wxCloseEvent` handler for the frame to respond to system close events, for example so that related data and subwindows can be cleaned up.
+
+Default event processing
+
+`m:wxFrame` processes the following events:
+
+Styles
+
+This class supports the following styles:
+
+See also the overview_windowstyles.
+
+Extra Styles
+
+This class supports the following extra styles:
+
+See: `m:wxMDIParentFrame`, `m:wxMDIChildFrame`, `m:wxMiniFrame`, `m:wxDialog`
+
+This class is derived (and can use functions) from: `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFrame](https://docs.wxwidgets.org/3.1/classwx_frame.html)
+
+## Events
+
+Event types emitted from this class: [`close_window`](`m:wxCloseEvent`), [`iconize`](`m:wxIconizeEvent`), [`menu_open`](`m:wxMenuEvent`), [`menu_close`](`m:wxMenuEvent`), [`menu_highlight`](`m:wxMenuEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,createStatusBar/1,createStatusBar/2,createToolBar/1,
   createToolBar/2,destroy/1,getClientAreaOrigin/1,getMenuBar/1,getStatusBar/1,
@@ -70,6 +105,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFrame() :: wx:wx_object().
 -export_type([wxFrame/0]).
 %% @hidden
@@ -79,12 +115,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxFrame().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFrame_new_0),
   wxe_util:rec(?wxFrame_new_0).
 
 %% @equiv new(Parent,Id,Title, [])
+-doc "".
 -spec new(Parent, Id, Title) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -93,6 +131,13 @@ new(Parent,Id,Title)
   new(Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
+-doc """
+Constructor, creating the window.
+
+Remark: For Motif, MWM (the Motif Window Manager) should be running for any window styles to work (otherwise all styles take effect).
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Title, [Option]) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -111,6 +156,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxFrame_new_4).
 
 %% @equiv create(This,Parent,Id,Title, [])
+-doc "".
 -spec create(This, Parent, Id, Title) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -119,6 +165,11 @@ create(This,Parent,Id,Title)
   create(This,Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreate">external documentation</a>.
+-doc """
+Used in two-step frame construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -138,6 +189,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxFrame_Create).
 
 %% @equiv createStatusBar(This, [])
+-doc "".
 -spec createStatusBar(This) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame().
 
@@ -146,6 +198,15 @@ createStatusBar(This)
   createStatusBar(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatestatusbar">external documentation</a>.
+-doc """
+Creates a status bar at the bottom of the frame.
+
+Return: A pointer to the status bar if it was created successfully, NULL otherwise.
+
+Remark: The width of the status bar is the whole width of the frame (adjusted automatically when resizing), and the height and text size are chosen by the host windowing system.
+
+See: `setStatusText/3`, `OnCreateStatusBar()` (not implemented in wx), `getStatusBar/1`
+""".
 -spec createStatusBar(This, [Option]) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame(),
 	Option :: {'number', integer()}
@@ -163,6 +224,7 @@ createStatusBar(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxFrame_CreateStatusBar).
 
 %% @equiv createToolBar(This, [])
+-doc "".
 -spec createToolBar(This) -> wxToolBar:wxToolBar() when
 	This::wxFrame().
 
@@ -171,6 +233,15 @@ createToolBar(This)
   createToolBar(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatetoolbar">external documentation</a>.
+-doc """
+Creates a toolbar at the top or left of the frame.
+
+Return: A pointer to the toolbar if it was created successfully, NULL otherwise.
+
+Remark: By default, the toolbar is an instance of `m:wxToolBar`. To use a different class, override `OnCreateToolBar()` (not implemented in wx). When a toolbar has been created with this function, or made known to the frame with `setToolBar/2`, the frame will manage the toolbar position and adjust the return value from `wxWindow:getClientSize/1` to reflect the available space for application windows. Under Pocket PC, you should always use this function for creating the toolbar to be managed by the frame, so that wxWidgets can use a combined menubar and toolbar. Where you manage your own toolbars, create a `m:wxToolBar` as usual.
+
+See: `createStatusBar/2`, `OnCreateToolBar()` (not implemented in wx), `setToolBar/2`, `getToolBar/1`
+""".
 -spec createToolBar(This, [Option]) -> wxToolBar:wxToolBar() when
 	This::wxFrame(),
 	Option :: {'style', integer()}
@@ -186,6 +257,11 @@ createToolBar(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxFrame_CreateToolBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetclientareaorigin">external documentation</a>.
+-doc """
+Returns the origin of the frame client area (in client coordinates).
+
+It may be different from (0, 0) if the frame has a toolbar.
+""".
 -spec getClientAreaOrigin(This) -> {X::integer(), Y::integer()} when
 	This::wxFrame().
 getClientAreaOrigin(#wx_ref{type=ThisT}=This) ->
@@ -194,6 +270,11 @@ getClientAreaOrigin(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFrame_GetClientAreaOrigin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetmenubar">external documentation</a>.
+-doc """
+Returns a pointer to the menubar currently associated with the frame (if any).
+
+See: `setMenuBar/2`, `m:wxMenuBar`, `m:wxMenu`
+""".
 -spec getMenuBar(This) -> wxMenuBar:wxMenuBar() when
 	This::wxFrame().
 getMenuBar(#wx_ref{type=ThisT}=This) ->
@@ -202,6 +283,11 @@ getMenuBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFrame_GetMenuBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbar">external documentation</a>.
+-doc """
+Returns a pointer to the status bar currently associated with the frame (if any).
+
+See: `createStatusBar/2`, `m:wxStatusBar`
+""".
 -spec getStatusBar(This) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame().
 getStatusBar(#wx_ref{type=ThisT}=This) ->
@@ -210,6 +296,11 @@ getStatusBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFrame_GetStatusBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbarpane">external documentation</a>.
+-doc """
+Returns the status bar pane used to display menu and toolbar help.
+
+See: `setStatusBarPane/2`
+""".
 -spec getStatusBarPane(This) -> integer() when
 	This::wxFrame().
 getStatusBarPane(#wx_ref{type=ThisT}=This) ->
@@ -218,6 +309,11 @@ getStatusBarPane(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFrame_GetStatusBarPane).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegettoolbar">external documentation</a>.
+-doc """
+Returns a pointer to the toolbar currently associated with the frame (if any).
+
+See: `createToolBar/2`, `m:wxToolBar`, `setToolBar/2`
+""".
 -spec getToolBar(This) -> wxToolBar:wxToolBar() when
 	This::wxFrame().
 getToolBar(#wx_ref{type=ThisT}=This) ->
@@ -226,6 +322,7 @@ getToolBar(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFrame_GetToolBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframeprocesscommand">external documentation</a>.
+-doc "Simulate a menu command.".
 -spec processCommand(This, Id) -> boolean() when
 	This::wxFrame(), Id::integer().
 processCommand(#wx_ref{type=ThisT}=This,Id)
@@ -235,6 +332,7 @@ processCommand(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxFrame_ProcessCommand).
 
 %% @equiv sendSizeEvent(This, [])
+-doc "".
 -spec sendSizeEvent(This) -> 'ok' when
 	This::wxFrame().
 
@@ -243,6 +341,13 @@ sendSizeEvent(This)
   sendSizeEvent(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesendsizeevent">external documentation</a>.
+-doc """
+This function sends a dummy `m:wxSizeEvent` to the window allowing it to re-layout its children positions.
+
+It is sometimes useful to call this function after adding or deleting a children after the frame creation or if a child size changes. Note that if the frame is using either sizers or constraints for the children layout, it is enough to call `wxWindow:layout/1` directly and this function should not be used in this case.
+
+If `flags` includes `wxSEND_EVENT_POST` value, this function posts the event, i.e. schedules it for later processing, instead of dispatching it directly. You can also use `PostSizeEvent()` (not implemented in wx) as a more readable equivalent of calling this function with this flag.
+""".
 -spec sendSizeEvent(This, [Option]) -> 'ok' when
 	This::wxFrame(),
 	Option :: {'flags', integer()}.
@@ -255,6 +360,13 @@ sendSizeEvent(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxFrame_SendSizeEvent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetmenubar">external documentation</a>.
+-doc """
+Tells the frame to show the given menu bar.
+
+Remark: If the frame is destroyed, the menu bar and its menus will be destroyed also, so do not delete the menu bar explicitly (except by resetting the frame's menu bar to another frame or NULL). Under Windows, a size event is generated, so be sure to initialize data members properly before calling `setMenuBar/2`. Note that on some platforms, it is not possible to call this function twice for the same frame object.
+
+See: `getMenuBar/1`, `m:wxMenuBar`, `m:wxMenu`
+""".
 -spec setMenuBar(This, MenuBar) -> 'ok' when
 	This::wxFrame(), MenuBar::wxMenuBar:wxMenuBar().
 setMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuBarT}=MenuBar) ->
@@ -263,6 +375,13 @@ setMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuBarT}=MenuBar) ->
   wxe_util:queue_cmd(This,MenuBar,?get_env(),?wxFrame_SetMenuBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbar">external documentation</a>.
+-doc """
+Associates a status bar with the frame.
+
+If `statusBar` is NULL, then the status bar, if present, is detached from the frame, but `not` deleted.
+
+See: `createStatusBar/2`, `m:wxStatusBar`, `getStatusBar/1`
+""".
 -spec setStatusBar(This, StatusBar) -> 'ok' when
 	This::wxFrame(), StatusBar::wxStatusBar:wxStatusBar().
 setStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusBarT}=StatusBar) ->
@@ -271,6 +390,11 @@ setStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusBarT}=StatusBar) ->
   wxe_util:queue_cmd(This,StatusBar,?get_env(),?wxFrame_SetStatusBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbarpane">external documentation</a>.
+-doc """
+Set the status bar pane used to display menu and toolbar help.
+
+Using -1 disables help display.
+""".
 -spec setStatusBarPane(This, N) -> 'ok' when
 	This::wxFrame(), N::integer().
 setStatusBarPane(#wx_ref{type=ThisT}=This,N)
@@ -279,6 +403,7 @@ setStatusBarPane(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxFrame_SetStatusBarPane).
 
 %% @equiv setStatusText(This,Text, [])
+-doc "".
 -spec setStatusText(This, Text) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata().
 
@@ -287,6 +412,15 @@ setStatusText(This,Text)
   setStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
+-doc """
+Sets the status bar text and updates the status bar display.
+
+This is a simple wrapper for `wxStatusBar:setStatusText/3` which doesn't do anything if the frame has no status bar, i.e. `getStatusBar/1` returns NULL.
+
+Remark: Use an empty string to clear the status bar.
+
+See: `createStatusBar/2`, `m:wxStatusBar`
+""".
 -spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata(),
 	Option :: {'number', integer()}.
@@ -300,6 +434,11 @@ setStatusText(#wx_ref{type=ThisT}=This,Text, Options)
   wxe_util:queue_cmd(This,Text_UC, Opts,?get_env(),?wxFrame_SetStatusText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatuswidths">external documentation</a>.
+-doc """
+Sets the widths of the fields in the status bar.
+
+Remark: The widths of the variable fields are calculated from the total width of all fields, minus the sum of widths of the non-variable fields, divided by the number of variable fields.
+""".
 -spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxFrame(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
@@ -308,6 +447,7 @@ setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
   wxe_util:queue_cmd(This,Widths_field,?get_env(),?wxFrame_SetStatusWidths).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesettoolbar">external documentation</a>.
+-doc "Associates a toolbar with the frame.".
 -spec setToolBar(This, ToolBar) -> 'ok' when
 	This::wxFrame(), ToolBar::wxToolBar:wxToolBar().
 setToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolBarT}=ToolBar) ->
@@ -316,6 +456,13 @@ setToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ToolBarT}=ToolBar) ->
   wxe_util:queue_cmd(This,ToolBar,?get_env(),?wxFrame_SetToolBar).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+Destroys all child windows and menu bar if present.
+
+See overview_windowdeletion for more info.
+""".
 -spec destroy(This::wxFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFrame),
@@ -736,3 +883,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

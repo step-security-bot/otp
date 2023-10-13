@@ -24,6 +24,39 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_encoder).
+-moduledoc """
+Megaco encoder behaviour.
+
+The following functions should be exported from a `megaco_encoder` callback module:
+
+## DATA TYPES
+
+> #### Note {: class=info }
+> Note that the actual definition of (some of) these records depend on the megaco protocol version used. For instance, the `'TransactionReply'` record has two more fields in version 3, so a simple erlang type definition cannot be made here.
+
+```text
+protocol_version() = integer()
+segment_no()       = integer()
+megaco_message() = #'MegacoMessage{}'
+transaction() = {transactionRequest,     transaction_request()}      |
+                {transactionPending,     transaction_reply()}        |
+                {transactionReply,       transaction_pending()}      |
+                {transactionResponseAck, transaction_response_ack()} |
+                {segmentReply,           segment_reply()}
+transaction_request() = #'TransactionRequest'{}
+transaction_pending() = #'TransactionPending'{}
+transaction_reply() = #'TransactionReply'{}
+transaction_response_ack() = [transaction_ack()]
+transaction_ack() = #'TransactionAck'{}
+segment_reply() = #'SegmentReply'{}
+action_request() = #'ActionRequest'{}
+action_reply() = #'ActionReply'{}
+command_request() = #'CommandRequest'{}
+error_desc()   = #'ErrorDescriptor'{}
+```
+
+[](){: id=encode_message }
+""".
 
 -export_type([
               protocol_version/0,
@@ -72,6 +105,17 @@
 -type command_request()          :: {'CommandRequest', _, _, _}.
 -type error_desc()               :: #'ErrorDescriptor'{}.
 
+-doc """
+EncodingConfig = list()  
+Version = integer()  
+Message = megaco_message()  
+Bin = binary()  
+Error = term()  
+
+Encode a megaco message.
+
+[](){: id=decode_message }
+""".
 -callback encode_message(EncodingConfig,
                          Version,
                          Message) -> {ok, Bin} | Error when
@@ -81,6 +125,20 @@
       Bin            :: binary(),
       Error          :: term().
 
+-doc """
+EncodingConfig = list()  
+Version = integer() | dynamic  
+Message = megaco_message()  
+Bin = binary()  
+Error = term()  
+
+Decode a megaco message.
+
+Note that if the Version argument is `dynamic`, the decoder should try to figure out the actual version from the message itself and then use the proper decoder, e.g. version 1.  
+If on the other hand the Version argument is an integer, it means that this is the expected version of the message and the decoder for that version should be used.
+
+[](){: id=decode_mini_message }
+""".
 -callback decode_message(EncodingConfig,
                          Version,
                          Bin) -> {ok, Message} | Error when
@@ -90,6 +148,21 @@
       Message        :: megaco_message(),
       Error          :: term().
 
+-doc """
+EncodingConfig = list()  
+Version = integer() | dynamic  
+Message = megaco_message()  
+Bin = binary()  
+Error = term()  
+
+Perform a minimal decode of a megaco message.
+
+The purpose of this function is to do a minimal decode of Megaco message. A successfull result is a `'MegacoMessage'` in which only version and mid has been initiated. This function is used by the megaco_messenger module when the `c:decode_message/3` function fails to figure out the mid (the actual sender) of the message.
+
+Note again that a successfull decode only returns a partially initiated message.
+
+[](){: id=encode_transaction }
+""".
 -callback decode_mini_message(EncodingConfig,
                               Version,
                               Bin) -> {ok, Message} | Error when
@@ -99,6 +172,22 @@
       Message        :: megaco_message(),
       Error          :: term().
 
+-doc """
+EncodingConfig = list()  
+Version = integer()  
+Transaction = transaction()  
+OK = \{ok, Bin\}  
+Bin = binary()  
+Error = \{error, Reason\}  
+Reason = not_implemented | OtherReason  
+OtherReason = term()  
+
+Encode a megaco transaction. If this, for whatever reason, is not supported, the function should return the error reason `not_implemented`.
+
+This functionality is used both when the transaction sender is used and for segmentation. So, for either of those to work, this function *must* be fully supported\!
+
+[](){: id=encode_action_requests }
+""".
 -callback encode_transaction(EncodingConfig,
                              Version,
                              Transaction) -> {ok, Bin} | {error, Reason} when
@@ -108,6 +197,21 @@
       Bin            :: binary(),
       Reason         :: not_implemented | term().
 
+-doc """
+EncodingConfig = list()  
+Version = integer()  
+ARs = action_requests()  
+action_requests() = \[action_request()]  
+OK = \{ok, Bin\}  
+Bin = binary()  
+Error = \{error, Reason\}  
+Reason = not_implemented | OtherReason  
+OtherReason = term()  
+
+Encode megaco action requests. This function is called when the user calls the function [encode_actions/3](`m:megaco#encode_actions`). If that function is never used or if the codec cannot support this (the encoding of individual actions), then return with error reason `not_implemented`.
+
+[](){: id=encode_action_reply }
+""".
 -callback encode_action_requests(EncodingConfig,
                                  Version,
                                  ARs) -> {ok, Bin} | {error, Reason} when
@@ -117,6 +221,20 @@
       Bin            :: binary(),
       Reason         :: not_implemented | term().
 
+-doc """
+EncodingConfig = list()  
+Version = integer()  
+AR = action_reply()  
+OK = \{ok, Bin\}  
+Bin = binary()  
+Error = \{error, Reason\}  
+Reason = not_implemented | OtherReason  
+OtherReason = term()  
+
+Encode a megaco action reply. If this, for whatever reason, is not supported, the function should return the error reason `not_implemented`.
+
+This function is used when segmentation has been configured. So, for this to work, this function *must* be fully supported\!
+""".
 -callback encode_action_reply(EncodingConfig,
                               Version,
                               AR) -> {ok, Bin} | {error, Reason} when
@@ -130,3 +248,4 @@
    [
     encode_action_reply/3 % Only used if segementation is used
    ]).
+

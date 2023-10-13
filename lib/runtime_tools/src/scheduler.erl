@@ -22,6 +22,7 @@
 %%      using erlang:statistics(scheduler_wall_time).
 
 -module(scheduler).
+-moduledoc "Utility functions for easier measurement of scheduler utilization using erlang:statistics(scheduler_wall_time).".
 
 -export([sample/0, get_sample/0,
          sample_all/0, get_sample_all/0,
@@ -31,22 +32,28 @@
 -export_type([sched_sample/0]).
 
 
+-doc "".
 -opaque sched_sample() ::
           {scheduler_wall_time | scheduler_wall_time_all,
            [{sched_type(), sched_id(), ActiveTime::integer(), TotalTime::integer()}]}.
 
+-doc "".
 -type sched_type() :: normal | cpu | io.
 
+-doc "".
 -type sched_id() :: integer().
 
+-doc "".
 -spec sample() -> sched_sample().
 sample() ->
     sample(scheduler_wall_time).
 
+-doc "".
 -spec sample_all() -> sched_sample().
 sample_all() ->
     sample(scheduler_wall_time_all).
 
+-doc "".
 sample(Stats) ->
     case erlang:statistics(Stats) of
         undefined ->
@@ -57,14 +64,17 @@ sample(Stats) ->
             create_sample(Stats, List)
     end.
 
+-doc "".
 -spec get_sample() -> sched_sample() | undefined.
 get_sample() ->
     get_sample(scheduler_wall_time).
 
+-doc "".
 -spec get_sample_all() -> sched_sample() | undefined.
 get_sample_all() ->
     get_sample(scheduler_wall_time_all).
 
+-doc "".
 get_sample(Stats) ->
     case erlang:statistics(Stats) of
         undefined ->
@@ -73,6 +83,7 @@ get_sample(Stats) ->
             create_sample(Stats, List)
     end.
 
+-doc "".
 create_sample(Stats, List) ->
     Sorted = lists:sort(List),
     Tagged = lists:map(fun({I, A, T}) -> {sched_tag(I), I, A, T} end,
@@ -80,11 +91,13 @@ create_sample(Stats, List) ->
     {Stats, Tagged}.
 
 
+-doc "".
 -type sched_util_result() ::
         [{sched_type(), sched_id(), float(), string()} |
          {total, float(), string()} |
          {weighted, float(), string()}].
 
+-doc "".
 -spec utilization(Seconds) -> sched_util_result() when
       Seconds :: pos_integer();
                  (Sample) -> sched_util_result() when
@@ -101,6 +114,7 @@ utilization({Stats, _}=T0) when Stats =:= scheduler_wall_time;
                                 Stats =:= scheduler_wall_time_all ->
     utilization(T0, sample(Stats)).
 
+-doc "".
 -spec utilization(Sample1, Sample2) -> sched_util_result() when
       Sample1 :: sched_sample(),
       Sample2 :: sched_sample().
@@ -137,22 +151,26 @@ utilization({scheduler_wall_time_all, Ts0},
     utilization({scheduler_wall_time, remove_io(Ts0)}, T1).
 
 %% Do not include dirty-io in totals
+-doc "".
 acc(io, _, _, Acc) ->
     Acc;
 acc(Tag, Adiff, Tdiff, {Asum, Tsum, N}) when Tag =:= normal; Tag =:= cpu ->
     {Adiff+Asum, Tdiff+Tsum, N+1}.
 
 
+-doc "".
 remove_io(Ts) ->
     lists:filter(fun({io,_,_,_}) -> false;
                     (_) -> true end,
                  Ts).
 
+-doc "".
 safe_div(A, B) ->
     if B == 0.0 -> 0.0;
        true -> A / B
     end.            
 
+-doc "".
 sched_tag(Nr) ->
     Normal = erlang:system_info(schedulers),
     Cpu = Normal + erlang:system_info(dirty_cpu_schedulers),
@@ -163,5 +181,7 @@ sched_tag(Nr) ->
     end.
 
 
+-doc "".
 percent(F) ->
     float_to_list(F*100, [{decimals,1}]) ++ [$%].
+

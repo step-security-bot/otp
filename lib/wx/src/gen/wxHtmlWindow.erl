@@ -19,6 +19,31 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxHtmlWindow).
+-moduledoc """
+Functions for wxHtmlWindow class
+
+`m:wxHtmlWindow` is probably the only class you will directly use unless you want to do something special (like adding new tag handlers or MIME filters).
+
+The purpose of this class is to display rich content pages (either local file or downloaded via HTTP protocol) in a window based on a subset of the HTML standard. The width of the window is constant, given in the constructor and virtual height is changed dynamically depending on page size. Once the window is created you can set its content by calling `setPage/2` with raw HTML, `loadPage/2` with a `wxFileSystem` (not implemented in wx) location or `loadFile/2` with a filename.
+
+Note: If you want complete HTML/CSS support as well as a Javascript engine, consider using `m:wxWebView` instead.
+
+`m:wxHtmlWindow` uses the `m:wxImage` class for displaying images, so you need to initialize the handlers for any image formats you use before loading a page. See ?wxInitAllImageHandlers and `wxImage::AddHandler` (not implemented in wx).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxHtmlLinkEvent`, `wxHtmlCellEvent` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxScrolledWindow` `m:wxPanel` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxHtmlWindow](https://docs.wxwidgets.org/3.1/classwx_html_window.html)
+
+## Events
+
+Event types emitted from this class: [`html_cell_clicked`](`m:wxHtmlLinkEvent`), [`html_cell_hover`](`m:wxHtmlLinkEvent`), [`command_html_link_clicked`](`m:wxHtmlLinkEvent`)
+""".
 -include("wxe.hrl").
 -export([appendToPage/2,destroy/1,getOpenedAnchor/1,getOpenedPage/1,getOpenedPageTitle/1,
   getRelatedFrame/1,historyBack/1,historyCanBack/1,historyCanForward/1,
@@ -69,6 +94,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxHtmlWindow() :: wx:wx_object().
 -export_type([wxHtmlWindow/0]).
 %% @hidden
@@ -79,12 +105,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxHtmlWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxHtmlWindow_new_0),
   wxe_util:rec(?wxHtmlWindow_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxHtmlWindow() when
 	Parent::wxWindow:wxWindow().
 
@@ -93,6 +121,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
+-doc """
+Constructor.
+
+The parameters are the same as `wxScrolled::wxScrolled()` (not implemented in wx) constructor.
+""".
 -spec new(Parent, [Option]) -> wxHtmlWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -112,6 +145,11 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxHtmlWindow_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowappendtopage">external documentation</a>.
+-doc """
+Appends HTML fragment to currently displayed text and refreshes the window.
+
+Return: false if an error occurred, true otherwise.
+""".
 -spec appendToPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT}=This,Source)
@@ -122,6 +160,11 @@ appendToPage(#wx_ref{type=ThisT}=This,Source)
   wxe_util:rec(?wxHtmlWindow_AppendToPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedanchor">external documentation</a>.
+-doc """
+Returns anchor within currently opened page (see `getOpenedPage/1`).
+
+If no page is opened or if the displayed page wasn't produced by call to `loadPage/2`, empty string is returned.
+""".
 -spec getOpenedAnchor(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedAnchor(#wx_ref{type=ThisT}=This) ->
@@ -130,6 +173,11 @@ getOpenedAnchor(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_GetOpenedAnchor).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpage">external documentation</a>.
+-doc """
+Returns full location of the opened page.
+
+If no page is opened or if the displayed page wasn't produced by call to `loadPage/2`, empty string is returned.
+""".
 -spec getOpenedPage(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPage(#wx_ref{type=ThisT}=This) ->
@@ -138,6 +186,7 @@ getOpenedPage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_GetOpenedPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpagetitle">external documentation</a>.
+-doc "Returns title of the opened page or wxEmptyString if the current page does not contain <TITLE> tag.".
 -spec getOpenedPageTitle(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPageTitle(#wx_ref{type=ThisT}=This) ->
@@ -146,6 +195,7 @@ getOpenedPageTitle(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_GetOpenedPageTitle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowgetrelatedframe">external documentation</a>.
+-doc "Returns the related frame.".
 -spec getRelatedFrame(This) -> wxFrame:wxFrame() when
 	This::wxHtmlWindow().
 getRelatedFrame(#wx_ref{type=ThisT}=This) ->
@@ -154,6 +204,11 @@ getRelatedFrame(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_GetRelatedFrame).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryback">external documentation</a>.
+-doc """
+Moves back to the previous page.
+
+Only pages displayed using `loadPage/2` are stored in history list.
+""".
 -spec historyBack(This) -> boolean() when
 	This::wxHtmlWindow().
 historyBack(#wx_ref{type=ThisT}=This) ->
@@ -162,6 +217,11 @@ historyBack(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_HistoryBack).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanback">external documentation</a>.
+-doc """
+Returns true if it is possible to go back in the history i.e.
+
+`historyBack/1` won't fail.
+""".
 -spec historyCanBack(This) -> boolean() when
 	This::wxHtmlWindow().
 historyCanBack(#wx_ref{type=ThisT}=This) ->
@@ -170,6 +230,11 @@ historyCanBack(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_HistoryCanBack).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistorycanforward">external documentation</a>.
+-doc """
+Returns true if it is possible to go forward in the history i.e.
+
+`historyForward/1` won't fail.
+""".
 -spec historyCanForward(This) -> boolean() when
 	This::wxHtmlWindow().
 historyCanForward(#wx_ref{type=ThisT}=This) ->
@@ -178,6 +243,7 @@ historyCanForward(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_HistoryCanForward).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryclear">external documentation</a>.
+-doc "Clears history.".
 -spec historyClear(This) -> 'ok' when
 	This::wxHtmlWindow().
 historyClear(#wx_ref{type=ThisT}=This) ->
@@ -185,6 +251,11 @@ historyClear(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryClear).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryforward">external documentation</a>.
+-doc """
+Moves to next page in history.
+
+Only pages displayed using `loadPage/2` are stored in history list.
+""".
 -spec historyForward(This) -> boolean() when
 	This::wxHtmlWindow().
 historyForward(#wx_ref{type=ThisT}=This) ->
@@ -193,6 +264,13 @@ historyForward(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_HistoryForward).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowloadfile">external documentation</a>.
+-doc """
+Loads an HTML page from a file and displays it.
+
+Return: false if an error occurred, true otherwise
+
+See: `loadPage/2`
+""".
 -spec loadFile(This, Filename) -> boolean() when
 	This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT}=This,Filename)
@@ -203,6 +281,13 @@ loadFile(#wx_ref{type=ThisT}=This,Filename)
   wxe_util:rec(?wxHtmlWindow_LoadFile).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowloadpage">external documentation</a>.
+-doc """
+Unlike `setPage/2` this function first loads the HTML page from `location` and then displays it.
+
+Return: false if an error occurred, true otherwise
+
+See: `loadFile/2`
+""".
 -spec loadPage(This, Location) -> boolean() when
 	This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT}=This,Location)
@@ -213,6 +298,11 @@ loadPage(#wx_ref{type=ThisT}=This,Location)
   wxe_util:rec(?wxHtmlWindow_LoadPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectall">external documentation</a>.
+-doc """
+Selects all text in the window.
+
+See: `selectLine/2`, `selectWord/2`
+""".
 -spec selectAll(This) -> 'ok' when
 	This::wxHtmlWindow().
 selectAll(#wx_ref{type=ThisT}=This) ->
@@ -220,6 +310,11 @@ selectAll(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_SelectAll).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectiontotext">external documentation</a>.
+-doc """
+Returns the current selection as plain text.
+
+Returns an empty string if no text is currently selected.
+""".
 -spec selectionToText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 selectionToText(#wx_ref{type=ThisT}=This) ->
@@ -228,6 +323,13 @@ selectionToText(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_SelectionToText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectline">external documentation</a>.
+-doc """
+Selects the line of text that `pos` points at.
+
+Note that `pos` is relative to the top of displayed page, not to window's origin, use `wxScrolledWindow:calcUnscrolledPosition/3` to convert physical coordinate.
+
+See: `selectAll/1`, `selectWord/2`
+""".
 -spec selectLine(This, Pos) -> 'ok' when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectLine(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
@@ -236,6 +338,13 @@ selectLine(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
   wxe_util:queue_cmd(This,Pos,?get_env(),?wxHtmlWindow_SelectLine).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectword">external documentation</a>.
+-doc """
+Selects the word at position `pos`.
+
+Note that `pos` is relative to the top of displayed page, not to window's origin, use `wxScrolledWindow:calcUnscrolledPosition/3` to convert physical coordinate.
+
+See: `selectAll/1`, `selectLine/2`
+""".
 -spec selectWord(This, Pos) -> 'ok' when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectWord(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
@@ -244,6 +353,11 @@ selectWord(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
   wxe_util:queue_cmd(This,Pos,?get_env(),?wxHtmlWindow_SelectWord).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetborders">external documentation</a>.
+-doc """
+This function sets the space between border of window and HTML contents.
+
+See image:
+""".
 -spec setBorders(This, B) -> 'ok' when
 	This::wxHtmlWindow(), B::integer().
 setBorders(#wx_ref{type=ThisT}=This,B)
@@ -252,6 +366,7 @@ setBorders(#wx_ref{type=ThisT}=This,B)
   wxe_util:queue_cmd(This,B,?get_env(),?wxHtmlWindow_SetBorders).
 
 %% @equiv setFonts(This,Normal_face,Fixed_face, [])
+-doc "".
 -spec setFonts(This, Normal_face, Fixed_face) -> 'ok' when
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
@@ -260,6 +375,13 @@ setFonts(This,Normal_face,Fixed_face)
   setFonts(This,Normal_face,Fixed_face, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
+-doc """
+This function sets font sizes and faces.
+
+See `wxHtmlDCRenderer::SetFonts` (not implemented in wx) for detailed description.
+
+See: SetSize()
+""".
 -spec setFonts(This, Normal_face, Fixed_face, [Option]) -> 'ok' when
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {'sizes', [integer()]}.
@@ -274,6 +396,13 @@ setFonts(#wx_ref{type=ThisT}=This,Normal_face,Fixed_face, Options)
   wxe_util:queue_cmd(This,Normal_face_UC,Fixed_face_UC, Opts,?get_env(),?wxHtmlWindow_SetFonts).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetpage">external documentation</a>.
+-doc """
+Sets the source of a page and displays it, for example:
+
+If you want to load a document from some location use `loadPage/2` instead.
+
+Return: false if an error occurred, true otherwise.
+""".
 -spec setPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT}=This,Source)
@@ -284,6 +413,11 @@ setPage(#wx_ref{type=ThisT}=This,Source)
   wxe_util:rec(?wxHtmlWindow_SetPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedframe">external documentation</a>.
+-doc """
+Sets the frame in which page title will be displayed.
+
+`format` is the format of the frame title, e.g. "HtmlHelp : %s". It must contain exactly one s. This s is substituted with HTML page title.
+""".
 -spec setRelatedFrame(This, Frame, Format) -> 'ok' when
 	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame,Format)
@@ -298,6 +432,11 @@ setRelatedFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame,Format)
 %% setRelatedStatusBar(This, Index) -> 'ok' when<br />
 %% 	This::wxHtmlWindow(), Index::integer().<br />
 %% 
+-doc """
+`After` calling `setRelatedFrame/3`, this sets statusbar slot where messages will be displayed.
+
+(Default is -1 = no messages.)
+""".
 -spec setRelatedStatusBar(This, Statusbar) -> 'ok' when
 	This::wxHtmlWindow(), Statusbar::wxStatusBar:wxStatusBar();
       (This, Index) -> 'ok' when
@@ -312,6 +451,13 @@ setRelatedStatusBar(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxHtmlWindow_SetRelatedStatusBar_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedstatusbar">external documentation</a>.
+-doc """
+`Sets` the associated statusbar where messages will be displayed.
+
+Call this instead of `setRelatedFrame/3` if you want statusbar updates only, no changing of the frame title.
+
+Since: 2.9.0
+""".
 -spec setRelatedStatusBar(This, Statusbar, [Option]) -> 'ok' when
 	This::wxHtmlWindow(), Statusbar::wxStatusBar:wxStatusBar(),
 	Option :: {'index', integer()}.
@@ -325,6 +471,7 @@ setRelatedStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusbarT}=Statusbar,
   wxe_util:queue_cmd(This,Statusbar, Opts,?get_env(),?wxHtmlWindow_SetRelatedStatusBar_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowtotext">external documentation</a>.
+-doc "Returns content of currently displayed page as plain text.".
 -spec toText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 toText(#wx_ref{type=ThisT}=This) ->
@@ -333,6 +480,7 @@ toText(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxHtmlWindow_ToText).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxHtmlWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlWindow),
@@ -740,3 +888,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

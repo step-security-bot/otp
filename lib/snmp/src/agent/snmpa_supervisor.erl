@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_supervisor).
+-moduledoc """
+A supervisor for the SNMP agent Processes
+
+This is the top supervisor for the agent part of the SNMP application. There is always one supervisor at each node with an SNMP agent (master agent or sub-agent).
+""".
 
 -behaviour(supervisor).
 
@@ -166,6 +171,16 @@ takeover_mib({_MibName, _Symbolic, FileName}) ->
 
 %% ----------------------------------------------------------------
 
+-doc """
+Opts = \[opt()]  
+opt() = \{db_dir, string()\} | ...  
+
+Starts a supervisor for the SNMP agent system without a master agent. The supervisor starts all involved SNMP processes, but no agent processes. Sub-agents should be started by calling `start_sub_agent/3`.
+
+`db_dir` is mandatory.
+
+See [configuration parameters](snmp_config.md#configuration_params) for a description of the options.
+""".
 start_sub_sup(Opts) ->
     ?d("start_sub_sup -> entry with"
       "~n   Opts: ~p", [Opts]),
@@ -176,6 +191,21 @@ do_start_sub_sup(Opts) ->
     ?d("do_start_sub_sup -> start (sub) supervisor",[]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [sub, Opts]).  
 
+-doc """
+Opts = \[opt()]  
+opt() = \{db_dir, string()\} | \{config, ConfOpts()\} | ...  
+ConfOpts = \[conf_opts()]  
+conf_opts() = \{dir, string()\} | ...  
+Reason = term()  
+
+Starts a supervisor for the SNMP agent system. The supervisor starts all involved SNMP processes, including the master agent. Sub-agents should be started by calling `start_subagent/3`.
+
+`db_dir` is mandatory.
+
+`dir` in config is mandatory.
+
+See [snmp config](snmp_config.md) for a description of the options.
+""".
 start_master_sup(Opts) ->
     (catch do_start_master_sup(Opts)).
 
@@ -212,6 +242,16 @@ verify_mandatory([Key|Keys], Opts) ->
 
 %% ----------------------------------------------------------------
 
+-doc """
+ParentAgent = pid()  
+SubTree = oid()  
+Mibs = \[MibName]  
+MibName = \[string()]  
+
+Starts a sub-agent on the node where the function is called. The `snmpa_supervisor` must be running.
+
+If the supervisor is not running, the function fails with the reason `badarg`.
+""".
 start_sub_agent(ParentAgent, Subtree, Mibs) 
   when is_pid(ParentAgent) andalso is_list(Mibs) ->
     ?d("start_sub_agent -> entry with"
@@ -220,6 +260,13 @@ start_sub_agent(ParentAgent, Subtree, Mibs)
       "~n   Mibs:        ~p", [ParentAgent, Subtree, Mibs]),
     snmpa_agent_sup:start_subagent(ParentAgent, Subtree, Mibs).
 
+-doc """
+SubAgent = pid()  
+
+Stops the sub-agent on the node where the function is called. The `snmpa_supervisor` must be running.
+
+If the supervisor is not running, the function fails with the reason `badarg`.
+""".
 stop_sub_agent(SubAgentPid) ->
     snmpa_agent_sup:stop_subagent(SubAgentPid).
 
@@ -748,3 +795,4 @@ error_msg(F, A) ->
 
 % i(F, A) ->
 %     io:format("~p:~p: " ++ F ++ "~n", [node(),?MODULE|A]).
+

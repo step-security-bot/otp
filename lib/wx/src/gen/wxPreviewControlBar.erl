@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPreviewControlBar).
+-moduledoc """
+Functions for wxPreviewControlBar class
+
+This is the default implementation of the preview control bar, a panel with buttons and a zoom control.
+
+You can derive a new class from this and override some or all member functions to change the behaviour and appearance; or you can leave it as it is.
+
+See: `m:wxPreviewFrame`, `m:wxPreviewCanvas`, `m:wxPrintPreview`
+
+This class is derived (and can use functions) from: `m:wxPanel` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPreviewControlBar](https://docs.wxwidgets.org/3.1/classwx_preview_control_bar.html)
+""".
 -include("wxe.hrl").
 -export([createButtons/1,destroy/1,getPrintPreview/1,getZoomControl/1,new/3,
   new/4,setZoomControl/2]).
@@ -63,6 +76,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPreviewControlBar() :: wx:wx_object().
 -export_type([wxPreviewControlBar/0]).
 %% @hidden
@@ -72,6 +86,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Preview,Buttons,Parent, [])
+-doc "".
 -spec new(Preview, Buttons, Parent) -> wxPreviewControlBar() when
 	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow().
 
@@ -80,6 +95,11 @@ new(Preview,Buttons,Parent)
   new(Preview,Buttons,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarwxpreviewcontrolbar">external documentation</a>.
+-doc """
+Constructor.
+
+The `buttons` parameter may be a combination of the following, using the bitwise 'or' operator:
+""".
 -spec new(Preview, Buttons, Parent, [Option]) -> wxPreviewControlBar() when
 	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -98,6 +118,7 @@ new(#wx_ref{type=PreviewT}=Preview,Buttons,#wx_ref{type=ParentT}=Parent, Options
   wxe_util:rec(?wxPreviewControlBar_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarcreatebuttons">external documentation</a>.
+-doc "Creates buttons, according to value of the button style flags.".
 -spec createButtons(This) -> 'ok' when
 	This::wxPreviewControlBar().
 createButtons(#wx_ref{type=ThisT}=This) ->
@@ -105,6 +126,7 @@ createButtons(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_CreateButtons).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetprintpreview">external documentation</a>.
+-doc "Gets the print preview object associated with the control bar.".
 -spec getPrintPreview(This) -> wxPrintPreview:wxPrintPreview() when
 	This::wxPreviewControlBar().
 getPrintPreview(#wx_ref{type=ThisT}=This) ->
@@ -113,6 +135,7 @@ getPrintPreview(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPreviewControlBar_GetPrintPreview).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbargetzoomcontrol">external documentation</a>.
+-doc "Gets the current zoom setting in percent.".
 -spec getZoomControl(This) -> integer() when
 	This::wxPreviewControlBar().
 getZoomControl(#wx_ref{type=ThisT}=This) ->
@@ -121,6 +144,7 @@ getZoomControl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPreviewControlBar_GetZoomControl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarsetzoomcontrol">external documentation</a>.
+-doc "Sets the zoom control.".
 -spec setZoomControl(This, Percent) -> 'ok' when
 	This::wxPreviewControlBar(), Percent::integer().
 setZoomControl(#wx_ref{type=ThisT}=This,Percent)
@@ -129,6 +153,7 @@ setZoomControl(#wx_ref{type=ThisT}=This,Percent)
   wxe_util:queue_cmd(This,Percent,?get_env(),?wxPreviewControlBar_SetZoomControl).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxPreviewControlBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewControlBar),
@@ -505,3 +530,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

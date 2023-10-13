@@ -18,6 +18,115 @@
 %% %CopyrightEnd%
 %%
 -module(edlin).
+-moduledoc """
+Line and input interpretter for the erlang shell.
+
+This module reads input, handles any escape sequences that have been configured via edlin_key and outputs action requests. The action requests are handled either by modules `group` or the `user_drv`.
+
+## Key configuration
+
+You can setup a custom key configuration that overrides the default key configuration. This is done by setting the stdlib application parameter [`shell_keymap`](stdlib_app.md#shell_keymap) before Erlang is started. If you want to have the same keymap in all Erlang shells you can do so by putting a [config](`p:kernel:config.md`) file in your user's home directory and then set [ERL_FLAGS](`p:erts:erl_cmd.md#erl_flags`) to load it at startup. For example:
+
+```text
+$ cat $HOME/.erlang_keymap.config
+[{stdlib,
+  [{shell_keymap,
+    #{ normal => #{ "\^[A" => clear } }
+  }]
+}].
+$ ERL_FLAGS="-config $HOME/.erlang_keymap" erl
+```
+
+The current keymap configuration can be fetched through [edlin:keymap()](`keymap/0`). If a custom keymap or keymap file is specified, then it will be merged with the default keymap.
+
+The keymap is a map of maps where the keys in the parent map corresponds to different editing modes in the shell. The valid modes currently supported are `normal` and `search`.
+
+The keys in the child maps are the escape sequences that are sent from the terminal when a key is pressed and each value is a valid action as seen below.
+
+The default atom is used to specify that an action should happen when a key is pressed that does not have any mapping. Typically used to exit a mode.
+
+See [tty - A Command-Line Interface](`p:erts:tty.md`) for more information about the default keymap.
+
+## Actions
+
+The commands below are the built-in action requests for switching input modes on the normal shell or navigating, or manipulating the line feed. The line feed supports multiple lines.
+
+* __`auto_blink`__ - Automatically close the closest matching opening parenthesis.
+
+* __`backward_char`__ - Move backward one character.
+
+* __`backward_delete_char`__ - Delete the character behind the cursor.
+
+* __`backward_delete_word`__ - Delete the word behind the cursor.
+
+* __`backward_kill_line`__ - Delete all characters from the cursor to the beginning of the line and save them in the kill buffer.
+
+* __`backward_kill_word`__ - Delete the word behind the cursor and save it in the kill buffer.
+
+* __`backward_line`__ - Move backward one line.
+
+* __`backward_word`__ - Move backward one word.
+
+* __`beginning_of_expression`__ - Move to the beginning of the expression.
+
+* __`beginning_of_line`__ - Move to the beginning of the line.
+
+* __`clear`__ - Clear the screen.
+
+* __`clear_line`__ - Clear the current expression.
+
+* __`end_of_expression`__ - Move to the end of the expression.
+
+* __`end_of_line`__ - Move to the end of the line.
+
+* __`forward_char`__ - Move forward one character.
+
+* __`forward_delete_char`__ - Delete the character under the cursor.
+
+* __`forward_line`__ - Move forward one line.
+
+* __`forward_word`__ - Move forward one word.
+
+* __`history_down`__ - Move to the next item in the history.
+
+* __`history_up`__ - Move to the previous item in the history.
+
+* __`kill_line`__ - Delete all characters from the cursor to the end of the line and save them in the kill buffer.
+
+* __`kill_word`__ - Delete the word under the cursor and save it in the kill buffer.
+
+* __`new_line_finish`__ - Add a newline at the end of the line and try to evaluate the current expression.
+
+* __`newline`__ - Add a newline at the cursor position.
+
+* __`open_editor`__ - Open the current line in an editor e.g. EDITOR="code -w" opens a buffer in vs code. Note that you need to pass a flag to the editor so that it signals the shell when you close the buffer.
+
+* __`redraw_line`__ - Redraw the current line.
+
+* __`search_cancel`__ - Cancel the current search.
+
+* __`search_found`__ - Accept the current search result and submit it.
+
+* __`search_quit`__ - Accept the current search result, but edit it before submitting.
+
+* __`search`__ - Enter search mode, search the history.
+
+* __`search_down`__ - Skip to the next line in the history that matches the current search expression.
+
+* __`search_up`__ - Skip to the previous line in the history that matches the current search expression.
+
+* __`tab_expand_full`__ - Output all possible tab completions.
+
+* __`tab_expand_quit`__ - Go back to normal mode.
+
+* __`tab_expand`__ - Autocomplete the current word, or show 5 lines of possible completions.
+
+* __`transpose_char`__ - Swap the character behind the cursor with the one in front of it.
+
+* __`transpose_word`__ - Swap the word behind the cursor with the one in front of it.
+
+* __`yank`__ - Insert the contents of the kill buffer at the cursor position.
+""".
 
 %% A simple Emacs-like line editor.
 %% About Latin-1 characters: see the beginning of erl_scan.erl.
@@ -34,6 +143,7 @@
 
 -export([over_word/3]).
 
+-doc "A map of maps for each shell mode containing key, action pairs.".
 -type keymap() :: #{atom() => #{string()|default => atom()}}.
 
 %% A Continuation has the structure:
@@ -84,6 +194,14 @@ start(Pbs, {_,{_,_},_}=Cont) ->
 start(Pbs, EditState) ->
     {more_chars,{line,Pbs,{[],{[],[]},[]},EditState},[new_prompt, {insert_chars,unicode,Pbs}]}.
 
+-doc """
+```erlang
+-type keymap() :: #{atom() => #{string() | default => atom()}}.
+```
+
+Get the current keymap used in the shell. Each key in the parent map represents a *shell mode* e.g. `normal` or `search`. Each map associated with the *shell modes* contains *key sequences* represented as strings, paired with an *action*, which is one of the valid actions mentioned above.
+""".
+-doc(#{since => <<"OTP 26.1">>}).
 -spec keymap() -> keymap().
 keymap() ->
     get(key_map).
@@ -680,3 +798,4 @@ cp_len(Str) ->
 cp_len([GC|R], Len) ->
     cp_len(R, Len + gc_len(GC));
 cp_len([], Len) -> Len.
+

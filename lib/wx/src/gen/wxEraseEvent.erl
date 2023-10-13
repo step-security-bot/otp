@@ -19,6 +19,27 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxEraseEvent).
+-moduledoc """
+Functions for wxEraseEvent class
+
+An erase event is sent when a window's background needs to be repainted.
+
+On some platforms, such as GTK+, this event is simulated (simply generated just before the paint event) and may cause flicker. It is therefore recommended that you set the text background colour explicitly in order to prevent flicker. The default background colour under GTK+ is grey.
+
+To intercept this event, use the EVT_ERASE_BACKGROUND macro in an event table definition.
+
+You must use the device context returned by `getDC/1` to draw on, don't create a `m:wxPaintDC` in the event handler.
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxEraseEvent](https://docs.wxwidgets.org/3.1/classwx_erase_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxEraseEventType`](`t:wxEraseEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([getDC/1]).
 
@@ -26,8 +47,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxEraseEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxEraseEventType() :: 'erase_background'.
 -export_type([wxEraseEvent/0, wxErase/0, wxEraseEventType/0]).
 %% @hidden
@@ -35,6 +58,11 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxeraseevent.html#wxeraseeventgetdc">external documentation</a>.
+-doc """
+Returns the device context associated with the erase event to draw on.
+
+The returned pointer is never NULL.
+""".
 -spec getDC(This) -> wxDC:wxDC() when
 	This::wxEraseEvent().
 getDC(#wx_ref{type=ThisT}=This) ->
@@ -61,3 +89,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

@@ -18,6 +18,19 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_error_logger).
+-moduledoc """
+Functions for Reporting SNMP Errors through the error_logger
+
+The module `snmpa_error_logger` implements the `snmpa_error_report` behaviour (see `m:snmpa_error_report`) containing two callback functions which are called in order to report SNMP errors.
+
+This module provides a simple mechanism for reporting SNMP errors. Errors are sent to the `error_logger` after a size check. Messages are truncated after 1024 chars. It is provided as an example.
+
+This module is the default error report module, but can be explicitly configured, see [snmpa_error](`m:snmpa_error#desc`) and [configuration parameters](snmp_config.md#configuration_params).
+
+## See Also
+
+error_logger(3)
+""".
 
 -behaviour(snmpa_error_report).
 
@@ -32,6 +45,14 @@
 %% This function is called when there is an error in a user
 %% supplied item, e.g. instrumentation function.
 %%-----------------------------------------------------------------
+-doc """
+Format = string()  
+Args = list()  
+
+The function is called if a user related error occurs at run-time, for example if a user defined instrumentation function returns erroneous.
+
+`Format` and `Args` are as in `io:format(Format, Args)`.
+""".
 user_err(F, A) -> 
     error_msg("** User error: ", F, A).
 
@@ -41,6 +62,14 @@ user_err(F, A) ->
 %% either at startup (in a conf-file) or at run-time (e.g. when 
 %% information in the configuration tables are inconsistent.)
 %%-----------------------------------------------------------------
+-doc """
+Format = string()  
+Args = list()  
+
+The function is called if an error occurs during the configuration phase, for example if a syntax error is found in a configuration file.
+
+`Format` and `Args` are as in `io:format(Format, Args)`.
+""".
 config_err(F, A) ->
     error_msg("** Configuration error: ", F, A).
 
@@ -48,4 +77,5 @@ config_err(F, A) ->
 error_msg(P, F, A) ->
     S = snmp_misc:format(1024, lists:concat([P, F, "\n"]), A),
     catch error_logger:error_msg("~s", [S]).
+
 

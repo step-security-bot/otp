@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGridCellNumberEditor).
+-moduledoc """
+Functions for wxGridCellNumberEditor class
+
+Grid cell editor for numeric integer data.
+
+See: `m:wxGridCellEditor`, `wxGridCellAutoWrapStringEditor` (not implemented in wx), `m:wxGridCellBoolEditor`, `m:wxGridCellChoiceEditor`, `wxGridCellEnumEditor` (not implemented in wx), `m:wxGridCellFloatEditor`, `m:wxGridCellTextEditor`, `wxGridCellDateEditor` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxGridCellTextEditor` `m:wxGridCellEditor`
+
+wxWidgets docs: [wxGridCellNumberEditor](https://docs.wxwidgets.org/3.1/classwx_grid_cell_number_editor.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getValue/1,new/0,new/1,setParameters/2]).
 
@@ -26,6 +37,7 @@
 -export([handleReturn/2,isCreated/1,parent_class/1,reset/1,setSize/2,show/2,
   show/3,startingClick/1,startingKey/2]).
 
+-doc "".
 -type wxGridCellNumberEditor() :: wx:wx_object().
 -export_type([wxGridCellNumberEditor/0]).
 %% @hidden
@@ -34,12 +46,18 @@ parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new([])
+-doc "".
 -spec new() -> wxGridCellNumberEditor().
 
 new() ->
   new([]).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorwxgridcellnumbereditor">external documentation</a>.
+-doc """
+Allows you to specify the range for acceptable data.
+
+Values equal to -1 for both `min` and `max` indicate that no range checking should be done.
+""".
 -spec new([Option]) -> wxGridCellNumberEditor() when
 	Option :: {'min', integer()}
 		 | {'max', integer()}.
@@ -53,6 +71,7 @@ new(Options)
   wxe_util:rec(?wxGridCellNumberEditor_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorgetvalue">external documentation</a>.
+-doc "Returns the value currently in the editor control.".
 -spec getValue(This) -> unicode:charlist() when
 	This::wxGridCellNumberEditor().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -61,6 +80,9 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGridCellNumberEditor_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorsetparameters">external documentation</a>.
+-doc """
+Parameters string format is "min,max".
+""".
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellNumberEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
@@ -70,6 +92,7 @@ setParameters(#wx_ref{type=ThisT}=This,Params)
   wxe_util:queue_cmd(This,Params_UC,?get_env(),?wxGridCellNumberEditor_SetParameters).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxGridCellNumberEditor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellNumberEditor),
@@ -93,3 +116,4 @@ show(This,Show) -> wxGridCellEditor:show(This,Show).
 setSize(This,Rect) -> wxGridCellEditor:setSize(This,Rect).
 %% @hidden
 isCreated(This) -> wxGridCellEditor:isCreated(This).
+

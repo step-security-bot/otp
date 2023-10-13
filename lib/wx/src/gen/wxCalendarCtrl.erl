@@ -19,6 +19,37 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxCalendarCtrl).
+-moduledoc """
+Functions for wxCalendarCtrl class
+
+The calendar control allows the user to pick a date. The user can move the current selection using the keyboard and select the date (generating `EVT_CALENDAR` event) by pressing `<Return>` or double clicking it.
+
+Generic calendar has advanced possibilities for the customization of its display, described below. If you want to use these possibilities on every platform, use wxGenericCalendarCtrl instead of `m:wxCalendarCtrl`.
+
+All global settings (such as colours and fonts used) can, of course, be changed. But also, the display style for each day in the month can be set independently using `m:wxCalendarDateAttr` class.
+
+An item without custom attributes is drawn with the default colours and font and without border, but setting custom attributes with `setAttr/3` allows modifying its appearance. Just create a custom attribute object and set it for the day you want to be displayed specially (note that the control will take ownership of the pointer, i.e. it will delete it itself). A day may be marked as being a holiday, even if it is not recognized as one by [`wx_datetime()`](`t:wx:wx_datetime/0`) using the `wxCalendarDateAttr:setHoliday/2` method.
+
+As the attributes are specified for each day, they may change when the month is changed, so you will often want to update them in `EVT_CALENDAR_PAGE_CHANGED` event handler.
+
+If neither the `wxCAL_SUNDAY_FIRST` or `wxCAL_MONDAY_FIRST` style is given, the first day of the week is determined from operating system's settings, if possible. The native wxGTK calendar chooses the first weekday based on locale, and these styles have no effect on it.
+
+Styles
+
+This class supports the following styles:
+
+Note: Changing the selected date will trigger an EVT_CALENDAR_DAY, MONTH or YEAR event as well as an EVT_CALENDAR_SEL_CHANGED event.
+
+See: [Examples](https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_calendar), `m:wxCalendarDateAttr`, `m:wxCalendarEvent`, `m:wxDatePickerCtrl`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxCalendarCtrl](https://docs.wxwidgets.org/3.1/classwx_calendar_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`calendar_sel_changed`](`m:wxCalendarEvent`), [`calendar_weekday_clicked`](`m:wxCalendarEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,enableHolidayDisplay/1,enableHolidayDisplay/2,
   enableMonthChange/1,enableMonthChange/2,enableYearChange/1,enableYearChange/2,
@@ -67,6 +98,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxCalendarCtrl() :: wx:wx_object().
 -export_type([wxCalendarCtrl/0]).
 -deprecated([{enableYearChange,1,"not available in wxWidgets-2.9 and later"},
@@ -80,12 +112,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlwxcalendarctrl">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxCalendarCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxCalendarCtrl_new_0),
   wxe_util:rec(?wxCalendarCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxCalendarCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -94,6 +128,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlwxcalendarctrl">external documentation</a>.
+-doc "Does the same as `create/4` method.".
 -spec new(Parent, Id, [Option]) -> wxCalendarCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'date', wx:wx_datetime()}
@@ -113,6 +148,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxCalendarCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxCalendarCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -121,6 +157,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlcreate">external documentation</a>.
+-doc """
+Creates the control.
+
+See `wxWindow:new/3` for the meaning of the parameters and the control overview for the possible styles.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxCalendarCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'date', wx:wx_datetime()}
@@ -141,6 +182,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxCalendarCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsetdate">external documentation</a>.
+-doc """
+Sets the current date.
+
+The `date` parameter must be valid and in the currently valid range as set by `SetDateRange()` (not implemented in wx), otherwise the current date is not changed and the function returns false and, additionally, triggers an assertion failure if the date is invalid.
+""".
 -spec setDate(This, Date) -> boolean() when
 	This::wxCalendarCtrl(), Date::wx:wx_datetime().
 setDate(#wx_ref{type=ThisT}=This,{{DateY,DateMo,DateD},{DateH,DateMi,DateS}})
@@ -150,6 +196,7 @@ setDate(#wx_ref{type=ThisT}=This,{{DateY,DateMo,DateD},{DateH,DateMi,DateS}})
   wxe_util:rec(?wxCalendarCtrl_SetDate).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetdate">external documentation</a>.
+-doc "Gets the currently selected date.".
 -spec getDate(This) -> wx:wx_datetime() when
 	This::wxCalendarCtrl().
 getDate(#wx_ref{type=ThisT}=This) ->
@@ -158,6 +205,9 @@ getDate(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetDate).
 
 %% @equiv enableYearChange(This, [])
+-doc "".
+-doc(#{deprecated =>
+           <<"wxCalendarCtrl:enableYearChange/1 is deprecated; not available in wxWidgets-2.9 and later">>}).
 -spec enableYearChange(This) -> 'ok' when
 	This::wxCalendarCtrl().
 
@@ -166,6 +216,13 @@ enableYearChange(This)
   enableYearChange(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlenableyearchange">external documentation</a>.
+-doc """
+Deprecated:
+
+This function should be used instead of changing `wxCAL_NO_YEAR_CHANGE` style bit directly. It allows or disallows the user to change the year interactively. Only in generic `m:wxCalendarCtrl`.
+""".
+-doc(#{deprecated =>
+           <<"wxCalendarCtrl:enableYearChange/2 is deprecated; not available in wxWidgets-2.9 and later">>}).
 -spec enableYearChange(This, [Option]) -> 'ok' when
 	This::wxCalendarCtrl(),
 	Option :: {'enable', boolean()}.
@@ -178,6 +235,7 @@ enableYearChange(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxCalendarCtrl_EnableYearChange).
 
 %% @equiv enableMonthChange(This, [])
+-doc "".
 -spec enableMonthChange(This) -> boolean() when
 	This::wxCalendarCtrl().
 
@@ -186,6 +244,13 @@ enableMonthChange(This)
   enableMonthChange(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlenablemonthchange">external documentation</a>.
+-doc """
+This function should be used instead of changing `wxCAL_NO_MONTH_CHANGE` style bit.
+
+It allows or disallows the user to change the month interactively. Note that if the month cannot be changed, the year cannot be changed neither.
+
+Return: true if the value of this option really changed or false if it was already set to the requested value.
+""".
 -spec enableMonthChange(This, [Option]) -> boolean() when
 	This::wxCalendarCtrl(),
 	Option :: {'enable', boolean()}.
@@ -199,6 +264,7 @@ enableMonthChange(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxCalendarCtrl_EnableMonthChange).
 
 %% @equiv enableHolidayDisplay(This, [])
+-doc "".
 -spec enableHolidayDisplay(This) -> 'ok' when
 	This::wxCalendarCtrl().
 
@@ -207,6 +273,11 @@ enableHolidayDisplay(This)
   enableHolidayDisplay(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlenableholidaydisplay">external documentation</a>.
+-doc """
+This function should be used instead of changing `wxCAL_SHOW_HOLIDAYS` style bit directly.
+
+It enables or disables the special highlighting of the holidays.
+""".
 -spec enableHolidayDisplay(This, [Option]) -> 'ok' when
 	This::wxCalendarCtrl(),
 	Option :: {'display', boolean()}.
@@ -219,6 +290,11 @@ enableHolidayDisplay(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxCalendarCtrl_EnableHolidayDisplay).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsetheadercolours">external documentation</a>.
+-doc """
+Set the colours used for painting the weekdays at the top of the control.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and does nothing in the native versions.
+""".
 -spec setHeaderColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHeaderColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
@@ -227,6 +303,13 @@ setHeaderColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHeaderColours).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetheadercolourfg">external documentation</a>.
+-doc """
+Gets the foreground colour of the header part of the calendar window.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and always returns `wxNullColour` in the native versions.
+
+See: `setHeaderColours/3`
+""".
 -spec getHeaderColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHeaderColourFg(#wx_ref{type=ThisT}=This) ->
@@ -235,6 +318,13 @@ getHeaderColourFg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHeaderColourFg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetheadercolourbg">external documentation</a>.
+-doc """
+Gets the background colour of the header part of the calendar window.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and always returns `wxNullColour` in the native versions.
+
+See: `setHeaderColours/3`
+""".
 -spec getHeaderColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHeaderColourBg(#wx_ref{type=ThisT}=This) ->
@@ -243,6 +333,11 @@ getHeaderColourBg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHeaderColourBg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsethighlightcolours">external documentation</a>.
+-doc """
+Set the colours to be used for highlighting the currently selected date.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and does nothing in the native versions.
+""".
 -spec setHighlightColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHighlightColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
@@ -251,6 +346,15 @@ setHighlightColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHighlightColours).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgethighlightcolourfg">external documentation</a>.
+-doc """
+Gets the foreground highlight colour.
+
+Only in generic `m:wxCalendarCtrl`.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and always returns `wxNullColour` in the native versions.
+
+See: `setHighlightColours/3`
+""".
 -spec getHighlightColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHighlightColourFg(#wx_ref{type=ThisT}=This) ->
@@ -259,6 +363,15 @@ getHighlightColourFg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHighlightColourFg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgethighlightcolourbg">external documentation</a>.
+-doc """
+Gets the background highlight colour.
+
+Only in generic `m:wxCalendarCtrl`.
+
+This method is currently only implemented in generic `m:wxCalendarCtrl` and always returns `wxNullColour` in the native versions.
+
+See: `setHighlightColours/3`
+""".
 -spec getHighlightColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHighlightColourBg(#wx_ref{type=ThisT}=This) ->
@@ -267,6 +380,11 @@ getHighlightColourBg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHighlightColourBg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsetholidaycolours">external documentation</a>.
+-doc """
+Sets the colours to be used for the holidays highlighting.
+
+This method is only implemented in the generic version of the control and does nothing in the native ones. It should also only be called if the window style includes `wxCAL_SHOW_HOLIDAYS` flag or `enableHolidayDisplay/2` had been called.
+""".
 -spec setHolidayColours(This, ColFg, ColBg) -> 'ok' when
 	This::wxCalendarCtrl(), ColFg::wx:wx_colour(), ColBg::wx:wx_colour().
 setHolidayColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
@@ -275,6 +393,13 @@ setHolidayColours(#wx_ref{type=ThisT}=This,ColFg,ColBg)
   wxe_util:queue_cmd(This,wxe_util:color(ColFg),wxe_util:color(ColBg),?get_env(),?wxCalendarCtrl_SetHolidayColours).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetholidaycolourfg">external documentation</a>.
+-doc """
+Return the foreground colour currently used for holiday highlighting.
+
+Only useful with generic `m:wxCalendarCtrl` as native versions currently don't support holidays display at all and always return `wxNullColour`.
+
+See: `setHolidayColours/3`
+""".
 -spec getHolidayColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHolidayColourFg(#wx_ref{type=ThisT}=This) ->
@@ -283,6 +408,13 @@ getHolidayColourFg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHolidayColourFg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetholidaycolourbg">external documentation</a>.
+-doc """
+Return the background colour currently used for holiday highlighting.
+
+Only useful with generic `m:wxCalendarCtrl` as native versions currently don't support holidays display at all and always return `wxNullColour`.
+
+See: `setHolidayColours/3`
+""".
 -spec getHolidayColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHolidayColourBg(#wx_ref{type=ThisT}=This) ->
@@ -291,6 +423,11 @@ getHolidayColourBg(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarCtrl_GetHolidayColourBg).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlgetattr">external documentation</a>.
+-doc """
+Returns the attribute for the given date (should be in the range 1...31).
+
+The returned pointer may be NULL. Only in generic `m:wxCalendarCtrl`.
+""".
 -spec getAttr(This, Day) -> wxCalendarDateAttr:wxCalendarDateAttr() when
 	This::wxCalendarCtrl(), Day::integer().
 getAttr(#wx_ref{type=ThisT}=This,Day)
@@ -300,6 +437,11 @@ getAttr(#wx_ref{type=ThisT}=This,Day)
   wxe_util:rec(?wxCalendarCtrl_GetAttr).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsetattr">external documentation</a>.
+-doc """
+Associates the attribute with the specified date (in the range 1...31).
+
+If the pointer is NULL, the items attribute is cleared. Only in generic `m:wxCalendarCtrl`.
+""".
 -spec setAttr(This, Day, Attr) -> 'ok' when
 	This::wxCalendarCtrl(), Day::integer(), Attr::wxCalendarDateAttr:wxCalendarDateAttr().
 setAttr(#wx_ref{type=ThisT}=This,Day,#wx_ref{type=AttrT}=Attr)
@@ -309,6 +451,11 @@ setAttr(#wx_ref{type=ThisT}=This,Day,#wx_ref{type=AttrT}=Attr)
   wxe_util:queue_cmd(This,Day,Attr,?get_env(),?wxCalendarCtrl_SetAttr).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlsetholiday">external documentation</a>.
+-doc """
+Marks the specified day as being a holiday in the current month.
+
+This method is only implemented in the generic version of the control and does nothing in the native ones.
+""".
 -spec setHoliday(This, Day) -> 'ok' when
 	This::wxCalendarCtrl(), Day::integer().
 setHoliday(#wx_ref{type=ThisT}=This,Day)
@@ -317,6 +464,11 @@ setHoliday(#wx_ref{type=ThisT}=This,Day)
   wxe_util:queue_cmd(This,Day,?get_env(),?wxCalendarCtrl_SetHoliday).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlresetattr">external documentation</a>.
+-doc """
+Clears any attributes associated with the given day (in the range 1...31).
+
+Only in generic `m:wxCalendarCtrl`.
+""".
 -spec resetAttr(This, Day) -> 'ok' when
 	This::wxCalendarCtrl(), Day::integer().
 resetAttr(#wx_ref{type=ThisT}=This,Day)
@@ -327,6 +479,11 @@ resetAttr(#wx_ref{type=ThisT}=This,Day)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarctrl.html#wxcalendarctrlhittest">external documentation</a>.
 %%<br /> Wd = ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
 %%<br /> Res = ?wxCAL_HITTEST_NOWHERE | ?wxCAL_HITTEST_HEADER | ?wxCAL_HITTEST_DAY | ?wxCAL_HITTEST_INCMONTH | ?wxCAL_HITTEST_DECMONTH | ?wxCAL_HITTEST_SURROUNDING_WEEK | ?wxCAL_HITTEST_WEEK
+-doc """
+Returns one of wxCalendarHitTestResult constants and fills either `date` or `wd` pointer with the corresponding value depending on the hit test code.
+
+Not implemented in wxGTK currently.
+""".
 -spec hitTest(This, Pos) -> Result when
 	Result ::{Res ::wx:wx_enum(), Date::wx:wx_datetime(), Wd::wx:wx_enum()},
 	This::wxCalendarCtrl(), Pos::{X::integer(), Y::integer()}.
@@ -337,6 +494,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
   wxe_util:rec(?wxCalendarCtrl_HitTest).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the control.".
 -spec destroy(This::wxCalendarCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCalendarCtrl),
@@ -711,3 +869,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

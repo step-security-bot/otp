@@ -19,6 +19,13 @@
 %%
 
 -module(ct_testspec).
+-moduledoc """
+Parsing of test specifications for Common Test.
+
+Parsing of test specifications for `Common Test`.
+
+This module exports help functions for parsing of test specifications.
+""".
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
@@ -805,6 +812,27 @@ list_nodes(#testspec{nodes=NodeRefs}) ->
 %%% and tests to run/skip.
 %%% [Spec1,Spec2,...] means create separate tests per spec
 %%% [[Spec1,Spec2,...]] means merge all specs into one
+-doc """
+SpecsIn = \[string()] | \[[string()]]  
+Specs = \[string()]  
+Test = \[\{Node,Run,Skip\}]  
+Node = atom()  
+Run = \{Dir,Suites,Cases\}  
+Skip = \{Dir,Suites,Comment\} | \{Dir,Suites,Cases,Comment\}  
+Dir = string()  
+Suites = atom | \[atom()] | all  
+Cases = atom | \[atom()] | all  
+Comment = string()  
+Reason = term()  
+
+[](){: id=add_nodes-1 }
+Parse the given test specification files and return the tests to run and skip.
+
+If `SpecsIn=[Spec1,Spec2,...]`, separate tests will be created per specification. If `SpecsIn=[[Spec1,Spec2,...]]`, all specifications will be merge into one test.
+
+For each test, a `{Specs,Tests}` element is returned, where `Specs` is a list of all included test specifications, and `Tests` specifies actual tests to run/skip per node.
+""".
+-doc(#{since => <<"OTP 19.3">>}).
 -spec get_tests(Specs) -> {ok,[{Specs,Tests}]} | {error,Reason} when
       Specs :: [string()] | [[string()]],
       Tests :: {Node,Run,Skip},
@@ -1672,3 +1700,4 @@ common_letters([L|Ls],Term,Count) ->
     end;
 common_letters([],_,Count) -> 
     Count.
+

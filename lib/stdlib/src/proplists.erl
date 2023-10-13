@@ -30,6 +30,15 @@
 %% % @type property() = atom() | tuple()
 
 -module(proplists).
+-moduledoc """
+Support functions for property lists.
+
+Property lists are ordinary lists containing entries in the form of either tuples, whose first elements are keys used for lookup and insertion, or atoms, which work as shorthand for tuples `{Atom, true}`. (Other terms are allowed in the lists, but are ignored by this module.) If there is more than one entry in a list for a certain key, the first occurrence normally overrides any later (irrespective of the arity of the tuples).
+
+Property lists are useful for representing inherited properties, such as options passed to a function where a user may specify options overriding the default settings, object properties, annotations, etc.
+
+% @type property() = atom() | tuple()
+""".
 
 -export([property/1, property/2, unfold/1, compact/1, lookup/2,
 	 lookup_all/2, is_defined/2, get_value/2, get_value/3,
@@ -42,7 +51,9 @@
 
 -export_type([property/0, proplist/0]).
 
+-doc "".
 -type property()  :: atom() | tuple().
+-doc "".
 -type proplist()  :: [property()].
 
 %% ---------------------------------------------------------------------
@@ -54,6 +65,11 @@
 %%
 %% @see property/2
 
+-doc """
+Creates a normal form (minimal) representation of a property. If `PropertyIn` is `{Key, true}` where `Key` is an atom, this returns `Key`, otherwise the whole term `PropertyIn` is returned.
+
+*See also: *`property/2`.
+""".
 -spec property(PropertyIn) -> PropertyOut when
       PropertyIn :: property(),
       PropertyOut :: property().
@@ -71,6 +87,11 @@ property(Property) ->
 %%
 %% @see property/1
 
+-doc """
+Creates a normal form (minimal) representation of a simple key/value property. Returns `Key` if `Value` is `true` and `Key` is an atom, otherwise a tuple `{Key, Value}` is returned.
+
+*See also: *`property/1`.
+""".
 -spec property(Key, Value) -> Property when
       Key :: term(),
       Value :: term(),
@@ -89,6 +110,11 @@ property(Key, Value) ->
 %%
 %% @see compact/1
 
+-doc """
+Unfolds all occurrences of atoms in `ListIn` to tuples `{Atom, true}`.
+
+*See also: *`compact/1`.
+""".
 -spec unfold(ListIn) -> ListOut when
       ListIn :: [term()],
       ListOut :: [term()].
@@ -108,6 +134,11 @@ unfold([]) ->
 %% @see unfold/1
 %% @see property/1
 
+-doc """
+Minimizes the representation of all entries in the list. This is equivalent to `[property(P) || P <- ListIn]`.
+
+*See also: *`property/1`, `unfold/1`.
+""".
 -spec compact(ListIn) -> ListOut when
       ListIn :: [property()],
       ListOut :: [property()].
@@ -127,6 +158,11 @@ compact(ListIn) ->
 %% @see get_value/2
 %% @see get_bool/2
 
+-doc """
+Returns the first entry associated with `Key` in `List`, if one exists, otherwise returns `none`. For an atom `A` in the list, the tuple `{A, true}` is the entry associated with `A`.
+
+*See also: *`get_bool/2`, `get_value/2`, `lookup_all/2`.
+""".
 -spec lookup(Key, List) -> 'none' | tuple() when
       Key :: term(),
       List :: [term()].
@@ -149,6 +185,11 @@ lookup(_Key, []) ->
 %%
 %% @see lookup/2
 
+-doc """
+Returns the list of all entries associated with `Key` in `List`. If no such entry exists, the result is the empty list.
+
+*See also: *`lookup/2`.
+""".
 -spec lookup_all(Key, List) -> [tuple()] when
       Key :: term(),
       List :: [term()].
@@ -171,6 +212,7 @@ lookup_all(_Key, []) ->
 %% one entry associated with <code>Key</code>, otherwise
 %% <code>false</code> is returned.
 
+-doc "Returns `true` if `List` contains at least one entry associated with `Key`, otherwise `false` is returned.".
 -spec is_defined(Key, List) -> boolean() when
       Key :: term(),
       List :: [term()].
@@ -191,6 +233,7 @@ is_defined(_Key, []) ->
 
 %% @equiv get_value(Key, List, undefined)
 
+-doc "Equivalent to [get_value(Key, List, undefined)](`get_value/3`).".
 -spec get_value(Key, List) -> term() when
       Key :: term(),
       List :: [term()].
@@ -208,6 +251,11 @@ get_value(Key, List) ->
 %% @see get_all_values/2
 %% @see get_bool/2
 
+-doc """
+Returns the value of a simple key/value property in `List`. If `lookup(Key, List)` would yield `{Key, Value}`, this function returns the corresponding `Value`, otherwise `Default` is returned.
+
+*See also: *`get_all_values/2`, `get_bool/2`, `get_value/2`, `lookup/2`.
+""".
 -spec get_value(Key, List, Default) -> term() when
       Key :: term(),
       List :: [term()],
@@ -237,6 +285,11 @@ get_value(_Key, [], Default) ->
 %%
 %% @see get_value/2
 
+-doc """
+Similar to `get_value/2`, but returns the list of values for *all* entries `{Key, Value}` in `List`. If no such entry exists, the result is the empty list.
+
+*See also: *`get_value/2`.
+""".
 -spec get_all_values(Key, List) -> [term()] when
       Key :: term(),
       List :: [term()].
@@ -266,6 +319,11 @@ get_all_values(_Key, []) ->
 %%
 %% @see get_all_values/2
 
+-doc """
+Similar to `get_all_values/2`, but each value is wrapped in a list unless it is already itself a list, and the resulting list of lists is concatenated. This is often useful for "incremental" options; e.g., `append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])` will return the list `[1,2,3,4]`.
+
+*See also: *`get_all_values/2`.
+""".
 -spec append_values(Key, ListIn) -> ListOut when
       Key :: term(),
       ListIn :: [term()],
@@ -300,6 +358,11 @@ append_values(_Key, []) ->
 %% @see lookup/2
 %% @see get_value/2
 
+-doc """
+Returns the value of a boolean key/value option. If `lookup(Key, List)` would yield `{Key, true}`, this function returns `true`; otherwise `false` is returned.
+
+*See also: *`get_value/2`, `lookup/2`.
+""".
 -spec get_bool(Key, List) -> boolean() when
       Key :: term(),
       List :: [term()].
@@ -327,12 +390,14 @@ get_bool(_Key, []) ->
 %% @doc Returns an unordered list of the keys used in <code>List</code>,
 %% not containing duplicates.
 
+-doc "Returns an unordered list of the keys used in `List`, not containing duplicates.".
 -spec get_keys(List) -> [term()] when
       List :: [term()].
 
 get_keys(Ps) ->
     sets:to_list(get_keys(Ps, sets:new())).
 
+-doc "".
 get_keys([P | Ps], Keys) ->
     if is_atom(P) ->
 	    get_keys(Ps, sets:add_element(P, Keys));
@@ -350,6 +415,7 @@ get_keys([], Keys) ->
 %% @doc Deletes all entries associated with <code>Key</code> from
 %% <code>List</code>.
 
+-doc "Deletes all entries associated with `Key` from `List`.".
 -spec delete(Key, List) -> List when
       Key :: term(),
       List :: [term()].
@@ -383,6 +449,13 @@ delete(_, []) ->
 %% @see substitute_negations/2
 %% @see normalize/2
 
+-doc """
+Substitutes keys of properties. For each entry in `ListIn`, if it is associated with some key `K1` such that `{K1, K2}` occurs in `Aliases`, the key of the entry is changed to `Key2`. If the same `K1` occurs more than once in `Aliases`, only the first occurrence is used.
+
+Example: `substitute_aliases([{color, colour}], L)` will replace all tuples `{color, ...}` in `L` with `{colour, ...}`, and all atoms `color` with `colour`.
+
+*See also: *`normalize/2`, `substitute_negations/2`.
+""".
 -spec substitute_aliases(Aliases, ListIn) -> ListOut when
       Aliases :: [{Key, Key}],
       Key :: term(),
@@ -392,6 +465,7 @@ delete(_, []) ->
 substitute_aliases(As, Props) ->
     [substitute_aliases_1(As, P) || P <- Props].
 
+-doc "".
 substitute_aliases_1([{Key, Key1} | As], P) ->
     if is_atom(P), P =:= Key ->
 	    property(Key1, true);
@@ -426,6 +500,13 @@ substitute_aliases_1([], P) ->
 %% @see substitute_aliases/2
 %% @see normalize/2
 
+-doc """
+Substitutes keys of boolean-valued properties and simultaneously negates their values. For each entry in `ListIn`, if it is associated with some key `K1` such that `{K1, K2}` occurs in `Negations`, then if the entry was `{K1, true}` it will be replaced with `{K2, false}`, otherwise it will be replaced with `K2`, thus changing the name of the option and simultaneously negating the value given by `get_bool(ListIn)`. If the same `K1` occurs more than once in `Negations`, only the first occurrence is used.
+
+Example: `substitute_negations([{no_foo, foo}], L)` will replace any atom `no_foo` or tuple `{no_foo, true}` in `L` with `{foo, false}`, and any other tuple `{no_foo, ...}` with `foo`.
+
+*See also: *`get_bool/2`, `normalize/2`, `substitute_aliases/2`.
+""".
 -spec substitute_negations(Negations, ListIn) -> ListOut when
       Negations :: [{Key1, Key2}],
       Key1 :: term(),
@@ -436,6 +517,7 @@ substitute_aliases_1([], P) ->
 substitute_negations(As, Props) ->
     [substitute_negations_1(As, P) || P <- Props].
 
+-doc "".
 substitute_negations_1([{Key, Key1} | As], P) ->
     if is_atom(P), P =:= Key ->
 	    property(Key1, false);
@@ -494,6 +576,23 @@ substitute_negations_1([], P) ->
 %%
 %% @see normalize/2
 
+-doc """
+Expands particular properties to corresponding sets of properties (or other terms). For each pair `{Property, Expansion}` in `Expansions`, if `E` is the first entry in `ListIn` with the same key as `Property`, and `E` and `Property` have equivalent normal forms, then `E` is replaced with the terms in `Expansion`, and any following entries with the same key are deleted from `ListIn`.
+
+For example, the following expressions all return `[fie, bar, baz, fum]`:
+* `expand([{foo, [bar, baz]}], [fie, foo, fum])`
+* `expand([{{foo, true}, [bar, baz]}], [fie, foo, fum])`
+* `expand([{{foo, false}, [bar, baz]}], [fie, {foo, false}, fum])`
+
+However, no expansion is done in the following call:
+* `expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])`
+
+because `{foo, false}` shadows `foo`.
+
+Note that if the original property term is to be preserved in the result when expanded, it must be included in the expansion list. The inserted terms are not expanded recursively. If `Expansions` contains more than one property with the same key, only the first occurrance is used.
+
+*See also: *`normalize/2`.
+""".
 -spec expand(Expansions, ListIn) -> ListOut when
       Expansions :: [{Property :: property(), Expansion :: [term()]}],
       ListIn :: [term()],
@@ -508,11 +607,13 @@ expand(Es, Ps) when is_list(Ps) ->
 %% insert the expansions one at a time - this is quadratic, but gives
 %% the desired behaviour in a simple way.
 
+-doc "".
 expand_0([{P, L} | Es], Ps) ->
     expand_0(Es, expand_1(P, L, Ps));
 expand_0([], Ps) ->
     Ps.
 
+-doc "".
 expand_1(P, L, Ps) ->
     %% First, we must find out what key to look for.
     %% P has a minimal representation here.
@@ -524,6 +625,7 @@ expand_1(P, L, Ps) ->
 	    Ps    % refuse to expand non-property
     end.
 
+-doc "".
 expand_2(Key, P1, L, [P | Ps]) ->
     if is_atom(P), P =:= Key ->
 	    expand_3(Key, P1, P, L, Ps);
@@ -538,6 +640,7 @@ expand_2(Key, P1, L, [P | Ps]) ->
 expand_2(_, _, _, []) ->
     [].
 
+-doc "".
 expand_3(Key, P1, P, L, Ps) ->
     %% Here, we have found the first entry with a matching key. Both P
     %% and P1 have minimal representations here. The inserted list will
@@ -550,11 +653,13 @@ expand_3(Key, P1, P, L, Ps) ->
 	    [P | Ps]
     end.
 
+-doc "".
 key_uniq([{K, V} | Ps]) ->
     [{K, V} | key_uniq_1(K, Ps)];
 key_uniq([]) ->
     [].
 
+-doc "".
 key_uniq_1(K, [{K1, V} | Ps]) ->
     if K =:= K1 ->
 	    key_uniq_1(K, Ps);
@@ -566,6 +671,7 @@ key_uniq_1(_, []) ->
 
 %% This does top-level flattening only.
 
+-doc "".
 flatten([E | Es]) when is_list(E) ->
     E ++ flatten(Es);
 flatten([E | Es]) ->
@@ -597,6 +703,13 @@ flatten([]) ->
 %% @see expand/2
 %% @see compact/1
 
+-doc """
+Passes `List` through a sequence of substitution/expansion stages. For an `aliases` operation, the function `substitute_aliases/2` is applied using the given list of aliases; for a `negations` operation, `substitute_negations/2` is applied using the given negation list; for an `expand` operation, the function `expand/2` is applied using the given list of expansions. The final result is automatically compacted (cf. `compact/1`).
+
+Typically you want to substitute negations first, then aliases, then perform one or more expansions (sometimes you want to pre-expand particular entries before doing the main expansion). You might want to substitute negations and/or aliases repeatedly, to allow such forms in the right-hand side of aliases and expansion lists.
+
+*See also: *`compact/1`, `expand/2`, `substitute_aliases/2`, `substitute_negations/2`.
+""".
 -spec normalize(ListIn, Stages) -> ListOut when
       ListIn :: [term()],
       Stages :: [Operation],
@@ -611,6 +724,7 @@ flatten([]) ->
 normalize(L, Stages) ->
     compact(apply_stages(L, Stages)).
 
+-doc "".
 apply_stages(L, [{aliases, As} | Xs]) ->
     apply_stages(substitute_aliases(As, L), Xs);
 apply_stages(L, [{expand, Es} | Xs]) ->
@@ -636,6 +750,21 @@ apply_stages(L, []) ->
 %% {[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</pre>
 %% </p>
 
+-doc """
+Partitions `List` into a list of sublists and a remainder. `Lists` contains one sublist for each key in `Keys`, in the corresponding order. The relative order of the elements in each sublist is preserved from the original `List`. `Rest` contains the elements in `List` that are not associated with any of the given keys, also with their original relative order preserved.
+
+Example:
+
+```text
+  split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])
+```
+
+returns
+
+```text
+  {[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}
+```
+""".
 -spec split(List, Keys) -> {Lists, Rest} when
       List :: [term()],
       Keys :: [term()],
@@ -647,6 +776,7 @@ split(List, Keys) ->
     {[lists:reverse(map_get(K, Store)) || K <- Keys],
      lists:reverse(Rest)}.
 
+-doc "".
 split([P | Ps], Store, Rest) ->
     if is_atom(P) ->
 	    case is_map_key(P, Store) of
@@ -670,6 +800,7 @@ split([P | Ps], Store, Rest) ->
 split([], Store, Rest) ->
     {Store, Rest}.
 
+-doc "".
 maps_prepend(Key, Val, Dict) ->
     Dict#{Key := [Val | map_get(Key, Dict)]}.
 
@@ -694,6 +825,25 @@ maps_prepend(Key, Val, Dict) ->
 %% #{a => true, b => 1, c => 2}</pre>
 %% </p>
 
+-doc """
+Converts the property list `List` to a map.
+
+Shorthand atom values in `List` will be expanded to an association of the form `Atom => true`. Tuples of the form `{Key, Value}` in `List` will be converted to an association of the form `Key => Value`. Anything else will be silently ignored.
+
+If the same key appears in `List` multiple times, the value of the one appearing nearest to the head of `List` will be in the result map, that is the value that would be returned by a call to `get_value/2` with this key.
+
+Example:
+
+```text
+  to_map([a, {b, 1}, {c, 2}, {c, 3}])
+```
+
+returns
+
+```text
+  #{a => true, b => 1, c => 2}
+```
+""".
 -spec to_map(List) -> Map when
       List :: [Shorthand | {Key, Value} | term()],
       Map :: #{Shorthand => 'true', Key => Value},
@@ -725,6 +875,11 @@ to_map(List) ->
 %% @see normalize/2
 %% @see to_map/1
 
+-doc """
+Converts the property list `List` to a map after applying the normalizations given in `Stages`.
+
+*See also: *`normalize/2`, `to_map/1`.
+""".
 -spec to_map(List, Stages) -> Map when
       List :: [term()],
       Stages :: [Operation],
@@ -741,6 +896,7 @@ to_map(List, Stages) ->
 
 %% @doc Converts the map <code>Map</code> to a property list.
 
+-doc "Converts the map `Map` to a property list.".
 -spec from_map(Map) -> List when
     Map :: #{Key => Value},
     List :: [{Key, Value}],
@@ -749,3 +905,4 @@ to_map(List, Stages) ->
 
 from_map(Map) ->
     maps:to_list(Map).
+

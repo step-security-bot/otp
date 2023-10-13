@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMDIChildFrame).
+-moduledoc """
+Functions for wxMDIChildFrame class
+
+An MDI child frame is a frame that can only exist inside a `m:wxMDIClientWindow`, which is itself a child of `m:wxMDIParentFrame`.
+
+Styles
+
+This class supports the following styles:
+
+All of the standard `m:wxFrame` styles can be used but most of them are ignored by TDI-based MDI implementations.
+
+Remark: Although internally an MDI child frame is a child of the MDI client window, in wxWidgets you create it as a child of `m:wxMDIParentFrame`. In fact, you can usually forget that the client window exists. MDI child frames are clipped to the area of the MDI client window, and may be iconized on the client window. You can associate a menubar with a child frame as usual, although an MDI child doesn't display its menubar under its own title bar. The MDI parent frame's menubar will be changed to reflect the currently active child frame. If there are currently no children, the parent frame's own menubar will be displayed.
+
+See: `m:wxMDIClientWindow`, `m:wxMDIParentFrame`, `m:wxFrame`
+
+This class is derived (and can use functions) from: `m:wxFrame` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMDIChildFrame](https://docs.wxwidgets.org/3.1/classwx_m_d_i_child_frame.html)
+""".
 -include("wxe.hrl").
 -export([activate/1,create/4,create/5,destroy/1,maximize/1,maximize/2,new/0,new/3,
   new/4,restore/1]).
@@ -71,6 +90,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMDIChildFrame() :: wx:wx_object().
 -export_type([wxMDIChildFrame/0]).
 %% @hidden
@@ -81,12 +101,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxMDIChildFrame().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxMDIChildFrame_new_0),
   wxe_util:rec(?wxMDIChildFrame_new_0).
 
 %% @equiv new(Parent,Id,Title, [])
+-doc "".
 -spec new(Parent, Id, Title) -> wxMDIChildFrame() when
 	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
 
@@ -95,6 +117,11 @@ new(Parent,Id,Title)
   new(Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+-doc """
+Constructor, creating the window.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Title, [Option]) -> wxMDIChildFrame() when
 	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -113,6 +140,11 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxMDIChildFrame_new_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframeactivate">external documentation</a>.
+-doc """
+Activates this MDI child frame.
+
+See: `maximize/2`, `restore/1`
+""".
 -spec activate(This) -> 'ok' when
 	This::wxMDIChildFrame().
 activate(#wx_ref{type=ThisT}=This) ->
@@ -120,6 +152,7 @@ activate(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMDIChildFrame_Activate).
 
 %% @equiv create(This,Parent,Id,Title, [])
+-doc "".
 -spec create(This, Parent, Id, Title) -> boolean() when
 	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata().
 
@@ -128,6 +161,11 @@ create(This,Parent,Id,Title)
   create(This,Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframecreate">external documentation</a>.
+-doc """
+Used in two-step frame construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -147,6 +185,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxMDIChildFrame_Create).
 
 %% @equiv maximize(This, [])
+-doc "".
 -spec maximize(This) -> 'ok' when
 	This::wxMDIChildFrame().
 
@@ -155,6 +194,13 @@ maximize(This)
   maximize(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframemaximize">external documentation</a>.
+-doc """
+Maximizes this MDI child frame.
+
+This function doesn't do anything if `IsAlwaysMaximized()` (not implemented in wx) returns true.
+
+See: `activate/1`, `restore/1`
+""".
 -spec maximize(This, [Option]) -> 'ok' when
 	This::wxMDIChildFrame(),
 	Option :: {'maximize', boolean()}.
@@ -167,6 +213,13 @@ maximize(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxMDIChildFrame_Maximize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframerestore">external documentation</a>.
+-doc """
+Restores this MDI child frame (unmaximizes).
+
+This function doesn't do anything if `IsAlwaysMaximized()` (not implemented in wx) returns true.
+
+See: `activate/1`, `maximize/2`
+""".
 -spec restore(This) -> 'ok' when
 	This::wxMDIChildFrame().
 restore(#wx_ref{type=ThisT}=This) ->
@@ -174,6 +227,11 @@ restore(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxMDIChildFrame_Restore).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+Destroys all child windows and menu bar if present.
+""".
 -spec destroy(This::wxMDIChildFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIChildFrame),
@@ -629,3 +687,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

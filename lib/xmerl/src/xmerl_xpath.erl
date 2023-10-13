@@ -42,6 +42,27 @@
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
 %% </pre>
 -module(xmerl_xpath).
+-moduledoc """
+The xmerl_xpath module handles the entire XPath 1.0 spec. XPath expressions typically occur in XML attributes and are used to address parts of an XML document. The grammar is defined in `xmerl_xpath_parse.yrl`. The core functions are defined in `xmerl_xpath_pred.erl`.
+
+Some useful shell commands for debugging the XPath parser
+
+```text
+ c(xmerl_xpath_scan).
+ yecc:yecc("xmerl_xpath_parse.yrl", "xmerl_xpath_parse", true, []).
+ c(xmerl_xpath_parse).
+
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("position() > -1")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6 div 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 + 6 mod 2")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("5 * 6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("-----6")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
+ xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
+  
+```
+""".
 
 
 %% main API
@@ -77,6 +98,7 @@
 %%    | #xmlComment{}
 %%    | #xmlNsNode{}
 %%    | #xmlDocument{}
+-doc "".
 -type nodeEntity() ::
         #xmlElement{}
       | #xmlAttribute{}
@@ -92,6 +114,7 @@
 %%    | #xmlPI{}
 %%    | #xmlComment{}
 %%    | #xmlNsNode{}
+-doc "".
 -type docNodes() :: #xmlElement{}
                   | #xmlAttribute{}
                   | #xmlText{}
@@ -101,12 +124,15 @@
 
 
 %% @type docEntity() =  #xmlDocument{} | [docNodes()]
+-doc "".
 -type docEntity() :: #xmlDocument{} | [docNodes()].
 
 %% @type xPathString() = string()
+-doc "".
 -type xPathString() :: string().
 
 %% @type parentList() = [{atom(), integer()}]
+-doc "".
 -type parentList() :: [{atom(), integer()}].
 
 %%
@@ -122,6 +148,7 @@
 %%  <dt><code>{namespace, Nodes}</code></dt>
 %%    <dd>Set namespace nodes in xmlContext.</dd>
 %% </dl>
+-doc "".
 -type option_list() :: [{atom(),term()}].
 
 %%  <dt><code>{bindings, Bs}</code></dt>
@@ -131,12 +158,14 @@
 
 %% @spec string(Str, Doc) -> [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [])
+-doc "Equivalent to [string(Str, Doc, [])](`string/3`).".
 string(Str, Doc) ->
     string(Str, Doc, []).
 
 %% @spec string(Str,Doc,Options) -> 
 %%      [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [],Doc,Options)
+-doc "Equivalent to [string(Str, Doc, [], Doc, Options)](`string/5`).".
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 
@@ -151,6 +180,7 @@ string(Str, Doc, Options) ->
 %% @doc Extracts the nodes from the parsed XML tree according to XPath.
 %%   xmlObj is a record with fields type and value,
 %%   where type is boolean | number | string
+-doc "Extracts the nodes from the parsed XML tree according to XPath. xmlObj is a record with fields type and value, where type is boolean | number | string".
 -spec string(Str,Node,Parents,Doc,Options) ->
           [docEntity()] | Scalar when
       Str :: xPathString(),
@@ -192,6 +222,7 @@ string(Str, Node, Parents, Doc, Options) ->
     end.
 
 
+-doc "".
 whole_document(#xmlDocument{} = Doc) ->
     #xmlNode{type = root_node,
 	     node = Doc,
@@ -202,9 +233,11 @@ whole_document(Other) ->
 	     parents = []}.
 
 
+-doc "".
 new_context(Options) ->
     new_context(Options, #xmlContext{}).
 
+-doc "".
 new_context([{namespace, #xmlNamespace{nodes = Nodes}}|T], C) ->
     new_context(T, C#xmlContext{namespace = ns_nodes(Nodes)});
 new_context([{namespace, Nodes}|T], C) ->
@@ -217,14 +250,17 @@ new_context([], C) ->
     C.
 
 
+-doc "".
 ns_nodes([{Prefix, URI}|T]) ->
     [{to_string(Prefix), to_atom(URI)}|ns_nodes(T)];
 ns_nodes([]) ->
     [].
 
+-doc "".
 full_parents(Ps, Doc) ->
     full_parents1(lists:reverse(Ps), [Doc], []).
 
+-doc "".
 full_parents1([{Name, Pos}|Ns], Content, Parents) ->
     E = locate_element(Name, Pos, Content),
     PN = #xmlNode{type = element,
@@ -235,6 +271,7 @@ full_parents1([], _E, Parents) ->
     Parents.
 
 
+-doc "".
 locate_element(Name, Pos, [E = #xmlElement{name = Name, pos = Pos}|_]) ->
     E;
 locate_element(_Name, Pos, [#xmlElement{pos = P}|_]) when P >= Pos ->
@@ -246,6 +283,7 @@ locate_element(Name, Pos, [_|T]) ->
     locate_element(Name, Pos, T).
 
 
+-doc "".
 match(Str, S = #state{}) ->
     Tokens = xmerl_xpath_scan:tokens(Str),
     case xmerl_xpath_parse:parse(Tokens) of
@@ -256,6 +294,7 @@ match(Str, S = #state{}) ->
     end.
 
 
+-doc "".
 match_expr({path, Type, Arg}, S) ->
     eval_path(Type, Arg, S#state.context);
 %% PrimaryExpr
@@ -266,6 +305,7 @@ match_expr(PrimExpr,S) ->
 
 
 
+-doc "".
 path_expr({refine, StepExpr1, StepExpr2}, S) ->
     ?dbg("StepExpr1=~p StepExpr2=~p~n", [StepExpr1,StepExpr2]),
     ?dbg("length(nodeset) = ~p~n", 
@@ -283,6 +323,7 @@ path_expr('/', S) ->
     S.
 
 
+-doc "".
 pred_expr([], S) ->
     S;
 pred_expr([{pred, Pred}|Preds], S = #state{}) ->
@@ -293,6 +334,7 @@ pred_expr([{pred, Pred}|Preds], S = #state{}) ->
 %% simple case: the predicate is a number, e.g. para[5].
 %% No need to iterate over all nodes in the nodeset; we know what to do.
 %%
+-doc "".
 eval_pred({number, N0}, 
 	  S = #state{context = C = #xmlContext{nodeset = NS,
 					       axis_type = AxisType}}) ->
@@ -382,6 +424,7 @@ eval_path(filter, {PathExpr, {pred, Pred}}, C = #xmlContext{}) ->
     S1 = match_expr(PathExpr, S),
     eval_pred(Pred, S1).
 
+-doc "".
 eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
 %%    NewNodeSet = xmerl_xpath_pred:eval(FC, Context),
     NewNodeSet = xmerl_xpath_lib:eval(primary_expr, PrimExpr, Context),
@@ -409,6 +452,7 @@ axis(Axis, NodeTest, Context = #xmlContext{nodeset = NS0}, Acc) ->
     update_nodeset(fwd_or_reverse(Axis, Context), NewNodeSet).
 
 
+-doc "".
 axis1(self, Tok, N, Acc, Context) ->
     match_self(Tok, N, Acc, Context);
 axis1(descendant, Tok, N, Acc, Context) ->
@@ -437,6 +481,7 @@ axis1(descendant_or_self, Tok, N, Acc, Context) ->
     match_descendant_or_self(Tok, N, Acc, Context).
 
 
+-doc "".
 fwd_or_reverse(ancestor, Context) ->
     reverse_axis(Context);
 fwd_or_reverse(ancestor_or_self, Context) ->
@@ -448,13 +493,16 @@ fwd_or_reverse(preceding, Context) ->
 fwd_or_reverse(_, Context) ->
     forward_axis(Context).
 
+-doc "".
 reverse_axis(Context) ->
     Context#xmlContext{axis_type = reverse}.
+-doc "".
 forward_axis(Context) ->
     Context#xmlContext{axis_type = forward}.
 
 
 
+-doc "".
 match_self(Tok, N, Acc, Context) ->
     case node_test(Tok, N, Context) of
 	true ->
@@ -464,6 +512,7 @@ match_self(Tok, N, Acc, Context) ->
     end.
 
 
+-doc "".
 match_descendant(Tok, N, Acc, Context) ->
     #xmlNode{parents = Ps, node = Node, type = Type} = N,
     case Type of
@@ -475,6 +524,7 @@ match_descendant(Tok, N, Acc, Context) ->
     end.
 
 
+-doc "".
 match_desc([E = #xmlElement{}|T], Parents, Tok, Acc, Context) ->
     Acc1 = match_desc(T, Parents, Tok, Acc, Context),
     N = #xmlNode{type = node_type(E),
@@ -496,11 +546,13 @@ match_desc([], _Parents, _Tok, Acc, _Context) ->
 
 %% "The 'descendant-or-self' axis contains the context node and the 
 %% descendants of the context node."
+-doc "".
 match_descendant_or_self(Tok, N, Acc, Context) ->
     Acc1 = match_descendant(Tok, N, Acc, Context),
     match_self(Tok, N, Acc1, Context).
 
 
+-doc "".
 match_child(Tok, N, Acc, Context) ->
     %?dbg("match_child(~p)~n", [write_node(N)]),
     #xmlNode{parents = Ps, node = Node, type = Type} = N,
@@ -521,6 +573,7 @@ match_child(Tok, N, Acc, Context) ->
 
 %% "The 'parent' axis contains the parent of the context node, 
 %% if there is one."
+-doc "".
 match_parent(Tok, N, Acc, Context) ->
     case N#xmlNode.parents of
 	[] ->
@@ -534,6 +587,7 @@ match_parent(Tok, N, Acc, Context) ->
 %% the ancestors of the context node consists of the parent of the context
 %% node and the parent's parent and so on; thus, the ancestor axis will 
 %% always include the root node, unless the context node is the root node."
+-doc "".
 match_ancestor(Tok, N, Acc, Context) ->
     Parents = N#xmlNode.parents,
     lists:foldl(
@@ -547,11 +601,13 @@ match_ancestor(Tok, N, Acc, Context) ->
 %% "The 'ancestor-or-self' axis contains the context node and the ancestors
 %% of the context node; thus, the acestor axis will always include the
 %% root node."
+-doc "".
 match_ancestor_or_self(Tok, N, Acc, Context) ->
     Acc1 = match_self(Tok, N, Acc, Context),
     match_ancestor(Tok, N, Acc1, Context).
 
 
+-doc "".
 match_following_sibling(_Tok, #xmlAttribute{}, Acc, _Context) ->
     Acc;
 match_following_sibling(_Tok, #xmlNamespace{}, Acc, _Context) ->
@@ -579,6 +635,7 @@ match_following_sibling(Tok, N, Acc, Context) ->
 %% "The 'following' axis contains all nodes in the same document as the
 %% context node that are after the context node in document order, excluding
 %% any descendants and excluding attribute nodes and namespace nodes."
+-doc "".
 match_following(Tok, N, Acc, Context) ->
     #xmlNode{parents = Ps, node = Node} = N,
     case Ps of
@@ -602,6 +659,7 @@ match_following(Tok, N, Acc, Context) ->
 %% "The preceding-sibling axis contains all the preceding siblings of the 
 %% context node; if the context node is an attribute node or namespace node,
 %% the preceding-sibling axis is empty."
+-doc "".
 match_preceding_sibling(_Tok, #xmlAttribute{}, Acc, _Context) ->
     Acc;
 match_preceding_sibling(_Tok, #xmlNamespace{}, Acc, _Context) ->
@@ -629,6 +687,7 @@ match_preceding_sibling(Tok, N, Acc, Context) ->
 %% "The 'preceding' axis contains all nodes in the same document as the context
 %% node that are before the context node in document order, excluding any
 %% ancestors and excluding attribute nodes and namespace nodes."
+-doc "".
 match_preceding(Tok, N, Acc, Context) ->
     #xmlNode{parents = Ps, node = Node} = N,
     case Ps of
@@ -652,6 +711,7 @@ match_preceding(Tok, N, Acc, Context) ->
 
 %% "The 'attribute' axis contains the attributes of the context node; the
 %% axis will be empty unless the context node is an element."
+-doc "".
 match_attribute(Tok, N, Acc, Context) ->
     case N#xmlNode.type of
 	element ->
@@ -668,6 +728,7 @@ match_attribute(Tok, N, Acc, Context) ->
 	    Acc
     end.
 
+-doc "".
 node_type(#xmlAttribute{}) ->	attribute;
 node_type(#xmlElement{}) ->	element;
 node_type(#xmlText{}) ->	text;
@@ -678,6 +739,7 @@ node_type(#xmlDocument{}) ->	root_node.
 
 %% "The namespace axis contains the namespace nodes of the context node;
 %% the axis will be empty unless the context node is an element."
+-doc "".
 match_namespace(Tok, N, Acc, Context) ->
     case N#xmlNode.type of
 	element ->
@@ -726,6 +788,7 @@ match_namespace(Tok, N, Acc, Context) ->
     end.
 
 
+-doc "".
 update_nodeset(Context = #xmlContext{axis_type = AxisType}, NodeSet) ->
     MapFold =
 	case AxisType of
@@ -742,6 +805,7 @@ update_nodeset(Context = #xmlContext{axis_type = AxisType}, NodeSet) ->
 
 
 
+-doc "".
 node_test(F, N, Context) when is_function(F) ->
     F(N, Context);
 node_test(_Test, #xmlNode{type=attribute,node=#xmlAttribute{name=xmlns}},
@@ -861,6 +925,7 @@ node_test(_Other, _N, _Context) ->
     false.
 
 
+-doc "".
 expanded_name(Prefix, Local, #xmlContext{namespace = NS}) ->
     case lists:keysearch(Prefix, 1, NS) of
 	{value, {_, URI}} ->
@@ -870,13 +935,16 @@ expanded_name(Prefix, Local, #xmlContext{namespace = NS}) ->
     end.
 
 
+-doc "".
 to_atom(A) when is_atom(A) -> A;
 to_atom(S) when is_list(S) -> list_to_atom(S).
 
+-doc "".
 to_string(A) when is_atom(A) -> atom_to_list(A);
 to_string(S) when is_list(S) -> S.
 
 
+-doc "".
 get_content(#xmlElement{content = C}) when is_list(C) ->
     C;
 get_content(#xmlElement{content = F} = E) when is_function(F) ->
@@ -892,7 +960,9 @@ get_content(#xmlDocument{content = C}) ->
     [C].
 
 
+-doc "".
 get_position(#xmlElement{pos = N}) ->
     N;
 get_position(#xmlText{pos = N}) ->
     N.
+

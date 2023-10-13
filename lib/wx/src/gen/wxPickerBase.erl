@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPickerBase).
+-moduledoc """
+Functions for wxPickerBase class
+
+Base abstract class for all pickers which support an auxiliary text control.
+
+This class handles all positioning and sizing of the text control like a an horizontal `m:wxBoxSizer` would do, with the text control on the left of the picker button.
+
+The proportion (see `m:wxSizer` documentation for more info about proportion values) of the picker control defaults to 1 when there isn't a text control associated (see `wxPB_USE_TEXTCTRL` style) and to 0 otherwise.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxColourPickerCtrl`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPickerBase](https://docs.wxwidgets.org/3.1/classwx_picker_base.html)
+""".
 -include("wxe.hrl").
 -export([getInternalMargin/1,getPickerCtrlProportion/1,getTextCtrl/1,getTextCtrlProportion/1,
   hasTextCtrl/1,isPickerCtrlGrowable/1,isTextCtrlGrowable/1,setInternalMargin/2,
@@ -65,6 +84,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPickerBase() :: wx:wx_object().
 -export_type([wxPickerBase/0]).
 %% @hidden
@@ -74,6 +94,11 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetinternalmargin">external documentation</a>.
+-doc """
+Sets the margin (in pixel) between the picker and the text control.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec setInternalMargin(This, Margin) -> 'ok' when
 	This::wxPickerBase(), Margin::integer().
 setInternalMargin(#wx_ref{type=ThisT}=This,Margin)
@@ -82,6 +107,11 @@ setInternalMargin(#wx_ref{type=ThisT}=This,Margin)
   wxe_util:queue_cmd(This,Margin,?get_env(),?wxPickerBase_SetInternalMargin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasegetinternalmargin">external documentation</a>.
+-doc """
+Returns the margin (in pixel) between the picker and the text control.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec getInternalMargin(This) -> integer() when
 	This::wxPickerBase().
 getInternalMargin(#wx_ref{type=ThisT}=This) ->
@@ -90,6 +120,13 @@ getInternalMargin(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_GetInternalMargin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesettextctrlproportion">external documentation</a>.
+-doc """
+Sets the proportion value of the text control.
+
+Look at the detailed description of `m:wxPickerBase` for more info.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec setTextCtrlProportion(This, Prop) -> 'ok' when
 	This::wxPickerBase(), Prop::integer().
 setTextCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
@@ -98,6 +135,11 @@ setTextCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
   wxe_util:queue_cmd(This,Prop,?get_env(),?wxPickerBase_SetTextCtrlProportion).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetpickerctrlproportion">external documentation</a>.
+-doc """
+Sets the proportion value of the picker.
+
+Look at the detailed description of `m:wxPickerBase` for more info.
+""".
 -spec setPickerCtrlProportion(This, Prop) -> 'ok' when
 	This::wxPickerBase(), Prop::integer().
 setPickerCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
@@ -106,6 +148,11 @@ setPickerCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
   wxe_util:queue_cmd(This,Prop,?get_env(),?wxPickerBase_SetPickerCtrlProportion).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasegettextctrlproportion">external documentation</a>.
+-doc """
+Returns the proportion value of the text control.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec getTextCtrlProportion(This) -> integer() when
 	This::wxPickerBase().
 getTextCtrlProportion(#wx_ref{type=ThisT}=This) ->
@@ -114,6 +161,7 @@ getTextCtrlProportion(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_GetTextCtrlProportion).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasegetpickerctrlproportion">external documentation</a>.
+-doc "Returns the proportion value of the picker.".
 -spec getPickerCtrlProportion(This) -> integer() when
 	This::wxPickerBase().
 getPickerCtrlProportion(#wx_ref{type=ThisT}=This) ->
@@ -122,6 +170,7 @@ getPickerCtrlProportion(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_GetPickerCtrlProportion).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasehastextctrl">external documentation</a>.
+-doc "Returns true if this window has a valid text control (i.e. if the `wxPB_USE_TEXTCTRL` style was given when creating this control).".
 -spec hasTextCtrl(This) -> boolean() when
 	This::wxPickerBase().
 hasTextCtrl(#wx_ref{type=ThisT}=This) ->
@@ -130,6 +179,11 @@ hasTextCtrl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_HasTextCtrl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasegettextctrl">external documentation</a>.
+-doc """
+Returns a pointer to the text control handled by this window or NULL if the `wxPB_USE_TEXTCTRL` style was not specified when this control was created.
+
+Remark: The contents of the text control could be an invalid representation of the entity which can be chosen through the picker (e.g. when the user enters an invalid colour syntax because of a typo). Thus you should never parse the content of the textctrl to get the user's input; rather use the derived-class getter (e.g. `wxColourPickerCtrl:getColour/1`, `wxFilePickerCtrl:getPath/1`, etc).
+""".
 -spec getTextCtrl(This) -> wxTextCtrl:wxTextCtrl() when
 	This::wxPickerBase().
 getTextCtrl(#wx_ref{type=ThisT}=This) ->
@@ -138,6 +192,11 @@ getTextCtrl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_GetTextCtrl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbaseistextctrlgrowable">external documentation</a>.
+-doc """
+Returns true if the text control is growable.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec isTextCtrlGrowable(This) -> boolean() when
 	This::wxPickerBase().
 isTextCtrlGrowable(#wx_ref{type=ThisT}=This) ->
@@ -146,6 +205,7 @@ isTextCtrlGrowable(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPickerBase_IsTextCtrlGrowable).
 
 %% @equiv setPickerCtrlGrowable(This, [])
+-doc "".
 -spec setPickerCtrlGrowable(This) -> 'ok' when
 	This::wxPickerBase().
 
@@ -154,6 +214,7 @@ setPickerCtrlGrowable(This)
   setPickerCtrlGrowable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetpickerctrlgrowable">external documentation</a>.
+-doc "Sets the picker control as growable when `grow` is true.".
 -spec setPickerCtrlGrowable(This, [Option]) -> 'ok' when
 	This::wxPickerBase(),
 	Option :: {'grow', boolean()}.
@@ -166,6 +227,7 @@ setPickerCtrlGrowable(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxPickerBase_SetPickerCtrlGrowable).
 
 %% @equiv setTextCtrlGrowable(This, [])
+-doc "".
 -spec setTextCtrlGrowable(This) -> 'ok' when
 	This::wxPickerBase().
 
@@ -174,6 +236,11 @@ setTextCtrlGrowable(This)
   setTextCtrlGrowable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesettextctrlgrowable">external documentation</a>.
+-doc """
+Sets the text control as growable when `grow` is true.
+
+This function can be used only when `hasTextCtrl/1` returns true.
+""".
 -spec setTextCtrlGrowable(This, [Option]) -> 'ok' when
 	This::wxPickerBase(),
 	Option :: {'grow', boolean()}.
@@ -186,6 +253,7 @@ setTextCtrlGrowable(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxPickerBase_SetTextCtrlGrowable).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbaseispickerctrlgrowable">external documentation</a>.
+-doc "Returns true if the picker control is growable.".
 -spec isPickerCtrlGrowable(This) -> boolean() when
 	This::wxPickerBase().
 isPickerCtrlGrowable(#wx_ref{type=ThisT}=This) ->
@@ -562,3 +630,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

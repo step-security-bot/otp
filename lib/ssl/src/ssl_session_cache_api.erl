@@ -21,24 +21,101 @@
 %%
 
 -module(ssl_session_cache_api).
+-moduledoc """
+TLS session cache API
+
+Defines the API for the TLS session cache (pre TLS-1.3) so that the data storage scheme can be replaced by defining a new callback module implementing this API.
+""".
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
 -export_type([session_cache_key/0, session/0, partial_key/0, session_cache_ref/0]).
 
+-doc "".
 -type session_cache_ref() :: any().
+-doc "A key to an entry in the session cache.".
 -type session_cache_key() :: {partial_key(), ssl:session_id()}.
+-doc "The session data that is stored for each session.".
 -opaque session()         :: #session{}.
+-doc "The opaque part of the key. Does not need to be handled by the callback.".
 -opaque partial_key()     :: {ssl:host(), inet:port_number()} | inet:port_number().
 
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+Args = [proplists:proplist()](`t:proplists:proplist/0`)  
+
+Includes property `{role, client | server}`. Currently this is the only predefined property, there can also be user-defined properties. See also application environment variable [session_cb_init_args](ssl_app.md).
+
+Performs possible initializations of the cache and returns a reference to it that is used as parameter to the other API functions. Is called by the cache handling processes `init` function, hence putting the same requirements on it as a normal process `init` function. This function is called twice when starting the SSL application, once with the role client and once with the role server, as the SSL application must be prepared to take on both roles.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -callback init(list()) -> session_cache_ref().
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+  As returned by init/0  
+
+Takes care of possible cleanup that is needed when the cache handling process terminates.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback terminate(session_cache_ref()) -> any().
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+Key = [session_cache_key()](`t:session_cache_key/0`)  
+Session = [session()](`t:session/0`) | undefined  
+
+Looks up a cache entry. Is to be callable from any process.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback lookup(session_cache_ref(), session_cache_key()) -> #session{} | undefined.
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+Key = [session_cache_key()](`t:session_cache_key/0`)  
+Session = [session()](`t:session/0`)  
+
+Caches a new session or updates an already cached one. Is only called from the cache handling process.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback update(session_cache_ref(), session_cache_key(), #session{}) -> any().
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+Key = [session_cache_key()](`t:session_cache_key/0`)  
+
+Deletes a cache entry. Is only called from the cache handling process.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback delete(session_cache_ref(), session_cache_key()) -> any().
+-doc """
+Fun = fun()  
+Acc0 = Acc = term()  
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+
+Calls `Fun(Elem, AccIn)` on successive elements of the cache, starting with `AccIn == Acc0`. `Fun/2` must return a new accumulator, which is passed to the next call. The function returns the final value of the accumulator. `Acc0` is returned if the cache is empty.
+
+> #### Note {: class=info }
+> Since OTP-23.3 this functions is only used on the client side and does not need to implemented for a server cache.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback foldl(fun(), term(), session_cache_ref()) -> term().
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+PartialKey = [partial_key()](`t:partial_key/0`)  
+Session = [session()](`t:session/0`)  
+
+Selects sessions that can be reused, that is sessions that include `PartialKey` in its key. Is to be callable from any process.
+
+> #### Note {: class=info }
+> Since OTP-23.3 This functions is only used on the client side and does not need to implemented for a server cache.
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -callback select_session(session_cache_ref(), {ssl:host(), inet:port_number()} | inet:port_number()) -> [#session{}].
+-doc """
+Cache = [session_cache_ref()](`t:session_cache_ref/0`)  
+
+Returns the number of sessions in the cache. If size exceeds the maximum number of sessions, the current cache entries will be invalidated regardless of their remaining lifetime. Is to be callable from any process.
+""".
+-doc(#{since => <<"OTP 19.3">>}).
 -callback size(session_cache_ref()) -> integer().
 
 -optional_callbacks([select_session/2, foldl/3]).
+

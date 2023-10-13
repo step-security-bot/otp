@@ -150,6 +150,29 @@
 %%   otherwise. Not recommended; included for compatibility with `sets'.
 
 -module(gb_sets).
+-moduledoc """
+Sets represented by general balanced trees.
+
+This module provides ordered sets using Prof. Arne Andersson's General Balanced Trees. Ordered sets can be much more efficient than using ordered lists, for larger sets, but depends on the application.
+
+The data representing a set as used by this module is to be regarded as opaque by other modules. In abstract terms, the representation is a composite type of existing Erlang terms. See note on [data types](`p:system:data_types.md#no_user_types`). Any code assuming knowledge of the format is running on thin ice.
+
+This module considers two elements as different if and only if they do not compare equal (`==`).
+
+## Complexity Note
+
+The complexity on set operations is bounded by either *O(|S|)* or *O(|T| * log(|S|))*, where S is the largest given set, depending on which is fastest for any particular function call. For operating on sets of almost equal size, this implementation is about 3 times slower than using ordered-list sets directly. For sets of very different sizes, however, this solution can be arbitrarily much faster; in practical cases, often 10-100 times. This implementation is particularly suited for accumulating elements a few at a time, building up a large set (> 100-200 elements), and repeatedly testing for membership in the current set.
+
+As with normal tree structures, lookup (membership testing), insertion, and deletion have logarithmic complexity.
+
+## Compatibility
+
+See the [Compatibility Section in the `sets(3)` module](`m:sets#compatibility`) for information about the compatibility of the different implementations of sets in the Standard Library.
+
+## See Also
+
+`m:gb_trees`, `m:ordsets`, `m:sets`
+""".
 
 -export([empty/0, is_empty/1, size/1, singleton/1, is_member/2,
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
@@ -199,24 +222,31 @@
 -export_type([set/0, set/1, iter/0, iter/1]).
 
 -type gb_set_node(Element) :: 'nil' | {Element, _, _}.
+-doc "A general balanced set.".
 -opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
+-doc "".
 -type set() :: set(_).
+-doc "A general balanced set iterator.".
 -opaque iter(Element) :: [gb_set_node(Element)].
+-doc "".
 -type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc "Returns a new empty set.".
 -spec empty() -> Set when
       Set :: set(none()).
 
 empty() ->
     {0, nil}.
 
+-doc "Returns a new empty set.".
 -spec new() -> Set when
       Set :: set(none()).
 
 new() -> empty().
 
+-doc "Returns `true` if `Set` is an empty set, otherwise `false`.".
 -spec is_empty(Set) -> boolean() when
       Set :: set().
 
@@ -225,12 +255,15 @@ is_empty({0, nil}) ->
 is_empty(_) ->
     false.
 
+-doc "Returns the number of elements in `Set`.".
 -spec size(Set) -> non_neg_integer() when
       Set :: set().
 
 size({Size, _}) ->
     Size.
 
+-doc "Returns `true` if `Set1` and `Set2` are equal, that is when every element of one set is also a member of the respective other set, otherwise `false`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec is_equal(Set1, Set2) -> boolean() when
       Set1 :: set(),
       Set2 :: set().
@@ -257,17 +290,20 @@ is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
             throw(not_equal)
     end.
 
+-doc "Returns a set containing only element `Element`.".
 -spec singleton(Element) -> set(Element).
 
 singleton(Key) ->
     {1, {Key, nil, nil}}.
 
+-doc(#{equiv => is_member/2}).
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 
 is_element(Key, S) ->
     is_member(Key, S).
 
+-doc "Returns `true` if `Element` is an element of `Set`, otherwise `false`.".
 -spec is_member(Element, Set) -> boolean() when
       Set :: set(Element).
 
@@ -283,6 +319,7 @@ is_member_1(_, {_, _, _}) ->
 is_member_1(_, nil) ->
     false.
 
+-doc "Returns a new set formed from `Set1` with `Element` inserted. Assumes that `Element` is not present in `Set1`.".
 -spec insert(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -341,6 +378,7 @@ count({_, Sm, Bi}) ->
 count(nil) ->
     {1, 0}.
 
+-doc "Rebalances the tree representation of `Set1`. Notice that this is rarely necessary, but can be motivated when a large number of elements have been deleted from the tree without further insertions. Rebalancing can then be forced to minimise lookup times, as deletion does not rebalance the tree.".
 -spec balance(Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -368,6 +406,7 @@ balance_list_1([Key | L], 1) ->
 balance_list_1(L, 0) ->
     {nil, L}.
 
+-doc "Returns a new set formed from `Set1` with `Element` inserted. If `Element` is already an element in `Set1`, nothing is changed.".
 -spec add_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -375,6 +414,7 @@ balance_list_1(L, 0) ->
 add_element(X, S) ->
     add(X, S).
 
+-doc(#{equiv => add_element/2}).
 -spec add(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -387,6 +427,7 @@ add(X, S) ->
 	    insert(X, S)
     end.
 
+-doc "Returns a set of the elements in `List`, where `List` can be unordered and contain duplicates.".
 -spec from_list(List) -> Set when
       List :: [Element],
       Set :: set(Element).
@@ -394,6 +435,7 @@ add(X, S) ->
 from_list(L) ->
     from_ordset(ordsets:from_list(L)).
 
+-doc "Turns an ordered-set list `List` into a set. The list must not contain duplicates.".
 -spec from_ordset(List) -> Set when
       List :: [Element],
       Set :: set(Element).
@@ -402,6 +444,7 @@ from_ordset(L) ->
     S = length(L),
     {S, balance_list(L, S)}.
 
+-doc(#{equiv => delete_any/2}).
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -409,6 +452,7 @@ from_ordset(L) ->
 del_element(Key, S) ->
     delete_any(Key, S).
 
+-doc "Returns a new set formed from `Set1` with `Element` removed. If `Element` is not an element in `Set1`, nothing is changed.".
 -spec delete_any(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -421,6 +465,7 @@ delete_any(Key, S) ->
  	    S
     end.
 
+-doc "Returns a new set formed from `Set1` with `Element` removed. Assumes that `Element` is present in `Set1`.".
 -spec delete(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -445,6 +490,7 @@ merge(Smaller, Larger) ->
     {Key, Larger1} = take_smallest1(Larger),
     {Key, Smaller, Larger1}.
 
+-doc "Returns `{Element, Set2}`, where `Element` is the smallest element in `Set1`, and `Set2` is this set with `Element` deleted. Assumes that `Set1` is not empty.".
 -spec take_smallest(Set1) -> {Element, Set2} when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -459,6 +505,7 @@ take_smallest1({Key, Smaller, Larger}) ->
     {Key1, Smaller1} = take_smallest1(Smaller),
     {Key1, {Key, Smaller1, Larger}}.
 
+-doc "Returns the smallest element in `Set`. Assumes that `Set` is not empty.".
 -spec smallest(Set) -> Element when
       Set :: set(Element).
 
@@ -470,6 +517,7 @@ smallest_1({Key, nil, _Larger}) ->
 smallest_1({_Key, Smaller, _Larger}) ->
     smallest_1(Smaller).
 
+-doc "Returns `{Element, Set2}`, where `Element` is the largest element in `Set1`, and `Set2` is this set with `Element` deleted. Assumes that `Set1` is not empty.".
 -spec take_largest(Set1) -> {Element, Set2} when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -484,6 +532,7 @@ take_largest1({Key, Smaller, Larger}) ->
     {Key1, Larger1} = take_largest1(Larger),
     {Key1, {Key, Smaller, Larger1}}.
 
+-doc "Returns the largest element in `Set`. Assumes that `Set` is not empty.".
 -spec largest(Set) -> Element when
       Set :: set(Element).
 
@@ -495,6 +544,7 @@ largest_1({Key, _Smaller, nil}) ->
 largest_1({_Key, _Smaller, Larger}) ->
     largest_1(Larger).
 
+-doc "Returns the elements of `Set` as a list.".
 -spec to_list(Set) -> List when
       Set :: set(Element),
       List :: [Element].
@@ -508,6 +558,7 @@ to_list({Key, Small, Big}, L) ->
     to_list(Small, [Key | to_list(Big, L)]);
 to_list(nil, L) -> L.
 
+-doc "Returns an iterator that can be used for traversing the entries of `Set`; see `next/1`. The implementation of this is very efficient; traversing the whole set using `next/1` is only slightly slower than getting the list of all elements using `to_list/1` and traversing that. The main advantage of the iterator approach is that it does not require the complete list of all elements to be built in memory at one time.".
 -spec iterator(Set) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element).
@@ -525,6 +576,8 @@ iterator({_, L, _} = T, As) ->
 iterator(nil, As) ->
     As.
 
+-doc "Returns an iterator that can be used for traversing the entries of `Set`; see `next/1`. The difference as compared to the iterator returned by `iterator/1` is that the first element greater than or equal to `Element` is returned.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec iterator_from(Element, Set) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element).
@@ -541,6 +594,7 @@ iterator_from(S, {_, L, _} = T, As) ->
 iterator_from(_, nil, As) ->
     As.
 
+-doc "Returns `{Element, Iter2}`, where `Element` is the smallest element referred to by iterator `Iter1`, and `Iter2` is the new iterator to be used for traversing the remaining elements, or the atom `none` if no elements remain.".
 -spec next(Iter1) -> {Element, Iter2} | 'none' when
       Iter1 :: iter(Element),
       Iter2 :: iter(Element).
@@ -573,6 +627,7 @@ next([]) ->
 %% traversing the elements can be devised, but they all have higher
 %% overhead.
 
+-doc "Returns the merged (union) set of `Set1` and `Set2`.".
 -spec union(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -678,6 +733,7 @@ balance_revlist_1([Key | L], 1) ->
 balance_revlist_1(L, 0) ->
     {nil, L}.
 
+-doc "Returns the merged (union) set of the list of sets.".
 -spec union(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -693,6 +749,7 @@ union_list(S, []) -> S.
 
 %% The rest is modelled on the above.
 
+-doc "Returns the intersection of `Set1` and `Set2`.".
 -spec intersection(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -744,6 +801,7 @@ intersection_2([], _, As, S) ->
 intersection_2(_, [], As, S) ->
     {S, balance_revlist(As, S)}.
 
+-doc "Returns the intersection of the non-empty list of sets.".
 -spec intersection(SetList) -> Set when
       SetList :: [set(Element),...],
       Set :: set(Element).
@@ -755,6 +813,7 @@ intersection_list(S, [S1 | Ss]) ->
     intersection_list(intersection(S, S1), Ss);
 intersection_list(S, []) -> S.
 
+-doc "Returns `true` if `Set1` and `Set2` are disjoint (have no elements in common), otherwise `false`.".
 -spec is_disjoint(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -785,6 +844,7 @@ is_disjoint_1(_, nil) ->
 %% the sets. Therefore, we always build a new tree, and thus we need to
 %% traverse the whole element list of the left operand.
 
+-doc "Returns only the elements of `Set1` that are not also elements of `Set2`.".
 -spec subtract(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -793,6 +853,7 @@ is_disjoint_1(_, nil) ->
 subtract(S1, S2) ->
     difference(S1, S2).
 
+-doc(#{equiv => subtract/2}).
 -spec difference(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -845,6 +906,7 @@ difference_2(Xs, [], As, S) ->
 %% Subset testing is much the same thing as set difference, but
 %% without the construction of a new set.
 
+-doc "Returns `true` when every element of `Set1` is also a member of `Set2`, otherwise `false`.".
 -spec is_subset(Set1, Set2) -> boolean() when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -889,6 +951,7 @@ is_subset_2(_, []) ->
 
 %% For compatibility with `sets':
 
+-doc "Returns `true` if `Term` appears to be a set, otherwise `false`. This function will return `true` for any term that coincides with the representation of a `gb_set`, while not really being a `gb_set`, thus it might return false positive results. See also note on [data types](`p:system:data_types.md#no_user_types`).".
 -spec is_set(Term) -> boolean() when
       Term :: term().
 
@@ -896,6 +959,7 @@ is_set({0, nil}) -> true;
 is_set({N, {_, _, _}}) when is_integer(N), N >= 0 -> true;
 is_set(_) -> false.
 
+-doc "Filters elements in `Set1` using predicate function `Pred`.".
 -spec filter(Pred, Set1) -> Set2 when
       Pred :: fun((Element) -> boolean()),
       Set1 :: set(Element),
@@ -904,6 +968,8 @@ is_set(_) -> false.
 filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
+-doc "Maps elements in `Set1` using mapping function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec map(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> Element2),
       Set1 :: set(Element1),
@@ -916,6 +982,8 @@ map_1({Key, Small, Big}, F, L) ->
     map_1(Small, F, [F(Key) | map_1(Big, F, L)]);
 map_1(nil, _F, L) -> L.
 
+-doc "Filters and maps elements in `Set1` using function `Fun`.".
+-doc(#{since => <<"OTP @OTP-18622@">>}).
 -spec filtermap(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> boolean() | {true, Element2}),
       Set1 :: set(Element1),
@@ -935,6 +1003,7 @@ filtermap_1({Key, Small, Big}, F, L) ->
     end;
 filtermap_1(nil, _F, L) -> L.
 
+-doc "Folds `Function` over every element in `Set` returning the final value of the accumulator.".
 -spec fold(Function, Acc0, Set) -> Acc1 when
       Function :: fun((Element, AccIn) -> AccOut),
       Acc0 :: Acc,
@@ -952,3 +1021,4 @@ fold_1(F, Acc0, {Key, Small, Big}) ->
     fold_1(F, Acc, Big);
 fold_1(_, Acc, _) ->
     Acc.
+

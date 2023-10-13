@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMiniFrame).
+-moduledoc """
+Functions for wxMiniFrame class
+
+A miniframe is a frame with a small title bar. It is suitable for floating toolbars that must not take up too much screen area.
+
+An example of mini frame can be seen in the page_samples_dialogs using the "Mini frame" command of the "Generic dialogs" submenu.
+
+Styles
+
+This class supports the following styles:
+
+Remark: This class has miniframe functionality under Windows and GTK, i.e. the presence of mini frame will not be noted in the task bar and focus behaviour is different. On other platforms, it behaves like a normal frame.
+
+See: `m:wxMDIParentFrame`, `m:wxMDIChildFrame`, `m:wxFrame`, `m:wxDialog`
+
+This class is derived (and can use functions) from: `m:wxFrame` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMiniFrame](https://docs.wxwidgets.org/3.1/classwx_mini_frame.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,new/0,new/3,new/4]).
 
@@ -70,6 +89,7 @@
   showFullScreen/3,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMiniFrame() :: wx:wx_object().
 -export_type([wxMiniFrame/0]).
 %% @hidden
@@ -80,12 +100,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxMiniFrame().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxMiniFrame_new_0),
   wxe_util:rec(?wxMiniFrame_new_0).
 
 %% @equiv new(Parent,Id,Title, [])
+-doc "".
 -spec new(Parent, Id, Title) -> wxMiniFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -94,6 +116,13 @@ new(Parent,Id,Title)
   new(Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+-doc """
+Constructor, creating the window.
+
+Remark: The frame behaves like a normal frame on non-Windows platforms.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Title, [Option]) -> wxMiniFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -112,6 +141,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxMiniFrame_new_4).
 
 %% @equiv create(This,Parent,Id,Title, [])
+-doc "".
 -spec create(This, Parent, Id, Title) -> boolean() when
 	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -120,6 +150,11 @@ create(This,Parent,Id,Title)
   create(This,Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxminiframe.html#wxminiframecreate">external documentation</a>.
+-doc """
+Used in two-step frame construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -139,6 +174,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxMiniFrame_Create).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+Destroys all child windows and menu bar if present.
+""".
 -spec destroy(This::wxMiniFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMiniFrame),
@@ -598,3 +638,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

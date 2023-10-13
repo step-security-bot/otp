@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSpinButton).
+-moduledoc """
+Functions for wxSpinButton class
+
+A `m:wxSpinButton` has two small up and down (or left and right) arrow buttons.
+
+It is often used next to a text control for increment and decrementing a value. Portable programs should try to use `m:wxSpinCtrl` instead as `m:wxSpinButton` is not implemented for all platforms but `m:wxSpinCtrl` is as it degenerates to a simple `m:wxTextCtrl` on such platforms.
+
+Note: the range supported by this control (and `m:wxSpinCtrl`) depends on the platform but is at least `-0x8000` to `0x7fff`. Under GTK and Win32 with sufficiently new version of `comctrl32.dll` (at least 4.71 is required, 5.80 is recommended) the full 32 bit range is supported.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxSpinCtrl`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSpinButton](https://docs.wxwidgets.org/3.1/classwx_spin_button.html)
+
+## Events
+
+Event types emitted from this class: [`spin`](`m:wxSpinEvent`), [`spin_up`](`m:wxSpinEvent`), [`spin_down`](`m:wxSpinEvent`)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getMax/1,getMin/1,getValue/1,new/0,new/1,
   new/2,setRange/3,setValue/2]).
@@ -63,6 +86,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSpinButton() :: wx:wx_object().
 -export_type([wxSpinButton/0]).
 %% @hidden
@@ -72,12 +96,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonwxspinbutton">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxSpinButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxSpinButton_new_0),
   wxe_util:rec(?wxSpinButton_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxSpinButton() when
 	Parent::wxWindow:wxWindow().
 
@@ -86,6 +112,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonwxspinbutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a spin button.
+
+See: `create/3`
+""".
 -spec new(Parent, [Option]) -> wxSpinButton() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -105,6 +136,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxSpinButton_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxSpinButton(), Parent::wxWindow:wxWindow().
 
@@ -113,6 +145,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttoncreate">external documentation</a>.
+-doc """
+Scrollbar creation function called by the spin button constructor.
+
+See `new/2` for details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSpinButton(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -133,6 +170,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxSpinButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttongetmax">external documentation</a>.
+-doc """
+Returns the maximum permissible value.
+
+See: `setRange/3`
+""".
 -spec getMax(This) -> integer() when
 	This::wxSpinButton().
 getMax(#wx_ref{type=ThisT}=This) ->
@@ -141,6 +183,11 @@ getMax(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinButton_GetMax).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttongetmin">external documentation</a>.
+-doc """
+Returns the minimum permissible value.
+
+See: `setRange/3`
+""".
 -spec getMin(This) -> integer() when
 	This::wxSpinButton().
 getMin(#wx_ref{type=ThisT}=This) ->
@@ -149,6 +196,11 @@ getMin(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinButton_GetMin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttongetvalue">external documentation</a>.
+-doc """
+Returns the current spin button value.
+
+See: `setValue/2`
+""".
 -spec getValue(This) -> integer() when
 	This::wxSpinButton().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -157,6 +209,13 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinButton_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonsetrange">external documentation</a>.
+-doc """
+Sets the range of the spin button.
+
+In portable code, `min` should be less than or equal to `max`. In wxMSW it is possible to specify minimum greater than maximum and the native control supports the same range as if they were reversed, but swaps the meaning of up and down arrows, however this dubious feature is not supported on other platforms.
+
+See: `getMin/1`, `getMax/1`
+""".
 -spec setRange(This, Min, Max) -> 'ok' when
 	This::wxSpinButton(), Min::integer(), Max::integer().
 setRange(#wx_ref{type=ThisT}=This,Min,Max)
@@ -165,6 +224,7 @@ setRange(#wx_ref{type=ThisT}=This,Min,Max)
   wxe_util:queue_cmd(This,Min,Max,?get_env(),?wxSpinButton_SetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonsetvalue">external documentation</a>.
+-doc "Sets the value of the spin button.".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxSpinButton(), Value::integer().
 setValue(#wx_ref{type=ThisT}=This,Value)
@@ -173,6 +233,7 @@ setValue(#wx_ref{type=ThisT}=This,Value)
   wxe_util:queue_cmd(This,Value,?get_env(),?wxSpinButton_SetValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroys the spin button control.".
 -spec destroy(This::wxSpinButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSpinButton),
@@ -547,3 +608,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

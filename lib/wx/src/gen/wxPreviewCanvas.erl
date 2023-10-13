@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPreviewCanvas).
+-moduledoc """
+Functions for wxPreviewCanvas class
+
+A preview canvas is the default canvas used by the print preview system to display the preview.
+
+See: `m:wxPreviewFrame`, `m:wxPreviewControlBar`, `m:wxPrintPreview`
+
+This class is derived (and can use functions) from: `m:wxScrolledWindow` `m:wxPanel` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPreviewCanvas](https://docs.wxwidgets.org/3.1/classwx_preview_canvas.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -64,6 +75,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPreviewCanvas() :: wx:wx_object().
 -export_type([wxPreviewCanvas/0]).
 %% @hidden
@@ -475,3 +487,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

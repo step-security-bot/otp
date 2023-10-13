@@ -22,6 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(et_selector).
+-moduledoc "Define event transforms and trace patterns".
 
 -export([make_pattern/1,
          change_pattern/1,
@@ -47,6 +48,21 @@
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
 
+-doc """
+RawPattern = detail_level()  
+TracePattern = erlang_trace_pattern_match_spec()  
+detail_level() = min | max | integer(X) when X >= 0, X =< 100  
+
+Makes a trace pattern suitable to feed change_pattern/1
+
+Min detail level deactivates tracing of calls to `et:trace_me/4,5`
+
+Max detail level activates tracing of all calls to `et:trace_me/4,5`
+
+integer(X) detail level activates tracing of all calls to `et:trace_me/4,5` whose detail level argument is lesser than X.
+
+See also `erlang:trace_pattern/2` for more info about its `match_spec()`
+""".
 make_pattern(undefined) ->
     {undefined, undefined};
 make_pattern({Mod, Pattern}) when is_atom(Mod) ->
@@ -94,6 +110,23 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 
+-doc """
+Pattern = detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec()  
+detail_level() = min | max | integer(X) when X >= 0, X =< 100  
+empty_match_spec() = []  
+
+Activates/deactivates tracing by changing the current trace pattern.
+
+`min` detail level deactivates tracing of calls to `et:trace_me/4,5`
+
+`max` detail level activates tracing of all calls to `et:trace_me/4,5`
+
+`integer(X)` detail level activates tracing of all calls to `et:trace_me/4,5` whose detail level argument is lesser than `X`.
+
+An empty match spec deactivates tracing of calls to `et:trace_me/4,5`
+
+Other match specs activates tracing of calls to `et:trace_me/4,5` accordingly with `erlang:trace_pattern/2`.
+""".
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->
     MFA = {Mod, trace_me, 5},
     case Pattern of
@@ -177,6 +210,42 @@ error_to_exit({ok, Res}) ->
 %%                   should be dropped
 %%----------------------------------------------------------------------
 
+-doc """
+Mod = module_name() | undefined  
+module_name() = atom()  
+ValidTraceData = erlang_trace_data() | record(event)  
+erlang_trace_data() = \{trace, Pid, Label, Info\} | \{trace, Pid, Label, Info, Extra\} | \{trace_ts, Pid, Label, Info, ReportedTS\} | \{trace_ts, Pid, Label, Info, Extra, ReportedTS\} | \{seq_trace, Label, Info\} | \{seq_trace, Label, Info, ReportedTS\} | \{drop, NumberOfDroppedItems\}  
+
+Transforms trace data and makes an event record out of it.
+
+See `erlang:trace/3` for more info about the semantics of the trace data.
+
+An event record consists of the following fields:
+
+* __*detail_level*__ - Noise has a high level as opposed to essentials.
+
+* __*trace_ts*__ - Time when the trace was generated. Same as event_ts if omitted in trace data.
+
+* __*event_ts*__ - Time when the event record was created.
+
+* __*from*__ - From actor, such as sender of a message.
+
+* __*to*__ - To actor, such as receiver of message.
+
+* __*label*__ - Label intended to provide a brief event summary.
+
+* __*contents*__ - All nitty gritty details of the event.
+
+See `et:trace_me/4`and `et:trace_me/5` for details.
+
+Returns:
+
+* __*\{true, Event\}*__ - where Event is an #event\{\} record representing the trace data
+
+* __*true*__ - means that the trace data already is an event record and that it is valid as it is. No transformation is needed.
+
+* __*false*__ - means that the trace data is uninteresting and should be dropped
+""".
 parse_event(_Mod, E) when is_record(E, event) ->
     true;
 parse_event(Mod, Trace) ->
@@ -594,3 +663,4 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
                                 [?MODULE, ?LINE, Trace]),
             false
     end.
+

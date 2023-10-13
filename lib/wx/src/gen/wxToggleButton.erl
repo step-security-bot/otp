@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxToggleButton).
+-moduledoc """
+Functions for wxToggleButton class
+
+`m:wxToggleButton` is a button that stays pressed when clicked by the user. In other words, it is similar to `m:wxCheckBox` in functionality but looks like a `m:wxButton`.
+
+Since wxWidgets version 2.9.0 this control emits an update UI event.
+
+You can see `m:wxToggleButton` in action in page_samples_widgets.
+
+See: `m:wxCheckBox`, `m:wxButton`, `wxBitmapToggleButton` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxToggleButton](https://docs.wxwidgets.org/3.1/classwx_toggle_button.html)
+
+## Events
+
+Event types emitted from this class: [`command_togglebutton_clicked`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getValue/1,new/0,new/3,new/4,setValue/2]).
 
@@ -62,6 +81,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxToggleButton() :: wx:wx_object().
 -export_type([wxToggleButton/0]).
 %% @hidden
@@ -71,12 +91,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttonwxtogglebutton">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxToggleButton().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxToggleButton_new_0),
   wxe_util:rec(?wxToggleButton_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxToggleButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -85,6 +107,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttonwxtogglebutton">external documentation</a>.
+-doc """
+Constructor, creating and showing a toggle button.
+
+See: `create/5`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxToggleButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -105,6 +132,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxToggleButton_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -113,6 +141,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttoncreate">external documentation</a>.
+-doc """
+Creates the toggle button for two-step construction.
+
+See `new/4` for details.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -134,6 +167,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxToggleButton_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttongetvalue">external documentation</a>.
+-doc """
+Gets the state of the toggle button.
+
+Return: Returns true if it is pressed, false otherwise.
+""".
 -spec getValue(This) -> boolean() when
 	This::wxToggleButton().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -142,6 +180,11 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxToggleButton_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttonsetvalue">external documentation</a>.
+-doc """
+Sets the toggle button to the given state.
+
+This does not cause a `EVT_TOGGLEBUTTON` event to be emitted.
+""".
 -spec setValue(This, State) -> 'ok' when
 	This::wxToggleButton(), State::boolean().
 setValue(#wx_ref{type=ThisT}=This,State)
@@ -150,6 +193,7 @@ setValue(#wx_ref{type=ThisT}=This,State)
   wxe_util:queue_cmd(This,State,?get_env(),?wxToggleButton_SetValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the toggle button.".
 -spec destroy(This::wxToggleButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToggleButton),
@@ -524,3 +568,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

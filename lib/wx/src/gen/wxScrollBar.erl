@@ -19,6 +19,37 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxScrollBar).
+-moduledoc """
+Functions for wxScrollBar class
+
+A `m:wxScrollBar` is a control that represents a horizontal or vertical scrollbar.
+
+It is distinct from the two scrollbars that some windows provide automatically, but the two types of scrollbar share the way events are received.
+
+Remark: A scrollbar has the following main attributes: range, thumb size, page size, and position. The range is the total number of units associated with the view represented by the scrollbar. For a table with 15 columns, the range would be 15. The thumb size is the number of units that are currently visible. For the table example, the window might be sized so that only 5 columns are currently visible, in which case the application would set the thumb size to 5. When the thumb size becomes the same as or greater than the range, the scrollbar will be automatically hidden on most platforms. The page size is the number of units that the scrollbar should scroll by, when 'paging' through the data. This value is normally the same as the thumb size length, because it is natural to assume that the visible window size defines a page. The scrollbar position is the current thumb position. Most applications will find it convenient to provide a function called AdjustScrollbars() which can be called initially, from an OnSize event handler, and whenever the application data changes in size. It will adjust the view, object and page size according to the size of the window and the size of the data.
+
+Styles
+
+This class supports the following styles:
+
+The difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED
+
+The EVT_SCROLL_THUMBRELEASE event is only emitted when actually dragging the thumb using the mouse and releasing it (This EVT_SCROLL_THUMBRELEASE event is also followed by an EVT_SCROLL_CHANGED event).
+
+The EVT_SCROLL_CHANGED event also occurs when using the keyboard to change the thumb position, and when clicking next to the thumb (In all these cases the EVT_SCROLL_THUMBRELEASE event does not happen).
+
+In short, the EVT_SCROLL_CHANGED event is triggered when scrolling/moving has finished independently of the way it had started. Please see the page_samples_widgets ("Slider" page) to see the difference between EVT_SCROLL_THUMBRELEASE and EVT_SCROLL_CHANGED in action.
+
+See: [Overview scrolling](https://docs.wxwidgets.org/3.1/overview_scrolling.html#overview_scrolling), [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `wxScrolled` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxScrollBar](https://docs.wxwidgets.org/3.1/classwx_scroll_bar.html)
+
+## Events
+
+Event types emitted from this class: [`scroll_top`](`m:wxScrollEvent`), [`scroll_bottom`](`m:wxScrollEvent`), [`scroll_lineup`](`m:wxScrollEvent`), [`scroll_linedown`](`m:wxScrollEvent`), [`scroll_pageup`](`m:wxScrollEvent`), [`scroll_pagedown`](`m:wxScrollEvent`), [`scroll_thumbtrack`](`m:wxScrollEvent`), [`scroll_thumbrelease`](`m:wxScrollEvent`), [`scroll_changed`](`m:wxScrollEvent`), [`scroll_top`](`m:wxScrollEvent`), [`scroll_bottom`](`m:wxScrollEvent`), [`scroll_lineup`](`m:wxScrollEvent`), [`scroll_linedown`](`m:wxScrollEvent`), [`scroll_pageup`](`m:wxScrollEvent`), [`scroll_pagedown`](`m:wxScrollEvent`), [`scroll_thumbtrack`](`m:wxScrollEvent`), [`scroll_thumbrelease`](`m:wxScrollEvent`), [`scroll_changed`](`m:wxScrollEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getPageSize/1,getRange/1,getThumbPosition/1,
   getThumbSize/1,new/0,new/2,new/3,setScrollbar/5,setScrollbar/6,setThumbPosition/2]).
@@ -62,6 +93,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxScrollBar() :: wx:wx_object().
 -export_type([wxScrollBar/0]).
 %% @hidden
@@ -71,12 +103,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarwxscrollbar">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxScrollBar().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxScrollBar_new_0),
   wxe_util:rec(?wxScrollBar_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxScrollBar() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -85,6 +119,11 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarwxscrollbar">external documentation</a>.
+-doc """
+Constructor, creating and showing a scrollbar.
+
+See: `create/4`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, [Option]) -> wxScrollBar() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -104,6 +143,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxScrollBar_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -112,6 +152,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarcreate">external documentation</a>.
+-doc """
+Scrollbar creation function called by the scrollbar constructor.
+
+See `new/3` for details.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -132,6 +177,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxScrollBar_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbargetrange">external documentation</a>.
+-doc """
+Returns the length of the scrollbar.
+
+See: `setScrollbar/6`
+""".
 -spec getRange(This) -> integer() when
 	This::wxScrollBar().
 getRange(#wx_ref{type=ThisT}=This) ->
@@ -140,6 +190,13 @@ getRange(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxScrollBar_GetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbargetpagesize">external documentation</a>.
+-doc """
+Returns the page size of the scrollbar.
+
+This is the number of scroll units that will be scrolled when the user pages up or down. Often it is the same as the thumb size.
+
+See: `setScrollbar/6`
+""".
 -spec getPageSize(This) -> integer() when
 	This::wxScrollBar().
 getPageSize(#wx_ref{type=ThisT}=This) ->
@@ -148,6 +205,11 @@ getPageSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxScrollBar_GetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbargetthumbposition">external documentation</a>.
+-doc """
+Returns the current position of the scrollbar thumb.
+
+See: `setThumbPosition/2`
+""".
 -spec getThumbPosition(This) -> integer() when
 	This::wxScrollBar().
 getThumbPosition(#wx_ref{type=ThisT}=This) ->
@@ -156,6 +218,11 @@ getThumbPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxScrollBar_GetThumbPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbargetthumbsize">external documentation</a>.
+-doc """
+Returns the thumb or 'view' size.
+
+See: `setScrollbar/6`
+""".
 -spec getThumbSize(This) -> integer() when
 	This::wxScrollBar().
 getThumbSize(#wx_ref{type=ThisT}=This) ->
@@ -164,6 +231,11 @@ getThumbSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxScrollBar_GetThumbSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarsetthumbposition">external documentation</a>.
+-doc """
+Sets the position of the scrollbar.
+
+See: `getThumbPosition/1`
+""".
 -spec setThumbPosition(This, ViewStart) -> 'ok' when
 	This::wxScrollBar(), ViewStart::integer().
 setThumbPosition(#wx_ref{type=ThisT}=This,ViewStart)
@@ -172,6 +244,7 @@ setThumbPosition(#wx_ref{type=ThisT}=This,ViewStart)
   wxe_util:queue_cmd(This,ViewStart,?get_env(),?wxScrollBar_SetThumbPosition).
 
 %% @equiv setScrollbar(This,Position,ThumbSize,Range,PageSize, [])
+-doc "".
 -spec setScrollbar(This, Position, ThumbSize, Range, PageSize) -> 'ok' when
 	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer().
 
@@ -180,6 +253,11 @@ setScrollbar(This,Position,ThumbSize,Range,PageSize)
   setScrollbar(This,Position,ThumbSize,Range,PageSize, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarsetscrollbar">external documentation</a>.
+-doc """
+Sets the scrollbar properties.
+
+Remark: Let's say you wish to display 50 lines of text, using the same font. The window is sized so that you can only see 16 lines at a time. You would use: The page size is 1 less than the thumb size so that the last line of the previous page will be visible on the next page, to help orient the user. Note that with the window at this size, the thumb position can never go above 50 minus 16, or 34. You can determine how many lines are currently visible by dividing the current view size by the character height in pixels. When defining your own scrollbar behaviour, you will always need to recalculate the scrollbar settings when the window size changes. You could therefore put your scrollbar calculations and `setScrollbar/6` call into a function named AdjustScrollbars, which can be called initially and also from a `m:wxSizeEvent` event handler function.
+""".
 -spec setScrollbar(This, Position, ThumbSize, Range, PageSize, [Option]) -> 'ok' when
 	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer(),
 	Option :: {'refresh', boolean()}.
@@ -192,6 +270,7 @@ setScrollbar(#wx_ref{type=ThisT}=This,Position,ThumbSize,Range,PageSize, Options
   wxe_util:queue_cmd(This,Position,ThumbSize,Range,PageSize, Opts,?get_env(),?wxScrollBar_SetScrollbar).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the scrollbar.".
 -spec destroy(This::wxScrollBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrollBar),
@@ -562,3 +641,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

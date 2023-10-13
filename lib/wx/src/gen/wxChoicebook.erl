@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxChoicebook).
+-moduledoc """
+Functions for wxChoicebook class
+
+`m:wxChoicebook` is a class similar to `m:wxNotebook`, but uses a `m:wxChoice` control to show the labels instead of the tabs.
+
+For usage documentation of this class, please refer to the base abstract class wxBookCtrl. You can also use the page_samples_notebook to see `m:wxChoicebook` in action.
+
+`m:wxChoicebook` allows the use of wxBookCtrlBase::GetControlSizer(), allowing a program to add other controls next to the choice control. This is particularly useful when screen space is restricted, as it often is when `m:wxChoicebook` is being employed.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview bookctrl](https://docs.wxwidgets.org/3.1/overview_bookctrl.html#overview_bookctrl), `m:wxNotebook`, [Examples](https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook)
+
+This class is derived (and can use functions) from: `m:wxBookCtrlBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxChoicebook](https://docs.wxwidgets.org/3.1/classwx_choicebook.html)
+
+## Events
+
+Event types emitted from this class: [`choicebook_page_changed`](`m:wxBookCtrlEvent`), [`choicebook_page_changing`](`m:wxBookCtrlEvent`)
+""".
 -include("wxe.hrl").
 -export([addPage/3,addPage/4,advanceSelection/1,advanceSelection/2,assignImageList/2,
   changeSelection/2,create/3,create/4,deleteAllPages/1,destroy/1,getCurrentPage/1,
@@ -66,6 +89,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxChoicebook() :: wx:wx_object().
 -export_type([wxChoicebook/0]).
 %% @hidden
@@ -76,12 +100,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookwxchoicebook">external documentation</a>.
+-doc "Constructs a choicebook control.".
 -spec new() -> wxChoicebook().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxChoicebook_new_0),
   wxe_util:rec(?wxChoicebook_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxChoicebook() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -90,6 +116,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookwxchoicebook">external documentation</a>.
+-doc "".
 -spec new(Parent, Id, [Option]) -> wxChoicebook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -107,6 +134,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxChoicebook_new_3).
 
 %% @equiv addPage(This,Page,Text, [])
+-doc "".
 -spec addPage(This, Page, Text) -> boolean() when
 	This::wxChoicebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -115,6 +143,19 @@ addPage(This,Page,Text)
   addPage(This,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookaddpage">external documentation</a>.
+-doc """
+Adds a new page.
+
+The page must have the book control itself as the parent and must not have been added to this control previously.
+
+The call to this function will generate the page changing and page changed events if `select` is true, but not when inserting the very first page (as there is no previous page selection to switch from in this case and so it wouldn't make sense to e.g. veto such event).
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `insertPage/5`
+""".
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxChoicebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {'bSelect', boolean()}
@@ -132,6 +173,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text, Options)
   wxe_util:rec(?wxChoicebook_AddPage).
 
 %% @equiv advanceSelection(This, [])
+-doc "".
 -spec advanceSelection(This) -> 'ok' when
 	This::wxChoicebook().
 
@@ -140,6 +182,11 @@ advanceSelection(This)
   advanceSelection(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookadvanceselection">external documentation</a>.
+-doc """
+Cycles through the tabs.
+
+The call to this function generates the page changing events.
+""".
 -spec advanceSelection(This, [Option]) -> 'ok' when
 	This::wxChoicebook(),
 	Option :: {'forward', boolean()}.
@@ -152,6 +199,11 @@ advanceSelection(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxChoicebook_AdvanceSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookassignimagelist">external documentation</a>.
+-doc """
+Sets the image list for the page control and takes ownership of the list.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxChoicebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -160,6 +212,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxChoicebook_AssignImageList).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxChoicebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -168,6 +221,7 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookcreate">external documentation</a>.
+-doc "Create the choicebook control that has already been constructed with the default constructor.".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxChoicebook(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -186,6 +240,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxChoicebook_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookdeleteallpages">external documentation</a>.
+-doc "Deletes all pages.".
 -spec deleteAllPages(This) -> boolean() when
 	This::wxChoicebook().
 deleteAllPages(#wx_ref{type=ThisT}=This) ->
@@ -194,6 +249,7 @@ deleteAllPages(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoicebook_DeleteAllPages).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetcurrentpage">external documentation</a>.
+-doc "Returns the currently selected page or NULL.".
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
 	This::wxChoicebook().
 getCurrentPage(#wx_ref{type=ThisT}=This) ->
@@ -202,6 +258,11 @@ getCurrentPage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoicebook_GetCurrentPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetimagelist">external documentation</a>.
+-doc """
+Returns the associated image list, may be NULL.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxChoicebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
@@ -210,6 +271,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoicebook_GetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetpage">external documentation</a>.
+-doc "Returns the window at the given page position.".
 -spec getPage(This, Page) -> wxWindow:wxWindow() when
 	This::wxChoicebook(), Page::integer().
 getPage(#wx_ref{type=ThisT}=This,Page)
@@ -219,6 +281,7 @@ getPage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxChoicebook_GetPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetpagecount">external documentation</a>.
+-doc "Returns the number of pages in the control.".
 -spec getPageCount(This) -> integer() when
 	This::wxChoicebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
@@ -227,6 +290,7 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoicebook_GetPageCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetpageimage">external documentation</a>.
+-doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
 	This::wxChoicebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
@@ -236,6 +300,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:rec(?wxChoicebook_GetPageImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetpagetext">external documentation</a>.
+-doc "Returns the string for the given page.".
 -spec getPageText(This, NPage) -> unicode:charlist() when
 	This::wxChoicebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT}=This,NPage)
@@ -245,6 +310,11 @@ getPageText(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:rec(?wxChoicebook_GetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookgetselection">external documentation</a>.
+-doc """
+Returns the currently selected page, or `wxNOT_FOUND` if none was selected.
+
+Note that this method may return either the previously or newly selected page when called from the `EVT_BOOKCTRL_PAGE_CHANGED` handler depending on the platform and so `wxBookCtrlEvent:getSelection/1` should be used instead in this case.
+""".
 -spec getSelection(This) -> integer() when
 	This::wxChoicebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -253,6 +323,13 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoicebook_GetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookhittest">external documentation</a>.
+-doc """
+Returns the index of the tab at the specified position or `wxNOT_FOUND` if none.
+
+If `flags` parameter is non-NULL, the position of the point inside the tab is returned as well.
+
+Return: Returns the zero-based tab index or `wxNOT_FOUND` if there is no tab at the specified position.
+""".
 -spec hitTest(This, Pt) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
 	This::wxChoicebook(), Pt::{X::integer(), Y::integer()}.
@@ -263,6 +340,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:rec(?wxChoicebook_HitTest).
 
 %% @equiv insertPage(This,Index,Page,Text, [])
+-doc "".
 -spec insertPage(This, Index, Page, Text) -> boolean() when
 	This::wxChoicebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -271,6 +349,15 @@ insertPage(This,Index,Page,Text)
   insertPage(This,Index,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookinsertpage">external documentation</a>.
+-doc """
+Inserts a new page at the specified position.
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `addPage/4`
+""".
 -spec insertPage(This, Index, Page, Text, [Option]) -> boolean() when
 	This::wxChoicebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {'bSelect', boolean()}
@@ -288,6 +375,13 @@ insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text, Options
   wxe_util:rec(?wxChoicebook_InsertPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebooksetimagelist">external documentation</a>.
+-doc """
+Sets the image list to use.
+
+It does not take ownership of the image list, you must delete it yourself.
+
+See: `m:wxImageList`, `assignImageList/2`
+""".
 -spec setImageList(This, ImageList) -> 'ok' when
 	This::wxChoicebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -296,6 +390,11 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxChoicebook_SetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebooksetpagesize">external documentation</a>.
+-doc """
+Sets the width and height of the pages.
+
+Note: This method is currently not implemented for wxGTK.
+""".
 -spec setPageSize(This, Size) -> 'ok' when
 	This::wxChoicebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -304,6 +403,11 @@ setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxChoicebook_SetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebooksetpageimage">external documentation</a>.
+-doc """
+Sets the image index for the given page.
+
+`image` is an index into the image list which was set with `setImageList/2`.
+""".
 -spec setPageImage(This, Page, Image) -> boolean() when
 	This::wxChoicebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
@@ -313,6 +417,7 @@ setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
   wxe_util:rec(?wxChoicebook_SetPageImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebooksetpagetext">external documentation</a>.
+-doc "Sets the text for the given page.".
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxChoicebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
@@ -323,6 +428,13 @@ setPageText(#wx_ref{type=ThisT}=This,Page,Text)
   wxe_util:rec(?wxChoicebook_SetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebooksetselection">external documentation</a>.
+-doc """
+Sets the selection to the given page, returning the previous selection.
+
+Notice that the call to this function generates the page changing events, use the `changeSelection/2` function if you don't want these events to be generated.
+
+See: `getSelection/1`
+""".
 -spec setSelection(This, Page) -> integer() when
 	This::wxChoicebook(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
@@ -332,6 +444,13 @@ setSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxChoicebook_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoicebook.html#wxchoicebookchangeselection">external documentation</a>.
+-doc """
+Changes the selection to the given page, returning the previous selection.
+
+This function behaves as `setSelection/2` but does `not` generate the page changing events.
+
+See overview_events_prog for more information.
+""".
 -spec changeSelection(This, Page) -> integer() when
 	This::wxChoicebook(), Page::integer().
 changeSelection(#wx_ref{type=ThisT}=This,Page)
@@ -341,6 +460,7 @@ changeSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxChoicebook_ChangeSelection).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxChoicebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxChoicebook),
@@ -720,3 +840,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

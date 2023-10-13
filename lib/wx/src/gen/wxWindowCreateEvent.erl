@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxWindowCreateEvent).
+-moduledoc """
+Functions for wxWindowCreateEvent class
+
+This event is sent just after the actual window associated with a `m:wxWindow` object has been created.
+
+Since it is derived from `m:wxCommandEvent`, the event propagates up the window hierarchy.
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `m:wxWindowDestroyEvent`
+
+This class is derived (and can use functions) from: `m:wxCommandEvent` `m:wxEvent`
+
+wxWidgets docs: [wxWindowCreateEvent](https://docs.wxwidgets.org/3.1/classwx_window_create_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxWindowCreateEventType`](`t:wxWindowCreateEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -28,8 +45,10 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxWindowCreateEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxWindowCreateEventType() :: 'create'.
 -export_type([wxWindowCreateEvent/0, wxWindowCreate/0, wxWindowCreateEventType/0]).
 %% @hidden
@@ -75,3 +94,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

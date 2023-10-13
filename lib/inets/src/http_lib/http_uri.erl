@@ -18,6 +18,19 @@
 %% %CopyrightEnd%
 %%
 -module(http_uri).
+-moduledoc """
+Old URI utility module, use uri_string instead
+
+This module is deprecated since OTP 23. Use the module `m:uri_string` to properly handle URIs, this is the recommended module since OTP 21.
+
+## DATA TYPES
+
+Type definitions that are related to URI:
+
+* __`uri_part() = [byte()] | binary()`__ - Syntax according to the URI definition in RFC 3986, for example, "http://www.erlang.org/"
+
+For more information about URI, see [RFC 3986](http://www.ietf.org/rfc/rfc3986.txt).
+""".
 
 -export([encode/1, decode/1]).
 
@@ -44,6 +57,20 @@ reserved() ->
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
+-doc """
+DecodePart = uri_part()  
+EncodedPart = uri_part() - Percent encoded URI part  
+
+> #### Warning {: class=warning }
+> Do not use will be removed use `uri_string:quote/1` instead
+
+Performes prrcent encoding.
+
+[](){: id=decode }
+""".
+-doc(#{deprecated =>
+           <<"http_uri:encode/1 is deprecated and will be removed in OTP 27; use uri_string:quote function instead">>,
+       since => <<"OTP R15B01">>}).
 encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
@@ -51,6 +78,18 @@ encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
     << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
+-doc """
+EncodedPart = uri_part() - A possibly percent encoded URI part  
+DecodePart = uri_part()  
+
+> #### Warning {: class=warning }
+> Do not use will be removed use `uri_string:unquote/1` instead
+
+Decodes a possibly percent encoded URI part
+""".
+-doc(#{deprecated =>
+           <<"http_uri:decode/1 is deprecated and will be removed in OTP 27; use uri_string:unquote function instead">>,
+       since => <<"OTP R15B01">>}).
 decode(String) when is_list(String) ->
     do_decode(String);
 decode(String) when is_binary(String) ->
@@ -94,3 +133,4 @@ uri_encode_binary(Char, Reserved) ->
 hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
 hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
 hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
+

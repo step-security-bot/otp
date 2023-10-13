@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxControlWithItems).
+-moduledoc """
+Functions for wxControlWithItems class
+
+This is convenience class that derives from both `m:wxControl` and `wxItemContainer` (not implemented in wx). It is used as basis for some wxWidgets controls (`m:wxChoice` and `m:wxListBox`).
+
+See: `wxItemContainer` (not implemented in wx), `wxItemContainerImmutable` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxControlWithItems](https://docs.wxwidgets.org/3.1/classwx_control_with_items.html)
+""".
 -include("wxe.hrl").
 -export([append/2,append/3,appendStrings/2,appendStrings/3,clear/1,delete/2,
   findString/2,findString/3,getClientData/2,getCount/1,getSelection/1,
@@ -66,6 +77,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxControlWithItems() :: wx:wx_object().
 -export_type([wxControlWithItems/0]).
 %% @hidden
@@ -75,6 +87,11 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-doc """
+Appends item into the control.
+
+Return: The return value is the index of the newly inserted item. Note that this may be different from the last one if the control is sorted (e.g. has `wxLB_SORT` or `wxCB_SORT` style).
+""".
 -spec append(This, Item) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT}=This,Item)
@@ -85,6 +102,11 @@ append(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxControlWithItems_Append_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-doc """
+Appends item into the control.
+
+Return: The return value is the index of the newly inserted item. Note that this may be different from the last one if the control is sorted (e.g. has `wxLB_SORT` or `wxCB_SORT` style).
+""".
 -spec append(This, Item, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT}=This,Item,ClientData)
@@ -95,6 +117,11 @@ append(#wx_ref{type=ThisT}=This,Item,ClientData)
   wxe_util:rec(?wxControlWithItems_Append_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-doc """
+Appends several items at once into the control.
+
+Notice that calling this method is usually much faster than appending them one by one if you need to add a lot of items.
+""".
 -spec appendStrings(This, Items) -> integer() when
 	This::wxControlWithItems(), Items::[unicode:chardata()].
 appendStrings(#wx_ref{type=ThisT}=This,Items)
@@ -106,6 +133,11 @@ appendStrings(#wx_ref{type=ThisT}=This,Items)
   wxe_util:rec(?wxControlWithItems_appendStrings_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-doc """
+Appends several items at once into the control.
+
+Notice that calling this method is usually much faster than appending them one by one if you need to add a lot of items.
+""".
 -spec appendStrings(This, Items, ClientsData) -> integer() when
 	This::wxControlWithItems(), Items::[unicode:chardata()], ClientsData::[term()].
 appendStrings(#wx_ref{type=ThisT}=This,Items,ClientsData)
@@ -117,6 +149,11 @@ appendStrings(#wx_ref{type=ThisT}=This,Items,ClientsData)
   wxe_util:rec(?wxControlWithItems_appendStrings_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsclear">external documentation</a>.
+-doc """
+Removes all items from the control.
+
+`clear/1` also deletes the client data of the existing items if it is owned by the control.
+""".
 -spec clear(This) -> 'ok' when
 	This::wxControlWithItems().
 clear(#wx_ref{type=ThisT}=This) ->
@@ -124,6 +161,15 @@ clear(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxControlWithItems_Clear).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsdelete">external documentation</a>.
+-doc """
+Deletes an item from the control.
+
+The client data associated with the item will be also deleted if it is owned by the control. Note that it is an error (signalled by an assert failure in debug builds) to remove an item with the index negative or greater or equal than the number of items in the control.
+
+If there is a currently selected item below the item being deleted, i.e. if `getSelection/1` returns a valid index greater than or equal to `n`, the selection is invalidated when this function is called. However if the selected item appears before the item being deleted, the selection is preserved unchanged.
+
+See: `clear/1`
+""".
 -spec delete(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 delete(#wx_ref{type=ThisT}=This,N)
@@ -132,6 +178,7 @@ delete(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxControlWithItems_Delete).
 
 %% @equiv findString(This,String, [])
+-doc "".
 -spec findString(This, String) -> integer() when
 	This::wxControlWithItems(), String::unicode:chardata().
 
@@ -140,6 +187,11 @@ findString(This,String)
   findString(This,String, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
+-doc """
+Finds an item whose label matches the given string.
+
+Return: The zero-based position of the item, or wxNOT_FOUND if the string was not found.
+""".
 -spec findString(This, String, [Option]) -> integer() when
 	This::wxControlWithItems(), String::unicode:chardata(),
 	Option :: {'bCase', boolean()}.
@@ -154,6 +206,15 @@ findString(#wx_ref{type=ThisT}=This,String, Options)
   wxe_util:rec(?wxControlWithItems_FindString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetclientobject">external documentation</a>.
+-doc """
+Returns a pointer to the client data associated with the given item (if any).
+
+It is an error to call this function for a control which doesn't have typed client data at all although it is OK to call it even if the given item doesn't have any client data associated with it (but other items do).
+
+Notice that the returned pointer is still owned by the control and will be deleted by it, use `DetachClientObject()` (not implemented in wx) if you want to remove the pointer from the control.
+
+Return: A pointer to the client data, or NULL if not present.
+""".
 -spec getClientData(This, N) -> term() when
 	This::wxControlWithItems(), N::integer().
 getClientData(#wx_ref{type=ThisT}=This,N)
@@ -163,6 +224,11 @@ getClientData(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxControlWithItems_getClientData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetclientobject">external documentation</a>.
+-doc """
+Associates the given typed client data pointer with the given item: the `data` object will be deleted when the item is deleted (either explicitly by using `delete/2` or implicitly when the control itself is destroyed).
+
+Note that it is an error to call this function if any untyped client data pointers had been associated with the control items before.
+""".
 -spec setClientData(This, N, Data) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), Data::term().
 setClientData(#wx_ref{type=ThisT}=This,N,Data)
@@ -171,6 +237,11 @@ setClientData(#wx_ref{type=ThisT}=This,N,Data)
   wxe_util:queue_cmd(This,N,Data,?get_env(),?wxControlWithItems_setClientData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetcount">external documentation</a>.
+-doc """
+Returns the number of items in the control.
+
+See: `isEmpty/1`
+""".
 -spec getCount(This) -> integer() when
 	This::wxControlWithItems().
 getCount(#wx_ref{type=ThisT}=This) ->
@@ -179,6 +250,15 @@ getCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxControlWithItems_GetCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetselection">external documentation</a>.
+-doc """
+Returns the index of the selected item or `wxNOT_FOUND` if no item is selected.
+
+Return: The position of the current selection.
+
+Remark: This method can be used with single selection list boxes only, you should use `wxListBox:getSelections/1` for the list boxes with wxLB_MULTIPLE style.
+
+See: `setSelection/2`, `getStringSelection/1`
+""".
 -spec getSelection(This) -> integer() when
 	This::wxControlWithItems().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -187,6 +267,11 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxControlWithItems_GetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstring">external documentation</a>.
+-doc """
+Returns the label of the item with the given index.
+
+Return: The label of the item or an empty string if the position was invalid.
+""".
 -spec getString(This, N) -> unicode:charlist() when
 	This::wxControlWithItems(), N::integer().
 getString(#wx_ref{type=ThisT}=This,N)
@@ -196,6 +281,11 @@ getString(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxControlWithItems_GetString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstringselection">external documentation</a>.
+-doc """
+Returns the label of the selected item or an empty string if no item is selected.
+
+See: `getSelection/1`
+""".
 -spec getStringSelection(This) -> unicode:charlist() when
 	This::wxControlWithItems().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
@@ -204,6 +294,11 @@ getStringSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxControlWithItems_GetStringSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-doc """
+Inserts item into the control.
+
+Return: The return value is the index of the newly inserted item. If the insertion failed for some reason, -1 is returned.
+""".
 -spec insert(This, Item, Pos) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT}=This,Item,Pos)
@@ -214,6 +309,11 @@ insert(#wx_ref{type=ThisT}=This,Item,Pos)
   wxe_util:rec(?wxControlWithItems_Insert_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-doc """
+Inserts item into the control.
+
+Return: The return value is the index of the newly inserted item. If the insertion failed for some reason, -1 is returned.
+""".
 -spec insert(This, Item, Pos, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT}=This,Item,Pos,ClientData)
@@ -224,6 +324,13 @@ insert(#wx_ref{type=ThisT}=This,Item,Pos,ClientData)
   wxe_util:rec(?wxControlWithItems_Insert_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-doc """
+Inserts several items at once into the control.
+
+Notice that calling this method is usually much faster than inserting them one by one if you need to insert a lot of items.
+
+Return: The return value is the index of the last inserted item. If the insertion failed for some reason, -1 is returned.
+""".
 -spec insertStrings(This, Items, Pos) -> integer() when
 	This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer().
 insertStrings(#wx_ref{type=ThisT}=This,Items,Pos)
@@ -235,6 +342,13 @@ insertStrings(#wx_ref{type=ThisT}=This,Items,Pos)
   wxe_util:rec(?wxControlWithItems_insertStrings_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-doc """
+Inserts several items at once into the control.
+
+Notice that calling this method is usually much faster than inserting them one by one if you need to insert a lot of items.
+
+Return: The return value is the index of the last inserted item. If the insertion failed for some reason, -1 is returned.
+""".
 -spec insertStrings(This, Items, Pos, ClientsData) -> integer() when
 	This::wxControlWithItems(), Items::[unicode:chardata()], Pos::integer(), ClientsData::[term()].
 insertStrings(#wx_ref{type=ThisT}=This,Items,Pos,ClientsData)
@@ -246,6 +360,11 @@ insertStrings(#wx_ref{type=ThisT}=This,Items,Pos,ClientsData)
   wxe_util:rec(?wxControlWithItems_insertStrings_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsisempty">external documentation</a>.
+-doc """
+Returns true if the control is empty or false if it has some items.
+
+See: `getCount/1`
+""".
 -spec isEmpty(This) -> boolean() when
 	This::wxControlWithItems().
 isEmpty(#wx_ref{type=ThisT}=This) ->
@@ -254,6 +373,7 @@ isEmpty(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxControlWithItems_IsEmpty).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsselect">external documentation</a>.
+-doc "This is the same as `setSelection/2` and exists only because it is slightly more natural for controls which support multiple selection.".
 -spec select(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 select(#wx_ref{type=ThisT}=This,N)
@@ -262,6 +382,13 @@ select(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxControlWithItems_Select).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetselection">external documentation</a>.
+-doc """
+Sets the selection to the given item `n` or removes the selection entirely if `n` == `wxNOT_FOUND`.
+
+Note that this does not cause any command events to be emitted nor does it deselect any other items in the controls which support multiple selections.
+
+See: `setString/3`, `setStringSelection/2`
+""".
 -spec setSelection(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
@@ -270,6 +397,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxControlWithItems_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstring">external documentation</a>.
+-doc "Sets the label for the given item.".
 -spec setString(This, N, String) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), String::unicode:chardata().
 setString(#wx_ref{type=ThisT}=This,N,String)
@@ -279,6 +407,15 @@ setString(#wx_ref{type=ThisT}=This,N,String)
   wxe_util:queue_cmd(This,N,String_UC,?get_env(),?wxControlWithItems_SetString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstringselection">external documentation</a>.
+-doc """
+Selects the item with the specified string in the control.
+
+This method doesn't cause any command events to be emitted.
+
+Notice that this method is case-insensitive, i.e. the string is compared with all the elements of the control case-insensitively and the first matching entry is selected, even if it doesn't have exactly the same case as this string and there is an exact match afterwards.
+
+Return: true if the specified string has been selected, false if it wasn't found in the control.
+""".
 -spec setStringSelection(This, String) -> boolean() when
 	This::wxControlWithItems(), String::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT}=This,String)
@@ -657,3 +794,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -48,6 +48,13 @@
 %% </ul>
 
 -module(edoc).
+-moduledoc """
+EDoc - the Erlang program documentation generator.
+
+This module provides the main user interface to EDoc.
+* [EDoc User Manual](chapter.md#)
+* [Running EDoc](chapter.md#running_edoc)
+""".
 
 -export([files/1, files/2,
 	 application/1, application/2, application/3,
@@ -71,6 +78,7 @@
 
 -include("edoc.hrl").
 
+-doc "Module information.".
 -type module_meta() :: #module{name :: [] | atom(),
 			       parameters :: none | [atom()],
 			       functions :: ordset(function_name()),
@@ -81,6 +89,7 @@
 			       file :: file:filename()}.
 %% Module information.
 
+-doc "Environment information needed by EDoc for generating references.".
 -type env() :: #env{}.
 %% Environment information needed by EDoc for generating references.
 
@@ -89,6 +98,7 @@
 %% Simplified comment data.
 
 
+-doc "Module Entries (one per function, plus module header and footer).".
 -type entry() :: #entry{name :: function_name() | atom(),
 			args :: [atom() | list()],
 			line :: integer(),
@@ -96,8 +106,10 @@
 			data :: entry_data()}.
 %% Module Entries (one per function, plus module header and footer).
 
+-doc "".
 -type entry_data() :: term().
 
+-doc "Generic tag information. `#tag.form` is only defined if `#tag.origin` is `code`, that is the `#tag{}` represents a code fragment, not a doc comment tag.".
 -type tag() :: #tag{name :: atom(),
 		    line :: integer(),
 		    origin :: comment | code,
@@ -107,22 +119,31 @@
 %% `#tag.form' is only defined if `#tag.origin' is `code',
 %% that is the `#tag{}' represents a code fragment, not a doc comment tag.
 
+-doc "The EDoc documentation data for a module, expressed as an XML document in [XMerL](`p:xmerl:index.html`) format. See the file [`edoc.dtd`](edoc.dtd) for details.".
 -type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
 %% expressed as an XML document in {@link //xmerl. XMerL} format. See
 %% the file <a href="edoc.dtd">`edoc.dtd'</a> for details.
 
+-doc "".
 -type ordset(T) :: ordsets:ordset(T).
+-doc "".
 -type function_name() :: {atom(), integer()}.
+-doc "".
 -type filename() :: file:filename().
+-doc "".
 -type proplist() :: proplists:proplist().
+-doc "".
 -type comment() :: erl_comment_scan:comment().
+-doc "".
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 -compile({no_auto_import, [error/1]}).
 
 %% @equiv file(Name, [])
 %% @deprecated See {@link file/2} for details.
+-doc "Equivalent to [file(Name, [])](`file/2`).".
+-doc(#{deprecated => <<"See file/2 for details.">>}).
 -spec file(filename()) -> ok.
 file(Name) ->
     file(Name, []).
@@ -166,6 +187,24 @@ file(Name) ->
 %% NEW-OPTIONS: source_suffix, file_suffix, dir
 %% INHERIT-OPTIONS: read/2
 
+-doc """
+Reads a source code file and outputs formatted documentation to a corresponding file.
+
+Options:
+* __`{dir, `[`filename()`](#type-filename)`}`__ - Specifies the output directory for the created file. (By default, the output is written to the directory of the source file.)
+
+* __`{source_suffix, string()}`__ - Specifies the expected suffix of the input file. The default value is `".erl"`.
+
+* __`{file_suffix, string()}`__ - Specifies the suffix for the created file. The default value is `".html"`.
+
+See `get_doc/2` and `layout/2` for further options.
+
+For running EDoc from a Makefile or similar, see `edoc_run:file/1`.
+
+*See also: *`read/2`.
+""".
+-doc(#{deprecated =>
+           <<"This is part of the old interface to EDoc and is mainly kept for backwards compatibility. The preferred way of generating documentation is through one of the functions application/2 and files/2.">>}).
 -spec file(Name, Options) -> ok when
       Name :: filename(),
       Options :: proplist().
@@ -183,6 +222,7 @@ file(Name, Options) ->
 
 %% TODO: better documentation of files/1/2, application/1/2/3
 
+-doc "".
 -spec files([filename()]) -> ok.
 files(Files) ->
     files(Files, []).
@@ -191,6 +231,11 @@ files(Files) ->
 %% details, including options.
 %% @equiv run(Files, Options)
 
+-doc """
+Equivalent to [run(Files, Options)](`run/2`).
+
+Runs EDoc on a given set of source files. See `run/2` for details, including options.
+""".
 -spec files(Files, Options) -> ok when
       Files :: [filename()],
       Options :: proplist().
@@ -198,6 +243,7 @@ files(Files, Options) ->
     run(Files, Options).
 
 %% @equiv application(Application, [])
+-doc "Equivalent to [application(Application, [])](`application/2`).".
 -spec application(atom()) -> ok.
 application(App) ->
     application(App, []).
@@ -206,6 +252,11 @@ application(App) ->
 %% {@link application/3} for details.
 %% @see application/1
 
+-doc """
+Run EDoc on an application in its default app-directory. See `application/3` for details.
+
+*See also: *`application/1`.
+""".
 -spec application(App, Options) -> ok when
       App :: atom(),
       Options :: proplist().
@@ -243,6 +294,17 @@ application(App, Options) when is_atom(App) ->
 %%
 %% @see application/2
 
+-doc """
+Run EDoc on an application located in the specified directory. Tries to automatically set up good defaults. Unless the user specifies otherwise:
+* The `doc` subdirectory will be used as the target directory, if it exists; otherwise the application directory is used.
+* The source code is assumed to be located in the `src` subdirectory, if it exists, or otherwise in the application directory itself.
+* The [`subpackages`](`run/2`) option is turned on. All found source files will be processed.
+* The `include` subdirectory is automatically added to the include path. (Only important if [preprocessing](`read_source/2`) is turned on.)
+
+See `run/2` for details, including options.
+
+*See also: *`application/2`.
+""".
 -spec application(App, Dir, Options) -> ok when
       App :: atom(),
       Dir :: filename(),
@@ -264,6 +326,7 @@ application(App, Dir, Options) when is_atom(App) ->
 %% Try to set up a default application base URI in a smart way if the
 %% user has not specified it explicitly.
 
+-doc "".
 set_app_default(App, Dir0, Opts) ->
     case proplists:get_value(app_default, Opts) of
 	undefined ->
@@ -280,9 +343,11 @@ set_app_default(App, Dir0, Opts) ->
 	    Opts
     end.
 
+-doc "".
 opt_defaults() ->
     [].
 
+-doc "".
 opt_negations() ->
     [{no_preprocess, preprocess},
      {no_subpackages, subpackages},
@@ -374,6 +439,36 @@ opt_negations() ->
 %% INHERIT-OPTIONS: edoc_lib:run_doclet/2
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
+-doc """
+Runs EDoc on a given set of source files. Note that the doclet plugin module has its own particular options; see the `doclet` option below.
+
+Also see `layout/2` for layout-related options, and `get_doc/2` for options related to reading source files.
+
+Options:
+* __`{app_default, string()}`__ - Specifies the default base URI for unknown applications.
+
+* __`{application, App::atom()}`__ - Specifies that the generated documentation describes the application `App`. This mainly affects generated references.
+
+* __`{dir, `[`filename()`](#type-filename)`}`__ - Specifies the target directory for the generated documentation.
+
+* __`{doc_path, [string()]}`__ - Specifies a list of file system paths pointing to directories that contain EDoc-generated documentation. All paths for applications in the code path are automatically added.
+
+* __`{doclet, Module::atom()}`__ - Specifies a callback module to be used for creating the documentation. The module must export a function `run(Cmd, Ctxt)`. The default doclet module is `m:edoc_doclet`; see `edoc_doclet:run/2` for doclet-specific options.
+
+* __`{file_suffix, string()}`__ - Specifies the suffix used for output files. The default value is `".html"`. Note that this also affects generated references.
+
+* __`{new, boolean()}`__ - If the value is `true`, any existing `edoc-info` file in the target directory will be ignored and overwritten. The default value is `false`.
+
+* __`{source_path, [`[`filename()`](#type-filename)`]}`__ - Specifies a list of file system paths used to locate the source code for packages.
+
+* __`{source_suffix, string()}`__ - Specifies the expected suffix of input files. The default value is `".erl"`.
+
+* __`{subpackages, boolean()}`__ - If the value is `true`, all subpackages of specified packages will also be included in the documentation. The default value is `false`. `no_subpackages` is an alias for `{subpackages, false}`.
+
+  Subpackage source files are found by recursively searching for source code files in subdirectories of the known source code root directories. (Also see the `source_path` option.) Directory names must begin with a lowercase letter and contain only alphanumeric characters and underscore, or they will be ignored. (For example, a subdirectory named `test-files` will not be searched.)
+
+*See also: *`application/2`, `files/2`.
+""".
 -spec run(Files, Opts) -> ok when
       Files :: [filename()],
       Opts :: proplist().
@@ -398,6 +493,7 @@ run(Files, Opts0) ->
 	end,
     edoc_lib:run_doclet(F, Opts).
 
+-doc "".
 expand_opts(Opts0) ->
     proplists:substitute_negations(opt_negations(),
 				   Opts0 ++ opt_defaults()).
@@ -405,6 +501,7 @@ expand_opts(Opts0) ->
 %% NEW-OPTIONS: dir
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 init_context(Opts) ->
     #doclet_context{dir = proplists:get_value(dir, Opts, ?CURRENT_DIR),
 	     opts = Opts
@@ -412,11 +509,13 @@ init_context(Opts) ->
 
 %% INHERIT-OPTIONS: edoc_lib:find_sources/2
 
+-doc "".
 sources(Path, Opts) ->
 	edoc_lib:find_sources(Path, Opts).
 
 %% Expand user-specified sets of files.
 
+-doc "".
 expand_files([F | Fs]) ->
     [{filename:basename(F), filename:dirname(F)} |
      expand_files(Fs)];
@@ -429,12 +528,14 @@ expand_files([]) ->
 %% NEW-OPTIONS: source_suffix
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 expand_sources(Ss, Opts) ->
     Suffix = proplists:get_value(source_suffix, Opts,
 				 ?DEFAULT_SOURCE_SUFFIX),
     Ss1 = [{F,D} || {F,D} <- Ss],
     expand_sources(Ss1, Suffix, sets:new(), [], []).
 
+-doc "".
 expand_sources([{F, D} | Fs], Suffix, S, As, Ms) ->
     M = list_to_atom(filename:rootname(F, Suffix)),
     case sets:is_element(M, S) of
@@ -450,6 +551,7 @@ expand_sources([], _Suffix, _S, As, Ms) ->
 
 %% NEW-OPTIONS: new
 
+-doc "".
 target_dir_info(Dir, App, Ms, Opts) ->
     case proplists:get_bool(new, Opts) of
 	true ->
@@ -498,6 +600,7 @@ toc(Dir, Paths, Opts0) ->
 
 %% @equiv read(File, [])
 
+-doc "Equivalent to [read(File, [])](`read/2`).".
 -spec read(filename()) -> string().
 read(File) ->
     read(File, []).
@@ -510,6 +613,11 @@ read(File) ->
 
 %% INHERIT-OPTIONS: get_doc/2, layout/2
 
+-doc """
+Reads and processes a source file and returns the resulting EDoc-text as a string. See `get_doc/2` and `layout/2` for options.
+
+*See also: *`file/2`.
+""".
 -spec read(File, Opts) -> string() when
       File :: filename(),
       Opts :: proplist().
@@ -520,6 +628,7 @@ read(File, Opts) ->
 
 %% @equiv layout(Doc, [])
 
+-doc "Equivalent to [layout(Doc, [])](`layout/2`).".
 -spec layout(edoc_module()) -> string().
 layout(Doc) ->
     layout(Doc, []).
@@ -545,6 +654,14 @@ layout(Doc) ->
 
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
+-doc """
+Transforms EDoc module documentation data to text. The default layout creates an HTML document.
+
+Options:
+* __`{layout, Module::atom()}`__ - Specifies a callback module to be used for formatting. The module must export a function `module(Doc, Options)`. The default callback module is `m:edoc_layout`; see `edoc_layout:module/2` for layout-specific options.
+
+*See also: *`file/2`, `layout/1`, `read/2`, `run/2`.
+""".
 -spec layout(Doc, Opts) -> string() when
       Doc :: edoc_module(),
       Opts :: proplist().
@@ -556,6 +673,7 @@ layout(Doc, Opts) ->
 
 %% @equiv read_comments(File, [])
 
+-doc "Equivalent to [read_comments(File, [])](`read_comments/2`).".
 -spec read_comments(filename()) ->  [comment()].
 read_comments(File) ->
     read_comments(File, []).
@@ -564,6 +682,7 @@ read_comments(File) ->
 %% module {@link //syntax_tools/erl_comment_scan} for details on the
 %% representation of comments. Currently, no options are available.
 
+-doc "Extracts comments from an Erlang source code file. See the module [`//syntax_tools/erl_comment_scan`](`m:erl_comment_scan`) for details on the representation of comments. Currently, no options are available.".
 -spec read_comments(File, Opts) -> [comment()] when
       File :: filename(),
       Opts :: proplist().
@@ -573,6 +692,7 @@ read_comments(File, _Opts) ->
 
 %% @equiv read_source(File, [])
 
+-doc "Equivalent to [read_source(File, [])](`read_source/2`).".
 -spec read_source(filename()) -> [syntaxTree()].
 read_source(Name) ->
     read_source(Name, []).
@@ -630,6 +750,24 @@ read_source(Name) ->
 
 %% NEW-OPTIONS: [no_]preprocess (preprocess -> includes, macros)
 
+-doc """
+Reads an Erlang source file and returns the list of "source code form" syntax trees.
+
+Options:
+* __`{preprocess, boolean()}`__ - If the value is `true`, the source file will be read via the Erlang preprocessor (`epp`). The default value is `false`. `no_preprocess` is an alias for `{preprocess, false}`.
+
+  Normally, preprocessing is not necessary for EDoc to work, but if a file contains too exotic definitions or uses of macros, it will not be possible to read it without preprocessing. *Note: comments in included files will not be available to EDoc, even with this option enabled.*
+
+* __`{includes, Path::[string()]}`__ - Specifies a list of directory names to be searched for include files, if the `preprocess` option is turned on. Also used with the `@headerfile` tag. The default value is the empty list. The directory of the source file is always automatically appended to the search path.
+
+* __`{macros, [{atom(), term()}]}`__ - Specifies a list of pre-defined Erlang preprocessor (`epp`) macro definitions, used if the `preprocess` option is turned on. The default value is the empty list.
+
+* __`{report_missing_types, boolean()}`__ - If the value is `true`, warnings are issued for missing types. The default value is `false`. `no_report_missing_types` is an alias for `{report_missing_types, false}`.
+
+* __`{link_predefined_types, boolean()}`__ - If the value is `true`, all predefined data types will have a link to the erlang module. This option is to be used when generating documentation for the Erlang/OTP docs. The default value is `false`. `no_link_predefined_types` is an alias for `{link_predefined_types, false}`.
+
+*See also: *[//syntax_tools/erl_syntax](`m:erl_syntax`), `get_doc/2`.
+""".
 -spec read_source(File, Opts) -> [syntaxTree()] when
       File :: filename(),
       Opts :: proplist().
@@ -645,6 +783,7 @@ read_source(Name, Opts0) ->
 	    exit({error, R})
     end.
 
+-doc "".
 read_source_1(Name, Opts) ->
     case proplists:get_bool(preprocess, Opts) of
 	true ->
@@ -653,6 +792,7 @@ read_source_1(Name, Opts) ->
 	    epp_dodger:quick_parse_file(Name, Opts ++ [{no_fail, false}])
     end.
 
+-doc "".
 read_source_2(Name, Opts) ->
     Includes = proplists:append_values(includes, Opts)
 	++ [filename:dirname(Name)],
@@ -675,6 +815,7 @@ read_source_2(Name, Opts) ->
 %% </example>
 %% The line of the dot token will be copied to the integer token.
 
+-doc "".
 parse_file(Name, Includes, Macros) ->
     case parse_file(utf8, Name, Includes, Macros) of
         invalid_unicode ->
@@ -683,6 +824,7 @@ parse_file(Name, Includes, Macros) ->
             Ret
     end.
 
+-doc "".
 parse_file(DefEncoding, Name, Includes, Macros) ->
     Options = [{name, Name},
                {includes, Includes},
@@ -705,6 +847,7 @@ parse_file(DefEncoding, Name, Includes, Macros) ->
             Error
     end.
 
+-doc "".
 find_invalid_unicode([H|T]) ->
     case H of
 	{error,{_Line,file_io_server,invalid_unicode}} ->
@@ -714,6 +857,7 @@ find_invalid_unicode([H|T]) ->
     end;
 find_invalid_unicode([]) -> none.
 
+-doc "".
 parse_file(Epp) ->
     case scan_and_parse(Epp) of
 	{ok, Form} ->
@@ -724,6 +868,7 @@ parse_file(Epp) ->
 	    [{eof, Location}]
     end.
 
+-doc "".
 scan_and_parse(Epp) ->
     case epp:scan_erl_form(Epp) of
         {ok, Toks0} ->
@@ -738,11 +883,13 @@ scan_and_parse(Epp) ->
             Else
     end.
 
+-doc "".
 fix_last_line(Toks0) ->
     Toks1 = lists:reverse(Toks0),
     LastLine = erl_scan:line(hd(Toks1)),
     fll(Toks1, LastLine, []).
 
+-doc "".
 fll([{Category, Anno0, Symbol} | L], LastLine, Ts) ->
     Anno = erl_anno:set_line(LastLine, Anno0),
     lists:reverse(L, [{Category, Anno, Symbol} | Ts]);
@@ -751,6 +898,7 @@ fll([T | L], LastLine, Ts) ->
 fll(L, _LastLine, Ts) ->
     lists:reverse(L, Ts).
 
+-doc "".
 check_forms(Fs, Name, Opts) ->
     Fun = fun (F) ->
 	     case erl_syntax:type(F) of
@@ -775,6 +923,7 @@ check_forms(Fs, Name, Opts) ->
 	  end,
     lists:foreach(Fun, Fs).
 
+-doc "".
 helpful_message(Name) ->
     Ms = ["If the error is caused by too exotic macro",
           "definitions or uses of macros, adding option",
@@ -783,6 +932,7 @@ helpful_message(Name) ->
 
 %% @equiv get_doc(File, [])
 
+-doc "Equivalent to [get_doc(File, [])](`get_doc/2`).".
 -spec get_doc(filename()) -> {module(), edoc_module()}.
 get_doc(File) ->
     get_doc(File, []).
@@ -841,6 +991,26 @@ get_doc(File) ->
 %% INHERIT-OPTIONS: get_doc/3
 %% INHERIT-OPTIONS: edoc_lib:get_doc_env/3
 
+-doc """
+Reads a source code file and extracts EDoc documentation data. Note that without an environment parameter (see `get_doc/3`), hypertext links may not be correct.
+
+Options:
+* __`{def, Macros}`__ - * `Macros` = `Macro | [Macro]`
+  * `Macro` = `{Name::atom(), Text::string() | MacroFun}`
+  * `MacroFun` = `fun((MacroArgument::string(), Line::integer(), `[`edoc_lib:edoc_env()`](http://www.erlang.org/edoc/doc/edoc/doc/edoc_lib.html#type-edoc_env)`) -> (Text::string()))`
+
+  Specifies a set of user-defined EDoc macros. The text substituted for macro calls is specified as either a `t:string()` or a `t:function()`. The function is called with the macro argument text, the current line number, and the current environment. The fun is to return a `t:string()`. See [Macro expansion](chapter.md#macro_expansion) for details.
+
+* __`{hidden, boolean()}`__ - If the value is `true`, documentation of hidden functions will also be included. The default value is `false`.
+
+* __`{private, boolean()}`__ - If the value is `true`, documentation of private functions will also be included. The default value is `false`.
+
+* __`{todo, boolean()}`__ - If the value is `true`, To-Do notes written using `@todo` or `@TODO` tags will be included in the documentation. The default value is `false`.
+
+See `read_source/2`, `read_comments/2` and `edoc_lib:get_doc_env/3` for further options.
+
+*See also: *`get_doc/3`, `layout/2`, `read/2`, `run/2`, `edoc_extract:source/5`.
+""".
 -spec get_doc(File, Options) -> R when
       File :: filename(),
       Options :: proplist(),
@@ -857,6 +1027,7 @@ get_doc(File, Opts) ->
 %% INHERIT-OPTIONS: read_source/2, read_comments/2, edoc_extract:source/5
 %% DEFER-OPTIONS: get_doc/2
 
+-doc "Like `get_doc/2`, but for a given environment parameter. `Env` is an environment created by `edoc_lib:get_doc_env/3`.".
 -spec get_doc(File, Env, Options) -> R when
       File :: filename(),
       Env :: env(),
@@ -865,3 +1036,4 @@ get_doc(File, Opts) ->
          | {module(), edoc_module(), [entry()]}.
 get_doc(File, Env, Opts) ->
     edoc_extract:source(File, Env, Opts).
+

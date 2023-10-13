@@ -18,6 +18,31 @@
 %% %CopyrightEnd%
 %%
 -module(zip).
+-moduledoc """
+Utility for reading and creating 'zip' archives.
+
+This module archives and extracts files to and from a zip archive. The zip format is specified by the "ZIP Appnote.txt" file, available on the PKWARE web site [www.pkware.com](http://www.pkware.com).
+
+The zip module supports zip archive versions up to 6.1. However, password-protection and Zip64 are not supported.
+
+By convention, the name of a zip file is to end with `.zip`. To abide to the convention, add `.zip` to the filename.
+
+* To create zip archives, use function `zip/2` or [`zip/3`](`zip/2`). They are also available as `create/2,3`, to resemble the `m:erl_tar` module.
+* To extract files from a zip archive, use function `unzip/1` or `unzip/2`. They are also available as `extract/1,2`, to resemble the `m:erl_tar` module.
+* To fold a function over all files in a zip archive, use function `foldl/3`.
+* To return a list of the files in a zip archive, use function `list_dir/1` or `list_dir/2`. They are also available as `table/1,2`, to resemble the `m:erl_tar` module.
+* To print a list of files to the Erlang shell, use function `t/1` or `tt/1`.
+* Sometimes it is desirable to open a zip archive, and to unzip files from it file by file, without having to reopen the archive. This can be done by functions [`zip_open/1,2`](`zip_open/1`), [`zip_get/1,2`](`zip_get/1`), `zip_list_dir/1`, and `zip_close/1`.
+
+## Limitations
+
+* Zip64 archives are not supported.
+* Password-protected and encrypted archives are not supported.
+* Only the DEFLATE (zlib-compression) and the STORE (uncompressed data) zip methods are supported.
+* The archive size is limited to 2 GB (32 bits).
+* Comments for individual files are not supported when creating zip archives. The zip archive comment for the whole zip archive is supported.
+* Changing a zip archive is not supported. To add or remove a file from an archive, the whole archive must be recreated.
+""".
 
 %% Basic api
 -export([unzip/1, unzip/2, extract/1, extract/2,
@@ -201,21 +226,40 @@
 	       zip_comment_length}).
 
 
+-doc "These options are described in [`create/3`](`m:zip#zip_options`).".
 -type create_option() :: memory | cooked | verbose
                        | {comment, Comment ::string()}
                        | {cwd, CWD :: file:filename()}
                        | {compress, What :: extension_spec()}
                        | {uncompress, What :: extension_spec()}.
+-doc "".
 -type extension() :: string().
+-doc "".
 -type extension_spec() :: all
                         | [Extension :: extension()]
                         | {add, [Extension :: extension()]}
                         | {del, [Extension :: extension()]}.
+-doc "The name of a zip file.".
 -type filename() :: file:filename().
 
+-doc "The record `zip_comment` only contains the archive comment for a zip archive.".
 -type zip_comment() :: #zip_comment{}.
+-doc """
+The record `zip_file` contains the following fields:
+
+* __`name`__ - The filename
+
+* __`info`__ - File information as in `file:read_file_info/1` in Kernel
+
+* __`comment`__ - The comment for the file in the zip archive
+
+* __`offset`__ - The file offset in the zip archive (used internally)
+
+* __`comp_size`__ - The size of the compressed file (the size of the uncompressed file is found in `info`)
+""".
 -type zip_file() :: #zip_file{}.
 
+-doc "As returned by `zip_open/2`.".
 -opaque handle() :: pid().
 
 -export_type([create_option/0, filename/0, handle/0]).
@@ -351,6 +395,7 @@ openzip_close(_) ->
 %% Accepted options:
 %% verbose, cooked, file_list, keep_old_files, file_filter, memory
 
+-doc(#{equiv => unzip/2}).
 -spec(unzip(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, FileList}
@@ -362,6 +407,29 @@ openzip_close(_) ->
 
 unzip(F) -> unzip(F, []).
 
+-doc """
+`unzip/1` extracts all files from a zip archive.
+
+`unzip/2` provides options to extract some files, and more.
+
+`extract/1` and `extract/2` are provided as synonyms to resemble module `m:erl_tar`.
+
+If argument `Archive` is specified as a binary, the contents of the binary is assumed to be a zip archive, otherwise a filename.
+
+Options:
+
+* __`{file_list, FileList}`__ - By default, all files are extracted from the zip archive. With option `{file_list, FileList}`, function `unzip/2` only extracts the files whose names are included in `FileList`. The full paths, including the names of all subdirectories within the zip archive, must be specified.
+
+* __`cooked`__ - By default, this function opens the zip file in `raw` mode, which is faster but does not allow a remote (Erlang) file server to be used. Adding `cooked` to the mode list overrides the default and opens the zip file without option `raw`. The same applies for the files extracted.
+
+* __`keep_old_files`__ - By default, all files with the same name as files in the zip archive are overwritten. With option `keep_old_files` set, function `unzip/2` does not overwrite existing files. Notice that even with option `memory` specified, which means that no files are overwritten, existing files are excluded from the result.
+
+* __`verbose`__ - Prints an informational message for each extracted file.
+
+* __`memory`__ - Instead of extracting to the current directory, the result is given as a list of tuples `{Filename, Binary}`, where `Binary` is a binary containing the extracted data of file `Filename` in the zip archive.
+
+* __`{cwd, CWD}`__ - Uses the specified directory as current directory. It is prepended to filenames when extracting them from the zip archive. (Acting like `file:set_cwd/1` in Kernel, but without changing the global `cwd` property.)
+""".
 -spec(unzip(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       Options :: [Option],
@@ -401,6 +469,50 @@ do_unzip(F, Options) ->
     {ok, Files}.
 
 %% Iterate over all files in a zip archive
+-doc """
+Calls `Fun(FileInArchive, GetInfo , GetBin, AccIn)` on successive files in the `Archive`, starting with `AccIn == Acc0`.
+
+`FileInArchive` is the name that the file has in the archive.
+
+`GetInfo` is a fun that returns information about the file.
+
+`GetBin` returns the file contents.
+
+Both `GetInfo` and `GetBin` must be called within the `Fun`. Their behavior is undefined if they are called outside the context of `Fun`.
+
+The `Fun` must return a new accumulator, which is passed to the next call. `foldl/3` returns the final accumulator value. `Acc0` is returned if the archive is empty. It is not necessary to iterate over all files in the archive. The iteration can be ended prematurely in a controlled manner by throwing an exception.
+
+*Example:*
+
+```text
+> Name = "dummy.zip".
+"dummy.zip"
+> {ok, {Name, Bin}} = zip:create(Name, [{"foo", <<"FOO">>}, {"bar", <<"BAR">>}], [memory]).
+{ok,{"dummy.zip",
+     <<80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...>>}}
+> {ok, FileSpec} = zip:foldl(fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end, [], {Name, Bin}).
+{ok,[{"bar",<<"BAR">>,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}},
+     {"foo",<<"FOO">>,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}}]}
+> {ok, {Name, Bin}} = zip:create(Name, lists:reverse(FileSpec), [memory]).
+{ok,{"dummy.zip",
+     <<80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...>>}}
+> catch zip:foldl(fun("foo", _, B, _) -> throw(B()); (_,_,_,Acc) -> Acc end, [], {Name, Bin}). 
+<<"FOO">>
+```
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec(foldl(Fun, Acc0, Archive) -> {ok, Acc1} | {error, Reason} when
       Fun :: fun((FileInArchive, GetInfo, GetBin, AccIn) -> AccOut),
       FileInArchive :: file:name(),
@@ -436,6 +548,7 @@ foldl(_,_, _) ->
 %% Accepted options:
 %% verbose, cooked, memory, comment
 
+-doc(#{equiv => zip/3}).
 -spec(zip(Name, FileList) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -447,6 +560,70 @@ foldl(_,_, _) ->
 
 zip(F, Files) -> zip(F, Files, []).
 
+-doc """
+```erlang
+-type create_option() ::
+          memory | cooked | verbose |
+          {comment, Comment :: string()} |
+          {cwd, CWD :: file:filename()} |
+          {compress, What :: extension_spec()} |
+          {uncompress, What :: extension_spec()}.
+```
+```erlang
+-type extension_spec() ::
+          all |
+          [Extension :: extension()] |
+          {add, [Extension :: extension()]} |
+          {del, [Extension :: extension()]}.
+```
+
+Creates a zip archive containing the files specified in `FileList`.
+
+`create/2` and `create/3` are provided as synonyms to resemble module `m:erl_tar`.
+
+`FileList` is a list of files, with paths relative to the current directory, which are stored with this path in the archive. File system operations are performed to read the file metadata and, when compression is enabled, to stream the file contents without loading whole files into memory. Files can also be specified as binaries to create an archive directly from data. In such cases, no metadata or file system reads are performed.
+
+Files are compressed using the DEFLATE compression, as described in the "Appnote.txt" file. However, files are stored without compression if they are already compressed. `zip/2` and `zip/3` check the file extension to determine if the file is to be stored without compression. Files with the following extensions are not compressed: `.Z`, `.zip`, `.zoo`, `.arc`, `.lzh`, `.arj`.
+
+It is possible to override the default behavior and control what types of files that are to be compressed by using options `{compress, What}` and `{uncompress, What}`. It is also possible to use many `compress` and `uncompress` options.
+
+To trigger file compression, its extension must match with the `compress` condition and must not match the `uncompress` condition. For example, if `compress` is set to `["gif", "jpg"]` and `uncompress` is set to `["jpg"]`, only files with extension `"gif"` are compressed.
+
+[](){: id=zip_options }
+Options:
+
+* __`cooked`__ - By default, this function opens the zip file in mode `raw`, which is faster but does not allow a remote (Erlang) file server to be used. Adding `cooked` to the mode list overrides the default and opens the zip file without the `raw` option. The same applies for the files added.
+
+* __`verbose`__ - Prints an informational message about each added file.
+
+* __`memory`__ - The output is not to a file, but instead as a tuple `{FileName, binary()}`. The binary is a full zip archive with header and can be extracted with, for example, `unzip/2`.
+
+* __`{comment, Comment}`__ - Adds a comment to the zip archive.
+
+* __`{cwd, CWD}`__ - Uses the specified directory as current work directory (`cwd`). This is prepended to filenames when adding them, although not in the zip archive (acting like `file:set_cwd/1` in Kernel, but without changing the global `cwd` property.).
+
+* __`{compress, What}`__ - Controls what types of files to be compressed. Defaults to `all`. The following values of `What` are allowed:
+
+  * __`all`__ - All files are compressed (as long as they pass the `uncompress` condition).
+
+  * __`[Extension]`__ - Only files with exactly these extensions are compressed.
+
+  * __`{add,[Extension]}`__ - Adds these extensions to the list of compress extensions.
+
+  * __`{del,[Extension]}`__ - Deletes these extensions from the list of compress extensions.
+
+  
+
+* __`{uncompress, What}`__ - Controls what types of files to be uncompressed. Defaults to `[".Z", ".zip", ".zoo", ".arc", ".lzh", ".arj"]`. The following values of `What` are allowed:
+
+  * __`all`__ - No files are compressed.
+
+  * __`[Extension]`__ - Files with these extensions are uncompressed.
+
+  * __`{add,[Extension]}`__ - Adds these extensions to the list of uncompress extensions.
+
+  * __`{del,[Extension]}`__ - Deletes these extensions from the list of uncompress extensions.
+""".
 -spec(zip(Name, FileList, Options) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -488,6 +665,7 @@ do_zip(F, Files, Options) ->
 %% Accepted options:
 %% cooked, file_filter, file_output (latter 2 undocumented)
 
+-doc(#{equiv => table/2}).
 -spec(list_dir(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -495,6 +673,7 @@ do_zip(F, Files, Options) ->
 
 list_dir(F) -> list_dir(F, []).
 
+-doc(#{equiv => table/2}).
 -spec(list_dir(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -519,6 +698,7 @@ do_list_dir(F, Options) ->
 
 %% Print zip directory in short form
 
+-doc "Prints all filenames in the zip archive `Archive` to the Erlang shell. (Similar to `tar t`.)".
 -spec(t(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
       ZipHandle :: handle()).
@@ -543,6 +723,7 @@ do_t(F, RawPrint) ->
 
 %% Print zip directory in long form (like ls -l)
 
+-doc "Prints filenames and information about all files in the zip archive `Archive` to the Erlang shell. (Similar to `tar tv`.)".
 -spec(tt(Archive) -> ok when
       Archive :: file:name() | binary() | ZipHandle,
       ZipHandle :: handle()).
@@ -726,6 +907,7 @@ get_list_dir_options(F, Options) ->
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
+-doc(#{equiv => table/2}).
 -spec(table(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -733,6 +915,19 @@ get_list_dir_options(F, Options) ->
 
 table(F) -> list_dir(F).
 
+-doc """
+`list_dir/1` retrieves all filenames in the zip archive `Archive`.
+
+`list_dir/2` provides options.
+
+`table/1` and `table/2` are provided as synonyms to resemble the `m:erl_tar` module.
+
+The result value is the tuple `{ok, List}`, where `List` contains the zip archive comment as the first element.
+
+One option is available:
+
+* __`cooked`__ - By default, this function opens the zip file in `raw` mode, which is faster but does not allow a remote (Erlang) file server to be used. Adding `cooked` to the mode list overrides the default and opens the zip file without option `raw`.
+""".
 -spec(table(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -743,6 +938,7 @@ table(F) -> list_dir(F).
 
 table(F, O) -> list_dir(F, O).
 
+-doc(#{equiv => zip/3}).
 -spec(create(Name, FileList) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -754,6 +950,7 @@ table(F, O) -> list_dir(F, O).
 
 create(F, Fs) -> zip(F, Fs).
 
+-doc(#{equiv => zip/3}).
 -spec(create(Name, FileList, Options) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -766,6 +963,7 @@ create(F, Fs) -> zip(F, Fs).
                 | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
 
+-doc(#{equiv => unzip/2}).
 -spec(extract(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, FileList}
@@ -777,6 +975,7 @@ create(F, Fs, O) -> zip(F, Fs, O).
 
 extract(F) -> unzip(F).
 
+-doc(#{equiv => unzip/2}).
 -spec(extract(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       Options :: [Option],
@@ -1191,6 +1390,7 @@ server_loop(Parent, OpenZip) ->
 	    {error, bad_msg}
     end.
 
+-doc(#{equiv => zip_open/2}).
 -spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
       ZipHandle :: handle(),
@@ -1198,6 +1398,13 @@ server_loop(Parent, OpenZip) ->
 
 zip_open(Archive) -> zip_open(Archive, []).
 
+-doc """
+Opens a zip archive, and reads and saves its directory. This means that later reading files from the archive is faster than unzipping files one at a time with [`unzip/1,2`](`unzip/1`).
+
+The archive must be closed with `zip_close/1`.
+
+The `ZipHandle` is closed if the process that originally opened the archive dies.
+""".
 -spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
       Archive :: file:name() | binary(),
       ZipHandle :: handle(),
@@ -1210,6 +1417,7 @@ zip_open(Archive, Options) ->
     Pid = spawn_link(fun() -> server_init(Self) end),
     request(Self, Pid, {open, Archive, Options}).
 
+-doc(#{equiv => zip_get/2}).
 -spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
       ZipHandle :: handle(),
       Result :: file:name() | {file:name(), binary()},
@@ -1218,12 +1426,18 @@ zip_open(Archive, Options) ->
 zip_get(Pid) when is_pid(Pid) ->
     request(self(), Pid, get).
 
+-doc "Closes a zip archive, previously opened with [`zip_open/1,2`](`zip_open/1`). All resources are closed, and the handle is not to be used after closing.".
 -spec(zip_close(ZipHandle) -> ok | {error, einval} when
       ZipHandle :: handle()).
 
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
+-doc """
+Extracts one or all files from an open archive.
+
+The files are unzipped to memory or to file, depending on the options specified to function [`zip_open/1,2`](`zip_open/1`) when opening the archive.
+""".
 -spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
       FileName :: file:name(),
       ZipHandle :: handle(),
@@ -1233,6 +1447,8 @@ zip_close(Pid) when is_pid(Pid) ->
 zip_get(FileName, Pid) when is_pid(Pid) ->
     request(self(), Pid, {get, FileName}).
 
+-doc "Extracts one crc32 checksum from an open archive.".
+-doc(#{since => <<"OTP 26.0">>}).
 -spec(zip_get_crc32(FileName, ZipHandle) -> {ok, CRC} | {error, Reason} when
       FileName :: file:name(),
       ZipHandle :: handle(),
@@ -1242,6 +1458,7 @@ zip_get(FileName, Pid) when is_pid(Pid) ->
 zip_get_crc32(FileName, Pid) when is_pid(Pid) ->
     request(self(), Pid, {get_crc32, FileName}).
 
+-doc "Returns the file list of an open zip archive. The first returned element is the zip archive comment.".
 -spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],
       ZipHandle :: handle(),
@@ -1920,3 +2137,4 @@ file_io({set_file_info, F, FI}, H) ->
 file_io({ensure_dir, Dir}, H) ->
     ok = filelib:ensure_dir(Dir),
     H.
+

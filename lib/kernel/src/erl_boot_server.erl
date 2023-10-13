@@ -24,6 +24,24 @@
 %%
 
 -module(erl_boot_server).
+-moduledoc """
+Boot server for other Erlang machines.
+
+This server is used to assist diskless Erlang nodes that fetch all Erlang code from another machine.
+
+This server is used to fetch all code, including the start script, if an Erlang runtime system is started with command-line flag `-loader inet`. All hosts specified with command-line flag `-hosts Host` must have one instance of this server running.
+
+This server can be started with the Kernel configuration parameter `start_boot_server`.
+
+The `erl_boot_server` can read regular files and files in archives. See `m:code` and `m:erl_prim_loader` in ERTS.
+
+> #### Warning {: class=warning }
+> The support for loading code from archive files is experimental. It is released before it is ready to obtain early feedback. The file format, semantics, interfaces, and so on, can be changed in a future release.
+
+## SEE ALSO
+
+[`erts:init(3)`](`m:init`), [`erts:erl_prim_loader(3)`](`m:erl_prim_loader`)
+""".
 
 -include("inet_boot.hrl").
 
@@ -58,6 +76,7 @@
 
 -define(single_addr_mask, {255, 255, 255, 255}).
 
+-doc "Starts the boot server. `Slaves` is a list of IP addresses for hosts, which are allowed to use this server as a boot server.".
 -spec start(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
@@ -72,6 +91,7 @@ start(Slaves) ->
 	    {error, {badarg, Slaves}}
     end.
 
+-doc "Starts the boot server and links to the caller. This function is used to start the server if it is included in a supervision tree.".
 -spec start_link(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
@@ -102,6 +122,7 @@ check_arg([], Result) ->
 check_arg(_, _Result) ->
     error.
 
+-doc "Adds a `Slave` node to the list of allowed slave hosts.".
 -spec add_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
       Host :: inet:ip_address() | inet:hostname(),
@@ -115,6 +136,7 @@ add_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
+-doc "Deletes a `Slave` node from the list of allowed slave hosts.".
 -spec delete_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
       Host :: inet:ip_address() | inet:hostname(),
@@ -145,6 +167,7 @@ add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
 delete_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
     gen_server:call(boot_server, {delete, {Mask, Addr}}).
 
+-doc "Returns the current list of allowed slave hosts.".
 -spec which_slaves() -> Slaves when
       Slaves :: [Slave],
       Slave :: {Netmask :: inet:ip_address(), Address :: inet:ip_address()}.
@@ -376,3 +399,4 @@ send_result(S, Term) ->
 				   "to socket: ~w** ~n", [Error]),
 	    ok
     end.
+

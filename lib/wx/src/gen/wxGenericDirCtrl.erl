@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGenericDirCtrl).
+-moduledoc """
+Functions for wxGenericDirCtrl class
+
+This control can be used to place a directory listing (with optional files) on an arbitrary window.
+
+The control contains a `m:wxTreeCtrl` window representing the directory hierarchy, and optionally, a `m:wxChoice` window containing a list of filters.
+
+Styles
+
+This class supports the following styles:
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxGenericDirCtrl](https://docs.wxwidgets.org/3.1/classwx_generic_dir_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`dirctrl_selectionchanged`](`m:wxTreeEvent`), [`dirctrl_fileactivated`](`m:wxTreeEvent`)
+""".
 -include("wxe.hrl").
 -export([collapseTree/1,create/2,create/3,destroy/1,expandPath/2,getDefaultPath/1,
   getFilePath/1,getFilter/1,getFilterIndex/1,getPath/1,getPath/2,getRootId/1,
@@ -65,6 +84,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxGenericDirCtrl() :: wx:wx_object().
 -export_type([wxGenericDirCtrl/0]).
 %% @hidden
@@ -74,12 +94,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlwxgenericdirctrl">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxGenericDirCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxGenericDirCtrl_new_0),
   wxe_util:rec(?wxGenericDirCtrl_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxGenericDirCtrl() when
 	Parent::wxWindow:wxWindow().
 
@@ -88,6 +110,7 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlwxgenericdirctrl">external documentation</a>.
+-doc "Main constructor.".
 -spec new(Parent, [Option]) -> wxGenericDirCtrl() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -113,6 +136,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxGenericDirCtrl_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxGenericDirCtrl(), Parent::wxWindow:wxWindow().
 
@@ -121,6 +145,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlcreate">external documentation</a>.
+-doc """
+Create function for two-step construction.
+
+See `new/2` for details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxGenericDirCtrl(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -147,6 +176,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxGenericDirCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlinit">external documentation</a>.
+-doc "Initializes variables.".
 -spec init(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 init(#wx_ref{type=ThisT}=This) ->
@@ -154,6 +184,7 @@ init(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_Init).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlcollapsetree">external documentation</a>.
+-doc "Collapses the entire tree.".
 -spec collapseTree(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 collapseTree(#wx_ref{type=ThisT}=This) ->
@@ -161,6 +192,7 @@ collapseTree(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_CollapseTree).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlexpandpath">external documentation</a>.
+-doc "Tries to expand as much of the given `path` as possible, so that the filename or directory is visible in the tree control.".
 -spec expandPath(This, Path) -> boolean() when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 expandPath(#wx_ref{type=ThisT}=This,Path)
@@ -171,6 +203,7 @@ expandPath(#wx_ref{type=ThisT}=This,Path)
   wxe_util:rec(?wxGenericDirCtrl_ExpandPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetdefaultpath">external documentation</a>.
+-doc "Gets the default path.".
 -spec getDefaultPath(This) -> unicode:charlist() when
 	This::wxGenericDirCtrl().
 getDefaultPath(#wx_ref{type=ThisT}=This) ->
@@ -179,6 +212,7 @@ getDefaultPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetDefaultPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetpath">external documentation</a>.
+-doc "Gets the currently-selected directory or filename.".
 -spec getPath(This) -> unicode:charlist() when
 	This::wxGenericDirCtrl().
 getPath(#wx_ref{type=ThisT}=This) ->
@@ -187,6 +221,11 @@ getPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetPath_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetpath">external documentation</a>.
+-doc """
+Gets the path corresponding to the given tree control item.
+
+Since: 2.9.5
+""".
 -spec getPath(This, ItemId) -> unicode:charlist() when
 	This::wxGenericDirCtrl(), ItemId::integer().
 getPath(#wx_ref{type=ThisT}=This,ItemId)
@@ -196,6 +235,11 @@ getPath(#wx_ref{type=ThisT}=This,ItemId)
   wxe_util:rec(?wxGenericDirCtrl_GetPath_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetfilepath">external documentation</a>.
+-doc """
+Gets selected filename path only (else empty string).
+
+This function doesn't count a directory as a selection.
+""".
 -spec getFilePath(This) -> unicode:charlist() when
 	This::wxGenericDirCtrl().
 getFilePath(#wx_ref{type=ThisT}=This) ->
@@ -204,6 +248,7 @@ getFilePath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetFilePath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetfilter">external documentation</a>.
+-doc "Returns the filter string.".
 -spec getFilter(This) -> unicode:charlist() when
 	This::wxGenericDirCtrl().
 getFilter(#wx_ref{type=ThisT}=This) ->
@@ -212,6 +257,7 @@ getFilter(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetFilter).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetfilterindex">external documentation</a>.
+-doc "Returns the current filter index (zero-based).".
 -spec getFilterIndex(This) -> integer() when
 	This::wxGenericDirCtrl().
 getFilterIndex(#wx_ref{type=ThisT}=This) ->
@@ -220,6 +266,7 @@ getFilterIndex(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetFilterIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgetrootid">external documentation</a>.
+-doc "Returns the root id for the tree control.".
 -spec getRootId(This) -> integer() when
 	This::wxGenericDirCtrl().
 getRootId(#wx_ref{type=ThisT}=This) ->
@@ -228,6 +275,7 @@ getRootId(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetRootId).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlgettreectrl">external documentation</a>.
+-doc "Returns a pointer to the tree control.".
 -spec getTreeCtrl(This) -> wxTreeCtrl:wxTreeCtrl() when
 	This::wxGenericDirCtrl().
 getTreeCtrl(#wx_ref{type=ThisT}=This) ->
@@ -236,6 +284,11 @@ getTreeCtrl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGenericDirCtrl_GetTreeCtrl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlrecreatetree">external documentation</a>.
+-doc """
+Collapse and expand the tree, thus re-creating it from scratch.
+
+May be used to update the displayed directory content.
+""".
 -spec reCreateTree(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 reCreateTree(#wx_ref{type=ThisT}=This) ->
@@ -243,6 +296,7 @@ reCreateTree(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGenericDirCtrl_ReCreateTree).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetdefaultpath">external documentation</a>.
+-doc "Sets the default path.".
 -spec setDefaultPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setDefaultPath(#wx_ref{type=ThisT}=This,Path)
@@ -252,6 +306,7 @@ setDefaultPath(#wx_ref{type=ThisT}=This,Path)
   wxe_util:queue_cmd(This,Path_UC,?get_env(),?wxGenericDirCtrl_SetDefaultPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetfilter">external documentation</a>.
+-doc "Sets the filter string.".
 -spec setFilter(This, Filter) -> 'ok' when
 	This::wxGenericDirCtrl(), Filter::unicode:chardata().
 setFilter(#wx_ref{type=ThisT}=This,Filter)
@@ -261,6 +316,7 @@ setFilter(#wx_ref{type=ThisT}=This,Filter)
   wxe_util:queue_cmd(This,Filter_UC,?get_env(),?wxGenericDirCtrl_SetFilter).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetfilterindex">external documentation</a>.
+-doc "Sets the current filter index (zero-based).".
 -spec setFilterIndex(This, N) -> 'ok' when
 	This::wxGenericDirCtrl(), N::integer().
 setFilterIndex(#wx_ref{type=ThisT}=This,N)
@@ -269,6 +325,7 @@ setFilterIndex(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxGenericDirCtrl_SetFilterIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetpath">external documentation</a>.
+-doc "Sets the current path.".
 -spec setPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
@@ -278,6 +335,7 @@ setPath(#wx_ref{type=ThisT}=This,Path)
   wxe_util:queue_cmd(This,Path_UC,?get_env(),?wxGenericDirCtrl_SetPath).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxGenericDirCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGenericDirCtrl),
@@ -652,3 +710,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxChoice).
+-moduledoc """
+Functions for wxChoice class
+
+A choice item is used to select one of a list of strings. Unlike a `m:wxListBox`, only the selection is visible until the user pulls down the menu of choices.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxListBox`, `m:wxComboBox`, `m:wxCommandEvent`
+
+This class is derived (and can use functions) from: `m:wxControlWithItems` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxChoice](https://docs.wxwidgets.org/3.1/classwx_choice.html)
+
+## Events
+
+Event types emitted from this class: [`command_choice_selected`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/6,create/7,delete/2,destroy/1,getColumns/1,new/0,new/2,new/3,setColumns/1,
   setColumns/2]).
@@ -66,6 +85,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxChoice() :: wx:wx_object().
 -export_type([wxChoice/0]).
 %% @hidden
@@ -76,12 +96,18 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+-doc """
+Default constructor.
+
+See: `create/7`, `wxValidator` (not implemented in wx)
+""".
 -spec new() -> wxChoice().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxChoice_new_0),
   wxe_util:rec(?wxChoice_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxChoice() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -90,6 +116,11 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+-doc """
+Constructor, creating and showing a choice.
+
+See: `create/7`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, [Option]) -> wxChoice() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -111,6 +142,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxChoice_new_3).
 
 %% @equiv create(This,Parent,Id,Pos,Size,Choices, [])
+-doc "".
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
 	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -119,6 +151,7 @@ create(This,Parent,Id,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
   create(This,Parent,Id,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicecreate">external documentation</a>.
+-doc "".
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'style', integer()}
@@ -137,6 +170,15 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,{PosX,PosY} = Po
   wxe_util:rec(?wxChoice_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicedelete">external documentation</a>.
+-doc """
+Deletes an item from the control.
+
+The client data associated with the item will be also deleted if it is owned by the control. Note that it is an error (signalled by an assert failure in debug builds) to remove an item with the index negative or greater or equal than the number of items in the control.
+
+If there is a currently selected item below the item being deleted, i.e. if `wxControlWithItems:getSelection/1` returns a valid index greater than or equal to `n`, the selection is invalidated when this function is called. However if the selected item appears before the item being deleted, the selection is preserved unchanged.
+
+See: `wxControlWithItems:clear/1`
+""".
 -spec delete(This, N) -> 'ok' when
 	This::wxChoice(), N::integer().
 delete(#wx_ref{type=ThisT}=This,N)
@@ -145,6 +187,11 @@ delete(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxChoice_Delete).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicegetcolumns">external documentation</a>.
+-doc """
+Gets the number of columns in this choice item.
+
+Remark: This is implemented for GTK and Motif only and always returns 1 for the other platforms.
+""".
 -spec getColumns(This) -> integer() when
 	This::wxChoice().
 getColumns(#wx_ref{type=ThisT}=This) ->
@@ -153,6 +200,7 @@ getColumns(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxChoice_GetColumns).
 
 %% @equiv setColumns(This, [])
+-doc "".
 -spec setColumns(This) -> 'ok' when
 	This::wxChoice().
 
@@ -161,6 +209,11 @@ setColumns(This)
   setColumns(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchoice.html#wxchoicesetcolumns">external documentation</a>.
+-doc """
+Sets the number of columns in this choice item.
+
+Remark: This is implemented for GTK and Motif only and doesn’t do anything under other platforms.
+""".
 -spec setColumns(This, [Option]) -> 'ok' when
 	This::wxChoice(),
 	Option :: {'n', integer()}.
@@ -173,6 +226,7 @@ setColumns(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxChoice_SetColumns).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the choice item.".
 -spec destroy(This::wxChoice()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxChoice),
@@ -592,3 +646,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -19,6 +19,41 @@
 %% 
 
 -module(snmpm_user).
+-moduledoc """
+Behaviour module for the SNMP manager user.
+
+This module defines the behaviour of the manager user. A `snmpm_user` compliant module must export the following functions:
+
+* handle_error/3
+* handle_agent/4
+* handle_pdu/4
+* handle_trap/3
+* handle_inform/3
+* handle_report/3
+* handle_invalid_result/2
+
+The semantics of them and their exact signatures are explained below.
+
+Some of the function has no defined return value (`void()`), they can of course return anything. But the functions that do have specified return value(s) *must* adhere to this. None of the functions can use exit of throw to return.
+
+If the manager is not configured to use any particular transport domain, the behaviour `handle_agent/4` will for backwards copmpatibility reasons be called with the old `IpAddr` and `PortNumber` arguments
+
+[](){: id=types }
+## DATA TYPES
+
+```text
+snmp_gen_info() = {ErrorStatus :: atom(), 
+                   ErrorIndex  :: pos_integer(), 
+                   Varbinds    :: [snmp:varbind()]}
+snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+                        Generic   :: integer(), 
+                        Spec      :: integer(), 
+                        Timestamp :: integer(), 
+                        Varbinds  :: [snmp:varbind()]}
+```
+
+[](){: id=handle_error }
+""".
 
 -export_type([
 	      snmp_gen_info/0, 
@@ -40,6 +75,25 @@
 %% *** handle_error ***
 %% An "asynchronous" error has been detected 
 
+-doc """
+ReqId = netif | integer()  
+Reason = \{unexpected_pdu, SnmpInfo\} | \{invalid_sec_info, SecInfo, SnmpInfo\} | \{empty_message, Addr, Port\} | term()  
+SnmpInfo = snmp_gen_info()  
+SecInfo = term()  
+Addr = ip_address()  
+Port = integer()  
+UserData = term()  
+
+This function is called when the manager needs to communicate an "asynchronous" error to the user: e.g. failure to send an asynchronous message (i.e. encoding error), a received message was discarded due to security error, the manager failed to generate a response message to a received inform-request, or when receiving an unexpected PDU from an agent (could be an expired async request).
+
+If `ReqId` is less then 0, it means that this information was not available to the manager (that info was never retrieved before the message was discarded).
+
+For `SnmpInfo` see handle_agent below.
+
+Note that there is a special case when the value of `ReqId` has the value of the atom `netif`. This means that the NetIF process has suffered a "fatal" error and been restarted. With possible loss of traffic\!
+
+[](){: id=handle_agent }
+""".
 -callback handle_error(
 	    ReqId :: netif | integer(), 
 	    Reason :: {unexpected_pdu, SnmpInfo :: snmp_gen_info()} |
@@ -57,6 +111,38 @@
 %% *** handle_agent ***
 %% A message was received from an unknown agent
 
+-doc """
+Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6  
+Addr = \{[inet:ip_address(), inet:port_number()](`t:inet:ip_address/0`)\}  
+Type = pdu | trap | report | inform  
+SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo  
+SnmpPduInfo = snmp_gen_info()  
+SnmpTrapInfo = snmp_v1_trap_info()  
+SnmpReportInfo = snmp_gen_info()  
+SnmpInformInfo = snmp_gen_info()  
+UserData = term()  
+Reply = ignore | \{register, UserId, TargetName, AgentConfig\}  
+UserId = term()  
+TargetName = target_name()  
+AgentConfig = \[agent_config()]  
+
+This function is called when a message is received from an unknown agent.
+
+Note that this will always be the default user that is called.
+
+For more info about the `agent_config()`, see [register_agent](`m:snmpm#register_agent`).
+
+The arguments `Type` and `SnmpInfo` relates in the following way:
+
+* `pdu` \- `SnmpPduInfo` (see [handle_pdu](`m:snmpm_user#handle_pdu`) for more info).
+* `trap` \- `SnmpTrapInfo` (see [handle_trap](`m:snmpm_user#handle_trap`) for more info).
+* `report` \- `SnmpReportInfo` (see [handle_report](`m:snmpm_user#handle_report`) for more info).
+* `inform` \- `SnmpInformInfo` (see [handle_inform](`m:snmpm_user#handle_inform`) for more info).
+
+The only user which would return `{register, UserId, TargetName, AgentConfig}` is the *default user*.
+
+[](){: id=handle_pdu }
+""".
 -callback handle_agent(Domain   :: atom(),
 		       Address  :: term(),
 		       Type     :: pdu | trap | inform | report, 
@@ -72,6 +158,20 @@
 %% *** handle_pdu ***
 %% Handle the reply to an async request (such as get, get-next and set).
 
+-doc """
+TargetName = target_name()  
+ReqId = term()  
+SnmpPduInfo = snmp_gen_info()  
+UserData = term()  
+
+Handle the reply to an asynchronous request, such as [async_get](`m:snmpm#async_get2`), [async_get_next](`m:snmpm#async_get_next2`) or [async_set](`m:snmpm#async_set2`).
+
+It could also be a late reply to a synchronous request.
+
+`ReqId` is returned by the asynchronous request function.
+
+[](){: id=handle_trap }
+""".
 -callback handle_pdu(TargetName   :: snmpm:target_name(), 
 		     ReqId        :: term(), 
 		     SnmpResponse :: snmp_gen_info(), 
@@ -82,6 +182,22 @@
 %% *** handle_trap ***
 %% Handle a trap/notification message received from an agent
 
+-doc """
+TargetName = TargetName2 = target_name()  
+SnmpTrapInfo = snmp_v1_trap_info() | snmp_gen_info()  
+UserData = term()  
+Reply = ignore | unregister | \{register, UserId, TargetName2, AgentConfig\}  
+UserId = term()  
+AgentConfig = \[agent_config()]  
+
+Handle a trap/notification message from an agent.
+
+For more info about the `agent_config()`, see [register_agent](`m:snmpm#register_agent`)
+
+The only user which would return `{register, UserId, TargetName2, agent_info()}` is the *default user*.
+
+[](){: id=handle_inform }
+""".
 -callback handle_trap(TargetName   :: snmpm:target_name(), 
 		      SnmpTrapInfo :: snmp_gen_info() | snmp_v1_trap_info(), 
 		      UserData     :: term()) ->
@@ -96,6 +212,24 @@
 %% *** handle_inform ***
 %% Handle a inform message received from an agent
 
+-doc """
+TargetName = TargetName2 = target_name()  
+SnmpInformInfo = snmp_gen_info()  
+UserData = term()  
+Reply = ignore | no_reply | unregister | \{register, UserId, TargetName2, AgentConfig\}  
+UserId = term()  
+AgentConfig = \[agent_config()]  
+
+Handle a inform message.
+
+For more info about the `agent_config()`, see [register_agent](`m:snmpm#register_agent`)
+
+The only user which would return `{register, UserId, TargetName2, AgentConfig}` is the *default user*.
+
+If the [inform request behaviour](snmp_config.md#manager_irb) configuration option is set to `user` or `{user, integer()}`, the response (acknowledgment) to this inform-request will be sent when this function returns.
+
+[](){: id=handle_report }
+""".
 -callback handle_inform(TargetName :: snmpm:target_name(), 
 			SnmpInform :: snmp_gen_info(), 
 			UserData   :: term()) ->
@@ -110,6 +244,24 @@
 %% *** handle_report *** 
 %% Handle a report message received from an agent
 
+-doc """
+TargetName = TargetName2 = target_name()  
+Addr = ip_address()  
+Port = integer()  
+SnmpReportInfo = snmp_gen_info()  
+UserData = term()  
+Reply = ignore | unregister | \{register, UserId, TargetName2, AgentConfig\}  
+UserId = term()  
+AgentConfig = \[agent_config()]  
+
+Handle a report message.
+
+For more info about the `agent_config()`, see [register_agent](`m:snmpm#register_agent`)
+
+The only user which would return `{register, UserId, TargetName2, AgentConfig}` is the *default user*.
+
+[](){: id=handle_invalid_result }
+""".
 -callback handle_report(TargetName :: snmpm:target_name(), 
 			SnmpReport :: snmp_gen_info(), 
 			UserData   :: term()) ->
@@ -120,9 +272,26 @@
 	      RTargetName :: snmpm:target_name(), 
 	      AgentConfig :: [snmpm:agent_config()]}.
 
+-doc """
+IN = \{Func, Args\}  
+Func = atom()  
+Args = list()  
+OUT = \{crash, CrashInfo\} | \{result, InvalidResult\}  
+CrashInfo = \{ErrorType, Error, Stacktrace\}  
+ErrorType = atom()  
+Error = term()  
+Stacktrace = list()  
+InvalidResult = term()  
+
+If *any* of the *other* callback functions crashes (exit, throw or a plain crash) or return an invalid result (if a valid return has been specified), this function is called. The purpose is to allow the user handle this error (for instance to issue an error report).
+
+`IN` reprecents the function called (and its arguments). `OUT` represents the unexpected/invalid result.
+""".
+-doc(#{since => <<"OTP R16B03">>}).
 -callback handle_invalid_result(In, Out) -> no_return() when
       In :: {Fun :: atom(), Args :: list()},
       Out :: {crash, CrashInfo} | {result, InvalidResult :: term()},
       CrashInfo :: {ErrorType :: atom(), Error :: term(), Stacktrace :: erlang:stacktrace()}.
 
 -optional_callbacks([handle_invalid_result/2]).
+

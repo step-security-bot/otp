@@ -23,6 +23,11 @@
 %% Created :  4 Jun 2008
 %%----------------------------------------------------------------------
 -module(xmerl_sax_parser).
+-moduledoc """
+XML SAX parser API
+
+A SAX parser for XML that sends the events through a callback interface. SAX is the *Simple API for XML*, originally a Java-only API. SAX was the first widely adopted API for XML in Java, and is a *de facto* standard where there are versions for several programming language environments other than Java.
+""".
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -44,6 +49,32 @@
 %%----------------------------------------------------------------------
 %% Types
 %%----------------------------------------------------------------------
+-doc """
+Options used to customize the behaviour of the parser. Possible options are:
+
+* __`{continuation_fun, ContinuationFun :: continuation_fun()}`__ - [ContinuationFun](`t:continuation_fun/0`) is a call back function to decide what to do if the parser runs into EOF before the document is complete.
+
+* __`{continuation_state, term()}`__ - State that is accessible in the continuation call back function.
+
+* __`{event_fun, EventFun :: event_fun()}`__ - [EventFun](`t:event_fun/0`) is the call back function for parser events.
+
+* __`{event_state, term()}`__ - State that is accessible in the event call back function.
+
+* __`{file_type, FileType}`__ - Flag that tells the parser if it's parsing a DTD or a normal XML file (default normal).
+
+* __`{encoding, Encoding}`__ - Set default character set used (default UTF-8). This character set is used only if not explicitly given by the XML document.
+
+* __`skip_external_dtd`__ - Skips the external DTD during parsing. This option is the same as \{external_entities, none\} and \{fail_undeclared_ref, false\} but just for the DTD.
+
+* __`disallow_entities`__ - Implies that parsing fails if an ENTITY declaration is found.
+
+* __`{entity_recurse_limit, N}`__ - Sets how many levels of recursion that is allowed for entities. Default is 3 levels.
+
+* __`{external_entities, AllowedType}`__ - Sets which types of external entities that should be allowed, if not allowed it's just skipped.
+  * `AllowedType = all | file | none`
+
+* __`{fail_undeclared_ref, Boolean}`__ - Decides how the parser should behave when an undeclared reference is found. Can be useful if one has turned of external entities so that an external DTD is not parsed. Default is true.
+""".
 -type options() :: [{continuation_fun, continuation_fun()} |
                     {continuation_state, continuation_state()} |
                     {event_fun, event_fun()} |
@@ -54,15 +85,69 @@
                     {entity_recurse_limit, non_neg_integer()} |
                     {external_entities, all | file | none} |
                     {fail_undeclared_ref, boolean()}].
+-doc "".
 -type continuation_state() :: term().
+-doc "This function is called whenever the parser runs out of input data. If the function can't get hold of more input an empty list or binary (depends on start input in stream/2) is returned. Other types of errors is handled through exceptions. Use throw/1 to send the following tuple `{Tag = atom(), Reason = string()}` if the continuation function encounters a fatal error. Tag is an atom that identifies the functional entity that sends the exception and Reason is a string that describes the problem.".
 -type continuation_fun() :: fun((continuation_state()) ->
                                        {NewBytes :: binary() | list(),
                                         continuation_state()}).
+-doc "".
 -type event_state() :: term().
+-doc """
+This function is called for every event sent by the parser. The error handling is done through exceptions. Use throw/1 to send the following tuple \{Tag = atom(), Reason = string()\} if the application encounters a fatal error. Tag is an atom that identifies the functional entity that sends the exception and Reason is a string that describes the problem.
+""".
 -type event_fun() :: fun((event(), event_location(), event_state()) -> event_state()).
+-doc "".
 -type event_location() :: {CurrentLocation :: string(),
                            Entityname :: string(),
                            LineNo :: integer()}.
+-doc """
+The SAX events that are sent to the user via the callback.
+
+* __`startDocument`__ - Receive notification of the beginning of a document. The SAX parser will send this event only once before any other event callbacks.
+
+* __`endDocument`__ - Receive notification of the end of a document. The SAX parser will send this event only once, and it will be the last event during the parse.
+
+* __`{startPrefixMapping, Prefix, Uri}`__ - Begin the scope of a prefix-URI Namespace mapping. Note that start/endPrefixMapping events are not guaranteed to be properly nested relative to each other: all startPrefixMapping events will occur immediately before the corresponding startElement event, and all endPrefixMapping events will occur immediately after the corresponding endElement event, but their order is not otherwise guaranteed. There will not be start/endPrefixMapping events for the "xml" prefix, since it is predeclared and immutable.
+
+* __`{endPrefixMapping, Prefix}`__ - End the scope of a prefix-URI mapping.
+
+* __`{startElement, Uri, LocalName, QualifiedName, Attributes}`__ - Receive notification of the beginning of an element. The Parser will send this event at the beginning of every element in the XML document; there will be a corresponding endElement event for every startElement event (even when the element is empty). All of the element's content will be reported, in order, before the corresponding endElement event.
+
+* __`{endElement, Uri, LocalName, QualifiedName}`__ - Receive notification of the end of an element. The SAX parser will send this event at the end of every element in the XML document; there will be a corresponding startElement event for every endElement event (even when the element is empty).
+
+* __`{characters, string()}`__ - Receive notification of character data.
+
+* __`{ignorableWhitespace, string()}`__ - Receive notification of ignorable whitespace in element content.
+
+* __`{processingInstruction, Target, Data}`__ - Receive notification of a processing instruction. The Parser will send this event once for each processing instruction found: note that processing instructions may occur before or after the main document element.
+
+* __`{comment, string()}`__ - Report an XML comment anywhere in the document (both inside and outside of the document element).
+
+* __`startCDATA`__ - Report the start of a CDATA section. The contents of the CDATA section will be reported through the regular characters event.
+
+* __`endCDATA`__ - Report the end of a CDATA section.
+
+* __`{startDTD, Name, PublicId, SystemId}`__ - Report the start of DTD declarations, it's reporting the start of the DOCTYPE declaration. If the document has no DOCTYPE declaration, this event will not be sent.
+
+* __`endDTD`__ - Report the end of DTD declarations, it's reporting the end of the DOCTYPE declaration.
+
+* __`{startEntity, SysId}`__ - Report the beginning of some internal and external XML entities. ???
+
+* __`{endEntity, SysId}`__ - Report the end of an entity. ???
+
+* __`{elementDecl, Name, Model}`__ - Report an element type declaration. The content model will consist of the string "EMPTY", the string "ANY", or a parenthesised group, optionally followed by an occurrence indicator. The model will be normalized so that all parameter entities are fully resolved and all whitespace is removed,and will include the enclosing parentheses. Other normalization (such as removing redundant parentheses or simplifying occurrence indicators) is at the discretion of the parser.
+
+* __`{attributeDecl, ElementName, AttributeName, Type, Mode, Value}`__ - Report an attribute type declaration.
+
+* __`{internalEntityDecl, Name, Value}`__ - Report an internal entity declaration.
+
+* __`{externalEntityDecl, Name, PublicId, SystemId}`__ - Report a parsed external entity declaration.
+
+* __`{unparsedEntityDecl, Name, PublicId, SystemId, Ndata}`__ - Receive notification of an unparsed entity declaration event.
+
+* __`{notationDecl, Name, PublicId, SystemId}`__ - Receive notification of a notation declaration event.
+""".
 -type event() :: startDocument | endDocument |
                  {startPrefixMapping, Prefix :: string(), Uri :: string()} |
                  {endPrefixMapping, Prefix :: string()} |
@@ -87,8 +172,11 @@
                  {unparsedEntityDecl, Name :: string(), PublicId :: string(), SystemId :: string(), Ndata :: string()} |
                  {notationDecl, Name :: string(), PublicId :: string(), SystemId :: string()}.
 
+-doc "Integer representing valid unicode codepoint.".
 -type unicode_char() :: char().
+-doc "Binary with characters encoded in UTF-8 or UTF-16.".
 -type unicode_binary() :: binary().
+-doc "Binary with characters encoded in iso-latin-1.".
 -type latin1_binary() :: unicode:latin1_binary().
 
 -export_type([options/0, unicode_char/0, unicode_binary/0, latin1_binary/0]).
@@ -115,6 +203,7 @@
 %%           EventState = term()
 %% Description: Parse file containing an XML document.
 %%----------------------------------------------------------------------
+-doc "Parse file containing an XML document. This functions uses a default continuation function to read the file in blocks.".
 -spec file(Name, Options) -> {ok, EventState, Rest} | ErrorOrUserReturn when
       Name :: file:filename(),
       Options :: options(),
@@ -156,6 +245,7 @@ file(Name,Options) ->
 %%           EventState = term()
 %% Description: Parse a stream containing an XML document.
 %%----------------------------------------------------------------------
+-doc "Parse a stream containing an XML document.".
 -spec stream(Xml, Options) -> {ok, EventState, Rest} | ErrorOrUserReturn when
       Xml :: unicode_binary() | latin1_binary() | [unicode_char],
       Options :: options(),
@@ -583,3 +673,4 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 	    NextCall(<<Rest/binary, NewBytes/binary>>,
 		     State#xmerl_sax_parser_state{continuation_state = NewContState})
     end.
+

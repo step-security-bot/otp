@@ -55,12 +55,16 @@
 %% Types -- alphabetically
 %%------------------------------------------------------------------------
 
+-doc "".
 -type dlog_format()      :: 'external' | 'internal'.
 -type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'
                           | 'rotate_ext'.
 -type dlog_head()        :: 'none' | {'ok', binary()} | mfa().
+-doc "".
 -type dlog_head_opt()    :: none | term() | iodata().
+-doc "".
 -type log()              :: term().  % XXX: refine
+-doc "".
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().
 -type dlog_optattr()     :: 'name' | 'file' | 'linkto' | 'repair' | 'type'
@@ -80,10 +84,12 @@
                           | {mode, Mode :: dlog_mode()}.
 -type dlog_options()     :: [dlog_option()].
 -type dlog_repair()      :: 'truncate' | boolean().
+-doc "".
 -type dlog_size()        :: 'infinity' | pos_integer()
                           | {MaxNoBytes :: pos_integer(),
                              MaxNoFiles :: pos_integer()}.
 -type dlog_status()      :: 'ok' | {'blocked', 'false' | [_]}. %QueueLogRecords
+-doc "".
 -type dlog_type()        :: 'halt' | 'wrap' | 'rotate'.
 
 %%------------------------------------------------------------------------
@@ -184,3 +190,4 @@
 	).
 
 -type dlog_cont() :: 'start' | #continuation{}.
+

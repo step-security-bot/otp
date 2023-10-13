@@ -19,6 +19,11 @@
 %%
 -module(erl_features).
 -feature(maybe_expr, enable).
+-moduledoc """
+Feature support.
+
+This module contains functions for supporting features that can be enabled/disabled in Erlang. It should be considered as mostly for internal use, although there are some functions that might be useful when writing tools.[](){: id=erl_features }
+""".
 
 -export([all/0,
          configurable/0,
@@ -34,12 +39,16 @@
          format_error/1,
          format_error/2]).
 
+-doc "".
 -type type() :: 'extension' | 'backwards_incompatible_change'.
+-doc "".
 -type status() :: 'experimental'
                   | 'approved'
                   | 'permanent'
                   | 'rejected'.
+-doc "".
 -type release() :: non_neg_integer().
+-doc "".
 -type feature() :: atom().
 -type error() :: {?MODULE,
                   {'invalid_features', [atom()]}
@@ -69,6 +78,8 @@ feature_specs() ->
             type => extension}}.
 
 %% Return all currently known features.
+-doc "Return a list of all known features. This list will include features that have been removed (status `rejected`) and features that are no longer configurable (status `permanent`).".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec all() -> [feature()].
 all() ->
     Map = case persistent_term:get({?MODULE, feature_specs}, none) of
@@ -77,6 +88,8 @@ all() ->
           end,
     lists:sort(maps:keys(Map)).
 
+-doc "Return a list of all configurable features, that is, features with status `experimental` or `approved`. These are the features that can be enabled or disabled.".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec configurable() -> [feature()].
 configurable() ->
     [Ftr || Ftr <- all(),
@@ -156,6 +169,8 @@ adjust(Col, [{W, L}| WLs], Ws) ->
     end.
 
 
+-doc "Return a map containing information about the given feature.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec info(feature()) -> FeatureInfoMap | no_return()
               when
       Description :: string(),
@@ -407,6 +422,8 @@ ensure_init() ->
     end.
 
 %% Return list of currently enabled features
+-doc "Return a list of the features that are currently enabled. Note that the set of enabled is set during startup and can then not be changed.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec enabled() -> [feature()].
 enabled() ->
     ensure_init(),
@@ -425,6 +442,8 @@ set_keywords(Words) ->
     persistent_term:put({?MODULE, keywords}, Words).
 
 %% Return features used by module or beam file
+-doc "Return the list of features enabled when compiling the module. The module need not be loaded, but is found if it exists in the loadpath. If not all features used by the module are enabled in the runtime, loading the module is not allowed.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec used(module() | file:filename()) -> [feature()].
 used(Module) when is_atom(Module) ->
     case code:get_object_code(Module) of
@@ -543,3 +562,4 @@ test_features() ->
             rejected => 25,
             keywords => ['inline', 'return', 'set'],
             type => extension}}.
+

@@ -19,6 +19,11 @@
 %%
 
 -module(ct_rpc).
+-moduledoc """
+Common Test specific layer on Erlang/OTP rpc.
+
+`Common Test` specific layer on Erlang/OTP `rpc`.
+""".
 
 %%% API
 -export([app_node/2, app_node/3, app_node/4,
@@ -27,12 +32,38 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
+-doc """
+App = atom()  
+Candidates = \[NodeName]  
+NodeName = atom()  
+
+From a set of candidate nodes determines which of them is running the application `App`. If none of the candidate nodes is running `App`, the function makes the test case calling this function to fail. This function is the same as calling `app_node(App, Candidates, true)`.
+""".
 app_node(App, Candidates) ->
     app_node(App, Candidates, true, []).
 
+-doc """
+App = atom()  
+Candidates = \[NodeName]  
+NodeName = atom()  
+FailOnBadRPC = true | false  
+
+Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC` determines if the search for a candidate node is to stop if `badrpc` is received at some point.
+""".
 app_node(App, Candidates, FailOnBadRPC) ->
     app_node(App, Candidates, FailOnBadRPC, []).
 
+-doc """
+App = atom()  
+Candidates = \[NodeName]  
+NodeName = atom()  
+FailOnBadRPC = true | false  
+Cookie = atom()  
+
+Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC` determines if the search for a candidate node is to stop if `badrpc` is received at some point.
+
+The cookie on the client node is set to `Cookie` for this `rpc` operation (used to match the server node cookie).
+""".
 app_node(App, [], _, _) -> 
     ct:fail({application_not_running, App});
 
@@ -57,12 +88,40 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
 	    end
     end.
 
+-doc "Same as `call(Node, Module, Function, Args, infinity)`.".
 call(Node, Module, Function, Args) ->
     call(Node, Module, Function, Args, infinity, []). 
 
+-doc """
+Node = NodeName | \{Fun, FunArgs\}  
+Fun = function()  
+FunArgs = term()  
+NodeName = atom()  
+Module = atom()  
+Function = atom()  
+Args = \[term()]  
+Reason = timeout | term()  
+
+Evaluates `apply(Module, Function, Args)` on the node `Node`. Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs` is to return a node name.
+""".
 call(Node, Module, Function, Args, TimeOut) ->
     call(Node, Module, Function, Args, TimeOut, []).
 
+-doc """
+Node = NodeName | \{Fun, FunArgs\}  
+Fun = function()  
+FunArgs = term()  
+NodeName = atom()  
+Module = atom()  
+Function = atom()  
+Args = \[term()]  
+Reason = timeout | term()  
+Cookie = atom()  
+
+Evaluates `apply(Module, Function, Args)` on the node `Node`. Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs` is to return a node name.
+
+The cookie on the client node is set to `Cookie` for this `rpc` operation (used to match the server node cookie).
+""".
 call({Fun, FunArgs}, Module, Function, Args, TimeOut, Cookie) ->
     Node = Fun(FunArgs),
     call(Node, Module, Function, Args, TimeOut, Cookie);
@@ -72,9 +131,36 @@ call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     _ = set_the_cookie(Cookie0),
     Result.    
 
+-doc """
+Node = NodeName | \{Fun, FunArgs\}  
+Fun = function()  
+FunArgs = term()  
+NodeName = atom()  
+Module = atom()  
+Function = atom()  
+Args = \[term()]  
+Reason = timeout | term()  
+
+Evaluates `apply(Module, Function, Args)` on the node `Node`. No response is delivered and the process that makes the call is not suspended until the evaluation is completed as in the case of `call/3,4`. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs` is to return a node name.
+""".
 cast(Node, Module, Function, Args) ->
     cast(Node, Module, Function, Args, []).
 
+-doc """
+Node = NodeName | \{Fun, FunArgs\}  
+Fun = function()  
+FunArgs = term()  
+NodeName = atom()  
+Module = atom()  
+Function = atom()  
+Args = \[term()]  
+Reason = timeout | term()  
+Cookie = atom()  
+
+Evaluates `apply(Module, Function, Args)` on the node `Node`. No response is delivered and the process that makes the call is not suspended until the evaluation is completed as in the case of `call/3,4`. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs` is to return a node name.
+
+The cookie on the client node is set to `Cookie` for this `rpc` operation (used to match the server node cookie).
+""".
 cast({Fun, FunArgs}, Module, Function, Args, Cookie) ->
     Node = Fun(FunArgs),
     cast(Node, Module, Function, Args, Cookie);
@@ -93,3 +179,4 @@ set_the_cookie(Cookie) ->
     Cookie0 = erlang:get_cookie(),
     erlang:set_cookie(node(),Cookie),
     Cookie0.
+

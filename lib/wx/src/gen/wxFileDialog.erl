@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFileDialog).
+-moduledoc """
+Functions for wxFileDialog class
+
+This class represents the file chooser dialog.
+
+The path and filename are distinct elements of a full file pathname. If path is ?wxEmptyString, the current directory will be used. If filename is ?wxEmptyString, no default filename will be supplied. The wildcard determines what files are displayed in the file selector, and file extension supplies a type extension for the required filename.
+
+The typical usage for the open file dialog is:
+
+The typical usage for the save file dialog is instead somewhat simpler:
+
+Remark: All implementations of the `m:wxFileDialog` provide a wildcard filter. Typing a filename containing wildcards (*, ?) in the filename text item, and clicking on Ok, will result in only those files matching the pattern being displayed. The wildcard may be a specification for multiple types of file with a description for each, such as: It must be noted that wildcard support in the native Motif file dialog is quite limited: only one file type is supported, and it is displayed without the descriptive test; "BMP files (*.bmp)|*.bmp" is displayed as "*.bmp", and both "BMP files (*.bmp)|*.bmp|GIF files (*.gif)|*.gif" and "Image files|*.bmp;*.gif" are errors. On Mac macOS in the open file dialog the filter choice box is not shown by default. Instead all given wildcards are appplied at the same time: So in the above example all bmp, gif and png files are displayed. To enforce the display of the filter choice set the corresponding `m:wxSystemOptions` before calling the file open dialog: But in contrast to Windows and Unix, where the file type choice filters only the selected files, on Mac macOS even in this case the dialog shows all files matching all file types. The files which does not match the currently selected file type are greyed out and are not selectable.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_file), ?wxFileSelector()
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFileDialog](https://docs.wxwidgets.org/3.1/classwx_file_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getDirectory/1,getFilename/1,getFilenames/1,getFilterIndex/1,
   getMessage/1,getPath/1,getPaths/1,getWildcard/1,new/1,new/2,setDirectory/2,
@@ -69,6 +92,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFileDialog() :: wx:wx_object().
 -export_type([wxFileDialog/0]).
 %% @hidden
@@ -79,6 +103,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxFileDialog() when
 	Parent::wxWindow:wxWindow().
 
@@ -87,6 +112,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogwxfiledialog">external documentation</a>.
+-doc """
+Constructor.
+
+Use `wxDialog:showModal/1` to show the dialog.
+""".
 -spec new(Parent, [Option]) -> wxFileDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'message', unicode:chardata()}
@@ -112,6 +142,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxFileDialog_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetdirectory">external documentation</a>.
+-doc "Returns the default directory.".
 -spec getDirectory(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getDirectory(#wx_ref{type=ThisT}=This) ->
@@ -120,6 +151,11 @@ getDirectory(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetDirectory).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetfilename">external documentation</a>.
+-doc """
+Returns the default filename.
+
+Note: This function can't be used with dialogs which have the `wxFD_MULTIPLE` style, use `getFilenames/1` instead.
+""".
 -spec getFilename(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getFilename(#wx_ref{type=ThisT}=This) ->
@@ -128,6 +164,13 @@ getFilename(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetFilename).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetfilenames">external documentation</a>.
+-doc """
+Fills the array `filenames` with the names of the files chosen.
+
+This function should only be used with the dialogs which have `wxFD_MULTIPLE` style, use `getFilename/1` for the others.
+
+Note that under Windows, if the user selects shortcuts, the filenames include paths, since the application cannot determine the full path of each referenced file by appending the directory containing the shortcuts to the filename.
+""".
 -spec getFilenames(This) -> [unicode:charlist()] when
 	This::wxFileDialog().
 getFilenames(#wx_ref{type=ThisT}=This) ->
@@ -136,6 +179,13 @@ getFilenames(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetFilenames).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetfilterindex">external documentation</a>.
+-doc """
+Returns the index into the list of filters supplied, optionally, in the wildcard parameter.
+
+Before the dialog is shown, this is the index which will be used when the dialog is first displayed.
+
+After the dialog is shown, this is the index selected by the user.
+""".
 -spec getFilterIndex(This) -> integer() when
 	This::wxFileDialog().
 getFilterIndex(#wx_ref{type=ThisT}=This) ->
@@ -144,6 +194,7 @@ getFilterIndex(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetFilterIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetmessage">external documentation</a>.
+-doc "Returns the message that will be displayed on the dialog.".
 -spec getMessage(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getMessage(#wx_ref{type=ThisT}=This) ->
@@ -152,6 +203,11 @@ getMessage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetMessage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetpath">external documentation</a>.
+-doc """
+Returns the full path (directory and filename) of the selected file.
+
+Note: This function can't be used with dialogs which have the `wxFD_MULTIPLE` style, use `getPaths/1` instead.
+""".
 -spec getPath(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getPath(#wx_ref{type=ThisT}=This) ->
@@ -160,6 +216,11 @@ getPath(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetpaths">external documentation</a>.
+-doc """
+Fills the array `paths` with the full paths of the files chosen.
+
+This function should only be used with the dialogs which have `wxFD_MULTIPLE` style, use `getPath/1` for the others.
+""".
 -spec getPaths(This) -> [unicode:charlist()] when
 	This::wxFileDialog().
 getPaths(#wx_ref{type=ThisT}=This) ->
@@ -168,6 +229,7 @@ getPaths(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetPaths).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialoggetwildcard">external documentation</a>.
+-doc "Returns the file dialog wildcard.".
 -spec getWildcard(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getWildcard(#wx_ref{type=ThisT}=This) ->
@@ -176,6 +238,7 @@ getWildcard(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFileDialog_GetWildcard).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetdirectory">external documentation</a>.
+-doc "Sets the default directory.".
 -spec setDirectory(This, Directory) -> 'ok' when
 	This::wxFileDialog(), Directory::unicode:chardata().
 setDirectory(#wx_ref{type=ThisT}=This,Directory)
@@ -185,6 +248,11 @@ setDirectory(#wx_ref{type=ThisT}=This,Directory)
   wxe_util:queue_cmd(This,Directory_UC,?get_env(),?wxFileDialog_SetDirectory).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetfilename">external documentation</a>.
+-doc """
+Sets the default filename.
+
+In wxGTK this will have little effect unless a default directory has previously been set.
+""".
 -spec setFilename(This, Setfilename) -> 'ok' when
 	This::wxFileDialog(), Setfilename::unicode:chardata().
 setFilename(#wx_ref{type=ThisT}=This,Setfilename)
@@ -194,6 +262,7 @@ setFilename(#wx_ref{type=ThisT}=This,Setfilename)
   wxe_util:queue_cmd(This,Setfilename_UC,?get_env(),?wxFileDialog_SetFilename).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetfilterindex">external documentation</a>.
+-doc "Sets the default filter index, starting from zero.".
 -spec setFilterIndex(This, FilterIndex) -> 'ok' when
 	This::wxFileDialog(), FilterIndex::integer().
 setFilterIndex(#wx_ref{type=ThisT}=This,FilterIndex)
@@ -202,6 +271,7 @@ setFilterIndex(#wx_ref{type=ThisT}=This,FilterIndex)
   wxe_util:queue_cmd(This,FilterIndex,?get_env(),?wxFileDialog_SetFilterIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetmessage">external documentation</a>.
+-doc "Sets the message that will be displayed on the dialog.".
 -spec setMessage(This, Message) -> 'ok' when
 	This::wxFileDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT}=This,Message)
@@ -211,6 +281,7 @@ setMessage(#wx_ref{type=ThisT}=This,Message)
   wxe_util:queue_cmd(This,Message_UC,?get_env(),?wxFileDialog_SetMessage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetpath">external documentation</a>.
+-doc "Sets the path (the combined directory and filename that will be returned when the dialog is dismissed).".
 -spec setPath(This, Path) -> 'ok' when
 	This::wxFileDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
@@ -220,6 +291,11 @@ setPath(#wx_ref{type=ThisT}=This,Path)
   wxe_util:queue_cmd(This,Path_UC,?get_env(),?wxFileDialog_SetPath).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetwildcard">external documentation</a>.
+-doc """
+Sets the wildcard, which can contain multiple file types, for example: "BMP files (*.bmp)|*.bmp|GIF files (*.gif)|*.gif".
+
+Note that the native Motif dialog has some limitations with respect to wildcards; see the Remarks section above.
+""".
 -spec setWildcard(This, WildCard) -> 'ok' when
 	This::wxFileDialog(), WildCard::unicode:chardata().
 setWildcard(#wx_ref{type=ThisT}=This,WildCard)
@@ -229,6 +305,7 @@ setWildcard(#wx_ref{type=ThisT}=This,WildCard)
   wxe_util:queue_cmd(This,WildCard_UC,?get_env(),?wxFileDialog_SetWildcard).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxFileDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDialog),
@@ -668,3 +745,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

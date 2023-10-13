@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStaticBoxSizer).
+-moduledoc """
+Functions for wxStaticBoxSizer class
+
+`m:wxStaticBoxSizer` is a sizer derived from `m:wxBoxSizer` but adds a static box around the sizer.
+
+The static box may be either created independently or the sizer may create it itself as a convenience. In any case, the sizer owns the `m:wxStaticBox` control and will delete it in the `m:wxStaticBoxSizer` destructor.
+
+Note that since wxWidgets 2.9.1 you are encouraged to create the windows which are added to `m:wxStaticBoxSizer` as children of `m:wxStaticBox` itself, see this class documentation for more details.
+
+Example of use of this class:
+
+See: `m:wxSizer`, `m:wxStaticBox`, `m:wxBoxSizer`, [Overview sizer](https://docs.wxwidgets.org/3.1/overview_sizer.html#overview_sizer)
+
+This class is derived (and can use functions) from: `m:wxBoxSizer` `m:wxSizer`
+
+wxWidgets docs: [wxStaticBoxSizer](https://docs.wxwidgets.org/3.1/classwx_static_box_sizer.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getStaticBox/1,new/2,new/3]).
 
@@ -33,6 +50,7 @@
   setItemMinSize/3,setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,
   setVirtualSizeHints/2,show/2,show/3,showItems/2]).
 
+-doc "".
 -type wxStaticBoxSizer() :: wx:wx_object().
 -export_type([wxStaticBoxSizer/0]).
 %% @hidden
@@ -45,6 +63,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 %% new(Box, Orient) -> wxStaticBoxSizer() when<br />
 %% 	Box::wxStaticBox:wxStaticBox(), Orient::integer().<br />
 %% 
+-doc "This constructor uses an already existing static box.".
 -spec new(Orient, Parent) -> wxStaticBoxSizer() when
 	Orient::integer(), Parent::wxWindow:wxWindow();
       (Box, Orient) -> wxStaticBoxSizer() when
@@ -60,6 +79,7 @@ new(#wx_ref{type=BoxT}=Box,Orient)
   wxe_util:rec(?wxStaticBoxSizer_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticboxsizer.html#wxstaticboxsizerwxstaticboxsizer">external documentation</a>.
+-doc "This constructor creates a new static box with the given label and parent window.".
 -spec new(Orient, Parent, [Option]) -> wxStaticBoxSizer() when
 	Orient::integer(), Parent::wxWindow:wxWindow(),
 	Option :: {'label', unicode:chardata()}.
@@ -73,6 +93,7 @@ new(Orient,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxStaticBoxSizer_new_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticboxsizer.html#wxstaticboxsizergetstaticbox">external documentation</a>.
+-doc "Returns the static box associated with the sizer.".
 -spec getStaticBox(This) -> wxStaticBox:wxStaticBox() when
 	This::wxStaticBoxSizer().
 getStaticBox(#wx_ref{type=ThisT}=This) ->
@@ -81,6 +102,7 @@ getStaticBox(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxStaticBoxSizer_GetStaticBox).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxStaticBoxSizer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBoxSizer),
@@ -188,3 +210,4 @@ add(This,Width,Height, Options) -> wxSizer:add(This,Width,Height, Options).
 add(This,Width,Height) -> wxSizer:add(This,Width,Height).
 %% @hidden
 add(This,Window) -> wxSizer:add(This,Window).
+

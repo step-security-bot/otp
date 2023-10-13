@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxClientDC).
+-moduledoc """
+Functions for wxClientDC class
+
+`m:wxClientDC` is primarily useful for obtaining information about the window from outside EVT_PAINT() handler.
+
+Typical use of this class is to obtain the extent of some text string in order to allocate enough size for a window, e.g.
+
+Note: While `m:wxClientDC` may also be used for drawing on the client area of a window from outside an EVT_PAINT() handler in some ports, this does `not` work on all platforms (neither wxOSX nor wxGTK with GTK 3 Wayland backend support this, so drawing using `m:wxClientDC` simply doesn't have any effect there) and the only portable way of drawing is via `m:wxPaintDC`. To redraw a small part of the window, use `wxWindow:refreshRect/3` to invalidate just this part and check `wxWindow:getUpdateRegion/1` in the paint event handler to redraw this part only.
+
+`m:wxClientDC` objects should normally be constructed as temporary stack objects, i.e. don't store a `m:wxClientDC` object.
+
+A `m:wxClientDC` object is initialized to use the same font and colours as the window it is associated with.
+
+See: `m:wxDC`, `m:wxMemoryDC`, `m:wxPaintDC`, `m:wxWindowDC`, `m:wxScreenDC`
+
+This class is derived (and can use functions) from: `m:wxWindowDC` `m:wxDC`
+
+wxWidgets docs: [wxClientDC](https://docs.wxwidgets.org/3.1/classwx_client_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/1]).
 
@@ -44,6 +63,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxClientDC() :: wx:wx_object().
 -export_type([wxClientDC/0]).
 %% @hidden
@@ -52,6 +72,11 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxclientdc.html#wxclientdcwxclientdc">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a pointer to the window on which you wish to paint.
+""".
 -spec new(Window) -> wxClientDC() when
 	Window::wxWindow:wxWindow().
 new(#wx_ref{type=WindowT}=Window) ->
@@ -60,6 +85,7 @@ new(#wx_ref{type=WindowT}=Window) ->
   wxe_util:rec(?wxClientDC_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxClientDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxClientDC),
@@ -251,3 +277,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

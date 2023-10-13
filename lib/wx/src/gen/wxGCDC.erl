@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGCDC).
+-moduledoc """
+Functions for wxGCDC class
+
+`m:wxGCDC` is a device context that draws on a `m:wxGraphicsContext`.
+
+`m:wxGCDC` does its best to implement `m:wxDC` API, but the following features are not (fully) implemented because `m:wxGraphicsContext` doesn't support them:
+
+See: `m:wxDC`, `m:wxGraphicsContext`
+
+This class is derived (and can use functions) from: `m:wxDC`
+
+wxWidgets docs: [wxGCDC](https://docs.wxwidgets.org/3.1/classwx_g_c_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getGraphicsContext/1,new/0,new/1,setGraphicsContext/2]).
 
@@ -44,6 +57,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxGCDC() :: wx:wx_object().
 -export_type([wxGCDC/0]).
 %% @hidden
@@ -51,12 +65,14 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html#wxgcdcwxgcdc">external documentation</a>.
+-doc "".
 -spec new() -> wxGCDC().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxGCDC_new_0),
   wxe_util:rec(?wxGCDC_new_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html#wxgcdcwxgcdc">external documentation</a>.
+-doc "Constructs a `m:wxGCDC` from a `m:wxWindowDC`.".
 -spec new(WindowDC) -> wxGCDC() when
 	WindowDC::wxWindowDC:wxWindowDC() | wxMemoryDC:wxMemoryDC() | wxGraphicsContext:wxGraphicsContext().
 new(#wx_ref{type=WindowDCT}=WindowDC) ->
@@ -73,6 +89,7 @@ new(#wx_ref{type=WindowDCT}=WindowDC) ->
   wxe_util:rec(?wxGCDC_new_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html#wxgcdcgetgraphicscontext">external documentation</a>.
+-doc "Retrieves associated `m:wxGraphicsContext`.".
 -spec getGraphicsContext(This) -> wxGraphicsContext:wxGraphicsContext() when
 	This::wxGCDC().
 getGraphicsContext(#wx_ref{type=ThisT}=This) ->
@@ -81,6 +98,13 @@ getGraphicsContext(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGCDC_GetGraphicsContext).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgcdc.html#wxgcdcsetgraphicscontext">external documentation</a>.
+-doc """
+Set the graphics context to be used for this `m:wxGCDC`.
+
+Note that this object takes ownership of `context` and will delete it when it is destroyed or when `setGraphicsContext/2` is called again.
+
+Also, unlike the constructor taking `m:wxGraphicsContext`, this method will reapply the current font, pen and brush, so that this object continues to use them, if they had been changed before (which is never the case when constructing `m:wxGCDC` directly from `m:wxGraphicsContext`).
+""".
 -spec setGraphicsContext(This, Context) -> 'ok' when
 	This::wxGCDC(), Context::wxGraphicsContext:wxGraphicsContext().
 setGraphicsContext(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
@@ -89,6 +113,7 @@ setGraphicsContext(#wx_ref{type=ThisT}=This,#wx_ref{type=ContextT}=Context) ->
   wxe_util:queue_cmd(This,Context,?get_env(),?wxGCDC_SetGraphicsContext).
 
 %% @doc Destroys this object, do not use object again
+-doc "".
 -spec destroy(This::wxGCDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGCDC),
@@ -279,3 +304,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

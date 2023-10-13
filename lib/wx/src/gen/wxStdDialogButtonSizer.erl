@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStdDialogButtonSizer).
+-moduledoc """
+Functions for wxStdDialogButtonSizer class
+
+This class creates button layouts which conform to the standard button spacing and ordering defined by the platform or toolkit's user interface guidelines (if such things exist). By using this class, you can ensure that all your standard dialogs look correct on all major platforms. Currently it conforms to the Windows, GTK+ and macOS human interface guidelines.
+
+When there aren't interface guidelines defined for a particular platform or toolkit, `m:wxStdDialogButtonSizer` reverts to the Windows implementation.
+
+To use this class, first add buttons to the sizer by calling `addButton/2` (or `setAffirmativeButton/2`, `setNegativeButton/2` or `setCancelButton/2`) and then call Realize in order to create the actual button layout used. Other than these special operations, this sizer works like any other sizer.
+
+If you add a button with wxID_SAVE, on macOS the button will be renamed to "Save" and the wxID_NO button will be renamed to "Don't Save" in accordance with the macOS Human Interface Guidelines.
+
+See: `m:wxSizer`, [Overview sizer](https://docs.wxwidgets.org/3.1/overview_sizer.html#overview_sizer), `wxDialog:createButtonSizer/2`
+
+This class is derived (and can use functions) from: `m:wxBoxSizer` `m:wxSizer`
+
+wxWidgets docs: [wxStdDialogButtonSizer](https://docs.wxwidgets.org/3.1/classwx_std_dialog_button_sizer.html)
+""".
 -include("wxe.hrl").
 -export([addButton/2,destroy/1,new/0,realize/1,setAffirmativeButton/2,setCancelButton/2,
   setNegativeButton/2]).
@@ -34,6 +51,7 @@
   setItemMinSize/3,setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,
   setVirtualSizeHints/2,show/2,show/3,showItems/2]).
 
+-doc "".
 -type wxStdDialogButtonSizer() :: wx:wx_object().
 -export_type([wxStdDialogButtonSizer/0]).
 %% @hidden
@@ -42,12 +60,18 @@ parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizerwxstddialogbuttonsizer">external documentation</a>.
+-doc "Constructor for a `m:wxStdDialogButtonSizer`.".
 -spec new() -> wxStdDialogButtonSizer().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStdDialogButtonSizer_new),
   wxe_util:rec(?wxStdDialogButtonSizer_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizeraddbutton">external documentation</a>.
+-doc """
+Adds a button to the `m:wxStdDialogButtonSizer`.
+
+The `button` must have one of the following identifiers:
+""".
 -spec addButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 addButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
@@ -56,6 +80,7 @@ addButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   wxe_util:queue_cmd(This,Button,?get_env(),?wxStdDialogButtonSizer_AddButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizerrealize">external documentation</a>.
+-doc "Rearranges the buttons and applies proper spacing between buttons to make them match the platform or toolkit's interface guidelines.".
 -spec realize(This) -> 'ok' when
 	This::wxStdDialogButtonSizer().
 realize(#wx_ref{type=ThisT}=This) ->
@@ -63,6 +88,11 @@ realize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxStdDialogButtonSizer_Realize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetaffirmativebutton">external documentation</a>.
+-doc """
+Sets the affirmative button for the sizer.
+
+This allows you to use identifiers other than the standard identifiers outlined above.
+""".
 -spec setAffirmativeButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setAffirmativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
@@ -71,6 +101,11 @@ setAffirmativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   wxe_util:queue_cmd(This,Button,?get_env(),?wxStdDialogButtonSizer_SetAffirmativeButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetcancelbutton">external documentation</a>.
+-doc """
+Sets the cancel button for the sizer.
+
+This allows you to use identifiers other than the standard identifiers outlined above.
+""".
 -spec setCancelButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setCancelButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
@@ -79,6 +114,11 @@ setCancelButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   wxe_util:queue_cmd(This,Button,?get_env(),?wxStdDialogButtonSizer_SetCancelButton).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetnegativebutton">external documentation</a>.
+-doc """
+Sets the negative button for the sizer.
+
+This allows you to use identifiers other than the standard identifiers outlined above.
+""".
 -spec setNegativeButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setNegativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
@@ -87,6 +127,7 @@ setNegativeButton(#wx_ref{type=ThisT}=This,#wx_ref{type=ButtonT}=Button) ->
   wxe_util:queue_cmd(This,Button,?get_env(),?wxStdDialogButtonSizer_SetNegativeButton).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxStdDialogButtonSizer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStdDialogButtonSizer),
@@ -194,3 +235,4 @@ add(This,Width,Height, Options) -> wxSizer:add(This,Width,Height, Options).
 add(This,Width,Height) -> wxSizer:add(This,Width,Height).
 %% @hidden
 add(This,Window) -> wxSizer:add(This,Window).
+

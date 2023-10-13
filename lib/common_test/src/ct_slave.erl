@@ -24,6 +24,13 @@
 %% Created : 7 April 2010
 %%----------------------------------------------------------------------
 -module(ct_slave).
+-moduledoc """
+Common Test framework functions for starting and stopping nodes for Large-Scale Testing.
+
+`Common Test` framework functions for starting and stopping nodes for Large-Scale Testing.
+
+This module exports functions used by the `Common Test` Master to start and stop "slave" nodes. It is the default callback module for the `{init, node_start}` term in the Test Specification.
+""".
 
 -export([start/1, start/2, start/3, stop/1, stop/2]).
 
@@ -36,9 +43,36 @@
 		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,
 		  stop_timeout}).
 
+-doc """
+Node = atom()  
+Result = \{ok, NodeName\} | \{error, Reason, NodeName\}  
+Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive  
+NodeName = atom()  
+
+Starts an Erlang node with name `Node` on the local host.
+
+See also [`ct_slave:start/3`](`start/3`).
+""".
+-doc(#{deprecated =>
+           <<"ct_slave:start/1 is deprecated and will be removed in OTP 27; use ?CT_PEER(), or the 'peer' module instead">>,
+       since => <<"OTP R14B">>}).
 start(Node) ->
     start(gethostname(), Node).
 
+-doc """
+HostOrNode = atom()  
+NodeOrOpts = atom() | list()  
+Result = \{ok, NodeName\} | \{error, Reason, NodeName\}  
+Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive  
+NodeName = atom()  
+
+Starts an Erlang node with default options on a specified host, or on the local host with specified options. That is, the call is interpreted as `start(Host, Node)` when the second argument is atom-valued and `start(Node, Opts)` when it is list-valued.
+
+See also [`ct_slave:start/3`](`start/3`).
+""".
+-doc(#{deprecated =>
+           <<"ct_slave:start/2 is deprecated and will be removed in OTP 27; use ?CT_PEER(), or the 'peer' module instead">>,
+       since => <<"OTP R14B">>}).
 start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     start(gethostname(), Node, Opts);
@@ -46,6 +80,63 @@ start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
 start(Host, Node) ->
     start(Host, Node, []).
 
+-doc """
+Node = atom()  
+Host = atom()  
+Opts = \[OptTuples]  
+OptTuples = \{username, Username\} | \{password, Password\} | \{boot_timeout, BootTimeout\} | \{init_timeout, InitTimeout\} | \{startup_timeout, StartupTimeout\} | \{startup_functions, StartupFunctions\} | \{monitor_master, Monitor\} | \{kill_if_fail, KillIfFail\} | \{erl_flags, ErlangFlags\} | \{env, \[\{EnvVar, Value\}]\}  
+Username = string()  
+Password = string()  
+BootTimeout = integer()  
+InitTimeout = integer()  
+StartupTimeout = integer()  
+StartupFunctions = \[StartupFunctionSpec]  
+StartupFunctionSpec = \{Module, Function, Arguments\}  
+Module = atom()  
+Function = atom()  
+Arguments = \[term]  
+Monitor = bool()  
+KillIfFail = bool()  
+ErlangFlags = string()  
+EnvVar = string()  
+Value = string()  
+Result = \{ok, NodeName\} | \{error, Reason, NodeName\}  
+Reason = already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive  
+NodeName = atom()  
+
+Starts an Erlang node with name `Node` on host `Host` as specified by the combination of options in `Opts`.
+
+Options `Username` and `Password` are used to log on to the remote host `Host`. `Username`, if omitted, defaults to the current username. `Password` is empty by default.
+
+A list of functions specified in option `Startup` are executed after startup of the node. Notice that all used modules are to be present in the code path on `Host`.
+
+The time-outs are applied as follows:
+
+* __`BootTimeout`__ - The time to start the Erlang node, in seconds. Defaults to 3 seconds. If the node is not pingable within this time, the result `{error, boot_timeout, NodeName}` is returned.
+
+* __`InitTimeout`__ - The time to wait for the node until it calls the internal callback function informing master about a successful startup. Defaults to 1 second. In case of a timed out message, the result `{error, init_timeout, NodeName}` is returned.
+
+* __`StartupTimeout`__ - The time to wait until the node stops to run `StartupFunctions`. Defaults to 1 second. If this time-out occurs, the result `{error, startup_timeout, NodeName}` is returned.
+
+*Options:*
+
+* __`monitor_master`__ - Specifies if the slave node is to be stopped if the master node stops. Defaults to `false`.
+
+* __`kill_if_fail`__ - Specifies if the slave node is to be killed if a time-out occurs during initialization or startup. Defaults to `true`. Notice that the node can also be still alive it the boot time-out occurred, but it is not killed in this case.
+
+* __`erl_flags`__ - Specifies which flags are added to the parameters of the executable `erl`.
+
+* __`env`__ - Specifies a list of environment variables that will extend the environment.
+
+*Special return values:*
+
+* `{error, already_started, NodeName}` if the node with the specified name is already started on a specified host.
+* `{error, started_not_connected, NodeName}` if the node is started, but not connected to the master node.
+* `{error, not_alive, NodeName}` if the node on which [`ct_slave:start/3`](`start/3`) is called, is not alive. Notice that `NodeName` is the name of the current node in this case.
+""".
+-doc(#{deprecated =>
+           <<"ct_slave:start/3 is deprecated and will be removed in OTP 27; use ?CT_PEER(), or the 'peer' module instead">>,
+       since => <<"OTP R14B">>}).
 start(Host, Node, Opts) ->
     ENode = enodename(Host, Node),
     case erlang:is_alive() of
@@ -63,9 +154,31 @@ start(Host, Node, Opts) ->
 	    end
     end.
 
+-doc """
+Node = atom()  
+Result = \{ok, NodeName\} | \{error, Reason, NodeName\}  
+Reason = not_started | not_connected | stop_timeout  
+
+Stops the running Erlang node with name `Node` on the local host.
+""".
+-doc(#{deprecated =>
+           <<"ct_slave:stop/1 is deprecated and will be removed in OTP 27; use ?CT_PEER(), or the 'peer' module instead">>,
+       since => <<"OTP R14B">>}).
 stop(Node) ->
     stop(gethostname(), Node).
 
+-doc """
+Host = atom()  
+Node = atom()  
+Result = \{ok, NodeName\} | \{error, Reason, NodeName\}  
+Reason = not_started | not_connected | stop_timeout  
+NodeName = atom()  
+
+Stops the running Erlang node with name `Node` on host `Host`.
+""".
+-doc(#{deprecated =>
+           <<"ct_slave:stop/2 is deprecated and will be removed in OTP 27; use ?CT_PEER(), or the 'peer' module instead">>,
+       since => <<"OTP R14B">>}).
 stop(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     stop(gethostname(), Node, Opts);
@@ -350,3 +463,4 @@ wait_for_node_dead(Node, N) ->
 	false->
 	    {ok, Node}
     end.
+

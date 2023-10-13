@@ -19,6 +19,27 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPanel).
+-moduledoc """
+Functions for wxPanel class
+
+A panel is a window on which controls are placed. It is usually placed within a frame. Its main feature over its parent class `m:wxWindow` is code for handling child windows and TAB traversal, which is implemented natively if possible (e.g. in wxGTK) or by wxWidgets itself otherwise.
+
+Note: Tab traversal is implemented through an otherwise undocumented intermediate wxControlContainer class from which any class can derive in addition to the normal `m:wxWindow` base class. Please see and to find out how this is achieved.
+
+Note: if not all characters are being intercepted by your OnKeyDown or OnChar handler, it may be because you are using the `wxTAB_TRAVERSAL` style, which grabs some keypresses for use by child controls.
+
+Remark: By default, a panel has the same colouring as a dialog.
+
+See: `m:wxDialog`
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPanel](https://docs.wxwidgets.org/3.1/classwx_panel.html)
+
+## Events
+
+Event types emitted from this class: [`navigation_key`](`m:wxNavigationKeyEvent`)
+""".
 -include("wxe.hrl").
 -export([destroy/1,initDialog/1,new/0,new/1,new/2,setFocusIgnoringChildren/1]).
 
@@ -61,6 +82,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPanel() :: wx:wx_object().
 -export_type([wxPanel/0]).
 %% @hidden
@@ -69,12 +91,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxPanel().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPanel_new_0),
   wxe_util:rec(?wxPanel_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxPanel() when
 	Parent::wxWindow:wxWindow().
 
@@ -83,6 +107,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
+-doc """
+Constructor.
+
+See: `Create()` (not implemented in wx)
+""".
 -spec new(Parent, [Option]) -> wxPanel() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'winid', integer()}
@@ -102,6 +131,11 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxPanel_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelinitdialog">external documentation</a>.
+-doc """
+Sends a `m:wxInitDialogEvent`, which in turn transfers data to the dialog via validators.
+
+See: `m:wxInitDialogEvent`
+""".
 -spec initDialog(This) -> 'ok' when
 	This::wxPanel().
 initDialog(#wx_ref{type=ThisT}=This) ->
@@ -109,6 +143,11 @@ initDialog(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_InitDialog).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelsetfocusignoringchildren">external documentation</a>.
+-doc """
+In contrast to `wxWindow:setFocus/1` (see above) this will set the focus to the panel even if there are child windows in the panel.
+
+This is only rarely needed.
+""".
 -spec setFocusIgnoringChildren(This) -> 'ok' when
 	This::wxPanel().
 setFocusIgnoringChildren(#wx_ref{type=ThisT}=This) ->
@@ -116,6 +155,11 @@ setFocusIgnoringChildren(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPanel_SetFocusIgnoringChildren).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+Deletes any child windows before deleting the physical window.
+""".
 -spec destroy(This::wxPanel()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPanel),
@@ -487,3 +531,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

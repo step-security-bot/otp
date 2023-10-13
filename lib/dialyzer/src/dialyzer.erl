@@ -22,6 +22,281 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer).
+-moduledoc """
+Dialyzer, a DIscrepancy AnaLYZer for ERlang programs.
+
+Dialyzer is a static analysis tool that identifies software discrepancies, such as definite type errors, code that has become dead or unreachable because of programming errors, and unnecessary tests, in single Erlang modules or entire (sets of) applications.
+
+Dialyzer starts its analysis from either debug-compiled BEAM bytecode or from Erlang source code. The file and line number of a discrepancy is reported along with an indication of what the discrepancy is about. Dialyzer bases its analysis on the concept of success typings, which allows for sound warnings (no false positives).
+
+[](){: id=command_line }
+## Using Dialyzer from the Command Line
+
+Dialyzer has a command-line version for automated use. This section provides a brief description of the options. The same information can be obtained by writing the following in a shell:
+
+```text
+dialyzer --help
+```
+
+*Exit status of the command-line version:*
+
+* __`0`__ - No problems were found during the analysis and no warnings were emitted.
+
+* __`1`__ - Problems were found during the analysis.
+
+* __`2`__ - No problems were found during the analysis, but warnings were emitted.
+
+*Usage:*
+
+```text
+dialyzer [--add_to_plt] [--apps applications] [--build_plt]
+         [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
+         [--error_location flag] [files_or_dirs] [--fullpath]
+         [--get_warnings] [--help] [-I include_dir]*
+         [--incremental] [--metrics_file] [--no_check_plt] [--no_indentation]
+         [--no_spec] [-o outfile] [--output_plt file] [-pa dir]* [--plt plt]
+         [--plt_info] [--plts plt*] [--quiet] [-r dirs] [--raw]
+         [--remove_from_plt] [--shell] [--src] [--statistics] [--verbose]
+         [--version] [--warning_apps applications] [-Wwarn]*
+```
+
+> #### Note {: class=info }
+> \* denotes that multiple occurrences of the option are possible.
+
+*Options of the command-line version:*
+
+* __`--add_to_plt`__ - The PLT is extended to also include the files specified with `-c` and `-r`. Use `--plt` to specify which PLT to start from, and `--output_plt` to specify where to put the PLT. Notice that the analysis possibly can include files from the PLT if they depend on the new files. This option only works for BEAM files.
+
+* __`--apps applications`__ - By default, warnings will be reported to all applications given by `--apps`. However, if `--warning_apps` is used, only those applications given to `--warning_apps` will have warnings reported. All applications given by `--apps`, but not `--warning_apps`, will be analysed to provide context to the analysis, but warnings will not be reported for them. For example, you may want to include libraries you depend on in the analysis with `--apps` so discrepancies in their usage can be found, but only include your own code with `--warning_apps` so that discrepancies are only reported in code that you own.
+
+* __`--warning_apps applications`__ - This option is typically used when building or modifying a PLT as in:
+
+  ```text
+  dialyzer --build_plt --apps erts kernel stdlib mnesia ...
+  ```
+
+  to refer conveniently to library applications corresponding to the Erlang/OTP installation. However, this option is general and can also be used during analysis to refer to Erlang/OTP applications. File or directory names can also be included, as in:
+
+  ```text
+  dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
+  ```
+
+* __`--build_plt`__ - The analysis starts from an empty PLT and creates a new one from the files specified with `-c` and `-r`. This option only works for BEAM files. To override the default PLT location, use `--plt` or `--output_plt`.
+
+* __`--check_plt`__ - Check the PLT for consistency and rebuild it if it is not up-to-date.
+
+* __`-Dname` (or `-Dname=value`)__ - When analyzing from source, pass the define to Dialyzer. (**)
+
+* __`--dump_callgraph file`__ - Dump the call graph into the specified file whose format is determined by the filename extension. Supported extensions are: `raw`, `dot`, and `ps`. If something else is used as filename extension, default format `.raw` is used.
+
+* __`--error_location column | line`{: id=error_location }__ - Use a pair `{Line, Column}` or an integer `Line` to pinpoint the location of warnings. The default is to use a pair `{Line, Column}`. When formatted, the line and the column are separated by a colon.
+
+* __`files_or_dirs` (for backward compatibility also as `-c files_or_dirs`)__ - Use Dialyzer from the command line to detect defects in the specified files or directories containing `.erl` or `.beam` files, depending on the type of the analysis.
+
+* __`--fullpath`__ - Display the full path names of files for which warnings are emitted.
+
+* __`--get_warnings`__ - Make Dialyzer emit warnings even when manipulating the PLT. Warnings are only emitted for files that are analyzed.
+
+* __`--help` (or `-h`)__ - Print this message and exit.
+
+* __`-I include_dir`__ - When analyzing from source, pass the `include_dir` to Dialyzer. (**)
+
+* __`--input_list_file file`__ - Analyze the file names that are listed in the specified file (one file name per line).
+
+* __`--no_check_plt`__ - Skip the PLT check when running Dialyzer. This is useful when working with installed PLTs that never change.
+
+* __`--incremental`__ - The analysis starts from an existing incremental PLT, or builds one from scratch if one does not exist, and runs the minimal amount of additional analysis to report all issues in the given set of apps. Notably, incremental PLT files are not compatible with "classic" PLT files, and vice versa. The initial incremental PLT will be updated unless an alternative output incremental PLT is given.
+
+* __`--no_indentation`__ - Do not insert line breaks in types, contracts, and Erlang Code when formatting warnings.
+
+* __`--no_spec`__ - Ignore functions specs. This is useful for debugging when one suspects that some specs are incorrect.
+
+* __`-o outfile` (or `--output outfile`)__ - When using Dialyzer from the command line, send the analysis results to the specified outfile rather than to `stdout`.
+
+* __`--metrics_file file`__ - Write metrics about Dialyzer's incrementality (for example, total number of modules considered, how many modules were changed since the PLT was last updated, how many modules needed to be analyzed) to a file. This can be useful for tracking and debugging Dialyzer's incrementality.
+
+* __`--output_plt file`__ - Store the PLT at the specified file after building it.
+
+* __`-pa dir`__ - Include `dir` in the path for Erlang. This is useful when analyzing files that have `-include_lib()` directives.
+
+* __`--plt plt`__ - Use the specified PLT as the initial PLT. If the PLT was built during setup, the files are checked for consistency.
+
+* __`--plt_info`__ - Make Dialyzer print information about the PLT and then quit. The PLT can be specified with `--plt(s)`.
+
+* __`--plts plt*`__ - Merge the specified PLTs to create the initial PLT. This requires that the PLTs are disjoint (that is, do not have any module appearing in more than one PLT). The PLTs are created in the usual way:
+
+  ```text
+  dialyzer --build_plt --output_plt plt_1 files_to_include
+  ...
+  dialyzer --build_plt --output_plt plt_n files_to_include
+  ```
+
+  They can then be used in either of the following ways:
+
+  ```text
+  dialyzer files_to_analyze --plts plt_1 ... plt_n
+  ```
+
+  or
+
+  ```text
+  dialyzer --plts plt_1 ... plt_n -- files_to_analyze
+  ```
+
+  Notice the `--` delimiter in the second case.
+
+* __`--quiet` (or `-q`)__ - Make Dialyzer a bit more quiet.
+
+* __`-r dirs`__ - Same as `files_or_dirs`, but the specified directories are searched recursively for subdirectories containing `.erl` or `.beam` files in them, depending on the type of analysis.
+
+* __`--raw`__ - When using Dialyzer from the command line, output the raw analysis results (Erlang terms) instead of the formatted result. The raw format is easier to post-process (for example, to filter warnings or to output HTML pages).
+
+* __`--remove_from_plt`__ - The information from the files specified with `-c` and `-r` is removed from the PLT. Notice that this can cause a reanalysis of the remaining dependent files.
+
+* __`--src`__ - Override the default, which is to analyze BEAM files, and analyze starting from Erlang source code instead.
+
+* __`--statistics`__ - Print information about the progress of execution (analysis phases, time spent in each, and size of the relative input).
+
+* __`--verbose`__ - Make Dialyzer a bit more verbose.
+
+* __`--version` (or `-v`)__ - Print the Dialyzer version and some more information and exit.
+
+* __`-Wwarn`__ - A family of options that selectively turn on/off warnings. (For help on the names of warnings, use `dialyzer -Whelp`.) Notice that the options can also be specified in the file with a `-dialyzer()` attribute. For details, see section [Requesting or Suppressing Warnings in Source Files](`m:dialyzer#suppression`).
+
+> #### Note {: class=info }
+> \** the syntax of defines and includes is the same as that used by [erlc(1)](`p:erts:erlc_cmd.md`).
+
+[](){: id=warning_options }
+*Warning options:*
+
+* __`-Werror_handling` (***)__ - Include warnings for functions that only return by an exception.
+
+* __`-Wextra_return` (***)__ - Warn about functions whose specification includes types that the function cannot return.
+
+* __`-Wmissing_return` (***)__ - Warn about functions that return values that are not part of the specification.
+
+* __`-Wno_behaviours`__ - Suppress warnings about behavior callbacks that drift from the published recommended interfaces.
+
+* __`-Wno_contracts`__ - Suppress warnings about invalid contracts.
+
+* __`-Wno_fail_call`__ - Suppress warnings for failing calls.
+
+* __`-Wno_fun_app`__ - Suppress warnings for fun applications that will fail.
+
+* __`-Wno_improper_lists`__ - Suppress warnings for construction of improper lists.
+
+* __`-Wno_match`__ - Suppress warnings for patterns that are unused or cannot match.
+
+* __`-Wno_missing_calls`__ - Suppress warnings about calls to missing functions.
+
+* __`-Wno_opaque`__ - Suppress warnings for violations of opacity of data types.
+
+* __`-Wno_return`__ - Suppress warnings for functions that will never return a value.
+
+* __`-Wno_undefined_callbacks`__ - Suppress warnings about behaviors that have no `-callback` attributes for their callbacks.
+
+* __`-Wno_unused`__ - Suppress warnings for unused functions.
+
+* __`-Wno_unknown`__ - Suppress warnings about unknown functions and types. The default is to warn about unknown functions and types when setting the exit status. When using Dialyzer from Erlang, warnings about unknown functions and types are returned.
+
+* __`-Wunderspecs` (***)__ - Warn about underspecified functions (the specification is strictly more allowing than the success typing).
+
+* __`-Wunmatched_returns` (***)__ - Include warnings for function calls that ignore a structured return value or do not match against one of many possible return values. However, no warnings are included if the possible return values are a union of atoms or a union of numbers.
+
+The following options are also available, but their use is not recommended (they are mostly for Dialyzer developers and internal debugging):
+
+* __`-Woverspecs` (***)__ - Warn about overspecified functions (the specification is strictly less allowing than the success typing).
+
+* __`-Wspecdiffs` (***)__ - Warn when the specification is different than the success typing.
+
+> #### Note {: class=info }
+> \*** denotes options that turn on warnings rather than turning them off.
+
+The following option is not strictly needed as it specifies the default. It is primarily intended to be used with the `-dialyzer` attribute. For an example see section [Requesting or Suppressing Warnings in Source Files](`m:dialyzer#suppression`).
+
+* __`-Wno_underspecs`__ - Suppress warnings about underspecified functions (the specification is strictly more allowing than the success typing).
+
+* __`-Wno_extra_return`__ - Suppress warnings about functions whose specification includes types that the function cannot return.
+
+* __`-Wno_missing_return`__ - Suppress warnings about functions that return values that are not part of the specification.
+
+## Using Dialyzer from Erlang
+
+Dialyzer can be used directly from Erlang. The options are similar to the ones given from the command line, see section [Using Dialyzer from the Command Line](`m:dialyzer#command_line`).
+
+## Default Dialyzer Options
+
+The (host operating system) environment variable `ERL_COMPILER_OPTIONS` can be used to give default Dialyzer options. Its value must be a valid Erlang term. If the value is a list, it is used as is. If it is not a list, it is put into a list.
+
+The list is appended to any options given to `run/1` or on the command line.
+
+The list can be retrieved with `compile:env_compiler_options/0`.
+
+Currently the only option used is the [`error_location`](`m:dialyzer#error_location`) option.
+
+*Dialyzer configuration file:*
+
+Dialyzer's configuration file may also be used to augment the default options and those given directly to the Dialyzer command. It is commonly used to avoid repeating options which would otherwise need to be given explicitly to Dialyzer on every invocation.
+
+The location of the configuration file can be set via the `DIALYZER_CONFIG` environment variable, and defaults to within the `user_config` from `filename:basedir/3`.
+
+An example configuration file's contents might be:
+
+```text
+      {incremental,
+        {default_apps,[stdlib,kernel,erts]},
+        {default_warning_apps,[stdlib]}
+      }.
+      {warnings, [no_improper_lists]}.
+      {add_pathsa,["/users/samwise/potatoes/ebin"]}.
+      {add_pathsz,["/users/smeagol/fish/ebin"]}.
+```
+
+[](){: id=suppression }
+## Requesting or Suppressing Warnings in Source Files
+
+Attribute `-dialyzer()` can be used for turning off warnings in a module by specifying functions or warning options. For example, to turn off all warnings for the function `f/0`, include the following line:
+
+```text
+-dialyzer({nowarn_function, f/0}).
+```
+
+To turn off warnings for improper lists, add the following line to the source file:
+
+```text
+-dialyzer(no_improper_lists).
+```
+
+Attribute `-dialyzer()` is allowed after function declarations. Lists of warning options or functions are allowed:
+
+```text
+-dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).
+```
+
+Warning options can be restricted to functions:
+
+```text
+-dialyzer({no_improper_lists, g/0}).
+```
+
+```text
+-dialyzer({[no_return, no_match], [g/0, h/0]}).
+```
+
+The warning option for underspecified functions, `-Wunderspecs`, can result in useful warnings, but often functions with specifications that are strictly more allowing than the success typing cannot easily be modified to be less allowing. To turn off the warning for underspecified function `f/0`, include the following line:
+
+```text
+-dialyzer({no_underspecs, f/0}).
+```
+
+For help on the warning options, use `dialyzer -Whelp`. The options are also enumerated, see type [`warn_option()`](`t:warn_option/0`).
+
+Attribute `-dialyzer()` can also be used for turning on warnings. For example, if a module has been fixed regarding unmatched returns, adding the following line can help in assuring that no new unmatched return warnings are introduced:
+
+```text
+-dialyzer(unmatched_returns).
+```
+""".
 
 %%--------------------------------------------------------------------
 %% NOTE: Only functions exported by this module are available to
@@ -171,6 +446,7 @@ cl(Opts) ->
     end,
   doit(F).
 
+-doc "Dialyzer command-line version.".
 -spec run(Options) -> Warnings when
     Options :: [dial_option()],
     Warnings :: [dial_warning()].
@@ -227,6 +503,7 @@ check_init(#options{check_plt = true} = OptsRecord) ->
 check_init(#options{check_plt = false}) ->
     ok.
 
+-doc "Returns information about the specified PLT.".
 -spec plt_info(Plt) ->
      {'ok', ClassicResult | IncrementalResult } | {'error', Reason} when
     Plt :: file:filename(),
@@ -296,6 +573,7 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~ts' for details\n", [Output]).
 
+-doc "Get a string from warnings as returned by `run/1`.".
 -spec format_warning(Warnings) -> string() when
     %% raw_warning() | % not documented
     Warnings :: dial_warning().
@@ -303,10 +581,29 @@ cl_check_log(Output) ->
 format_warning(W) ->
   format_warning(W, basename).
 
+-doc "".
 -type format_option()  :: {'indent_opt', boolean()}
                         | {'filename_opt', filename_opt()}
                         | {'error_location', error_location()}.
 
+-doc """
+```erlang
+-type filename_opt() :: basename | fullpath.
+```
+```erlang
+-type format_option() ::
+          {indent_opt, boolean()} |
+          {filename_opt, filename_opt()} |
+          {error_location, error_location()}.
+```
+
+Get a string from warnings as returned by `run/1`.
+
+If `indent_opt` is set to `true` (default), line breaks are inserted in types, contracts, and Erlang code to improve readability.
+
+If `error_location` is set to `column` (default), locations are formatted as `Line:Column` if the column number is available, otherwise locations are formatted as `Line` even if the column number is available.
+""".
+-doc(#{since => <<"R14B02">>}).
 -spec format_warning(Warnings, Options) -> string() when
     %% raw_warning() | % not documented
     Warnings :: dial_warning(),
@@ -830,3 +1127,4 @@ one_type([{Rb, Lrb}|Toks], [Rb|E], Ts0) ->
     one_type(Toks, E, [{Rb, Lrb}|Ts0]);
 one_type([T|Toks], E, Ts0) ->
     one_type(Toks, E, [T|Ts0]).
+

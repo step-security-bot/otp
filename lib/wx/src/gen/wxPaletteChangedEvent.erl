@@ -19,6 +19,13 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPaletteChangedEvent).
+-moduledoc """
+Functions for wxPaletteChangedEvent class
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxPaletteChangedEvent](https://docs.wxwidgets.org/3.1/classwx_palette_changed_event.html)
+""".
 -include("wxe.hrl").
 -export([getChangedWindow/1,setChangedWindow/2]).
 
@@ -26,8 +33,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxPaletteChangedEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxPaletteChangedEventType() :: 'palette_changed'.
 -export_type([wxPaletteChangedEvent/0, wxPaletteChanged/0, wxPaletteChangedEventType/0]).
 %% @hidden
@@ -35,6 +44,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html#wxpalettechangedeventsetchangedwindow">external documentation</a>.
+-doc "".
 -spec setChangedWindow(This, Win) -> 'ok' when
 	This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
 setChangedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
@@ -43,6 +53,7 @@ setChangedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   wxe_util:queue_cmd(This,Win,?get_env(),?wxPaletteChangedEvent_SetChangedWindow).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html#wxpalettechangedeventgetchangedwindow">external documentation</a>.
+-doc "".
 -spec getChangedWindow(This) -> wxWindow:wxWindow() when
 	This::wxPaletteChangedEvent().
 getChangedWindow(#wx_ref{type=ThisT}=This) ->
@@ -69,3 +80,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

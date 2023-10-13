@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxRadioBox).
+-moduledoc """
+Functions for wxRadioBox class
+
+A radio box item is used to select one of number of mutually exclusive choices. It is displayed as a vertical column or horizontal row of labelled buttons.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `m:wxRadioButton`, `m:wxCheckBox`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxRadioBox](https://docs.wxwidgets.org/3.1/classwx_radio_box.html)
+
+## Events
+
+Event types emitted from this class: [`command_radiobox_selected`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([create/7,create/8,destroy/1,enable/1,enable/2,enable/3,getColumnCount/1,
   getItemFromPoint/2,getItemHelpText/2,getItemToolTip/2,getRowCount/1,
@@ -63,6 +82,7 @@
   shouldInheritColours/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxRadioBox() :: wx:wx_object().
 -export_type([wxRadioBox/0]).
 %% @hidden
@@ -72,6 +92,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent,Id,Label,Pos,Size,Choices, [])
+-doc "".
 -spec new(Parent, Id, Label, Pos, Size, Choices) -> wxRadioBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -80,6 +101,11 @@ new(Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
   new(Parent,Id,Label,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
+-doc """
+Constructor, creating and showing a radiobox.
+
+See: `create/8`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, Label, Pos, Size, Choices, [Option]) -> wxRadioBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'majorDim', integer()}
@@ -100,6 +126,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size
   wxe_util:rec(?wxRadioBox_new).
 
 %% @equiv create(This,Parent,Id,Label,Pos,Size,Choices, [])
+-doc "".
 -spec create(This, Parent, Id, Label, Pos, Size, Choices) -> boolean() when
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -108,6 +135,11 @@ create(This,Parent,Id,Label,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
   create(This,Parent,Id,Label,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
+-doc """
+Creates the radiobox for two-step construction.
+
+See `new/7` for further details.
+""".
 -spec create(This, Parent, Id, Label, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'majorDim', integer()}
@@ -129,6 +161,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label,{PosX,PosY
   wxe_util:rec(?wxRadioBox_Create).
 
 %% @equiv enable(This, [])
+-doc "".
 -spec enable(This) -> boolean() when
 	This::wxRadioBox().
 
@@ -142,6 +175,11 @@ enable(This)
 %% 	This::wxRadioBox(),<br />
 %% 	Option :: {'enable', boolean()}.<br />
 %% 
+-doc """
+Enables or disables the radiobox.
+
+See: `wxWindow:enable/2`
+""".
 -spec enable(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
@@ -161,6 +199,11 @@ enable(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxRadioBox_Enable_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxenable">external documentation</a>.
+-doc """
+Enables or disables an individual button in the radiobox.
+
+See: `wxWindow:enable/2`
+""".
 -spec enable(This, N, [Option]) -> boolean() when
 	This::wxRadioBox(), N::integer(),
 	Option :: {'enable', boolean()}.
@@ -174,6 +217,15 @@ enable(#wx_ref{type=ThisT}=This,N, Options)
   wxe_util:rec(?wxRadioBox_Enable_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetselection">external documentation</a>.
+-doc """
+Returns the index of the selected item or `wxNOT_FOUND` if no item is selected.
+
+Return: The position of the current selection.
+
+Remark: This method can be used with single selection list boxes only, you should use `wxListBox:getSelections/1` for the list boxes with wxLB_MULTIPLE style.
+
+See: `setSelection/2`, `wxControlWithItems:getStringSelection/1`
+""".
 -spec getSelection(This) -> integer() when
 	This::wxRadioBox().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -182,6 +234,11 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxRadioBox_GetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetstring">external documentation</a>.
+-doc """
+Returns the label of the item with the given index.
+
+Return: The label of the item or an empty string if the position was invalid.
+""".
 -spec getString(This, N) -> unicode:charlist() when
 	This::wxRadioBox(), N::integer().
 getString(#wx_ref{type=ThisT}=This,N)
@@ -191,6 +248,11 @@ getString(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxRadioBox_GetString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetselection">external documentation</a>.
+-doc """
+Sets the selection to the given item.
+
+Notice that a radio box always has selection, so `n` must be valid here and passing `wxNOT_FOUND` is not allowed.
+""".
 -spec setSelection(This, N) -> 'ok' when
 	This::wxRadioBox(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
@@ -199,6 +261,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxRadioBox_SetSelection).
 
 %% @equiv show(This,Item, [])
+-doc "".
 -spec show(This, Item) -> boolean() when
 	This::wxRadioBox(), Item::integer().
 
@@ -207,6 +270,13 @@ show(This,Item)
   show(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxshow">external documentation</a>.
+-doc """
+Shows or hides individual buttons.
+
+Return: true if the item has been shown or hidden or false if nothing was done because it already was in the requested state.
+
+See: `show/3`
+""".
 -spec show(This, Item, [Option]) -> boolean() when
 	This::wxRadioBox(), Item::integer(),
 	Option :: {'show', boolean()}.
@@ -220,6 +290,7 @@ show(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxRadioBox_Show).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetcolumncount">external documentation</a>.
+-doc "Returns the number of columns in the radiobox.".
 -spec getColumnCount(This) -> integer() when
 	This::wxRadioBox().
 getColumnCount(#wx_ref{type=ThisT}=This) ->
@@ -228,6 +299,11 @@ getColumnCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxRadioBox_GetColumnCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemhelptext">external documentation</a>.
+-doc """
+Returns the helptext associated with the specified `item` if any or `wxEmptyString`.
+
+See: `setItemHelpText/3`
+""".
 -spec getItemHelpText(This, Item) -> unicode:charlist() when
 	This::wxRadioBox(), Item::integer().
 getItemHelpText(#wx_ref{type=ThisT}=This,Item)
@@ -237,6 +313,11 @@ getItemHelpText(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxRadioBox_GetItemHelpText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemtooltip">external documentation</a>.
+-doc """
+Returns the tooltip associated with the specified `item` if any or NULL.
+
+See: `setItemToolTip/3`, `wxWindow:getToolTip/1`
+""".
 -spec getItemToolTip(This, Item) -> wxToolTip:wxToolTip() when
 	This::wxRadioBox(), Item::integer().
 getItemToolTip(#wx_ref{type=ThisT}=This,Item)
@@ -246,6 +327,7 @@ getItemToolTip(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxRadioBox_GetItemToolTip).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetitemfrompoint">external documentation</a>.
+-doc "Returns a radio box item under the point, a zero-based item index, or `wxNOT_FOUND` if no item is under the point.".
 -spec getItemFromPoint(This, Pt) -> integer() when
 	This::wxRadioBox(), Pt::{X::integer(), Y::integer()}.
 getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -255,6 +337,7 @@ getItemFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:rec(?wxRadioBox_GetItemFromPoint).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxgetrowcount">external documentation</a>.
+-doc "Returns the number of rows in the radiobox.".
 -spec getRowCount(This) -> integer() when
 	This::wxRadioBox().
 getRowCount(#wx_ref{type=ThisT}=This) ->
@@ -263,6 +346,11 @@ getRowCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxRadioBox_GetRowCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxisitemenabled">external documentation</a>.
+-doc """
+Returns true if the item is enabled or false if it was disabled using `enable/3`.
+
+This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversal and always returns true in the other ports.
+""".
 -spec isItemEnabled(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer().
 isItemEnabled(#wx_ref{type=ThisT}=This,N)
@@ -272,6 +360,13 @@ isItemEnabled(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxRadioBox_IsItemEnabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxisitemshown">external documentation</a>.
+-doc """
+Returns true if the item is currently shown or false if it was hidden using `show/3`.
+
+Note that this function returns true for an item which hadn't been hidden even if the entire radiobox is not currently shown.
+
+This function is currently only implemented in wxMSW, wxGTK, wxQT and wxUniversal and always returns true in the other ports.
+""".
 -spec isItemShown(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer().
 isItemShown(#wx_ref{type=ThisT}=This,N)
@@ -281,6 +376,13 @@ isItemShown(#wx_ref{type=ThisT}=This,N)
   wxe_util:rec(?wxRadioBox_IsItemShown).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemhelptext">external documentation</a>.
+-doc """
+Sets the helptext for an item.
+
+Empty string erases any existing helptext.
+
+See: `getItemHelpText/2`
+""".
 -spec setItemHelpText(This, Item, Helptext) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Helptext::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT}=This,Item,Helptext)
@@ -290,6 +392,13 @@ setItemHelpText(#wx_ref{type=ThisT}=This,Item,Helptext)
   wxe_util:queue_cmd(This,Item,Helptext_UC,?get_env(),?wxRadioBox_SetItemHelpText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemtooltip">external documentation</a>.
+-doc """
+Sets the tooltip text for the specified item in the radio group.
+
+This function is currently only implemented in wxMSW and wxGTK2 and does nothing in the other ports.
+
+See: `getItemToolTip/2`, `wxWindow:setToolTip/2`
+""".
 -spec setItemToolTip(This, Item, Text) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT}=This,Item,Text)
@@ -299,6 +408,7 @@ setItemToolTip(#wx_ref{type=ThisT}=This,Item,Text)
   wxe_util:queue_cmd(This,Item,Text_UC,?get_env(),?wxRadioBox_SetItemToolTip).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the radiobox item.".
 -spec destroy(This::wxRadioBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRadioBox),
@@ -665,3 +775,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

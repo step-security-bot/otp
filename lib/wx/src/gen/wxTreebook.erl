@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxTreebook).
+-moduledoc """
+Functions for wxTreebook class
+
+This class is an extension of the `m:wxNotebook` class that allows a tree structured set of pages to be shown in a control. A classic example is a netscape preferences dialog that shows a tree of preference sections on the left and select section page on the right.
+
+To use the class simply create it and populate with pages using `insertPage/5`, `insertSubPage/5`, `addPage/4`, `AddSubPage()` (not implemented in wx).
+
+If your tree is no more than 1 level in depth then you could simply use `addPage/4` and `AddSubPage()` (not implemented in wx) to sequentially populate your tree by adding at every step a page or a subpage to the end of the tree.
+
+See: ?wxBookCtrl, `m:wxBookCtrlEvent`, `m:wxNotebook`, `m:wxTreeCtrl`, `m:wxImageList`, [Overview bookctrl](https://docs.wxwidgets.org/3.1/overview_bookctrl.html#overview_bookctrl), [Examples](https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook)
+
+This class is derived (and can use functions) from: `m:wxBookCtrlBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxTreebook](https://docs.wxwidgets.org/3.1/classwx_treebook.html)
+
+## Events
+
+Event types emitted from this class: [`treebook_page_changed`](`m:wxBookCtrlEvent`), [`treebook_page_changing`](`m:wxBookCtrlEvent`)
+""".
 -include("wxe.hrl").
 -export([addPage/3,addPage/4,advanceSelection/1,advanceSelection/2,assignImageList/2,
   changeSelection/2,create/3,create/4,deleteAllPages/1,destroy/1,expandNode/2,
@@ -68,6 +87,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxTreebook() :: wx:wx_object().
 -export_type([wxTreebook/0]).
 %% @hidden
@@ -78,12 +98,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxTreebook().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxTreebook_new_0),
   wxe_util:rec(?wxTreebook_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxTreebook() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -92,6 +114,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
+-doc "Creates an empty `m:wxTreebook`.".
 -spec new(Parent, Id, [Option]) -> wxTreebook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -109,6 +132,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxTreebook_new_3).
 
 %% @equiv addPage(This,Page,Text, [])
+-doc "".
 -spec addPage(This, Page, Text) -> boolean() when
 	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -117,6 +141,11 @@ addPage(This,Page,Text)
   addPage(This,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookaddpage">external documentation</a>.
+-doc """
+Adds a new page.
+
+The page is placed at the topmost level after all other pages. NULL could be specified for page to create an empty page.
+""".
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {'bSelect', boolean()}
@@ -134,6 +163,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text, Options)
   wxe_util:rec(?wxTreebook_AddPage).
 
 %% @equiv advanceSelection(This, [])
+-doc "".
 -spec advanceSelection(This) -> 'ok' when
 	This::wxTreebook().
 
@@ -142,6 +172,11 @@ advanceSelection(This)
   advanceSelection(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookadvanceselection">external documentation</a>.
+-doc """
+Cycles through the tabs.
+
+The call to this function generates the page changing events.
+""".
 -spec advanceSelection(This, [Option]) -> 'ok' when
 	This::wxTreebook(),
 	Option :: {'forward', boolean()}.
@@ -154,6 +189,11 @@ advanceSelection(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxTreebook_AdvanceSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookassignimagelist">external documentation</a>.
+-doc """
+Sets the image list for the page control and takes ownership of the list.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -162,6 +202,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreebook_AssignImageList).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -170,6 +211,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookcreate">external documentation</a>.
+-doc """
+Creates a treebook control.
+
+See `new/3` for the description of the parameters.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -188,6 +234,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxTreebook_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookdeleteallpages">external documentation</a>.
+-doc "Deletes all pages.".
 -spec deleteAllPages(This) -> boolean() when
 	This::wxTreebook().
 deleteAllPages(#wx_ref{type=ThisT}=This) ->
@@ -196,6 +243,7 @@ deleteAllPages(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreebook_DeleteAllPages).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetcurrentpage">external documentation</a>.
+-doc "Returns the currently selected page or NULL.".
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
 	This::wxTreebook().
 getCurrentPage(#wx_ref{type=ThisT}=This) ->
@@ -204,6 +252,11 @@ getCurrentPage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreebook_GetCurrentPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetimagelist">external documentation</a>.
+-doc """
+Returns the associated image list, may be NULL.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxTreebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
@@ -212,6 +265,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreebook_GetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpage">external documentation</a>.
+-doc "Returns the window at the given page position.".
 -spec getPage(This, Page) -> wxWindow:wxWindow() when
 	This::wxTreebook(), Page::integer().
 getPage(#wx_ref{type=ThisT}=This,Page)
@@ -221,6 +275,7 @@ getPage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxTreebook_GetPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpagecount">external documentation</a>.
+-doc "Returns the number of pages in the control.".
 -spec getPageCount(This) -> integer() when
 	This::wxTreebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
@@ -229,6 +284,7 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreebook_GetPageCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpageimage">external documentation</a>.
+-doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
 	This::wxTreebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
@@ -238,6 +294,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:rec(?wxTreebook_GetPageImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetpagetext">external documentation</a>.
+-doc "Returns the string for the given page.".
 -spec getPageText(This, NPage) -> unicode:charlist() when
 	This::wxTreebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT}=This,NPage)
@@ -247,6 +304,11 @@ getPageText(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:rec(?wxTreebook_GetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookgetselection">external documentation</a>.
+-doc """
+Returns the currently selected page, or `wxNOT_FOUND` if none was selected.
+
+Note: This method may return either the previously or newly selected page when called from the EVT_TREEBOOK_PAGE_CHANGED() handler depending on the platform and so `wxBookCtrlEvent:getSelection/1` should be used instead in this case.
+""".
 -spec getSelection(This) -> integer() when
 	This::wxTreebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -255,6 +317,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreebook_GetSelection).
 
 %% @equiv expandNode(This,PageId, [])
+-doc "".
 -spec expandNode(This, PageId) -> boolean() when
 	This::wxTreebook(), PageId::integer().
 
@@ -263,6 +326,11 @@ expandNode(This,PageId)
   expandNode(This,PageId, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookexpandnode">external documentation</a>.
+-doc """
+Expands (collapses) the `pageId` node.
+
+Returns the previous state. May generate page changing events (if selected page is under the collapsed branch, then its parent is autoselected).
+""".
 -spec expandNode(This, PageId, [Option]) -> boolean() when
 	This::wxTreebook(), PageId::integer(),
 	Option :: {'expand', boolean()}.
@@ -276,6 +344,7 @@ expandNode(#wx_ref{type=ThisT}=This,PageId, Options)
   wxe_util:rec(?wxTreebook_ExpandNode).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookisnodeexpanded">external documentation</a>.
+-doc "Returns true if the page represented by `pageId` is expanded.".
 -spec isNodeExpanded(This, PageId) -> boolean() when
 	This::wxTreebook(), PageId::integer().
 isNodeExpanded(#wx_ref{type=ThisT}=This,PageId)
@@ -285,6 +354,13 @@ isNodeExpanded(#wx_ref{type=ThisT}=This,PageId)
   wxe_util:rec(?wxTreebook_IsNodeExpanded).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookhittest">external documentation</a>.
+-doc """
+Returns the index of the tab at the specified position or `wxNOT_FOUND` if none.
+
+If `flags` parameter is non-NULL, the position of the point inside the tab is returned as well.
+
+Return: Returns the zero-based tab index or `wxNOT_FOUND` if there is no tab at the specified position.
+""".
 -spec hitTest(This, Pt) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
 	This::wxTreebook(), Pt::{X::integer(), Y::integer()}.
@@ -295,6 +371,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:rec(?wxTreebook_HitTest).
 
 %% @equiv insertPage(This,PagePos,Page,Text, [])
+-doc "".
 -spec insertPage(This, PagePos, Page, Text) -> boolean() when
 	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -303,6 +380,11 @@ insertPage(This,PagePos,Page,Text)
   insertPage(This,PagePos,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertpage">external documentation</a>.
+-doc """
+Inserts a new page just before the page indicated by `pagePos`.
+
+The new page is placed before `pagePos` page and on the same level. NULL could be specified for page to create an empty page.
+""".
 -spec insertPage(This, PagePos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {'bSelect', boolean()}
@@ -320,6 +402,7 @@ insertPage(#wx_ref{type=ThisT}=This,PagePos,#wx_ref{type=PageT}=Page,Text, Optio
   wxe_util:rec(?wxTreebook_InsertPage).
 
 %% @equiv insertSubPage(This,PagePos,Page,Text, [])
+-doc "".
 -spec insertSubPage(This, PagePos, Page, Text) -> boolean() when
 	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -328,6 +411,11 @@ insertSubPage(This,PagePos,Page,Text)
   insertSubPage(This,PagePos,Page,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertsubpage">external documentation</a>.
+-doc """
+Inserts a sub page under the specified page.
+
+NULL could be specified for page to create an empty page.
+""".
 -spec insertSubPage(This, PagePos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), PagePos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {'bSelect', boolean()}
@@ -345,6 +433,13 @@ insertSubPage(#wx_ref{type=ThisT}=This,PagePos,#wx_ref{type=PageT}=Page,Text, Op
   wxe_util:rec(?wxTreebook_InsertSubPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetimagelist">external documentation</a>.
+-doc """
+Sets the image list to use.
+
+It does not take ownership of the image list, you must delete it yourself.
+
+See: `m:wxImageList`, `assignImageList/2`
+""".
 -spec setImageList(This, ImageList) -> 'ok' when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -353,6 +448,11 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreebook_SetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpagesize">external documentation</a>.
+-doc """
+Sets the width and height of the pages.
+
+Note: This method is currently not implemented for wxGTK.
+""".
 -spec setPageSize(This, Size) -> 'ok' when
 	This::wxTreebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -361,6 +461,11 @@ setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxTreebook_SetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpageimage">external documentation</a>.
+-doc """
+Sets the image index for the given page.
+
+`image` is an index into the image list which was set with `setImageList/2`.
+""".
 -spec setPageImage(This, Page, Image) -> boolean() when
 	This::wxTreebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
@@ -370,6 +475,7 @@ setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
   wxe_util:rec(?wxTreebook_SetPageImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpagetext">external documentation</a>.
+-doc "Sets the text for the given page.".
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxTreebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
@@ -380,6 +486,13 @@ setPageText(#wx_ref{type=ThisT}=This,Page,Text)
   wxe_util:rec(?wxTreebook_SetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetselection">external documentation</a>.
+-doc """
+Sets the selection to the given page, returning the previous selection.
+
+Notice that the call to this function generates the page changing events, use the `changeSelection/2` function if you don't want these events to be generated.
+
+See: `wxBookCtrlBase:getSelection/1`
+""".
 -spec setSelection(This, Page) -> integer() when
 	This::wxTreebook(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
@@ -389,6 +502,13 @@ setSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxTreebook_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookchangeselection">external documentation</a>.
+-doc """
+Changes the selection to the given page, returning the previous selection.
+
+This function behaves as `setSelection/2` but does `not` generate the page changing events.
+
+See overview_events_prog for more information.
+""".
 -spec changeSelection(This, Page) -> integer() when
 	This::wxTreebook(), Page::integer().
 changeSelection(#wx_ref{type=ThisT}=This,Page)
@@ -398,6 +518,11 @@ changeSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxTreebook_ChangeSelection).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destroys the `m:wxTreebook` object.
+
+Also deletes all the pages owned by the control (inserted previously into it).
+""".
 -spec destroy(This::wxTreebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTreebook),
@@ -777,3 +902,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

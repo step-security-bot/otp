@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPaintDC).
+-moduledoc """
+Functions for wxPaintDC class
+
+A `m:wxPaintDC` must be constructed if an application wishes to paint on the client area of a window from within an EVT_PAINT() event handler. This should normally be constructed as a temporary stack object; don't store a `m:wxPaintDC` object. If you have an EVT_PAINT() handler, you `must` create a `m:wxPaintDC` object within it even if you don't actually use it.
+
+Using `m:wxPaintDC` within your EVT_PAINT() handler is important because it automatically sets the clipping area to the damaged area of the window. Attempts to draw outside this area do not appear.
+
+A `m:wxPaintDC` object is initialized to use the same font and colours as the window it is associated with.
+
+See: `m:wxDC`, `m:wxClientDC`, `m:wxMemoryDC`, `m:wxWindowDC`, `m:wxScreenDC`
+
+This class is derived (and can use functions) from: `m:wxWindowDC` `m:wxDC`
+
+wxWidgets docs: [wxPaintDC](https://docs.wxwidgets.org/3.1/classwx_paint_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/1]).
 
@@ -44,6 +59,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxPaintDC() :: wx:wx_object().
 -export_type([wxPaintDC/0]).
 %% @hidden
@@ -52,6 +68,11 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpaintdc.html#wxpaintdcwxpaintdc">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a pointer to the window on which you wish to paint.
+""".
 -spec new(Window) -> wxPaintDC() when
 	Window::wxWindow:wxWindow().
 new(#wx_ref{type=WindowT}=Window) ->
@@ -60,6 +81,7 @@ new(#wx_ref{type=WindowT}=Window) ->
   wxe_util:rec(?wxPaintDC_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxPaintDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPaintDC),
@@ -251,3 +273,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

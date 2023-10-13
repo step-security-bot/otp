@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStaticBox).
+-moduledoc """
+Functions for wxStaticBox class
+
+A static box is a rectangle drawn around other windows to denote a logical grouping of items.
+
+Note that while the previous versions required that windows appearing inside a static box be created as its siblings (i.e. use the same parent as the static box itself), since wxWidgets 2.9.1 it is also possible to create them as children of `m:wxStaticBox` itself and you are actually encouraged to do it like this if compatibility with the previous versions is not important.
+
+So the new recommended way to create static box is:
+
+While the compatible - and now deprecated - way is
+
+Also note that there is a specialized `m:wxSizer` class (`m:wxStaticBoxSizer`) which can be used as an easier way to pack items into a static box.
+
+See: `m:wxStaticText`, `m:wxStaticBoxSizer`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxStaticBox](https://docs.wxwidgets.org/3.1/classwx_static_box.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,new/0,new/3,new/4]).
 
@@ -62,6 +81,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxStaticBox() :: wx:wx_object().
 -export_type([wxStaticBox/0]).
 %% @hidden
@@ -71,12 +91,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbox.html#wxstaticboxwxstaticbox">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxStaticBox().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStaticBox_new_0),
   wxe_util:rec(?wxStaticBox_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxStaticBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -85,6 +107,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbox.html#wxstaticboxwxstaticbox">external documentation</a>.
+-doc """
+Constructor, creating and showing a static box.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxStaticBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -103,6 +130,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxStaticBox_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -111,6 +139,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbox.html#wxstaticboxcreate">external documentation</a>.
+-doc """
+Creates the static box for two-step construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -130,6 +163,19 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxStaticBox_Create).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Constructor for a static box using the given window as label.
+
+This constructor takes a pointer to an arbitrary window (although usually a `m:wxCheckBox` or a `m:wxRadioButton`) instead of just the usual text label and puts this window at the top of the box at the place where the label would be shown.
+
+The `label` window must be a non-null, fully created window and will become a child of this `m:wxStaticBox`, i.e. it will be owned by this control and will be deleted when the `m:wxStaticBox` itself is deleted.
+
+An example of creating a `m:wxStaticBox` with window as a label:
+
+Currently this constructor is only available in wxGTK and wxMSW, use `wxHAS_WINDOW_LABEL_IN_STATIC_BOX` to check whether it can be used at compile-time.
+
+Since: 3.1.1 Destructor, destroying the group box.
+""".
 -spec destroy(This::wxStaticBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBox),
@@ -504,3 +550,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

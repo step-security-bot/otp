@@ -22,6 +22,48 @@
 
 -module(erl_lint).
 -feature(maybe_expr, enable).
+-moduledoc """
+The Erlang code linter.
+
+This module is used to check Erlang code for illegal syntax and other bugs. It also warns against coding practices that are not recommended.
+
+The errors detected include:
+
+* Redefined and undefined functions
+* Unbound and unsafe variables
+* Illegal record use
+
+The warnings detected include:
+
+* Unused functions and imports
+* Unused variables
+* Variables imported into matches
+* Variables exported from `if`/`case`/`receive`
+* Variables shadowed in funs and list comprehensions
+
+Some of the warnings are optional, and can be turned on by specifying the appropriate option, described below.
+
+The functions in this module are invoked automatically by the Erlang compiler. There is no reason to invoke these functions separately unless you have written your own Erlang compiler.
+
+[](){: id=errorinfo }
+## Error Information
+
+`ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O modules. The format is as follows:
+
+```text
+{ErrorLine, Module, ErrorDescriptor}
+```
+
+A string describing the error is obtained with the following call:
+
+```text
+Module:format_error(ErrorDescriptor)
+```
+
+## See Also
+
+`m:epp`, `m:erl_parse`
+""".
 
 -export([module/1,module/2,module/3,format_error/1]).
 -export([exprs/2,exprs_opt/3,used_vars/2]). % Used from erl_eval.erl.
@@ -178,12 +220,15 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               }).
 
 -type lint_state() :: #lint{}.
+-doc "".
 -type error_description() :: term().
+-doc "".
 -type error_info() :: {erl_anno:location()|'none', module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
 
+-doc "Takes an `ErrorDescriptor` and returns a string that describes the error or warning. This function is usually called implicitly when processing an `ErrorInfo` structure (see section [Error Information](`m:erl_lint#errorinfo`)).".
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
       ErrorDescriptor :: error_description().
 
@@ -558,6 +603,7 @@ used_vars(Exprs, BindingsList) ->
 %%  apply_lambda/2 has been called to shut lint up. N.B. these lists are
 %%  really all ordsets!
 
+-doc(#{equiv => module/3}).
 -spec(module(AbsForms) -> {ok, Warnings} | {error, Errors, Warnings} when
       AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Warnings :: [{SourceFile,[ErrorInfo]}],
@@ -570,6 +616,7 @@ module(Forms) ->
     St = forms(Forms, start("nofile", Opts)),
     return_status(St).
 
+-doc(#{equiv => module/3}).
 -spec(module(AbsForms, FileName) ->
              {ok, Warnings} | {error, Errors, Warnings} when
       AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
@@ -584,6 +631,23 @@ module(Forms, FileName) ->
     St = forms(Forms, start(FileName, Opts)),
     return_status(St).
 
+-doc """
+Checks all the forms in a module for errors. It returns:
+
+* __`{ok,Warnings}`__ - There are no errors in the module.
+
+* __`{error,Errors,Warnings}`__ - There are errors in the module.
+
+As this module is of interest only to the maintainers of the compiler, and to avoid the same description in two places, the elements of `Options` that control the warnings are only described in the [`compile(3)`](`m:compile#erl_lint_options`) module.
+
+`AbsForms` of a module, which comes from a file that is read through `epp`, the Erlang preprocessor, can come from many files. This means that any references to errors must include the filename, see the `m:epp` module or parser (see the `m:erl_parse` module). The returned errors and warnings have the following format:
+
+```text
+[{SourceFile,[ErrorInfo]}]
+```
+
+The errors and warnings are listed in the order in which they are encountered in the forms. The errors from one file can therefore be split into different entries in the list of errors.
+""".
 -spec(module(AbsForms, FileName, CompileOptions) ->
              {ok, Warnings} | {error, Errors, Warnings} when
       AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
@@ -2193,6 +2257,7 @@ gexpr_list(Es, Vt, St) ->
 %%  Note: Only use this function in contexts where there can be
 %%  no definition of a local function that may override a guard BIF
 %%  (for example, in the shell).
+-doc "Tests if `Expr` is a legal guard test. `Expr` is an Erlang term representing the abstract form for the expression. [`erl_parse:parse_exprs(Tokens)`](`erl_parse:parse_exprs/1`) can be used to generate a list of `Expr`.".
 -spec is_guard_test(Expr) -> boolean() when
       Expr :: erl_parse:abstract_expr().
 
@@ -4582,3 +4647,4 @@ maps_prepend(Key, Value, Map) ->
         error ->
             maps:put(Key, [Value], Map)
     end.
+

@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMessageDialog).
+-moduledoc """
+Functions for wxMessageDialog class
+
+This class represents a dialog that shows a single or multi-line message, with a choice of OK, Yes, No and Cancel buttons.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_msg)
+
+See: `wxRichMessageDialog` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMessageDialog](https://docs.wxwidgets.org/3.1/classwx_message_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/2,new/3]).
 
@@ -67,6 +84,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMessageDialog() :: wx:wx_object().
 -export_type([wxMessageDialog/0]).
 %% @hidden
@@ -77,6 +95,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent,Message, [])
+-doc "".
 -spec new(Parent, Message) -> wxMessageDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
@@ -85,6 +104,15 @@ new(Parent,Message)
   new(Parent,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmessagedialog.html#wxmessagedialogwxmessagedialog">external documentation</a>.
+-doc """
+Constructor specifying the message box properties.
+
+Use `wxDialog:showModal/1` to show the dialog.
+
+`style` may be a bit list of the identifiers described above.
+
+Notice that not all styles are compatible: only one of `wxOK` and `wxYES_NO` may be specified (and one of them must be specified) and at most one default button style can be used and it is only valid if the corresponding button is shown in the message box.
+""".
 -spec new(Parent, Message, [Option]) -> wxMessageDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
 	Option :: {'caption', unicode:chardata()}
@@ -103,6 +131,7 @@ new(#wx_ref{type=ParentT}=Parent,Message, Options)
   wxe_util:rec(?wxMessageDialog_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxMessageDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMessageDialog),
@@ -542,3 +571,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

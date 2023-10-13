@@ -18,6 +18,22 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_target_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-TARGET-MIB
+
+The module `snmp_target_mib` implements the instrumentation functions for the SNMP-TARGET-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+
+Legacy API functions `add_addr/10` that does not specify transport domain, and `add_addr/11` that has got separate `IpAddr` and `PortNumber` arguments still work as before for backwards compatibility reasons.
+
+[](){: id=types }
+## DATA TYPES
+
+See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
+
+[](){: id=configure }
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -75,6 +91,23 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old rows with StorageType `volatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration files read are: `target_addr.conf` and `target_params.conf`.
+
+[](){: id=reconfigure }
+""".
 configure(Dir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
@@ -106,6 +139,23 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+Inserts all data in the configuration files into the database and destroys all old data, including the rows with StorageType `nonVolatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-TARGET-MIB, after this function has been called, is the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the , and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration files read are: `target_addr.conf` and `target_params.conf`.
+
+[](){: id=set_target_engine_id }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -379,6 +429,25 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+Name = string()  
+Domain = transportDomain()  
+Addr = transportAddress() % Default port is 162  
+Timeout = integer()  
+Retry = integer()  
+TagList = string()  
+ParamsName = string()  
+EngineId = string()  
+TMask = transportAddressMask() % Depends on Domain  
+MMS = integer()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a target address definition to the agent config. Equivalent to one line in the `target_addr.conf` file.
+
+[](){: id=delete_addr }
+""".
 add_addr(
   Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -409,6 +478,15 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a target address definition from the agent config.
+
+[](){: id=add_params }
+""".
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->
@@ -418,6 +496,20 @@ delete_addr(Key) ->
     end.
 
 
+-doc """
+Name = string()  
+MPModel = v1 | v2c | v3  
+SecModel = v1 | v2c | usm  
+SecName = string()  
+SecLevel = noAuthNoPriv | authNoPriv | authPriv  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a target parameter definition to the agent config. Equivalent to one line in the `target_params.conf` file.
+
+[](){: id=delete_params }
+""".
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
     case (catch check_target_params(Params)) of
@@ -435,6 +527,13 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	    {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a target parameter definition from the agent config.
+""".
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
 	true ->
@@ -660,6 +759,14 @@ get_target_engine_id(TargetAddrName) ->
 	    end
     end.
 				    
+-doc """
+TargetAddrName = string()  
+EngineId = string()  
+
+Changes the engine id for a target in the `snmpTargetAddrTable`. If notifications are sent as Inform requests to a target, its engine id must be set.
+
+[](){: id=add_addr }
+""".
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
@@ -1078,3 +1185,4 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[TARGET-MIB]: " ++ F, A).
+

@@ -19,6 +19,15 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGBSizerItem).
+-moduledoc """
+Functions for wxGBSizerItem class
+
+The `m:wxGBSizerItem` class is used by the `m:wxGridBagSizer` for tracking the items in the sizer. It adds grid position and spanning information to the normal `m:wxSizerItem` by adding `wxGBPosition` (not implemented in wx) and `wxGBSpan` (not implemented in wx) attributes. Most of the time you will not need to use a `m:wxGBSizerItem` directly in your code, but there are a couple of cases where it is handy.
+
+This class is derived (and can use functions) from: `m:wxSizerItem`
+
+wxWidgets docs: [wxGBSizerItem](https://docs.wxwidgets.org/3.1/classwx_g_b_sizer_item.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -30,6 +39,7 @@
   parent_class/1,setBorder/2,setDimension/3,setFlag/2,setInitSize/3,
   setMinSize/2,setMinSize/3,setProportion/2,setRatio/2,setRatio/3,show/2]).
 
+-doc "".
 -type wxGBSizerItem() :: wx:wx_object().
 -export_type([wxGBSizerItem/0]).
 %% @hidden
@@ -103,3 +113,4 @@ detachSizer(This) -> wxSizerItem:detachSizer(This).
 deleteWindows(This) -> wxSizerItem:deleteWindows(This).
 %% @hidden
 calcMin(This) -> wxSizerItem:calcMin(This).
+

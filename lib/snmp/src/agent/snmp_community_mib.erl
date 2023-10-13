@@ -18,6 +18,15 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_community_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-COMMUNITY-MIB
+
+The module `snmp_community_mib` implements the instrumentation functions for the SNMP-COMMUNITY-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+
+[](){: id=configure }
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -61,6 +70,23 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old rows with StorageType `volatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error, report module and the function fails with reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `community.conf`.
+
+[](){: id=reconfigure }
+""".
 configure(Dir) ->
     set_sname(),
     case db(snmpCommunityTable) of
@@ -89,6 +115,23 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+Inserts all data in the configuration files into the database and destroys all old data, including the rows with StorageType `nonVolatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-COMMUNITY-MIB, after this function has been called, is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `community.conf`.
+
+[](){: id=add_community }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -186,10 +229,30 @@ table_del_row(Tab, Key) ->
 
 
 %% FIXME: does not work with mnesia
+-doc(#{equiv => add_community/6}).
+-doc(#{since => <<"OTP R14B03">>}).
 add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, CtxName, TransportTag},
     do_add_community(Community).
 
+-doc """
+Idx = string()  
+CommName = string()  
+SecName = string()  
+EngineId = string()  
+CtxName = string()  
+TransportTag = string()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a community to the agent config. Equivalent to one line in the `community.conf` file.
+
+With the `EngineId` argument it is possible to override the configured engine-id (SNMP-FRAMEWORK-MIB).
+
+[](){: id=delete_community }
+""".
+-doc(#{since => <<"OTP R14B03">>}).
 add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, EngineId, CtxName, TransportTag},
     do_add_community(Community).
@@ -213,6 +276,13 @@ do_add_community(Community) ->
     end.
 
 %% FIXME: does not work with mnesia
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a community from the agent config.
+""".
 delete_community(Key) ->
     invalidate_cache(Key),
     case table_del_row(snmpCommunityTable, Key) of
@@ -647,3 +717,4 @@ warning_msg(F, A) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[COMMUNITY-MIB]: " ++ F, A).
+

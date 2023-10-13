@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxWindowDC).
+-moduledoc """
+Functions for wxWindowDC class
+
+A `m:wxWindowDC` must be constructed if an application wishes to paint on the whole area of a window (client and decorations). This should normally be constructed as a temporary stack object; don't store a `m:wxWindowDC` object.
+
+To draw on a window from inside an EVT_PAINT() handler, construct a `m:wxPaintDC` object instead.
+
+To draw on the client area of a window from outside an EVT_PAINT() handler, construct a `m:wxClientDC` object.
+
+A `m:wxWindowDC` object is initialized to use the same font and colours as the window it is associated with.
+
+See: `m:wxDC`, `m:wxMemoryDC`, `m:wxPaintDC`, `m:wxClientDC`, `m:wxScreenDC`
+
+This class is derived (and can use functions) from: `m:wxDC`
+
+wxWidgets docs: [wxWindowDC](https://docs.wxwidgets.org/3.1/classwx_window_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/1]).
 
@@ -44,6 +61,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxWindowDC() :: wx:wx_object().
 -export_type([wxWindowDC/0]).
 %% @hidden
@@ -51,6 +69,11 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindowdc.html#wxwindowdcwxwindowdc">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a pointer to the window on which you wish to paint.
+""".
 -spec new(Window) -> wxWindowDC() when
 	Window::wxWindow:wxWindow().
 new(#wx_ref{type=WindowT}=Window) ->
@@ -59,6 +82,7 @@ new(#wx_ref{type=WindowT}=Window) ->
   wxe_util:rec(?wxWindowDC_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxWindowDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxWindowDC),
@@ -249,3 +273,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

@@ -19,6 +19,33 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxComboBox).
+-moduledoc """
+Functions for wxComboBox class
+
+A combobox is like a combination of an edit control and a listbox.
+
+It can be displayed as static list with editable or read-only text field; or a drop-down list with text field; or a drop-down list without a text field depending on the platform and presence of wxCB_READONLY style.
+
+A combobox permits a single selection only. Combobox items are numbered from zero.
+
+If you need a customized combobox, have a look at `wxComboCtrl` (not implemented in wx), `wxOwnerDrawnComboBox` (not implemented in wx), `wxComboPopup` (not implemented in wx) and the ready-to-use `wxBitmapComboBox` (not implemented in wx).
+
+Please refer to `wxTextEntry` (not implemented in wx) documentation for the description of methods operating with the text entry part of the combobox and to `wxItemContainer` (not implemented in wx) for the methods operating with the list of strings. Notice that at least under MSW `m:wxComboBox` doesn't behave correctly if it contains strings differing in case only so portable programs should avoid adding such strings to this control.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxListBox`, `m:wxTextCtrl`, `m:wxChoice`, `m:wxCommandEvent`
+
+This class is derived (and can use functions) from: `m:wxControlWithItems` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxComboBox](https://docs.wxwidgets.org/3.1/classwx_combo_box.html)
+
+## Events
+
+Event types emitted from this class: [`command_combobox_selected`](`m:wxCommandEvent`), [`command_text_updated`](`m:wxCommandEvent`), [`command_text_enter`](`m:wxCommandEvent`), [`combobox_dropdown`](`m:wxCommandEvent`), [`combobox_closeup`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([canCopy/1,canCut/1,canPaste/1,canRedo/1,canUndo/1,copy/1,create/7,create/8,
   cut/1,destroy/1,getInsertionPoint/1,getLastPosition/1,getValue/1,new/0,
@@ -68,6 +95,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxComboBox() :: wx:wx_object().
 -export_type([wxComboBox/0]).
 %% @hidden
@@ -78,12 +106,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxwxcombobox">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxComboBox().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxComboBox_new_0),
   wxe_util:rec(?wxComboBox_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxComboBox() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -92,6 +122,11 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxwxcombobox">external documentation</a>.
+-doc """
+Constructor, creating and showing a combobox.
+
+See: `create/8`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, Id, [Option]) -> wxComboBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'value', unicode:chardata()}
@@ -115,6 +150,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxComboBox_new_3).
 
 %% @equiv create(This,Parent,Id,Value,Pos,Size,Choices, [])
+-doc "".
 -spec create(This, Parent, Id, Value, Pos, Size, Choices) -> boolean() when
 	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
@@ -123,6 +159,7 @@ create(This,Parent,Id,Value,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
   create(This,Parent,Id,Value,Pos,Size,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcreate">external documentation</a>.
+-doc "".
 -spec create(This, Parent, Id, Value, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
 	Option :: {'style', integer()}
@@ -142,6 +179,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Value,{PosX,PosY
   wxe_util:rec(?wxComboBox_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcancopy">external documentation</a>.
+-doc "Returns true if the selection can be copied to the clipboard.".
 -spec canCopy(This) -> boolean() when
 	This::wxComboBox().
 canCopy(#wx_ref{type=ThisT}=This) ->
@@ -150,6 +188,7 @@ canCopy(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_CanCopy).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcancut">external documentation</a>.
+-doc "Returns true if the selection can be cut to the clipboard.".
 -spec canCut(This) -> boolean() when
 	This::wxComboBox().
 canCut(#wx_ref{type=ThisT}=This) ->
@@ -158,6 +197,11 @@ canCut(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_CanCut).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcanpaste">external documentation</a>.
+-doc """
+Returns true if the contents of the clipboard can be pasted into the text control.
+
+On some platforms (Motif, GTK) this is an approximation and returns true if the control is editable, false otherwise.
+""".
 -spec canPaste(This) -> boolean() when
 	This::wxComboBox().
 canPaste(#wx_ref{type=ThisT}=This) ->
@@ -166,6 +210,7 @@ canPaste(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_CanPaste).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcanredo">external documentation</a>.
+-doc "Returns true if there is a redo facility available and the last operation can be redone.".
 -spec canRedo(This) -> boolean() when
 	This::wxComboBox().
 canRedo(#wx_ref{type=ThisT}=This) ->
@@ -174,6 +219,7 @@ canRedo(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_CanRedo).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcanundo">external documentation</a>.
+-doc "Returns true if there is an undo facility available and the last operation can be undone.".
 -spec canUndo(This) -> boolean() when
 	This::wxComboBox().
 canUndo(#wx_ref{type=ThisT}=This) ->
@@ -182,6 +228,7 @@ canUndo(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_CanUndo).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcopy">external documentation</a>.
+-doc "Copies the selected text to the clipboard.".
 -spec copy(This) -> 'ok' when
 	This::wxComboBox().
 copy(#wx_ref{type=ThisT}=This) ->
@@ -189,6 +236,7 @@ copy(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Copy).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcut">external documentation</a>.
+-doc "Copies the selected text to the clipboard and removes it from the control.".
 -spec cut(This) -> 'ok' when
 	This::wxComboBox().
 cut(#wx_ref{type=ThisT}=This) ->
@@ -196,6 +244,11 @@ cut(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Cut).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxgetinsertionpoint">external documentation</a>.
+-doc """
+Same as `wxTextCtrl:getInsertionPoint/1`.
+
+Note: Under wxMSW, this function always returns 0 if the combobox doesn't have the focus.
+""".
 -spec getInsertionPoint(This) -> integer() when
 	This::wxComboBox().
 getInsertionPoint(#wx_ref{type=ThisT}=This) ->
@@ -204,6 +257,7 @@ getInsertionPoint(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_GetInsertionPoint).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxgetlastposition">external documentation</a>.
+-doc "Returns the zero based index of the last position in the text control, which is equal to the number of characters in the control.".
 -spec getLastPosition(This) -> integer() when
 	This::wxComboBox().
 getLastPosition(#wx_ref{type=ThisT}=This) ->
@@ -212,6 +266,11 @@ getLastPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_GetLastPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxgetvalue">external documentation</a>.
+-doc """
+Gets the contents of the control.
+
+Notice that for a multiline text control, the lines will be separated by (Unix-style) `\n` characters, even under Windows where they are separated by a `\r\n` sequence in the native control.
+""".
 -spec getValue(This) -> unicode:charlist() when
 	This::wxComboBox().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -220,6 +279,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxComboBox_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxpaste">external documentation</a>.
+-doc "Pastes text from the clipboard to the text item.".
 -spec paste(This) -> 'ok' when
 	This::wxComboBox().
 paste(#wx_ref{type=ThisT}=This) ->
@@ -227,6 +287,11 @@ paste(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Paste).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxredo">external documentation</a>.
+-doc """
+If there is a redo facility and the last operation can be redone, redoes the last operation.
+
+Does nothing if there is no redo facility.
+""".
 -spec redo(This) -> 'ok' when
 	This::wxComboBox().
 redo(#wx_ref{type=ThisT}=This) ->
@@ -234,6 +299,11 @@ redo(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Redo).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxreplace">external documentation</a>.
+-doc """
+Replaces the text starting at the first position up to (but not including) the character at the last position with the given text.
+
+This function puts the current insertion point position at `to` as a side effect.
+""".
 -spec replace(This, From, To, Value) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT}=This,From,To,Value)
@@ -243,6 +313,11 @@ replace(#wx_ref{type=ThisT}=This,From,To,Value)
   wxe_util:queue_cmd(This,From,To,Value_UC,?get_env(),?wxComboBox_Replace).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxremove">external documentation</a>.
+-doc """
+Removes the text starting at the first given position up to (but not including) the character at the last position.
+
+This function puts the current insertion point position at `to` as a side effect.
+""".
 -spec remove(This, From, To) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer().
 remove(#wx_ref{type=ThisT}=This,From,To)
@@ -251,6 +326,7 @@ remove(#wx_ref{type=ThisT}=This,From,To)
   wxe_util:queue_cmd(This,From,To,?get_env(),?wxComboBox_Remove).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetinsertionpoint">external documentation</a>.
+-doc "Sets the insertion point at the given position.".
 -spec setInsertionPoint(This, Pos) -> 'ok' when
 	This::wxComboBox(), Pos::integer().
 setInsertionPoint(#wx_ref{type=ThisT}=This,Pos)
@@ -259,6 +335,11 @@ setInsertionPoint(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:queue_cmd(This,Pos,?get_env(),?wxComboBox_SetInsertionPoint).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetinsertionpointend">external documentation</a>.
+-doc """
+Sets the insertion point at the end of the text control.
+
+This is equivalent to calling `setInsertionPoint/2` with `getLastPosition/1` argument.
+""".
 -spec setInsertionPointEnd(This) -> 'ok' when
 	This::wxComboBox().
 setInsertionPointEnd(#wx_ref{type=ThisT}=This) ->
@@ -266,6 +347,13 @@ setInsertionPointEnd(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_SetInsertionPointEnd).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetselection">external documentation</a>.
+-doc """
+Sets the selection to the given item `n` or removes the selection entirely if `n` == `wxNOT_FOUND`.
+
+Note that this does not cause any command events to be emitted nor does it deselect any other items in the controls which support multiple selections.
+
+See: `wxControlWithItems:setString/3`, `wxControlWithItems:setStringSelection/2`
+""".
 -spec setSelection(This, N) -> 'ok' when
 	This::wxComboBox(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
@@ -274,6 +362,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
   wxe_util:queue_cmd(This,N,?get_env(),?wxComboBox_SetSelection_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetselection">external documentation</a>.
+-doc "Same as `wxTextCtrl:setSelection/3`.".
 -spec setSelection(This, From, To) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
@@ -282,6 +371,13 @@ setSelection(#wx_ref{type=ThisT}=This,From,To)
   wxe_util:queue_cmd(This,From,To,?get_env(),?wxComboBox_SetSelection_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetvalue">external documentation</a>.
+-doc """
+Sets the text for the combobox text field.
+
+For normal, editable comboboxes with a text entry field calling this method will generate a `wxEVT_TEXT` event, consistently with `wxTextCtrl:setValue/2` behaviour, use `wxTextCtrl:changeValue/2` if this is undesirable.
+
+For controls with `wxCB_READONLY` style the method behaves somewhat differently: the string must be in the combobox choices list (the check for this is case-insensitive) and `wxEVT_TEXT` is `not` generated in this case.
+""".
 -spec setValue(This, Text) -> 'ok' when
 	This::wxComboBox(), Text::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Text)
@@ -291,6 +387,11 @@ setValue(#wx_ref{type=ThisT}=This,Text)
   wxe_util:queue_cmd(This,Text_UC,?get_env(),?wxComboBox_SetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxundo">external documentation</a>.
+-doc """
+If there is an undo facility and the last operation can be undone, undoes the last operation.
+
+Does nothing if there is no undo facility.
+""".
 -spec undo(This) -> 'ok' when
 	This::wxComboBox().
 undo(#wx_ref{type=ThisT}=This) ->
@@ -298,6 +399,7 @@ undo(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Undo).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the combobox.".
 -spec destroy(This::wxComboBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxComboBox),
@@ -717,3 +819,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

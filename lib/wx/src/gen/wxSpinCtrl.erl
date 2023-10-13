@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSpinCtrl).
+-moduledoc """
+Functions for wxSpinCtrl class
+
+`m:wxSpinCtrl` combines `m:wxTextCtrl` and `m:wxSpinButton` in one control.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxSpinButton`, `wxSpinCtrlDouble` (not implemented in wx), `m:wxControl`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSpinCtrl](https://docs.wxwidgets.org/3.1/classwx_spin_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_spinctrl_updated`](`m:wxSpinEvent`)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getMax/1,getMin/1,getValue/1,new/0,new/1,
   new/2,setRange/3,setSelection/3,setValue/2]).
@@ -63,6 +82,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSpinCtrl() :: wx:wx_object().
 -export_type([wxSpinCtrl/0]).
 %% @hidden
@@ -72,12 +92,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxSpinCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxSpinCtrl_new_0),
   wxe_util:rec(?wxSpinCtrl_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxSpinCtrl() when
 	Parent::wxWindow:wxWindow().
 
@@ -86,6 +108,13 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlwxspinctrl">external documentation</a>.
+-doc """
+Constructor, creating and showing a spin control.
+
+If `value` is non-empty, it will be shown in the text entry part of the control and if it has numeric value, the initial numeric value of the control, as returned by `getValue/1` will also be determined by it instead of by `initial`. Hence, it only makes sense to specify `initial` if `value` is an empty string or is not convertible to a number, otherwise `initial` is simply ignored and the number specified by `value` is used.
+
+See: `create/3`
+""".
 -spec new(Parent, [Option]) -> wxSpinCtrl() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -113,6 +142,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxSpinCtrl_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxSpinCtrl(), Parent::wxWindow:wxWindow().
 
@@ -121,6 +151,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlcreate">external documentation</a>.
+-doc """
+Creation function called by the spin control constructor.
+
+See `new/2` for details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSpinCtrl(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -153,6 +188,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
 %% setValue(This, Text) -> 'ok' when<br />
 %% 	This::wxSpinCtrl(), Text::unicode:chardata().<br />
 %% 
+-doc """
+Sets the value of the spin control.
+
+It is recommended to use the overload taking an integer value instead.
+
+Notice that, unlike `wxTextCtrl:setValue/2`, but like most of the other setter methods in wxWidgets, calling this method does not generate any events as events are only generated for the user actions.
+""".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxSpinCtrl(), Value::integer();
       (This, Text) -> 'ok' when
@@ -168,6 +210,7 @@ setValue(#wx_ref{type=ThisT}=This,Text)
   wxe_util:queue_cmd(This,Text_UC,?get_env(),?wxSpinCtrl_SetValue_1_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetvalue">external documentation</a>.
+-doc "Gets the value of the spin control.".
 -spec getValue(This) -> integer() when
 	This::wxSpinCtrl().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -176,6 +219,13 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinCtrl_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlsetrange">external documentation</a>.
+-doc """
+Sets range of allowable values.
+
+Notice that calling this method may change the value of the control if it's not inside the new valid range, e.g. it will become `minVal` if it is less than it now. However no `wxEVT_SPINCTRL` event is generated, even if it the value does change.
+
+Note: Setting a range including negative values is silently ignored if current base is set to 16.
+""".
 -spec setRange(This, MinVal, MaxVal) -> 'ok' when
 	This::wxSpinCtrl(), MinVal::integer(), MaxVal::integer().
 setRange(#wx_ref{type=ThisT}=This,MinVal,MaxVal)
@@ -184,6 +234,13 @@ setRange(#wx_ref{type=ThisT}=This,MinVal,MaxVal)
   wxe_util:queue_cmd(This,MinVal,MaxVal,?get_env(),?wxSpinCtrl_SetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlsetselection">external documentation</a>.
+-doc """
+Select the text in the text part of the control between positions `from` (inclusive) and `to` (exclusive).
+
+This is similar to `wxTextCtrl:setSelection/3`.
+
+Note: this is currently only implemented for Windows and generic versions of the control.
+""".
 -spec setSelection(This, From, To) -> 'ok' when
 	This::wxSpinCtrl(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
@@ -192,6 +249,7 @@ setSelection(#wx_ref{type=ThisT}=This,From,To)
   wxe_util:queue_cmd(This,From,To,?get_env(),?wxSpinCtrl_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetmin">external documentation</a>.
+-doc "Gets minimal allowable value.".
 -spec getMin(This) -> integer() when
 	This::wxSpinCtrl().
 getMin(#wx_ref{type=ThisT}=This) ->
@@ -200,6 +258,7 @@ getMin(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinCtrl_GetMin).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinctrl.html#wxspinctrlgetmax">external documentation</a>.
+-doc "Gets maximal allowable value.".
 -spec getMax(This) -> integer() when
 	This::wxSpinCtrl().
 getMax(#wx_ref{type=ThisT}=This) ->
@@ -208,6 +267,7 @@ getMax(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSpinCtrl_GetMax).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxSpinCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSpinCtrl),
@@ -582,3 +642,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

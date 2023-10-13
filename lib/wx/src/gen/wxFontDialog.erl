@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFontDialog).
+-moduledoc """
+Functions for wxFontDialog class
+
+This class represents the font chooser dialog.
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_font), `m:wxFontData`, ?wxGetFontFromUser()
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFontDialog](https://docs.wxwidgets.org/3.1/classwx_font_dialog.html)
+""".
 -include("wxe.hrl").
 -export([create/3,destroy/1,getFontData/1,new/0,new/2]).
 
@@ -67,6 +78,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFontDialog() :: wx:wx_object().
 -export_type([wxFontDialog/0]).
 %% @hidden
@@ -77,12 +89,22 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
+-doc """
+Default ctor.
+
+`create/3` must be called before the dialog can be shown.
+""".
 -spec new() -> wxFontDialog().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFontDialog_new_0),
   wxe_util:rec(?wxFontDialog_new_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogwxfontdialog">external documentation</a>.
+-doc """
+Constructor.
+
+Pass a parent window, and the `m:wxFontData` object to be used to initialize the dialog controls.
+""".
 -spec new(Parent, Data) -> wxFontDialog() when
 	Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
@@ -92,6 +114,11 @@ new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   wxe_util:rec(?wxFontDialog_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialogcreate">external documentation</a>.
+-doc """
+Creates the dialog if the `m:wxFontDialog` object had been initialized using the default constructor.
+
+Return: true on success and false if an error occurred.
+""".
 -spec create(This, Parent, Data) -> boolean() when
 	This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
@@ -102,6 +129,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}
   wxe_util:rec(?wxFontDialog_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontdialog.html#wxfontdialoggetfontdata">external documentation</a>.
+-doc "Returns the `m:wxFontData` associated with the font dialog.".
 -spec getFontData(This) -> wxFontData:wxFontData() when
 	This::wxFontDialog().
 getFontData(#wx_ref{type=ThisT}=This) ->
@@ -110,6 +138,7 @@ getFontData(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFontDialog_GetFontData).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxFontDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontDialog),
@@ -549,3 +578,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

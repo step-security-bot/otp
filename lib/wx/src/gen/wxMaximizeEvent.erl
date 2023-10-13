@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMaximizeEvent).
+-moduledoc """
+Functions for wxMaximizeEvent class
+
+An event being sent when a top level window is maximized. Notice that it is not sent when the window is restored to its original size after it had been maximized, only a normal `m:wxSizeEvent` is generated in this case.
+
+Currently this event is only generated in wxMSW, wxGTK and wxOSX/Cocoa ports so portable programs should only rely on receiving `wxEVT_SIZE` and not necessarily this event when the window is maximized.
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `wxTopLevelWindow:maximize/2`, `wxTopLevelWindow:isMaximized/1`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxMaximizeEvent](https://docs.wxwidgets.org/3.1/classwx_maximize_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxMaximizeEventType`](`t:wxMaximizeEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -26,8 +43,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxMaximizeEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxMaximizeEventType() :: 'maximize'.
 -export_type([wxMaximizeEvent/0, wxMaximize/0, wxMaximizeEventType/0]).
 %% @hidden
@@ -53,3 +72,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxCheckListBox).
+-moduledoc """
+Functions for wxCheckListBox class
+
+A `m:wxCheckListBox` is like a `m:wxListBox`, but allows items to be checked or unchecked.
+
+When using this class under Windows wxWidgets must be compiled with wxUSE_OWNER_DRAWN set to 1.
+
+See: `m:wxListBox`, `m:wxChoice`, `m:wxComboBox`, `m:wxListCtrl`, `m:wxCommandEvent`
+
+This class is derived (and can use functions) from: `m:wxListBox` `m:wxControlWithItems` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxCheckListBox](https://docs.wxwidgets.org/3.1/classwx_check_list_box.html)
+
+## Events
+
+Event types emitted from this class: [`command_checklistbox_toggled`](`m:wxCommandEvent`)
+""".
 -include("wxe.hrl").
 -export([check/2,check/3,destroy/1,isChecked/2,new/0,new/2,new/3]).
 
@@ -66,6 +83,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxCheckListBox() :: wx:wx_object().
 -export_type([wxCheckListBox/0]).
 %% @hidden
@@ -77,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxCheckListBox().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxCheckListBox_new_0),
   wxe_util:rec(?wxCheckListBox_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxCheckListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -91,6 +111,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+-doc "Constructor, creating and showing a list box.".
 -spec new(Parent, Id, [Option]) -> wxCheckListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -112,6 +133,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxCheckListBox_new_3).
 
 %% @equiv check(This,Item, [])
+-doc "".
 -spec check(This, Item) -> 'ok' when
 	This::wxCheckListBox(), Item::integer().
 
@@ -120,6 +142,11 @@ check(This,Item)
   check(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxcheck">external documentation</a>.
+-doc """
+Checks the given item.
+
+Note that calling this method does not result in a `wxEVT_CHECKLISTBOX` event being emitted.
+""".
 -spec check(This, Item, [Option]) -> 'ok' when
 	This::wxCheckListBox(), Item::integer(),
 	Option :: {'check', boolean()}.
@@ -132,6 +159,7 @@ check(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxCheckListBox_Check).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxischecked">external documentation</a>.
+-doc "Returns true if the given item is checked, false otherwise.".
 -spec isChecked(This, Item) -> boolean() when
 	This::wxCheckListBox(), Item::integer().
 isChecked(#wx_ref{type=ThisT}=This,Item)
@@ -141,6 +169,7 @@ isChecked(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxCheckListBox_IsChecked).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the list box.".
 -spec destroy(This::wxCheckListBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckListBox),
@@ -579,3 +608,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

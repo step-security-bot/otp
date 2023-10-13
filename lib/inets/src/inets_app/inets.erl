@@ -23,6 +23,26 @@
 %%----------------------------------------------------------------------
 
 -module(inets).
+-moduledoc """
+The Inets services API.
+
+This module provides the most basic API to the clients and servers that are part of the `Inets` application, such as start and stop.
+
+[](){: id=common_data_types }
+## DATA TYPES
+
+Type definitions that are used more than once in this module:
+
+`service() = httpc | httpd`
+
+`property() = atom()`
+
+[](){: id=functions }
+[](){: id=services }
+## SEE ALSO
+
+`m:httpc`, `m:httpd`
+""".
 
 %% API
 -export([start/0, start/1, start/2, start/3,  
@@ -47,9 +67,17 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
+-doc(#{equiv => start/1}).
 start() ->
     application:start(inets, temporary).
 
+-doc """
+Type = permanent | transient | temporary  
+
+Starts the `Inets` application. Default type is `temporary`. See also `m:application`.
+
+[](){: id=stop }
+""".
 start(Type) ->
     application:ensure_all_started(ssl),
     application:start(inets, Type).
@@ -80,9 +108,26 @@ start(Type) ->
 %% in place and in some sense the calling process has now become the
 %% top supervisor.
 %% --------------------------------------------------------------------
+-doc(#{equiv => start/3}).
 start(Service, ServiceConfig) ->
     start_service(Service, ServiceConfig, inets).
 
+-doc """
+Service = service()  
+ServiceConfig = \[\{Option, Value\}]  
+Option = property()  
+Value = term()  
+How = inets | stand_alone - default is inets.  
+
+Dynamically starts an `Inets` service after the `Inets` application has been started.
+
+> #### Note {: class=info }
+> Dynamically started services are not handled by application takeover and failover behavior when `Inets` is run as a distributed application. Nor are they automatically restarted when the `Inets` application is restarted. As long as the `Inets` application is operational, they are supervised and can be soft code upgraded.
+>
+> A service started as `stand_alone`, that is, the service is not started as part of the `Inets` application, lose all OTP application benefits, such as soft upgrade. The `stand_alone`\-service is linked to the process that started it. Usually some supervision functionality is still in place and in some sense the calling process becomes the top supervisor.
+
+[](){: id=stop2 }
+""".
 start(Service, ServiceConfig, How) ->
     start_service(Service, ServiceConfig, How).
 
@@ -92,6 +137,11 @@ start(Service, ServiceConfig, How) ->
 %%
 %% Description: Stops the inets application.
 %%--------------------------------------------------------------------
+-doc """
+Stops the `Inets` application. See also `m:application`.
+
+[](){: id=start2 }
+""".
 stop() ->
     application:stop(inets).
 
@@ -104,6 +154,15 @@ stop() ->
 %% Description: Stops a started service of the inets application or takes
 %% down a stand alone "service" gracefully.
 %%--------------------------------------------------------------------
+-doc """
+Service = service() | stand_alone  
+Reference = pid() | term() - service-specified reference  
+Reason = term()  
+
+Stops a started service of the `Inets` application or takes down a `stand_alone`\-service gracefully. When option `stand_alone` is used in start, only the pid is a valid argument to stop.
+
+[](){: id=see_also }
+""".
 stop(stand_alone, Pid) ->
     true = exit(Pid, shutdown),
     ok;
@@ -118,6 +177,17 @@ stop(Service, Pid) ->
 %% Description: Returns a list of currently running services. 
 %% Note: Services started with the stand alone option will not be listed
 %%--------------------------------------------------------------------
+-doc """
+Service = service()  
+Pid = pid()  
+
+Returns a list of currently running services.
+
+> #### Note {: class=info }
+> Services started as `stand_alone` are not listed.
+
+[](){: id=services_info }
+""".
 services() ->
     try lists:flatten(lists:map(fun(Module) ->
 					Module:services()
@@ -136,6 +206,17 @@ services() ->
 %% Description: Returns a list of currently running services where
 %% each service is described by a [{Property, Value}] list. 
 %%--------------------------------------------------------------------
+-doc """
+Service = service()  
+Pid = pid()  
+Info = \[\{Option, Value\}] | Reason  
+Option = property()  
+Value = term()  
+
+Returns a list of currently running services where each service is described by an `[{Option, Value}]` list. The information in the list is specific for each service and each service has probably its own info function that gives more details about the service. If specific service info returns \{error, Reason\}, Info will contain Reason term.
+
+[](){: id=service_names }
+""".
 services_info() ->
     case services() of
 	{error, inets_not_started} ->
@@ -359,6 +440,13 @@ key1search(Key, Vals, Def) ->
 %%
 %% Description: Returns a list of supported services
 %%-------------------------------------------------------------------
+-doc """
+Service = service()  
+
+Returns a list of available service names.
+
+[](){: id=start }
+""".
 service_names() ->
     [httpc, httpd].
 
@@ -447,3 +535,4 @@ call_service(Service, Call, Args) ->
         exit:{noproc, _} ->
             {error, inets_not_started}
     end.
+

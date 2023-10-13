@@ -19,6 +19,13 @@
 %%
 
 -module(ct_master).
+-moduledoc """
+Distributed test execution control for Common Test.
+
+Distributed test execution control for `Common Test`.
+
+This module exports functions for running `Common Test` nodes on multiple hosts in parallel.
+""".
 
 -export([run/1,run/3,run/4]).
 -export([run_on_node/2,run_on_node/3]).
@@ -42,6 +49,23 @@
 		blocked=[]
 		}).
 
+-doc """
+Node = atom()  
+Opts = \[OptTuples]  
+OptTuples = \{config, CfgFiles\} | \{dir, TestDirs\} | \{suite, Suites\} | \{testcase, Cases\} | \{spec, TestSpecs\} | \{allow_user_terms, Bool\} | \{logdir, LogDir\} | \{event_handler, EventHandlers\} | \{silent_connections, Conns\} | \{cover, CoverSpecFile\} | \{cover_stop, Bool\} | \{userconfig, UserCfgFiles\}  
+CfgFiles = string() | \[string()]  
+TestDirs = string() | \[string()]  
+Suites = atom() | \[atom()]  
+Cases = atom() | \[atom()]  
+TestSpecs = string() | \[string()]  
+LogDir = string()  
+EventHandlers = EH | \[EH]  
+EH = atom() | \{atom(), InitArgs\} | \{\[atom()], InitArgs\}  
+InitArgs = \[term()]  
+Conns = all | \[atom()]  
+
+Tests are spawned on `Node` using `ct:run_test/1`
+""".
 run_test(Node,Opts) ->
     run_test([{Node,Opts}]).
 
@@ -50,6 +74,15 @@ run_test({Node,Opts}) ->
 run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
+-doc """
+TestSpecs = string() | \[SeparateOrMerged]  
+SeparateOrMerged = string() | \[string()]  
+AllowUserTerms = bool()  
+InclNodes = \[atom()]  
+ExclNodes = \[atom()]  
+
+Tests are spawned on the nodes as specified in `TestSpecs`. Each specification in `TestSpec` is handled separately. However, it is also possible to specify a list of specifications to be merged into one specification before the tests are executed. Any test without a particular node specification is also executed on the nodes in `InclNodes`. Nodes in the `ExclNodes` list are excluded from the test.
+""".
 run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 							    is_list(InclNodes),
 							    is_list(ExclNodes) ->
@@ -89,9 +122,22 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
 						is_list(ExclNodes) ->
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
+-doc """
+TestSpecs = string() | \[SeparateOrMerged]  
+SeparateOrMerged = string() | \[string()]  
+InclNodes = \[atom()]  
+ExclNodes = \[atom()]  
+
+Equivalent to [`ct_master:run(TestSpecs, false, InclNodes, ExclNodes)`](`run/4`).
+""".
 run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
+-doc """
+TestSpecs = string() | \[SeparateOrMerged]  
+
+Equivalent to [`ct_master:run(TestSpecs, false, [], [])`](`run/4`).
+""".
 run(TestSpecs=[TS|_]) when is_list(TS) ->
     run(TestSpecs,false,[],[]);
 run(TS) ->
@@ -104,6 +150,14 @@ exclude_nodes([],RunSkipPerNode) ->
     RunSkipPerNode.
 
 
+-doc """
+TestSpecs = string() | \[SeparateOrMerged]  
+SeparateOrMerged = string() | \[string()]  
+AllowUserTerms = bool()  
+Node = atom()  
+
+Tests are spawned on `Node` according to `TestSpecs`.
+""".
 run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) ->
     case catch ct_testspec:collect_tests_from_file([TS],[Node],
 						   AllowUserTerms) of
@@ -133,6 +187,13 @@ run_on_node([],_,_) ->
 run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
+-doc """
+TestSpecs = string() | \[SeparateOrMerged]  
+SeparateOrMerged = string() | \[string()]  
+Node = atom()  
+
+Equivalent to [`ct_master:run_on_node(TestSpecs, false, Node)`](`run_on_node/3`).
+""".
 run_on_node(TestSpecs,Node) ->
     run_on_node(TestSpecs,false,Node).
 
@@ -196,21 +257,52 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
     ok.
     
 
+-doc "Stops all running tests.".
 abort() ->
     call(abort).
 
+-doc """
+Nodes = atom() | \[atom()]  
+
+Stops tests on specified nodes.
+""".
 abort(Nodes) when is_list(Nodes) ->
     call({abort,Nodes});
 
 abort(Node) when is_atom(Node) ->
     abort([Node]).
     
+-doc """
+Node = atom()  
+Status = finished_ok | ongoing | aborted | \{error, Reason\}  
+Reason = term()  
+
+Returns test progress. If `Status` is `ongoing`, tests are running on the node and are not yet finished.
+""".
 progress() ->
     call(progress).
 
+-doc """
+MasterEvMgrRef = atom()  
+
+Gets a reference to the `Common Test` master event manager. The reference can be used to, for example, add a user-specific event handler while tests are running.
+
+*Example:*
+
+```text
+ gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])
+```
+""".
+-doc(#{since => <<"OTP 17.5">>}).
 get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
+-doc """
+Bool = true | false  
+
+If set to `true`, the `ct_master logs` are written on a primitive HTML format, not using the `Common Test` CSS style sheet.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
     ok.
@@ -768,3 +860,4 @@ cast(undefined,_Msg) ->
 cast(Pid,Msg) ->
     Pid ! {cast,Msg},
     ok.
+

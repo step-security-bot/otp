@@ -25,6 +25,7 @@
 %%%      - RFC 2818 HTTP Over TLS
 
 -module(httpc).
+-moduledoc "".
 
 -behaviour(inets_service).
 
@@ -63,9 +64,11 @@
 %%%  API
 %%%=========================================================================
 
+-doc "".
 default_profile() ->
     ?DEFAULT_PROFILE.
 
+-doc "".
 -spec profile_name(pid()) -> pid();
                   (atom()) -> pid() | atom().
 profile_name(?DEFAULT_PROFILE) ->
@@ -77,12 +80,14 @@ profile_name(Profile) ->
     profile_name(Prefix, Profile).
 
 
+-doc "".
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
 profile_name(_Prefix, Profile) when is_pid(Profile) ->
     Profile.
 
 
+-doc "".
 -spec request(uri_string:uri_string()) -> {ok, Result} | {error, term()} when
       Result :: {StatusLine :: { HttpVersion, StatusCode, string()}
                 , [HttpHeader]
@@ -100,6 +105,7 @@ profile_name(_Prefix, Profile) when is_pid(Profile) ->
 request(Url) ->
     request(Url, default_profile()).
 
+-doc "".
 -spec request(Url, Profile) -> {ok, Result} | {error, term()} when
       Url :: uri_string:uri_string(),
       Profile :: atom() | pid(),
@@ -125,6 +131,9 @@ request(Url, Profile) ->
 %% calling process on the format {http, {RequestId, {StatusLine,
 %% Headers, Body}}} or {http, {RequestId, {error, Reason}}}.
 %% Only octects are accepted in header fields and values.
+-doc """
+Sends a HTTP-request. The function can be both synchronous and asynchronous in the later case the function will return `{ok, RequestId}` and later on a message will be sent to the calling process on the format \{http, \{RequestId, \{StatusLine, Headers, Body\}\}\} or \{http, \{RequestId, \{error, Reason\}\}\}. Only octects are accepted in header fields and values.
+""".
 -spec request(Method, Request, HttpOptions, Options) -> {ok, Result} | {error, term()} when
       Method :: head | get | put | patch | post | trace | options | delete,
       Request :: { uri_string:uri_string()
@@ -185,6 +194,7 @@ request(Method, Request, HttpOptions, Options) ->
 -define(WITH_BODY, [post, put, patch, delete]).
 -define(WITHOUT_BODY, [get, head, options, trace, put, delete]).
 
+-doc "".
 -spec request(Method, Request, HttpOptions, Options, Profile) -> {ok, Result} | {error, term()} when
       Method :: head | get | put | patch | post | trace | options | delete,
       Request :: { uri_string:uri_string()
@@ -252,6 +262,7 @@ request(Method, Request, HTTPOptions, Options, Profile)
             Error
     end.
 
+-doc "".
 do_request(Method, {Url, Headers}, HTTPOptions, Options, Profile) ->
     do_request(Method, {Url, Headers, [], []}, HTTPOptions, Options, Profile);
 do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
@@ -270,6 +281,7 @@ do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Prof
     end.
 
 %% Check combination of method and presence of body
+-doc "".
 check_request(false, false, _Request) ->
     {error, invalid_method};
 check_request(_, true, {_URL, _Headers}) ->
@@ -287,6 +299,7 @@ check_request(_, _, _Request) ->
 %%
 %% @doc Description: Cancels a HTTP-request.
 %%
+-doc "Description: Cancels a HTTP-request.".
 -spec cancel_request(RequestId) -> ok when
       RequestId :: any().
 cancel_request(RequestId) ->
@@ -298,6 +311,7 @@ cancel_request(RequestId) ->
 %% asynchronous, the request can already have been completed when the
 %% cancellation arrives.
 %%
+-doc "Cancels an asynchronous HTTP request. Notice that this does not guarantee that the request response is not delivered. Because it is asynchronous, the request can already have been completed when the cancellation arrives.".
 -spec cancel_request(RequestId, Profile) -> ok when
       RequestId :: any(),
       Profile :: atom() | pid().
@@ -308,6 +322,11 @@ cancel_request(RequestId, Profile)
 
 %% @doc Sets options to be used for subsequent requests.
 %% @see set_options/2. Informs the httpc_manager of the new settings.
+-doc """
+Sets options to be used for subsequent requests.
+
+*See also: *[Informs the httpc_manager of the new settings.](`set_options/2`).
+""".
 -spec set_options(Options) -> ok | {error, Reason} when
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
@@ -347,6 +366,7 @@ set_options(Options) ->
     set_options(Options, default_profile()).
 
 %% @doc Sets options to be used for subsequent requests.
+-doc "Sets options to be used for subsequent requests.".
 -spec set_options(Options, Profile) -> ok | {error, Reason} when
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
@@ -390,15 +410,18 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
 	    {error, Reason}
     end.
 
+-doc "".
 -spec set_option(atom(), term()) -> ok | {error, term()}.
 set_option(Key, Value) ->
     set_option(Key, Value, default_profile()).
 
+-doc "".
 -spec set_option(atom(), term(), atom()) -> ok | {error, term()}.
 set_option(Key, Value, Profile) ->
     set_options([{Key, Value}], Profile).
 
 
+-doc "".
 -spec get_options() -> term().
 get_options() ->
     record_info(fields, options).
@@ -406,6 +429,7 @@ get_options() ->
 %%
 %% @doc Retrieves the options currently used by the client.
 %%
+-doc "Retrieves the options currently used by the client.".
 -spec get_options(OptionItems) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
       OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
@@ -419,6 +443,7 @@ get_options(Options) ->
 %%
 %% @doc Retrieves the options currently used by the client.
 %%
+-doc "Retrieves the options currently used by the client.".
 -spec get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
       OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
@@ -447,9 +472,11 @@ get_options(Options, Profile)
 	    {error, {invalid_options, InvalidGetOptions}}
     end.
 
+-doc "".
 get_option(Key) ->
     get_option(Key, default_profile()).
 
+-doc "".
 get_option(Key, Profile) ->
     case get_options([Key], Profile) of
 	{ok, [{Key, Value}]} ->
@@ -463,6 +490,7 @@ get_option(Key, Profile) ->
 %%
 %%  WildcardHostName=true  does wildcard matching on the hostname check
 %%--------------------------------------------------------------------------
+-doc "".
 -spec ssl_verify_host_options(WildcardHostName) -> list() when
       WildcardHostName :: boolean().
 ssl_verify_host_options(WildcardHostName) ->
@@ -476,6 +504,7 @@ ssl_verify_host_options(WildcardHostName) ->
     [{verify, verify_peer}, {cacerts, public_key:cacerts_get()} | WildCard].
 
 
+-doc "".
 -spec store_cookies(SetCookieHeaders, Url) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
       HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -488,6 +517,7 @@ store_cookies(SetCookieHeaders, Url) ->
 %% @doc Saves the cookies defined in `SetCookieHeaders; in the client profile
 %% cookie database. Call this function if option `cookies' is set to `verify'. If no
 %% profile is specified, the default profile is used.
+-doc "Saves the cookies defined in `` SetCookieHeaders; in the client profile cookie database. Call this function if option `cookies `` is set to `verify`. If no profile is specified, the default profile is used.".
 -spec store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
       HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -514,12 +544,14 @@ store_cookies(SetCookieHeaders, Url, Profile)
 	    ok
     end.
 
+-doc "".
 default_port(http) ->
     80;
 default_port(https) ->
     443.
 
 
+-doc "".
 -spec cookie_header(Url) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -527,6 +559,7 @@ default_port(https) ->
 cookie_header(Url) ->
     cookie_header(Url, default_profile()).
 
+-doc "".
 -spec cookie_header(Url, ProfileOrOpts) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -545,6 +578,7 @@ cookie_header(Url, Opts) when is_list(Opts) ->
 %% request to Url using profile Profile. If no profile is specified, the default
 %% profile is used.
 %%
+-doc "Returns the cookie header that would have been sent when making a request to Url using profile Profile. If no profile is specified, the default profile is used.".
 -spec cookie_header(Url, Opts, Profile) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
       HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
@@ -564,6 +598,7 @@ cookie_header(Url, Opts, Profile)
     end.
     
 
+-doc "".
 -spec which_cookies() -> [CookieStores] when
       CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
       Cookies :: [term()].
@@ -575,6 +610,7 @@ which_cookies() ->
 %% debugging/testing purposes. If no profile is specified, the default profile
 %% is used.
 %%
+-doc "Produces a list of the entire cookie database. Intended for debugging/testing purposes. If no profile is specified, the default profile is used.".
 -spec which_cookies(Profile) -> [CookieStores] when
       Profile :: atom() | pid(),
       CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
@@ -591,6 +627,7 @@ which_cookies(Profile) ->
     end.
 
 
+-doc "".
 -spec which_sessions() -> SessionInfo when
       SessionInfo :: {GoodSession, BadSessions, NonSessions},
       GoodSession :: [Session],
@@ -609,6 +646,7 @@ which_sessions() ->
 %% is used. The dumped sessions database is sorted into three groups
 %% (Good-, Bad- and Non-sessions).
 %%
+-doc "This function is intended for debugging only. It produces a slightly processed dump of the session database. The first list of the session information tuple will contain session information on an internal format. The last two lists of the session information tuple should always be empty if the code is working as intended. If no profile is specified, the default profile is used. The dumped sessions database is sorted into three groups (Good-, Bad- and Non-sessions).".
 -spec which_sessions(Profile) -> SessionInfo when
       Profile :: atom() | pid(),
       SessionInfo :: {GoodSession, BadSessions, NonSessions},
@@ -632,6 +670,7 @@ which_sessions(Profile) ->
 %% @doc Produces a list of miscellaneous information. Intended for debugging. If
 %% no profile is specified, the default profile is used.
 %%
+-doc "Produces a list of miscellaneous information. Intended for debugging. If no profile is specified, the default profile is used.".
 -spec info() -> list() | {error, Reason} when
       Reason :: term().
 info() ->
@@ -641,6 +680,7 @@ info() ->
 %% @doc Produces a list of miscellaneous information. Intended for debugging. If
 %% no profile is specified, the default profile is used.
 %%
+-doc "Produces a list of miscellaneous information. Intended for debugging. If no profile is specified, the default profile is used.".
 -spec info(Profile) -> list() | {error, Reason} when
       Reason :: term(),
       Profile :: atom() | pid().
@@ -658,6 +698,7 @@ info(Profile) ->
 %%
 %% @doc Debug function. Resets (clears) the cookie database for the default profile
 %%
+-doc "Debug function. Resets (clears) the cookie database for the default profile".
 -spec reset_cookies() -> Void when
       Void :: term().
 reset_cookies() ->
@@ -667,6 +708,7 @@ reset_cookies() ->
 %% @doc Debug function. Resets (clears) the cookie database for the specified
 %% `Profile'. If no profile is specified the default profile is used.
 %%
+-doc "Debug function. Resets (clears) the cookie database for the specified `Profile`. If no profile is specified the default profile is used.".
 -spec reset_cookies(Profile) -> Void when
       Profile :: atom() | pid(),
       Void :: term().
@@ -685,6 +727,7 @@ reset_cookies(Profile) ->
 %% @doc Triggers the next message to be streamed, that is, the same behavior as
 %% active ones for sockets.
 %%
+-doc "Triggers the next message to be streamed, that is, the same behavior as active ones for sockets.".
 -spec stream_next(Pid) -> ok when
       Pid :: pid().
 stream_next(Pid) ->
@@ -694,6 +737,7 @@ stream_next(Pid) ->
 %%%========================================================================
 %%% Behaviour callbacks
 %%%========================================================================
+-doc "".
 start_standalone(PropList) ->
     case proplists:get_value(profile, PropList) of
 	undefined ->
@@ -704,9 +748,11 @@ start_standalone(PropList) ->
 	    httpc_manager:start_link(Profile, Dir, stand_alone)
     end.
 
+-doc "".
 start_service(Config) ->
     httpc_profile_sup:start_child(Config).
 
+-doc "".
 stop_service(Profile) when is_atom(Profile) ->
     httpc_profile_sup:stop_child(Profile);
 stop_service(Pid) when is_pid(Pid) ->
@@ -717,9 +763,11 @@ stop_service(Pid) when is_pid(Pid) ->
 	    Error
     end.
 
+-doc "".
 services() ->
     [{httpc, Pid} || {_, Pid, _, _} <- 
 			 supervisor:which_children(httpc_profile_sup)].
+-doc "".
 service_info(Pid) ->
     try [{ChildName, ChildPid} || 
 	    {ChildName, ChildPid, _, _} <- 
@@ -735,6 +783,7 @@ service_info(Pid) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+-doc "".
 -spec normalize_and_parse_url(Characters) -> NormalizedURI when
       Characters    :: uri_string:uri_string(),
       NormalizedURI :: uri_string:uri_string() | uri_string:uri_map()
@@ -742,6 +791,7 @@ service_info(Pid) ->
 normalize_and_parse_url(Url) ->
     uri_string:normalize(unicode:characters_to_list(Url), [return_map]).
 
+-doc "".
 handle_request(Method, Url, 
                URI,
 	       Headers0, ContentType, Body0,
@@ -819,6 +869,7 @@ handle_request(Method, Url,
     end.
 
 
+-doc "".
 add_question_mark(<<>>) ->
     <<>>;
 add_question_mark([]) ->
@@ -829,6 +880,7 @@ add_question_mark(Comp) when is_list(Comp) ->
     [$?|Comp].
 
 
+-doc "".
 scheme_to_atom("http") ->
     http;
 scheme_to_atom("https") ->
@@ -839,11 +891,13 @@ scheme_to_atom(Scheme) ->
     throw({error, {bad_scheme, Scheme}}).
 
 
+-doc "".
 ensure_chunked_encoding(Hdrs) ->
     Key = "transfer-encoding",
     lists:keystore(Key, 1, Hdrs, {Key, "chunked"}).
 
 
+-doc "".
 mk_chunkify_fun(ProcessBody) ->
     fun(eof_body) ->
 	    eof;
@@ -862,6 +916,7 @@ mk_chunkify_fun(ProcessBody) ->
     end.
 
 
+-doc "".
 handle_answer(RequestId, false, _) ->
     {ok, RequestId};
 handle_answer(RequestId, true, Options) ->
@@ -874,6 +929,7 @@ handle_answer(RequestId, true, Options) ->
 	    {error, Reason}
     end.
 
+-doc "".
 return_answer(Options, {StatusLine, Headers, BinBody}) ->
     Body = maybe_format_body(BinBody, Options),
     case proplists:get_value(full_result, Options, true) of
@@ -884,6 +940,7 @@ return_answer(Options, {StatusLine, Headers, BinBody}) ->
 	    {ok, {Status, Body}}
     end.
 
+-doc "".
 maybe_format_body(BinBody, Options) ->
     case proplists:get_value(body_format, Options, string) of
 	string ->
@@ -892,6 +949,7 @@ maybe_format_body(BinBody, Options) ->
 	    BinBody
     end.
 
+-doc "".
 -spec headers_as_is(HeaderRequest, OptionsRequest) -> HeaderRequest when
       HeaderRequest :: [{list(), list() | binary()}] | [tuple()],
       OptionsRequest :: [OptionRequest],
@@ -923,10 +981,12 @@ headers_as_is(Headers, Options) ->
 	     Headers
      end.
 
+-doc "".
 http_options(HttpOptions) ->
     HttpOptionsDefault = http_options_default(),
     http_options(HttpOptionsDefault, HttpOptions, #http_options{}).
 
+-doc "".
 http_options([], [], Acc) ->
     Acc;
 http_options([], HttpOptions, Acc) ->
@@ -966,6 +1026,7 @@ http_options([{Tag, Default, Idx, Post} | Defaults], HttpOptions, Acc) ->
 	    http_options(Defaults, HttpOptions, Acc2)
     end.
 
+-doc "".
 http_options_default() ->
     VersionPost = 
 	fun(Value) when is_atom(Value) ->
@@ -1029,6 +1090,7 @@ http_options_default() ->
      {connect_timeout, {field, #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
+-doc "".
 -spec boolfun() -> fun(((true | false)) -> {ok, true | false}) | fun((term()) -> error).
 boolfun() ->
     fun(Value) when (Value =:= true) orelse
@@ -1038,6 +1100,7 @@ boolfun() ->
 	    error
     end.
 
+-doc "".
 request_options_defaults() ->
     VerifyBoolean = boolfun(),
 
@@ -1104,10 +1167,12 @@ request_options_defaults() ->
      {ipv6_host_with_brackets, false,     VerifyBrackets}
     ]. 
 
+-doc "".
 request_options(Options) ->
     Defaults = request_options_defaults(), 
     request_options(Defaults, Options, []).
 
+-doc "".
 request_options([], [], Acc) ->
     request_options_sanity_check(Acc),
     lists:reverse(Acc);
@@ -1140,6 +1205,7 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
 	    request_options(Defaults, Options, [{Key, DefaultVal} | Acc])
     end.
 
+-doc "".
 -spec request_options_sanity_check([OptionRequest]) -> ok | no_return() when
       OptionRequest :: {sync, boolean()}
                      | {stream, StreamTo}
@@ -1179,6 +1245,7 @@ request_options_sanity_check(Opts) ->
     end,
     ok.
 
+-doc "".
 validate_ipfamily_unix_socket(Options0) ->
     IpFamily = proplists:get_value(ipfamily, Options0, inet),
     UnixSocket = proplists:get_value(unix_socket, Options0, undefined),
@@ -1187,6 +1254,7 @@ validate_ipfamily_unix_socket(Options0) ->
     validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options2,
                                   [{ipfamily, IpFamily}, {unix_socket, UnixSocket}]).
 %%
+-doc "".
 validate_ipfamily_unix_socket(local, undefined, _Options, _Acc) ->
     bad_option(unix_socket, undefined);
 validate_ipfamily_unix_socket(IpFamily, UnixSocket, _Options, _Acc)
@@ -1197,6 +1265,7 @@ validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options, Acc) ->
     validate_unix_socket(UnixSocket),
     {Options, Acc}.
 
+-doc "".
 validate_options(Options0) ->
     try
         {Options, Acc} = validate_ipfamily_unix_socket(Options0),
@@ -1206,6 +1275,7 @@ validate_options(Options0) ->
             {error, Reason}
     end.
 %%
+-doc "".
 validate_options([], ValidOptions) ->
     {ok, lists:reverse(ValidOptions)};
 
@@ -1275,6 +1345,7 @@ validate_options([{_, _} = Opt| _], _Acc) ->
     {error, {not_an_option, Opt}}.
 
 
+-doc "".
 validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
   when is_list(ProxyHost) andalso 
        is_integer(ProxyPort) andalso 
@@ -1283,6 +1354,7 @@ validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
 validate_proxy(BadProxy) ->
     bad_option(proxy, BadProxy).
 
+-doc "".
 validate_https_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy) 
   when is_list(ProxyHost) andalso 
        is_integer(ProxyPort) andalso 
@@ -1291,11 +1363,13 @@ validate_https_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
 validate_https_proxy(BadProxy) ->
     bad_option(https_proxy, BadProxy).
 
+-doc "".
 validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
 validate_max_sessions(BadValue) ->
     bad_option(max_sessions, BadValue).
 
+-doc "".
 validate_keep_alive_timeout(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
 validate_keep_alive_timeout(infinity = Value) ->
@@ -1303,11 +1377,13 @@ validate_keep_alive_timeout(infinity = Value) ->
 validate_keep_alive_timeout(BadValue) ->
     bad_option(keep_alive_timeout, BadValue).
 
+-doc "".
 validate_max_keep_alive_length(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
 validate_max_keep_alive_length(BadValue) ->
     bad_option(max_keep_alive_length, BadValue).
 
+-doc "".
 validate_pipeline_timeout(Value) when is_integer(Value) ->
     Value;
 validate_pipeline_timeout(infinity = Value) ->
@@ -1315,11 +1391,13 @@ validate_pipeline_timeout(infinity = Value) ->
 validate_pipeline_timeout(BadValue) ->
     bad_option(pipeline_timeout, BadValue).
 
+-doc "".
 validate_max_pipeline_length(Value) when is_integer(Value) ->
     Value;
 validate_max_pipeline_length(BadValue) ->
     bad_option(max_pipeline_length, BadValue).
 
+-doc "".
 validate_cookies(Value) 
   when ((Value =:= enabled)  orelse 
 	(Value =:= disabled) orelse 
@@ -1328,6 +1406,7 @@ validate_cookies(Value)
 validate_cookies(BadValue) ->
     bad_option(cookies, BadValue).
 
+-doc "".
 validate_ipv6(Value) when (Value =:= enabled) orelse (Value =:= disabled) ->
     case Value of
 	enabled ->
@@ -1338,6 +1417,7 @@ validate_ipv6(Value) when (Value =:= enabled) orelse (Value =:= disabled) ->
 validate_ipv6(BadValue) ->
     bad_option(ipv6, BadValue).
 
+-doc "".
 validate_ipfamily(Value) 
   when (Value =:= inet) orelse (Value =:= inet6) orelse
        (Value =:= inet6fb4) orelse (Value =:= local) ->
@@ -1345,22 +1425,26 @@ validate_ipfamily(Value)
 validate_ipfamily(BadValue) ->
     bad_option(ipfamily, BadValue).
 
+-doc "".
 validate_ip(Value) 
   when tuple_size(Value) =:= 4; tuple_size(Value) =:= 8 ->
     Value;
 validate_ip(BadValue) ->
     bad_option(ip, BadValue).
     
+-doc "".
 validate_port(Value) when is_integer(Value) ->
     Value;
 validate_port(BadValue) ->
     bad_option(port, BadValue).
 
+-doc "".
 validate_socket_opts(Value) when is_list(Value) ->
     Value;
 validate_socket_opts(BadValue) ->
     bad_option(socket_opts, BadValue).
 
+-doc "".
 validate_verbose(Value) 
   when ((Value =:= false) orelse 
 	(Value =:= verbose) orelse 
@@ -1370,6 +1454,7 @@ validate_verbose(Value)
 validate_verbose(BadValue) ->
     bad_option(verbose, BadValue).
 
+-doc "".
 validate_unix_socket(Value)
   when (Value =:= undefined) ->
     Value;
@@ -1379,13 +1464,16 @@ validate_unix_socket(Value)
 validate_unix_socket(BadValue) ->
     bad_option(unix_socket, BadValue).
 
+-doc "".
 bad_option(Option, BadValue) ->
     throw({error, {bad_option, Option, BadValue}}).
 
 
+-doc "".
 header_record(NewHeaders, Host, #http_options{version = Version}) ->
     header_record(NewHeaders, #http_request_h{}, Host, Version).
 
+-doc "".
 header_record([], RequestHeaders, Host, Version) ->
     validate_headers(RequestHeaders, Host, Version);
 header_record([{"cache-control", Val} | Rest], RequestHeaders, Host, Version) ->
@@ -1523,6 +1611,7 @@ header_record([{Key, Val} | Rest], RequestHeaders, Host, Version) ->
 				   RequestHeaders#http_request_h.other]}, 
 		  Host, Version).
 
+-doc "".
 validate_headers(RequestHeaders = #http_request_h{te = undefined}, Host, 
 		 "HTTP/1.1" = Version) ->
     validate_headers(RequestHeaders#http_request_h{te = ""}, Host, 
@@ -1537,6 +1626,7 @@ validate_headers(RequestHeaders, _, _) ->
 %% These functions are just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
 
+-doc "".
 -spec header_parse(HeaderRequest) -> ok | InvalidHeaderParsed when
       HeaderRequest       :: [{list(), list() | binary()}] | [tuple()],
       InvalidHeaderParsed :: {error, {headers_error, invalid_field | invalid_value}}.
@@ -1552,6 +1642,7 @@ header_parse([{Field, _Value}| _ ])
 header_parse([{_, _}| _]) ->
     {error, {headers_error, invalid_value}}.
 
+-doc "".
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->
@@ -1559,6 +1650,7 @@ child_name2info(httpc_manager) ->
 child_name2info({httpc, Profile}) ->
     {ok, [{profile, Profile}]}.
 
+-doc "".
 child_name(_, []) ->
     undefined;
 child_name(Pid, [{Name, Pid} | _]) ->
@@ -1567,9 +1659,11 @@ child_name(Pid, [_ | Children]) ->
     child_name(Pid, Children).
 
 
+-doc "".
 check_body_gen({Fun, _}) when is_function(Fun, 1) ->
     ok;
 check_body_gen({chunkify, Fun, _}) when is_function(Fun, 1) ->
     ok;
 check_body_gen(Gen) ->
     {error, {bad_body_generator, Gen}}.
+

@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStaticBitmap).
+-moduledoc """
+Functions for wxStaticBitmap class
+
+A static bitmap control displays a bitmap. Native implementations on some platforms are only meant for display of the small icons in the dialog boxes.
+
+If you want to display larger images portably, you may use generic implementation wxGenericStaticBitmap declared in <wx/generic/statbmpg.h>.
+
+Notice that for the best results, the size of the control should be the same as the size of the image displayed in it, as happens by default if it's not resized explicitly. Otherwise, behaviour depends on the platform: under MSW, the bitmap is drawn centred inside the control, while elsewhere it is drawn at the origin of the control. You can use `SetScaleMode()` (not implemented in wx) to control how the image is scaled inside the control.
+
+See: `m:wxBitmap`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxStaticBitmap](https://docs.wxwidgets.org/3.1/classwx_static_bitmap.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getBitmap/1,new/0,new/3,new/4,setBitmap/2]).
 
@@ -62,6 +77,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxStaticBitmap() :: wx:wx_object().
 -export_type([wxStaticBitmap/0]).
 %% @hidden
@@ -71,12 +87,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxStaticBitmap().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStaticBitmap_new_0),
   wxe_util:rec(?wxStaticBitmap_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxStaticBitmap() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
 
@@ -85,6 +103,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
+-doc """
+Constructor, creating and showing a static bitmap control.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxStaticBitmap() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -103,6 +126,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=LabelT}=Label, Options)
   wxe_util:rec(?wxStaticBitmap_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
 
@@ -111,6 +135,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapcreate">external documentation</a>.
+-doc """
+Creation function, for two-step construction.
+
+For details see `new/4`.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -130,6 +159,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=Lab
   wxe_util:rec(?wxStaticBitmap_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapgetbitmap">external documentation</a>.
+-doc """
+Returns the bitmap currently used in the control.
+
+Notice that this method can be called even if `SetIcon()` (not implemented in wx) had been used.
+
+See: `setBitmap/2`
+""".
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
 	This::wxStaticBitmap().
 getBitmap(#wx_ref{type=ThisT}=This) ->
@@ -138,6 +174,11 @@ getBitmap(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxStaticBitmap_GetBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapsetbitmap">external documentation</a>.
+-doc """
+Sets the bitmap label.
+
+See: `getBitmap/1`
+""".
 -spec setBitmap(This, Label) -> 'ok' when
 	This::wxStaticBitmap(), Label::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=LabelT}=Label) ->
@@ -146,6 +187,7 @@ setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=LabelT}=Label) ->
   wxe_util:queue_cmd(This,Label,?get_env(),?wxStaticBitmap_SetBitmap).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxStaticBitmap()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBitmap),
@@ -520,3 +562,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

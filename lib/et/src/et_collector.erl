@@ -23,6 +23,11 @@
 %%----------------------------------------------------------------------
 
 -module(et_collector).
+-moduledoc """
+Collect trace events and provide a backing storage appropriate for iteration
+
+Interface module for the Event Trace (ET) application
+""".
 
 -behaviour(gen_server).
 
@@ -164,6 +169,46 @@
 %% Reason = term()
 %%----------------------------------------------------------------------
 
+-doc """
+Options = \[option()]  
+option() = \{parent_pid, pid()\} | \{event_order, event_order()\} | \{dict_insert, \{filter, collector\}, collector_fun()\} | \{dict_insert, \{filter, event_filter_name()\}, event_filter_fun()\} | \{dict_insert, \{subscriber, pid()\}, dict_val()\} | \{dict_insert, dict_key(), dict_val()\} | \{dict_delete, dict_key()\} | \{trace_client, trace_client()\} | \{trace_global, boolean()\} | \{trace_pattern, trace_pattern()\} | \{trace_port, integer()\} | \{trace_max_queue, integer()\}  
+event_order() = trace_ts | event_ts  
+trace_pattern() = \{report_module(), extended_dbg_match_spec()\} | undefined  
+report_module() = atom() | undefined  
+extended_dbg_match_spec() = detail_level() | dbg_match_spec()  
+detail_level() = min | max | integer(X) when X =< 0, X >= 100  
+trace_client() = \{event_file, file_name()\} | \{dbg_trace_type(), dbg_trace_parameters()\}  
+file_name() = string()  
+collector_fun() = trace_filter_fun() | event_filter_fun()  
+trace_filter_fun() = fun(TraceData) -> false | true | \{true, NewEvent\}  
+event_filter_fun() = fun(Event) -> false | true | \{true, NewEvent\}  
+event_filter_name() = atom()  
+TraceData = erlang_trace_data()  
+Event = NewEvent = record(event)  
+dict_key() = term()  
+dict_val() = term()  
+CollectorPid = pid()  
+Reason = term()  
+
+Start a collector process.
+
+The collector collects trace events and keeps them ordered by their timestamp. The timestamp may either reflect the time when the actual trace data was generated (trace_ts) or when the trace data was transformed into an event record (event_ts). If the time stamp is missing in the trace data (missing timestamp option to erlang:trace/4) the trace_ts will be set to the event_ts.
+
+Events are reported to the collector directly with the report function or indirectly via one or more trace clients. All reported events are first filtered thru the collector filter before they are stored by the collector. By replacing the default collector filter with a customized dito it is possible to allow any trace data as input. The collector filter is a dictionary entry with the predefined key \{filter, collector\} and the value is a fun of arity 1. See et_selector:make_event/1 for interface details, such as which erlang:trace/1 tuples that are accepted.
+
+The collector has a built-in dictionary service. Any term may be stored as value in the dictionary and bound to a unique key. When new values are inserted with an existing key, the new values will overwrite the existing ones. Processes may subscribe on dictionary updates by using \{subscriber, pid()\} as dictionary key. All dictionary updates will be propagated to the subscriber processes matching the pattern \{\{subscriber, '_'\}, '_'\} where the first '_' is interpreted as a pid().
+
+In global trace mode, the collector will automatically start tracing on all connected Erlang nodes. When a node connects, a port tracer will be started on that node and a corresponding trace client on the collector node.
+
+Default values:
+
+* parent_pid - self().
+* event_order - trace_ts.
+* trace_global - false.
+* trace_pattern - undefined.
+* trace_port - 4711.
+* trace_max_queue - 50.
+""".
 start_link(Options) ->
     case parse_opt(Options, default_state(), [], []) of
 	{ok, S, Dict2, Clients} ->
@@ -267,6 +312,11 @@ start_clients(CollectorPid, []) ->
 %% CollectorPid = pid()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+
+Stop a collector process.
+""".
 stop(CollectorPid) ->
     call(CollectorPid, stop).
 
@@ -296,6 +346,24 @@ stop(CollectorPid) ->
 %% The options defaults to existing, write and keep.
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+FileName = string()  
+Options = \[option()]  
+Reason = term()  
+option() = event_option() | file_option() | table_option()  
+event_option() = existing  
+file_option() = write | append  
+table_option() = keep | clear  
+
+Save the events to a file.
+
+By default the currently stored events (existing) are written to a brand new file (write) and the events are kept (keep) after they have been written to the file.
+
+Instead of keeping the events after writing them to file, it is possible to remove all stored events after they have successfully written to file (clear).
+
+The options defaults to existing, write and keep.
+""".
 save_event_file(CollectorPid, FileName, Options) ->
     call(CollectorPid, {save_event_file, FileName, Options}).
 
@@ -359,6 +427,7 @@ do_load_event_file(Fun, Fd, Cont, Acc, FileName, BadBytes) ->
 %% Returns: {ok, Continuation} | exit(Reason)
 %%----------------------------------------------------------------------
 
+-doc(#{equiv => report_event/6}).
 report(CollectorPid, TraceOrEvent) when is_pid(CollectorPid) ->
     case get_table_handle(CollectorPid) of
         {ok, TH} when is_record(TH, table_handle) ->
@@ -411,9 +480,29 @@ report(TH, TraceOrEvent) when is_record(TH, table_handle) ->
 report(_, Bad) ->
     exit({bad_event, Bad}).
 
+-doc(#{equiv => report_event/6}).
 report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) ->
     report_event(CollectorPid, DetailLevel, FromTo, FromTo, Label, Contents).
 
+-doc """
+Handle = Initial | Continuation  
+Initial = collector_pid()  
+collector_pid() = pid()  
+Continuation = record(table_handle)  
+TraceOrEvent = record(event) | dbg_trace_tuple() | end_of_trace  
+Reason = term()  
+DetailLevel = integer(X) when X =< 0, X >= 100  
+From = actor()  
+To = actor()  
+FromTo = actor()  
+Label = atom() | string() | term()  
+Contents = \[\{Key, Value\}] | term()  
+actor() = term()  
+
+Report an event to the collector.
+
+All events are filtered thru the collector filter, which optionally may transform or discard the event. The first call should use the pid of the collector process as report handle, while subsequent calls should use the table handle.
+""".
 report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
   when is_integer(DetailLevel), 
        DetailLevel >= ?detail_level_min,
@@ -438,6 +527,13 @@ report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
 %% Key = record(event_ts) | record(trace_ts)
 %%----------------------------------------------------------------------
 
+-doc """
+Type = record(table_handle) | trace_ts | event_ts  
+Stuff = record(event) | Key  
+Key = record(event_ts) | record(trace_ts)  
+
+Make a key out of an event record or an old key.
+""".
 make_key(TH, Stuff) when is_record(TH, table_handle) ->
     make_key(TH#table_handle.event_order, Stuff);
 make_key(trace_ts, Stuff) ->
@@ -491,6 +587,12 @@ get_table_handle(CollectorPid) when is_pid(CollectorPid) ->
 %% Reason = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+Reason = term()  
+
+Return a the identity of the globally registered collector if there is any.
+""".
 get_global_pid() ->
     case global:whereis_name(?MODULE) of
         CollectorPid when is_pid(CollectorPid) ->
@@ -513,6 +615,17 @@ get_global_pid() ->
 %% TracePattern = {report_module(), dbg_match_spec_match_spec()}
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+RawPattern = \{report_module(), extended_dbg_match_spec()\}  
+report_module() = atom() | undefined  
+extended_dbg_match_spec() = detail_level() | dbg_match_spec()  
+RawPattern = detail_level()  
+detail_level() = min | max | integer(X) when X =< 0, X >= 100  
+TracePattern = \{report_module(), dbg_match_spec_match_spec()\}  
+
+Change active trace pattern globally on all trace nodes.
+""".
 change_pattern(CollectorPid, RawPattern) ->
     Pattern = et_selector:make_pattern(RawPattern),
     call(CollectorPid, {change_pattern, Pattern}).
@@ -543,6 +656,18 @@ change_pattern(CollectorPid, RawPattern) ->
 %% Val = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+FilterFun = filter_fun()  
+SubscriberPid = pid()  
+Void = term()  
+Key = term()  
+Val = term()  
+
+Insert a dictionary entry and send a \{et, \{dict_insert, Key, Val\}\} tuple to all registered subscribers.
+
+If the entry is a new subscriber, it will imply that the new subscriber process first will get one message for each already stored dictionary entry, before it and all old subscribers will get this particular entry. The collector process links to and then supervises the subscriber process. If the subscriber process dies it will imply that it gets unregistered as with a normal dict_delete/2.
+""".
 dict_insert(CollectorPid, Key = {filter, Name}, Fun) ->
     if
 	is_atom(Name), is_function(Fun) ->
@@ -570,6 +695,15 @@ dict_insert(CollectorPid, Key, Val) ->
 %% Val = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+FilterFun = filter_fun()  
+CollectorPid = pid()  
+Key = term()  
+Val = term()  
+
+Lookup a dictionary entry and return zero or one value.
+""".
 dict_lookup(CollectorPid, Key) ->
     call(CollectorPid, {dict_lookup, Key}).
 
@@ -592,6 +726,15 @@ dict_lookup(CollectorPid, Key) ->
 %% Key = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+SubscriberPid = pid()  
+Key = \{subscriber, SubscriberPid\} | term()  
+
+Delete a dictionary entry and send a \{et, \{dict_delete, Key\}\} tuple to all registered subscribers.
+
+If the deleted entry is a registered subscriber, it will imply that the subscriber process gets is unregistered as subscriber as well as it gets it final message.
+""".
 dict_delete(CollectorPid, Key) ->
     call(CollectorPid, {dict_delete, Key}).
 
@@ -609,6 +752,17 @@ dict_delete(CollectorPid, Key) ->
 %% val() = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+Pattern = '_' | \{key_pattern(), val_pattern()\}  
+key_pattern() = ets_match_object_pattern()  
+val_pattern() = ets_match_object_pattern()  
+Match = \{key(), val()\}  
+key() = term()  
+val() = term()  
+
+Match some dictionary entries
+""".
 dict_match(CollectorPid, Pattern)  ->
     call(CollectorPid, {dict_match, Pattern}).
 
@@ -621,6 +775,13 @@ dict_match(CollectorPid, Pattern)  ->
 %% Msg = term()
 %%----------------------------------------------------------------------
 
+-doc """
+CollectorPid = pid()  
+CollectorPid = pid()  
+Msg = term()  
+
+Sends a message to all registered subscribers.
+""".
 multicast(_CollectorPid, Msg = {dict_insert, _Key, _Val}) ->
     exit({badarg, Msg});
 multicast(_CollectorPid, Msg = {dict_delete, _Key}) ->
@@ -639,6 +800,13 @@ multicast(CollectorPid, Msg) ->
 %% Pid        = dbg_trace_client_pid()
 %%----------------------------------------------------------------------
 
+-doc """
+Type = dbg_trace_client_type()  
+Parameters = dbg_trace_client_parameters()  
+Pid = dbg_trace_client_pid()  
+
+Load raw Erlang trace from a file, port or process.
+""".
 start_trace_client(CollectorPid, Type, FileName) when Type =:= event_file ->
     load_event_file(CollectorPid, FileName);
 start_trace_client(CollectorPid, Type, FileName) when Type =:= file -> 
@@ -698,6 +866,7 @@ monitor_trace_port(CollectorPid, Parameters) ->
 %% Short for iterate/5.
 %%----------------------------------------------------------------------
 
+-doc "Short for iterate(Handle, Prev, Limit, undefined, Prev) -> NewAcc".
 iterate(Handle, Prev, Limit) ->
     iterate(Handle, Prev, Limit, undefined, Prev).
 
@@ -721,6 +890,23 @@ iterate(Handle, Prev, Limit) ->
 %% Acc = NewAcc = term()
 %%----------------------------------------------------------------------
 
+-doc """
+Handle = collector_pid() | table_handle()  
+Prev = first | last | event_key()  
+Limit = done() | forward() | backward()  
+collector_pid() = pid()  
+table_handle() = record(table_handle)  
+event_key() = record(event) | record(event_ts) | record(trace_ts)  
+done() = 0  
+forward() = infinity | integer(X) where X > 0  
+backward() = '-infinity' | integer(X) where X < 0  
+Fun = fun(Event, Acc) -> NewAcc  
+Acc = NewAcc = term()  
+
+Iterate over the currently stored events.
+
+Iterates over the currently stored events and applies a function for each event. The iteration may be performed forwards or backwards and may be limited to a maximum number of events (abs(Limit)).
+""".
 iterate(_, _, Limit, _, Acc) when Limit =:= 0 ->
     Acc;
 iterate(CollectorPid, Prev, Limit, Fun, Acc) when is_pid(CollectorPid) ->
@@ -859,6 +1045,13 @@ incr(Val, Incr) ->
 %% table_handle() = record(table_handle)
 %%----------------------------------------------------------------------
 
+-doc """
+Handle = collector_pid() | table_handle()  
+collector_pid() = pid()  
+table_handle() = record(table_handle)  
+
+Clear the event table.
+""".
 clear_table(CollectorPid) when is_pid(CollectorPid) ->
     call(CollectorPid, clear_table);
 clear_table(TH) when is_record(TH, table_handle) ->
@@ -1301,3 +1494,4 @@ check_size(S) ->
 	    do_multicast(S#state.subscribers, Msg),
 	    S#state{event_tab_size = Size}
     end.
+

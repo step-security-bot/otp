@@ -35,6 +35,11 @@
 %% TODO: generate decent indexes over modules, methods, records, etc.
 
 -module(edoc_doclet).
+-moduledoc """
+Standard doclet module for EDoc.
+
+*See also: *`m:edoc`.
+""".
 
 -export([run/2]).
 
@@ -60,24 +65,29 @@
 	      doclet_gen/0,
 	      doclet_toc/0]).
 
+-doc "Doclet commands.".
 -type command() :: doclet_gen()
 		 | doclet_toc().
 %% Doclet commands.
 
+-doc "Context for doclets.".
 -type context() :: #doclet_context{dir :: string(),
 				   env :: edoc:env(),
 				   opts :: [term()]}.
 %% Context for doclets.
 
+-doc "Doclet command.".
 -type doclet_gen() :: #doclet_gen{sources :: [string()],
 				  app :: no_app | atom(),
 				  modules :: [module()]}.
 %% Doclet command.
 
+-doc "Doclet command.".
 -type doclet_toc() :: #doclet_toc{paths :: [string()],
 				  indir :: string()}.
 %% Doclet command.
 
+-doc "Doclet entrypoint.".
 -callback run(command(), context()) -> ok.
 %% Doclet entrypoint.
 
@@ -136,6 +146,26 @@
 %% INHERIT-OPTIONS: copy_stylesheet/2
 %% INHERIT-OPTIONS: stylesheet/1
 
+-doc """
+Main doclet entry point. See the file [`edoc_doclet.hrl`](edoc_doclet.hrl) for the data structures used for passing parameters.
+
+Also see `edoc:layout/2` for layout-related options, and `edoc:get_doc/2` for options related to reading source files.
+
+Options:
+* __`{file_suffix, string()}`__ - Specifies the suffix used for output files. The default value is `".html"`.
+
+* __`{hidden, boolean()}`__ - If the value is `true`, documentation of hidden modules and functions will also be included. The default value is `false`.
+
+* __`{overview, `[`edoc:filename()`](http://www.erlang.org/edoc/doc/edoc/doc/edoc.html#type-filename)`}`__ - Specifies the name of the overview-file. By default, this doclet looks for a file `"overview.edoc"` in the target directory.
+
+* __`{private, boolean()}`__ - If the value is `true`, documentation of private modules and functions will also be included. The default value is `false`.
+
+* __`{stylesheet, string()}`__ - Specifies the URI used for referencing the stylesheet. The default value is `"stylesheet.css"`. If an empty string is specified, no stylesheet reference will be generated.
+
+* __`{stylesheet_file, `[`edoc:filename()`](http://www.erlang.org/edoc/doc/edoc/doc/edoc.html#type-filename)`}`__ - Specifies the name of the stylesheet file. By default, this doclet uses the file `"stylesheet.css"` in the `priv` subdirectory of the EDoc installation directory. The named file will be copied to the target directory.
+
+* __`{title, string()}`__ - Specifies the title of the overview-page.
+""".
 -spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{}=Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
@@ -149,6 +179,7 @@ run(#doclet_toc{}=Cmd, Ctxt) ->
 %% `Modules' are sorted lists of atoms without duplicates. (They
 %% usually include the data from the edoc-info file in the target
 %% directory, if it exists.)
+-doc "`Sources` is the list of inputs in the order they were found. `Modules` are sorted lists of atoms without duplicates. (They usually include the data from the edoc-info file in the target directory, if it exists.)".
 gen(Sources, App, Modules, Ctxt) ->
     Dir = Ctxt#doclet_context.dir,
     Env = Ctxt#doclet_context.env,
@@ -172,6 +203,7 @@ gen(Sources, App, Modules, Ctxt) ->
 %% NEW-OPTIONS: title
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 title(App, Options) ->
     proplists:get_value(title, Options,
 			if App == no_app ->
@@ -188,6 +220,7 @@ title(App, Options) ->
 %% INHERIT-OPTIONS: edoc:get_doc/3
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 sources(Sources, Dir, Modules, Env, Options) ->
     Suffix = proplists:get_value(file_suffix, Options,
 				 ?DEFAULT_FILE_SUFFIX),
@@ -205,6 +238,7 @@ sources(Sources, Dir, Modules, Env, Options) ->
 %% set if it was successful. Errors are just flagged at this stage,
 %% allowing all source files to be processed even if some of them fail.
 
+-doc "".
 source({M, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
        Error, Options) ->
     File = filename:join(Path, Name),
@@ -227,6 +261,7 @@ source({M, Name, Path}, Dir, Suffix, Env, Set, Private, Hidden,
 	    {Set, true}
     end.
 
+-doc "".
 check_name(M, M0, File) ->
     N = M,
     N0 = M0,
@@ -249,6 +284,7 @@ check_name(M, M0, File) ->
 %% Creating an index file, with some frames optional.
 %% TODO: get rid of frames, or change doctype to Frameset
 
+-doc "".
 index_file(Dir, Title) ->
     Frame2 = {frame, [{src,?MODULES_FRAME},
 		      {name,"modulesFrame"},{title,""}],
@@ -274,6 +310,7 @@ index_file(Dir, Title) ->
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?INDEX_FILE).
 
+-doc "".
 modules_frame(Dir, Ms, Title, CSS, Options) ->
     Suffix = proplists:get_value(file_suffix, Options, ?DEFAULT_FILE_SUFFIX),
     Body = [?NL,
@@ -294,12 +331,15 @@ modules_frame(Dir, Ms, Title, CSS, Options) ->
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?MODULES_FRAME).
 
+-doc "".
 module_ref(M, Suffix) ->
     atom_to_list(M) ++ Suffix.
 
+-doc "".
 xhtml(Title, CSS, Content) ->
     xhtml_1(Title, CSS, {body, [{bgcolor, "white"}], Content}).
 
+-doc "".
 xhtml_1(Title, CSS, Body) ->
     {html, [?NL,
 	    {head, [?NL, {title, [Title]}, ?NL] ++ CSS},
@@ -314,6 +354,7 @@ xhtml_1(Title, CSS, Body) ->
 %% INHERIT-OPTIONS: edoc_extract:file/4
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 overview(Dir, Title, Env, Opts) ->
     File = proplists:get_value(overview, Opts,
 			       filename:join(Dir, ?OVERVIEW_FILE)),
@@ -331,6 +372,7 @@ overview(Dir, Title, Env, Opts) ->
     EncOpts = [{encoding,Encoding}],
     edoc_lib:write_file(Text, Dir, ?OVERVIEW_SUMMARY, EncOpts).
 
+-doc "".
 copy_image(Dir) ->
     case code:priv_dir(?EDOC_APP) of
 	PrivDir when is_list(PrivDir) ->
@@ -344,6 +386,7 @@ copy_image(Dir) ->
 %% NEW-OPTIONS: stylesheet_file
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 copy_stylesheet(Dir, Options) ->
     case proplists:get_value(stylesheet, Options) of
 	undefined ->
@@ -368,6 +411,7 @@ copy_stylesheet(Dir, Options) ->
 %% NEW-OPTIONS: stylesheet
 %% DEFER-OPTIONS: run/2
 
+-doc "".
 stylesheet(Options) ->
     case proplists:get_value(stylesheet, Options) of
 	"" ->
@@ -392,24 +436,28 @@ stylesheet(Options) ->
 	     ?NL]
     end.
 
+-doc "".
 is_private(E) ->
     case get_attrval(private, E) of
  	"yes" -> true;
  	_ -> false
     end.
 
+-doc "".
 is_hidden(E) ->
     case get_attrval(hidden, E) of
  	"yes" -> true;
  	_ -> false
     end.
 
+-doc "".
 encoding(E) ->
     case get_attrval(encoding, E) of
         "latin1" -> latin1;
         _ -> utf8
     end.
 
+-doc "".
 get_attrval(Name, #xmlElement{attributes = As}) ->
     case get_attr(Name, As) of
 	[#xmlAttribute{value = V}] ->
@@ -417,6 +465,7 @@ get_attrval(Name, #xmlElement{attributes = As}) ->
 	[] -> ""
     end.
 
+-doc "".
 get_attr(Name, [#xmlAttribute{name = Name} = A | As]) ->
     [A | get_attr(Name, As)];
 get_attr(Name, [_ | As]) ->
@@ -428,6 +477,7 @@ get_attr(_, []) ->
 
 %% INHERIT-OPTIONS: edoc_extract:file/4
 
+-doc "".
 read_file(File, Context, Env, Opts) ->
     case edoc_extract:file(File, Context, Env, Opts) of
 	{ok, Tags} ->
@@ -446,6 +496,7 @@ read_file(File, Context, Env, Opts) ->
 -define(INDEX_DIR, "doc/index").
 -define(CURRENT_DIR, ".").
 
+-doc "".
 toc(Paths, Ctxt) ->
     Opts = Ctxt#doclet_context.opts,
     Dir = Ctxt#doclet_context.dir,
@@ -457,6 +508,7 @@ toc(Paths, Ctxt) ->
 %% NEW-OPTIONS: title
 %% INHERIT-OPTIONS: overview/4
 
+-doc "".
 app_index_file(Paths, Dir, Env, Options) ->
     Title = proplists:get_value(title, Options,"Overview"),
 %    Priv = proplists:get_bool(private, Options),
@@ -469,6 +521,7 @@ app_index_file(Paths, Dir, Env, Options) ->
 %    edoc_lib:write_info_file(Prod, [], Modules1, Dir),
     copy_stylesheet(Dir, Options).
 
+-doc "".
 application_frame(Dir, Apps, Title, CSS) ->
     Body = [?NL,
 	    {h2, ["Applications"]},
@@ -484,5 +537,7 @@ application_frame(Dir, Apps, Title, CSS) ->
     Text = xmerl:export_simple([XML], xmerl_html, []),
     edoc_lib:write_file(Text, Dir, ?MODULES_FRAME).
 
+-doc "".
 app_ref(Path,M) ->
     filename:join([Path,M,?EDOC_DIR,?INDEX_FILE]).
+

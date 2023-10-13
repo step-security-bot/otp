@@ -37,6 +37,13 @@
 %% Note that this is written so that it is *not* depending on edoc.hrl!
 
 -module(edoc_doclet_chunks).
+-moduledoc """
+Doclet generating standalone [EEP-48](https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html) doc chunk files.
+
+Section [Using the EDoc API](chapter.html#Using_the_EDoc_API) in the EDoc User's Guide shows an example of using this module.
+
+*See also: *`m:edoc_layout_chunks`, [//stdlib/shell_docs](`m:shell_docs`).
+""".
 
 -export([run/2]).
 
@@ -61,6 +68,13 @@
 %% The only option this doclet accepts is `dir', which controls
 %% where the `chunks' subdirectory and the EEP-48 chunk files will be placed.
 
+-doc """
+Main doclet entry point.
+
+This doclet is tightly coupled with `m:edoc_layout_chunks` and should be used together with it.
+
+The only option this doclet accepts is `dir`, which controls where the `chunks` subdirectory and the EEP-48 chunk files will be placed.
+""".
 -spec run(edoc_doclet:command(), edoc_doclet:context()) -> ok.
 run(#doclet_gen{} = Cmd, Ctxt) ->
     gen(Cmd#doclet_gen.sources,
@@ -70,6 +84,7 @@ run(#doclet_gen{} = Cmd, Ctxt) ->
 run(#doclet_toc{} = _Cmd, _Ctxt) ->
     erlang:error(not_implemented).
 
+-doc "".
 gen(Sources, _App, Modules, Ctxt) ->
     Dir = filename:join(Ctxt#doclet_context.dir, ?CHUNKS_DIR),
     Env = Ctxt#doclet_context.env,
@@ -87,6 +102,7 @@ gen(Sources, _App, Modules, Ctxt) ->
 %% INHERIT-OPTIONS: edoc:get_doc/3
 %% DEFER-OPTIONS: run/2
 
+-doc "Process the individual source files.".
 sources(Sources, Dir, Modules, Env, Options) ->
     Suffix = proplists:get_value(file_suffix, Options, ?DEFAULT_FILE_SUFFIX),
     {Ms, E} = lists:foldl(fun (Src, {Set, Error}) ->
@@ -101,6 +117,11 @@ sources(Sources, Dir, Modules, Env, Options) ->
 %% Add its name to the set if it was successful.
 %% Errors are just flagged at this stage,
 %% allowing all source files to be processed even if some of them fail.
+-doc """
+Write a chunk file for a source file.
+
+Add its name to the set if it was successful. Errors are just flagged at this stage, allowing all source files to be processed even if some of them fail.
+""".
 source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
     File = filename:join(Path, Name),
     try
@@ -122,9 +143,11 @@ source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
 	{OkSet, true}
     end.
 
+-doc "".
 chunk_file_name(ErlName, Suffix) ->
     string:join([filename:basename(ErlName, ".erl"), Suffix], "").
 
+-doc "".
 write_file(Data, Dir, Name, _Options) ->
     File = filename:join([Dir, Name]),
     ok = filelib:ensure_dir(File),
@@ -135,3 +158,4 @@ write_file(Data, Dir, Name, _Options) ->
 	    report("could not write file '~ts': ~ts.", [File, R1]),
 	    exit(error)
     end.
+

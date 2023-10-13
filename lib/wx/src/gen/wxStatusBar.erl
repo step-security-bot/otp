@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStatusBar).
+-moduledoc """
+Functions for wxStatusBar class
+
+A status bar is a narrow window that can be placed along the bottom of a frame to give small amounts of status information. It can contain one or more fields, one or more of which can be variable length according to the size of the window.
+
+`m:wxStatusBar` also maintains an independent stack of status texts for each field (see `pushStatusText/3` and `popStatusText/2`).
+
+Note that in `m:wxStatusBar` context, the terms `pane` and `field` are synonyms.
+
+Styles
+
+This class supports the following styles:
+
+Remark: It is possible to create controls and other windows on the status bar. Position these windows from an OnSize() event handler.
+
+Remark: Notice that only the first 127 characters of a string will be shown in status bar fields under Windows if a proper manifest indicating that the program uses version 6 of common controls library is not used. This is a limitation of the native control on these platforms.
+
+See: `wxStatusBarPane` (not implemented in wx), `m:wxFrame`, [Examples](https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_statbar)
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxStatusBar](https://docs.wxwidgets.org/3.1/classwx_status_bar.html)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getFieldRect/2,getFieldsCount/1,getStatusText/1,
   getStatusText/2,new/0,new/1,new/2,popStatusText/1,popStatusText/2,pushStatusText/2,
@@ -65,6 +88,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxStatusBar() :: wx:wx_object().
 -export_type([wxStatusBar/0]).
 %% @hidden
@@ -73,12 +97,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxStatusBar().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStatusBar_new_0),
   wxe_util:rec(?wxStatusBar_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxStatusBar() when
 	Parent::wxWindow:wxWindow().
 
@@ -87,6 +113,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
+-doc """
+Constructor, creating the window.
+
+See: `create/3`
+""".
 -spec new(Parent, [Option]) -> wxStatusBar() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'winid', integer()}
@@ -102,6 +133,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxStatusBar_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxStatusBar(), Parent::wxWindow:wxWindow().
 
@@ -110,6 +142,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarcreate">external documentation</a>.
+-doc """
+Creates the window, for two-step construction.
+
+See `new/2` for details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxStatusBar(), Parent::wxWindow:wxWindow(),
 	Option :: {'winid', integer()}
@@ -126,6 +163,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxStatusBar_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetfieldrect">external documentation</a>.
+-doc """
+Returns the size and position of a field's internal bounding rectangle.
+
+Return: true if the field index is valid, false otherwise.
+
+See: \{X,Y,W,H\}
+""".
 -spec getFieldRect(This, I) -> Result when
 	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxStatusBar(), I::integer().
@@ -136,6 +180,7 @@ getFieldRect(#wx_ref{type=ThisT}=This,I)
   wxe_util:rec(?wxStatusBar_GetFieldRect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetfieldscount">external documentation</a>.
+-doc "Returns the number of fields in the status bar.".
 -spec getFieldsCount(This) -> integer() when
 	This::wxStatusBar().
 getFieldsCount(#wx_ref{type=ThisT}=This) ->
@@ -144,6 +189,7 @@ getFieldsCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxStatusBar_GetFieldsCount).
 
 %% @equiv getStatusText(This, [])
+-doc "".
 -spec getStatusText(This) -> unicode:charlist() when
 	This::wxStatusBar().
 
@@ -152,6 +198,13 @@ getStatusText(This)
   getStatusText(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetstatustext">external documentation</a>.
+-doc """
+Returns the string associated with a status bar field.
+
+Return: The status field string if the field is valid, otherwise the empty string.
+
+See: `setStatusText/3`
+""".
 -spec getStatusText(This, [Option]) -> unicode:charlist() when
 	This::wxStatusBar(),
 	Option :: {'number', integer()}.
@@ -165,6 +218,7 @@ getStatusText(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxStatusBar_GetStatusText).
 
 %% @equiv popStatusText(This, [])
+-doc "".
 -spec popStatusText(This) -> 'ok' when
 	This::wxStatusBar().
 
@@ -173,6 +227,13 @@ popStatusText(This)
   popStatusText(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpopstatustext">external documentation</a>.
+-doc """
+Restores the text to the value it had before the last call to `pushStatusText/3`.
+
+Notice that if `setStatusText/3` had been called in the meanwhile, `popStatusText/2` will not change the text, i.e. it does not override explicit changes to status text but only restores the saved text if it hadn't been changed since.
+
+See: `pushStatusText/3`
+""".
 -spec popStatusText(This, [Option]) -> 'ok' when
 	This::wxStatusBar(),
 	Option :: {'number', integer()}.
@@ -185,6 +246,7 @@ popStatusText(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxStatusBar_PopStatusText).
 
 %% @equiv pushStatusText(This,String, [])
+-doc "".
 -spec pushStatusText(This, String) -> 'ok' when
 	This::wxStatusBar(), String::unicode:chardata().
 
@@ -193,6 +255,11 @@ pushStatusText(This,String)
   pushStatusText(This,String, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpushstatustext">external documentation</a>.
+-doc """
+Saves the current field text in a per-field stack, and sets the field text to the string passed as argument.
+
+See: `popStatusText/2`
+""".
 -spec pushStatusText(This, String, [Option]) -> 'ok' when
 	This::wxStatusBar(), String::unicode:chardata(),
 	Option :: {'number', integer()}.
@@ -206,6 +273,7 @@ pushStatusText(#wx_ref{type=ThisT}=This,String, Options)
   wxe_util:queue_cmd(This,String_UC, Opts,?get_env(),?wxStatusBar_PushStatusText).
 
 %% @equiv setFieldsCount(This,Number, [])
+-doc "".
 -spec setFieldsCount(This, Number) -> 'ok' when
 	This::wxStatusBar(), Number::integer().
 
@@ -214,6 +282,7 @@ setFieldsCount(This,Number)
   setFieldsCount(This,Number, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetfieldscount">external documentation</a>.
+-doc "Sets the number of fields, and optionally the field widths.".
 -spec setFieldsCount(This, Number, [Option]) -> 'ok' when
 	This::wxStatusBar(), Number::integer(),
 	Option :: {'widths', [integer()]}.
@@ -226,6 +295,11 @@ setFieldsCount(#wx_ref{type=ThisT}=This,Number, Options)
   wxe_util:queue_cmd(This,Number, Opts,?get_env(),?wxStatusBar_SetFieldsCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetminheight">external documentation</a>.
+-doc """
+Sets the minimal possible height for the status bar.
+
+The real height may be bigger than the height specified here depending on the size of the font used by the status bar.
+""".
 -spec setMinHeight(This, Height) -> 'ok' when
 	This::wxStatusBar(), Height::integer().
 setMinHeight(#wx_ref{type=ThisT}=This,Height)
@@ -234,6 +308,7 @@ setMinHeight(#wx_ref{type=ThisT}=This,Height)
   wxe_util:queue_cmd(This,Height,?get_env(),?wxStatusBar_SetMinHeight).
 
 %% @equiv setStatusText(This,Text, [])
+-doc "".
 -spec setStatusText(This, Text) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata().
 
@@ -242,6 +317,15 @@ setStatusText(This,Text)
   setStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatustext">external documentation</a>.
+-doc """
+Sets the status text for the `i-th` field.
+
+The given text will replace the current text. The display of the status bar is updated immediately, so there is no need to call `wxWindow:update/1` after calling this function.
+
+Note that if `pushStatusText/3` had been called before the new text will also replace the last saved value to make sure that the next call to `popStatusText/2` doesn't restore the old value, which was overwritten by the call to this function.
+
+See: `getStatusText/2`, `wxFrame:setStatusText/3`
+""".
 -spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata(),
 	Option :: {'number', integer()}.
@@ -255,6 +339,17 @@ setStatusText(#wx_ref{type=ThisT}=This,Text, Options)
   wxe_util:queue_cmd(This,Text_UC, Opts,?get_env(),?wxStatusBar_SetStatusText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatuswidths">external documentation</a>.
+-doc """
+Sets the widths of the fields in the status line.
+
+There are two types of fields: `fixed` widths and `variable` width fields. For the fixed width fields you should specify their (constant) width in pixels. For the variable width fields, specify a negative number which indicates how the field should expand: the space left for all variable width fields is divided between them according to the absolute value of this number. A variable width field with width of -2 gets twice as much of it as a field with width -1 and so on.
+
+For example, to create one fixed width field of width 100 in the right part of the status bar and two more fields which get 66% and 33% of the remaining space correspondingly, you should use an array containing -2, -1 and 100.
+
+Remark: The widths of the variable fields are calculated from the total width of all fields, minus the sum of widths of the non-variable fields, divided by the number of variable fields.
+
+See: `setFieldsCount/3`, `wxFrame:setStatusWidths/2`
+""".
 -spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxStatusBar(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
@@ -263,6 +358,7 @@ setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
   wxe_util:queue_cmd(This,Widths_field,?get_env(),?wxStatusBar_SetStatusWidths).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatusstyles">external documentation</a>.
+-doc "Sets the styles of the fields in the status line which can make fields appear flat or raised instead of the standard sunken 3D border.".
 -spec setStatusStyles(This, Styles) -> 'ok' when
 	This::wxStatusBar(), Styles::[integer()].
 setStatusStyles(#wx_ref{type=ThisT}=This,Styles)
@@ -271,6 +367,7 @@ setStatusStyles(#wx_ref{type=ThisT}=This,Styles)
   wxe_util:queue_cmd(This,Styles,?get_env(),?wxStatusBar_SetStatusStyles).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxStatusBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStatusBar),
@@ -644,3 +741,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

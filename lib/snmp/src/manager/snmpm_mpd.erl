@@ -19,6 +19,13 @@
 %% 
 
 -module(snmpm_mpd).
+-moduledoc """
+Message Processing and Dispatch module for the SNMP manager
+
+The module `snmpm_mpd` implements the version independent Message Processing and Dispatch functionality in SNMP for the manager. It is supposed to be used from a Network Interface process ([Definition of Manager Net if](snmp_manager_netif.md)).
+
+Legacy API function `process_msg/7` that has got separate `IpAddr` and `PortNumber` arguments still works as before for backwards compatibility reasons.
+""".
 
 -export([init/1, 
 
@@ -66,6 +73,14 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+-doc """
+Vsns = \[Vsn]  
+Vsn = v1 | v2 | v3  
+
+This function can be called from the net_if process at start-up. The options list defines which versions to use.
+
+It also initializes some SNMP counters.[](){: id=process_msg }
+""".
 init(Vsns) ->
     ?vdebug("init -> entry with ~p", [Vsns]),
     ?SNMP_RAND_SEED(),
@@ -99,6 +114,27 @@ reset(#state{v3 = V3}) ->
 process_msg(Msg, Domain, Ip, Port, State, NoteStore, Logger) ->
     process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Logger).
 
+-doc """
+Msg = binary()  
+Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6  
+Addr = \{[inet:ip_address(), inet:port_number()](`t:inet:ip_address/0`)\}  
+State = mpd_state()  
+NoteStore = pid()  
+Logger = function()  
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+Pdu = #pdu  
+PduMs = integer()  
+MsgData = term()  
+
+Processes an incoming message. Performs authentication and decryption as necessary. The return values should be passed the manager server.
+
+`NoteStore` is the `t:pid()` of the note-store process.
+
+`Logger` is the function used for audit trail logging.
+
+In the case when the pdu type is `report`, `MsgData` is either `ok` or `{error, ReqId, Reason}`.
+""".
+-doc(#{since => <<"OTP 17.3">>}).
 process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
     inc(snmpInPkts),
 
@@ -494,6 +530,23 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Generate a message
 %%-----------------------------------------------------------------
+-doc """
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+NoteStore = pid()  
+Pdu = #pdu  
+MsgData = term()  
+Logger = function()  
+Packet = binary()  
+Reason = term()  
+
+Generates a possibly encrypted packet to be sent to the network.
+
+`NoteStore` is the `t:pid()` of the note-store process.
+
+`MsgData` is the message specific data used in the SNMP message. In SNMPv1 and SNMPv2c, this message data is the community string. In SNMPv3, it is the context information.
+
+`Logger` is the function used for audit trail logging.
+""".
 generate_msg('version-3', NoteStore, Pdu, 
 	     {SecModel, SecName, SecLevel, CtxEngineID, CtxName, 
 	      TargetName}, Log) ->
@@ -639,6 +692,18 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 
 %% -----------------------------------------------------------------------
 
+-doc """
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+Pdu = #pdu  
+MsgData = term()  
+Logger = function()  
+Packet = binary()  
+Reason = term()  
+
+Generates a possibly encrypted response packet to be sent to the network.
+
+`MsgData` is the message specific data used in the SNMP message. This value is received from the [process_msg](`m:snmpm_mpd#process_msg`) function.
+""".
 generate_response_msg('version-3', Pdu,
 		      {MsgID, SecModel, SecName, SecLevel, 
 		       CtxEngineID, CtxName, SecData}, Log) ->
@@ -1059,3 +1124,4 @@ config_err(F, A) ->
 
 error_msg(F, A) ->
     ?snmpm_error("MPD: " ++ F, A).
+

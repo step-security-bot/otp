@@ -725,6 +725,30 @@ Header
 "".
 
 Erlang code.
+-moduledoc """
+The Erlang parser.
+
+This module is the basic Erlang parser that converts tokens into the abstract form of either forms (that is, top-level constructs), expressions, or terms. The Abstract Format is described in the [ERTS User's Guide](`p:erts:absform.md`). Notice that a token list must end with the *dot* token to be acceptable to the parse functions (see the `m:erl_scan`) module.
+
+[](){: id=errorinfo }
+## Error Information
+
+`ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O modules. The format is as follows:
+
+```text
+{ErrorLine, Module, ErrorDescriptor}
+```
+
+A string describing the error is obtained with the following call:
+
+```text
+Module:format_error(ErrorDescriptor)
+```
+
+## See Also
+
+`m:erl_anno`, `m:erl_scan`, `m:io`, section [The Abstract Format](`p:erts:absform.md`) in the ERTS User's Guide
+""".
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
@@ -752,6 +776,7 @@ Erlang code.
 
 -type anno() :: erl_anno:anno().
 
+-doc "Abstract form of an Erlang form.".
 -type abstract_form() :: af_module()
                        | af_behavior()
                        | af_behaviour()
@@ -791,6 +816,7 @@ Erlang code.
 -type af_record_decl() ::
         {'attribute', anno(), 'record', {record_name(), [af_field_decl()]}}.
 
+-doc "Abstract representation of a record field.".
 -type af_field_decl() :: af_typed_field() | af_field().
 
 -type af_typed_field() ::
@@ -818,6 +844,7 @@ Erlang code.
 -type af_function_decl() ::
         {'function', anno(), function_name(), arity(), af_clause_seq()}.
 
+-doc "Abstract form of an Erlang expression.".
 -type abstract_expr() :: af_literal()
                        | af_match(abstract_expr())
                        | af_maybe_match()
@@ -868,6 +895,7 @@ Erlang code.
 
 -type af_local_function() :: abstract_expr().
 
+-doc "Abstract representation of a remote function call.".
 -type af_remote_function() ::
         {'remote', anno(), abstract_expr(), abstract_expr()}.
 
@@ -886,6 +914,7 @@ Erlang code.
 
 -type af_qualifier() :: af_generator() | af_filter().
 
+-doc "Abstract representation of a generator or a bitstring generator.".
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
                       | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
                       | {'b_generate', anno(), af_pattern(), abstract_expr()}.
@@ -927,6 +956,7 @@ Erlang code.
 
 -type fun_name() :: atom().
 
+-doc "Abstract form of an Erlang clause.".
 -type abstract_clause() :: af_clause().
 
 -type af_clause() ::
@@ -1000,6 +1030,7 @@ Erlang code.
 -type af_maybe() :: {'maybe', anno(), af_body()}.
 -type af_maybe_else() :: {'maybe', anno(), af_body(), {'else', anno(), af_clause_seq()}}.
 
+-doc "Abstract form of an Erlang type.".
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
                        | af_bitstring_type()
@@ -1124,6 +1155,7 @@ Erlang code.
 
 -type af_bin(T) :: {'bin', anno(), [af_binelement(T)]}.
 
+-doc "Abstract representation of an element of a bitstring.".
 -type af_binelement(T) :: {'bin_element',
                            anno(),
                            T,
@@ -1175,6 +1207,7 @@ Erlang code.
 
 -type type_name() :: atom().
 
+-doc "Tuples `{error, error_info()}` and `{warning, error_info()}`, denoting syntactically incorrect forms and warnings, and `{eof, line()}`, denoting an end-of-stream encountered before a complete form had been parsed.".
 -type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
                    | {'warning', erl_scan:error_info() | error_info()}.
@@ -1182,8 +1215,11 @@ Erlang code.
 %% End of Abstract Format
 
 %% XXX. To be refined.
+-doc "".
 -type error_description() :: term().
+-doc "".
 -type error_info() :: {erl_anno:location(), module(), error_description()}.
+-doc "".
 -type token() :: erl_scan:token().
 
 %% mkop(Op, Arg) -> {op,Anno,Op,Arg}.
@@ -1218,6 +1254,13 @@ Erlang code.
 %% These really suck and are only here until Calle gets multiple
 %% entry points working.
 
+-doc """
+Parses `Tokens` as if it was a form. Returns one of the following:
+
+* __`{ok, AbsForm}`__ - The parsing was successful. `AbsForm` is the abstract form of the parsed form.
+
+* __`{error, ErrorInfo}`__ - An error occurred.
+""".
 -spec parse_form(Tokens) -> {ok, AbsForm} | {error, ErrorInfo} when
       Tokens :: [token()],
       AbsForm :: abstract_form(),
@@ -1234,6 +1277,13 @@ parse_form(Tokens) ->
     ?ANNO_CHECK(Tokens),
     parse(Tokens).
 
+-doc """
+Parses `Tokens` as if it was a list of expressions. Returns one of the following:
+
+* __`{ok, ExprList}`__ - The parsing was successful. `ExprList` is a list of the abstract forms of the parsed expressions.
+
+* __`{error, ErrorInfo}`__ - An error occurred.
+""".
 -spec parse_exprs(Tokens) -> {ok, ExprList} | {error, ErrorInfo} when
       Tokens :: [token()],
       ExprList :: [abstract_expr()],
@@ -1247,6 +1297,13 @@ parse_exprs(Tokens) ->
 	{error,_} = Err -> Err
     end.
 
+-doc """
+Parses `Tokens` as if it was a term. Returns one of the following:
+
+* __`{ok, Term}`__ - The parsing was successful. `Term` is the Erlang term corresponding to the token list.
+
+* __`{error, ErrorInfo}`__ - An error occurred.
+""".
 -spec parse_term(Tokens) -> {ok, Term} | {error, ErrorInfo} when
       Tokens :: [token()],
       Term :: term(),
@@ -1611,6 +1668,7 @@ location(Anno) ->
 
 %%  Convert between the abstract form of a term and a term.
 
+-doc "Converts the abstract form `AbsTerm` of a term into a conventional Erlang data structure (that is, the term itself). This function is the inverse of `abstract/1`.".
 -spec normalise(AbsTerm) -> Data when
       AbsTerm :: abstract_expr(),
       Data :: term().
@@ -1653,6 +1711,11 @@ normalise_list([H|T]) ->
 normalise_list([]) ->
     [].
 
+-doc """
+Converts the Erlang data structure `Data` into an abstract form of type `AbsTerm`. This function is the inverse of `normalise/1`.
+
+`erl_parse:abstract(T)` is equivalent to `erl_parse:abstract(T, 0)`.
+""".
 -spec abstract(Data) -> AbsTerm when
       Data :: term(),
       AbsTerm :: abstract_expr().
@@ -1663,6 +1726,18 @@ abstract(T) ->
 -type encoding_func() :: fun((non_neg_integer()) -> boolean()).
 
 %%% abstract/2 takes line and encoding options
+-doc """
+```erlang
+-type encoding_func() :: fun((non_neg_integer()) -> boolean()).
+```
+
+Converts the Erlang data structure `Data` into an abstract form of type `AbsTerm`.
+
+Each node of `AbsTerm` is assigned an annotation, see `m:erl_anno`. The annotation contains the location given by option `location` or by option `line`. Option `location` overrides option `line`. If neither option `location` nor option `line` is given, `0` is used as location.
+
+Option `Encoding` is used for selecting which integer lists to be considered as strings. The default is to use the encoding returned by function `epp:default_encoding/0`. Value `none` means that no integer lists are considered as strings. `encoding_func()` is called with one integer of a list at a time; if it returns `true` for every integer, the list is considered a string.
+""".
+-doc(#{since => <<"OTP R16B01">>}).
 -spec abstract(Data, Options) -> AbsTerm when
       Data :: term(),
       Options :: Location | [Option],
@@ -1764,12 +1839,14 @@ abstract_byte(Bits, A) ->
 
 %%  Generate a list of tokens representing the abstract term.
 
+-doc(#{equiv => tokens/2}).
 -spec tokens(AbsTerm) -> Tokens when
       AbsTerm :: abstract_expr(),
       Tokens :: [token()].
 tokens(Abs) ->
     tokens(Abs, []).
 
+-doc "Generates a list of tokens representing the abstract form `AbsTerm` of an expression. Optionally, `MoreTokens` is appended.".
 -spec tokens(AbsTerm, MoreTokens) -> Tokens when
       AbsTerm :: abstract_expr(),
       MoreTokens :: [token()],
@@ -1893,11 +1970,14 @@ type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
 type_preop_prec('#') -> {700,800}.
 
+-doc "".
 -type erl_parse_tree() :: abstract_clause()
                         | abstract_expr()
                         | abstract_form()
                         | abstract_type().
 
+-doc "Modifies the `erl_parse` tree `Abstr` by applying `Fun` on each collection of annotations of the nodes of the `erl_parse` tree. The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec map_anno(Fun, Abstr) -> NewAbstr when
       Fun :: fun((Anno) -> NewAnno),
       Anno :: erl_anno:anno(),
@@ -1910,6 +1990,8 @@ map_anno(F0, Abstr) ->
     {NewAbstr, []} = modify_anno1(Abstr, [], F),
     NewAbstr.
 
+-doc "Updates an accumulator by applying `Fun` on each collection of annotations of the `erl_parse` tree `Abstr`. The first call to `Fun` has `AccIn` as argument, the returned accumulator `AccOut` is passed to the next call, and so on. The final value of the accumulator is returned. The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec fold_anno(Fun, Acc0, Abstr) -> Acc1 when
       Fun :: fun((Anno, AccIn) -> AccOut),
       Anno :: erl_anno:anno(),
@@ -1924,6 +2006,8 @@ fold_anno(F0, Acc0, Abstr) ->
     {_, NewAcc} = modify_anno1(Abstr, Acc0, F),
     NewAcc.
 
+-doc "Modifies the `erl_parse` tree `Abstr` by applying `Fun` on each collection of annotations of the nodes of the `erl_parse` tree, while at the same time updating an accumulator. The first call to `Fun` has `AccIn` as second argument, the returned accumulator `AccOut` is passed to the next call, and so on. The modified `erl_parse` tree and the final value of the accumulator are returned. The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec mapfold_anno(Fun, Acc0, Abstr) -> {NewAbstr, Acc1} when
       Fun :: fun((Anno, AccIn) -> {NewAnno, AccOut}),
       Anno :: erl_anno:anno(),
@@ -1938,6 +2022,8 @@ fold_anno(F0, Acc0, Abstr) ->
 mapfold_anno(F, Acc0, Abstr) ->
     modify_anno1(Abstr, Acc0, F).
 
+-doc "Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but with [locations](`t:erl_anno:location/0`) where a `erl_parse` tree has collections of annotations. Returns a `erl_parse` tree where each location `L` is replaced by the value returned by [`erl_anno:new(L)`](`erl_anno:new/1`). The term `Term` is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec new_anno(Term) -> Abstr when
       Term :: term(),
       Abstr :: erl_parse_tree() | form_info().
@@ -1947,6 +2033,8 @@ new_anno(Term) ->
     {NewAbstr, []} = modify_anno1(Term, [], F),
     NewAbstr.
 
+-doc "Returns a term where each collection of annotations `Anno` of the nodes of the `erl_parse` tree `Abstr` is replaced by the term returned by [`erl_anno:to_term(Anno)`](`erl_anno:to_term/1`). The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec anno_to_term(Abstr) -> term() when
       Abstr :: erl_parse_tree() | form_info().
 
@@ -1955,6 +2043,8 @@ anno_to_term(Abstract) ->
     {NewAbstract, []} = modify_anno1(Abstract, [], F),
     NewAbstract.
 
+-doc "Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but with terms, say `T`, where a `erl_parse` tree has collections of annotations. Returns a `erl_parse` tree where each term `T` is replaced by the value returned by [`erl_anno:from_term(T)`](`erl_anno:from_term/1`). The term `Term` is traversed in a depth-first, left-to-right fashion.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec anno_from_term(Term) -> erl_parse_tree() | form_info() when
       Term :: term().
 
@@ -2056,3 +2146,4 @@ add_anno_check({check_expr,Loc,Args}, AnnoCheck) ->
     {check_expr,Loc,Args,AnnoCheck}.
 
 %% vim: ft=erlang
+

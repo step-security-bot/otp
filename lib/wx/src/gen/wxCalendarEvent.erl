@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxCalendarEvent).
+-moduledoc """
+Functions for wxCalendarEvent class
+
+The `m:wxCalendarEvent` class is used together with `m:wxCalendarCtrl`.
+
+See: `m:wxCalendarCtrl`
+
+This class is derived (and can use functions) from: `m:wxDateEvent` `m:wxCommandEvent` `m:wxEvent`
+
+wxWidgets docs: [wxCalendarEvent](https://docs.wxwidgets.org/3.1/classwx_calendar_event.html)
+""".
 -include("wxe.hrl").
 -export([getDate/1,getWeekDay/1]).
 
@@ -28,8 +39,10 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxCalendarEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxCalendarEventType() :: 'calendar_sel_changed' | 'calendar_day_changed' | 'calendar_month_changed' | 'calendar_year_changed' | 'calendar_doubleclicked' | 'calendar_weekday_clicked'.
 -export_type([wxCalendarEvent/0, wxCalendar/0, wxCalendarEventType/0]).
 %% @hidden
@@ -40,6 +53,11 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarevent.html#wxcalendareventgetweekday">external documentation</a>.
 %%<br /> Res = ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
+-doc """
+Returns the week day on which the user clicked in `EVT_CALENDAR_WEEKDAY_CLICKED` handler.
+
+It doesn't make sense to call this function in other handlers.
+""".
 -spec getWeekDay(This) -> wx:wx_enum() when
 	This::wxCalendarEvent().
 getWeekDay(#wx_ref{type=ThisT}=This) ->
@@ -48,6 +66,7 @@ getWeekDay(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCalendarEvent_GetWeekDay).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendarevent.html#wxcalendareventgetdate">external documentation</a>.
+-doc "Returns the date.".
 -spec getDate(This) -> wx:wx_datetime() when
 	This::wxCalendarEvent().
 getDate(#wx_ref{type=ThisT}=This) ->
@@ -94,3 +113,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

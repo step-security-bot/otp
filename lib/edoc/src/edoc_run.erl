@@ -44,6 +44,23 @@
 %% functions.
 
 -module(edoc_run).
+-moduledoc """
+Interface for calling EDoc from Erlang startup options.
+
+The following is an example of typical usage in a Makefile:
+
+```text
+     docs:
+             erl -noshell -run edoc_run application "'$(APP_NAME)'" \
+               '"."' '[{def,{vsn,"$(VSN)"}}]'
+```
+
+(note the single-quotes to avoid shell expansion, and the double-quotes enclosing the strings).
+
+__New feature in version 0.6.9__: It is no longer necessary to write `-s init stop` last on the command line in order to make the execution terminate. The termination (signalling success or failure to the operating system) is now built into these functions.
+
+*See also: *`m:edoc`.
+""".
 
 -export([file/1, application/1, files/1, toc/1]).
 
@@ -51,6 +68,7 @@
 
 -import(edoc_report, [report/2, error/1]).
 
+-doc "".
 -type args() :: [string()].
 
 %% @doc Calls {@link edoc:application/3} with the corresponding
@@ -63,6 +81,11 @@
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:application/3` with the corresponding arguments. The strings in the list are parsed as Erlang constant terms. The list can be either `[App]`, `[App, Options]` or `[App, Dir, Options]`. In the first case `edoc:application/1` is called instead; in the second case, `edoc:application/2` is called.
+
+The function call never returns; instead, the emulator is automatically terminated when the call has completed, signalling success or failure to the operating system.
+""".
 -spec application(args()) -> no_return().
 application(Args) ->
     F = fun () ->
@@ -85,6 +108,11 @@ application(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:files/2` with the corresponding arguments. The strings in the list are parsed as Erlang constant terms. The list can be either `[Files]` or `[Files, Options]`. In the first case, `edoc:files/1` is called instead.
+
+The function call never returns; instead, the emulator is automatically terminated when the call has completed, signalling success or failure to the operating system.
+""".
 -spec files(args()) -> no_return().
 files(Args) ->
     F = fun () ->
@@ -130,6 +158,21 @@ toc(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-doc """
+Calls `edoc:file/2` with the corresponding arguments. The strings in the list are parsed as Erlang constant terms. The list can be either `[File]` or `[File, Options]`. In the first case, an empty list of options is passed to `edoc:file/2`.
+
+The following is an example of typical usage in a Makefile:
+
+```text
+     $(DOCDIR)/%.html:%.erl
+             erl -noshell -run edoc_run file '"$<"' '[{dir,"$(DOCDIR)"}]' \
+               -s init stop
+```
+
+The function call never returns; instead, the emulator is automatically terminated when the call has completed, signalling success or failure to the operating system.
+""".
+-doc(#{deprecated =>
+           <<"This is part of the old interface to EDoc and is mainly kept for backwards compatibility. The preferred way of generating documentation is through one of the functions application/1 and files/1.">>}).
 -spec file(args()) -> no_return().
 file(Args) ->
     F = fun () ->
@@ -142,11 +185,13 @@ file(Args) ->
 	end,
     run(F).
 
+-doc "".
 -spec invalid_args(string(), args()) -> no_return().
 invalid_args(Where, Args) ->
     report("invalid arguments to ~ts: ~tw.", [Where, Args]),
     shutdown_error().
 
+-doc "".
 run(F) ->
     wait_init(),
     case catch {ok, F()} of
@@ -161,6 +206,7 @@ run(F) ->
 	    shutdown_error()
     end.
 
+-doc "".
 wait_init() ->
     case erlang:whereis(code_server) of
 	undefined ->
@@ -173,11 +219,13 @@ wait_init() ->
 %% When and if a function init:stop/1 becomes generally available, we
 %% can use that instead of delay-and-pray when there is an error.
 
+-doc "".
 -spec shutdown_ok() -> no_return().
 shutdown_ok() ->
     %% shut down emulator nicely, signalling "normal termination"
     init:stop().
 
+-doc "".
 -spec shutdown_error() -> no_return().
 shutdown_error() ->
     %% delay 1 second to allow I/O to finish
@@ -185,6 +233,7 @@ shutdown_error() ->
     %% stop emulator the hard way with a nonzero exit value
     halt(1).
 
+-doc "".
 parse_args([A | As]) when is_atom(A) ->
     [parse_arg(atom_to_list(A)) | parse_args(As)];
 parse_args([A | As]) ->
@@ -192,6 +241,7 @@ parse_args([A | As]) ->
 parse_args([]) ->
     [].
 
+-doc "".
 parse_arg(A) ->
     case catch {ok, edoc_lib:parse_expr(A, 1)} of
 	{ok, Expr} ->
@@ -207,3 +257,4 @@ parse_arg(A) ->
 	    error(D),
 	    exit(error)
     end.
+

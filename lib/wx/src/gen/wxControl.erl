@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxControl).
+-moduledoc """
+Functions for wxControl class
+
+This is the base class for a control or "widget".
+
+A control is generally a small window which processes user input and/or displays one or more item of data.
+
+See: `wxValidator` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxControl](https://docs.wxwidgets.org/3.1/classwx_control.html)
+
+## Events
+
+Event types emitted from this class: [`command_text_copy`](`m:wxClipboardTextEvent`), [`command_text_cut`](`m:wxClipboardTextEvent`), [`command_text_paste`](`m:wxClipboardTextEvent`)
+""".
 -include("wxe.hrl").
 -export([getLabel/1,setLabel/2]).
 
@@ -61,6 +78,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxControl() :: wx:wx_object().
 -export_type([wxControl/0]).
 %% @hidden
@@ -69,6 +87,13 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html#wxcontrolgetlabel">external documentation</a>.
+-doc """
+Returns the control's label, as it was passed to `setLabel/2`.
+
+Note that the returned string may contains mnemonics ("&" characters) if they were passed to the `setLabel/2` function; use `GetLabelText()` (not implemented in wx) if they are undesired.
+
+Also note that the returned string is always the string which was passed to `setLabel/2` but may be different from the string passed to `SetLabelText()` (not implemented in wx) (since this last one escapes mnemonic characters).
+""".
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxControl().
 getLabel(#wx_ref{type=ThisT}=This) ->
@@ -77,6 +102,11 @@ getLabel(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxControl_GetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
+-doc """
+Sets the control's label.
+
+All "&" characters in the `label` are special and indicate that the following character is a `mnemonic` for this control and can be used to activate it from the keyboard (typically by using `Alt` key in combination with it). To insert a literal ampersand character, you need to double it, i.e. use "&&". If this behaviour is undesirable, use `SetLabelText()` (not implemented in wx) instead.
+""".
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
@@ -449,3 +479,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

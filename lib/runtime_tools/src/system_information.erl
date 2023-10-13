@@ -25,6 +25,7 @@
 %% reported values. Functions will be added to this as time goes by.
 
 -module(system_information).
+-moduledoc "System Information".
 -behaviour(gen_server).
 
 %% API
@@ -83,6 +84,8 @@ report() ->
     {ok, _} = file:position(Fd, bof),
     from_fd(Fd).
 
+-doc "Writes miscellaneous system information to file. This information will typically be requested by the Erlang/OTP team at Ericsson AB when reporting an issue.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec to_file(FileName) -> ok | {error, Reason} when
       FileName :: file:name_all(),
       Reason :: file:posix() | badarg | terminated | system_limit.
@@ -123,6 +126,23 @@ module(M) when is_atom(M) -> module(M, []).
 module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
+-doc """
+Performs a sanity check on the system. If no issues were found, `ok` is returned. If issues were found, `{failed, Failures}` is returned. All failures found will be part of the `Failures` list. Currently defined `Failure` elements in the `Failures` list:
+
+* __`InvalidAppFile`__ - An application has an invalid `.app` file. The second element identifies the application which has the invalid `.app` file.
+
+* __`InvalidApplicationVersion`__ - An application has an invalid application version. The second element identifies the application version that is invalid.
+
+* __`MissingRuntimeDependencies`__ - An application is missing [runtime dependencies](`p:kernel:app.md#runtime_dependencies`). The second element identifies the application (with version) that has missing dependencies. The third element contains the missing dependencies.
+
+  Note that this check use application versions that are loaded, or will be loaded when used. You might have application versions that satisfies all dependencies installed in the system, but if those are not loaded this check will fail. The system will of course also fail when used like this. This may happen when you have multiple [branched versions](`p:system:versions.md`) of the same application installed in the system, but you do not use a [boot script](`p:system:system_principles.md#bootscript`) identifying the correct application version.
+
+Currently the sanity check is limited to verifying runtime dependencies found in the `.app` files of all applications. More checks will be introduced in the future. This implies that the return type *will* change in the future.
+
+> #### Note {: class=info }
+> An `ok` return value only means that `sanity_check/0` did not find any issues, *not* that no issues exist.
+""".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec sanity_check() -> ok | {failed, Failures} when
       Application :: atom(),
       ApplicationVersion :: string(),
@@ -831,3 +851,4 @@ check_runtime_dependencies() ->
 		Apps).
 
 %% End of runtime dependency checks
+

@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMenuBar).
+-moduledoc """
+Functions for wxMenuBar class
+
+A menu bar is a series of menus accessible from the top of a frame.
+
+Remark: To respond to a menu selection, provide a handler for EVT_MENU, in the frame that contains the menu bar.
+
+If you have a toolbar which uses the same identifiers as your EVT_MENU entries, events from the toolbar will also be processed by your EVT_MENU event handlers.
+
+Tip: under Windows, if you discover that menu shortcuts (for example, Alt-F to show the file menu) are not working, check any EVT_CHAR events you are handling in child windows. If you are not calling event.Skip() for events that you don't process in these event handlers, menu shortcuts may cease to work.
+
+See: `m:wxMenu`, [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMenuBar](https://docs.wxwidgets.org/3.1/classwx_menu_bar.html)
+""".
 -include("wxe.hrl").
 -export([append/3,check/3,destroy/1,enable/3,enableTop/3,findItem/2,findMenu/2,
   findMenuItem/3,getAutoWindowMenu/0,getHelpString/2,getLabel/2,getLabelTop/2,
@@ -66,6 +83,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMenuBar() :: wx:wx_object().
 -export_type([wxMenuBar/0]).
 %% @hidden
@@ -74,12 +92,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
+-doc "Construct an empty menu bar.".
 -spec new() -> wxMenuBar().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxMenuBar_new_0),
   wxe_util:rec(?wxMenuBar_new_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarwxmenubar">external documentation</a>.
+-doc "".
 -spec new(Style) -> wxMenuBar() when
 	Style::integer().
 new(Style)
@@ -88,6 +108,13 @@ new(Style)
   wxe_util:rec(?wxMenuBar_new_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarappend">external documentation</a>.
+-doc """
+Adds the item to the end of the menu bar.
+
+Return: true on success, false if an error occurred.
+
+See: `insert/4`
+""".
 -spec append(This, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu,Title)
@@ -99,6 +126,11 @@ append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu,Title)
   wxe_util:rec(?wxMenuBar_Append).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarcheck">external documentation</a>.
+-doc """
+Checks or unchecks a menu item.
+
+Remark: Only use this when the menu bar has been associated with a frame; otherwise, use the `m:wxMenu` equivalent call.
+""".
 -spec check(This, Id, Check) -> 'ok' when
 	This::wxMenuBar(), Id::integer(), Check::boolean().
 check(#wx_ref{type=ThisT}=This,Id,Check)
@@ -107,6 +139,11 @@ check(#wx_ref{type=ThisT}=This,Id,Check)
   wxe_util:queue_cmd(This,Id,Check,?get_env(),?wxMenuBar_Check).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarenable">external documentation</a>.
+-doc """
+Enables or disables (greys out) a menu item.
+
+Remark: Only use this when the menu bar has been associated with a frame; otherwise, use the `m:wxMenu` equivalent call.
+""".
 -spec enable(This, Id, Enable) -> 'ok' when
 	This::wxMenuBar(), Id::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT}=This,Id,Enable)
@@ -115,6 +152,11 @@ enable(#wx_ref{type=ThisT}=This,Id,Enable)
   wxe_util:queue_cmd(This,Id,Enable,?get_env(),?wxMenuBar_Enable).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarenabletop">external documentation</a>.
+-doc """
+Enables or disables a whole menu.
+
+Remark: Only use this when the menu bar has been associated with a frame.
+""".
 -spec enableTop(This, Pos, Enable) -> 'ok' when
 	This::wxMenuBar(), Pos::integer(), Enable::boolean().
 enableTop(#wx_ref{type=ThisT}=This,Pos,Enable)
@@ -123,6 +165,11 @@ enableTop(#wx_ref{type=ThisT}=This,Pos,Enable)
   wxe_util:queue_cmd(This,Pos,Enable,?get_env(),?wxMenuBar_EnableTop).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfindmenu">external documentation</a>.
+-doc """
+Returns the index of the menu with the given `title` or `wxNOT_FOUND` if no such menu exists in this menubar.
+
+The `title` parameter may specify either the menu title (with accelerator characters, i.e. `"&File"`) or just the menu label (`"File"`) indifferently.
+""".
 -spec findMenu(This, Title) -> integer() when
 	This::wxMenuBar(), Title::unicode:chardata().
 findMenu(#wx_ref{type=ThisT}=This,Title)
@@ -133,6 +180,13 @@ findMenu(#wx_ref{type=ThisT}=This,Title)
   wxe_util:rec(?wxMenuBar_FindMenu).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfindmenuitem">external documentation</a>.
+-doc """
+Finds the menu item id for a menu name/menu item string pair.
+
+Return: The menu item identifier, or wxNOT_FOUND if none was found.
+
+Remark: Any special menu codes are stripped out of source and target strings before matching.
+""".
 -spec findMenuItem(This, MenuString, ItemString) -> integer() when
 	This::wxMenuBar(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItem(#wx_ref{type=ThisT}=This,MenuString,ItemString)
@@ -144,6 +198,11 @@ findMenuItem(#wx_ref{type=ThisT}=This,MenuString,ItemString)
   wxe_util:rec(?wxMenuBar_FindMenuItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarfinditem">external documentation</a>.
+-doc """
+Finds the menu item object associated with the given menu item identifier.
+
+Return: The found menu item object, or NULL if one was not found.
+""".
 -spec findItem(This, Id) -> wxMenuItem:wxMenuItem() when
 	This::wxMenuBar(), Id::integer().
 findItem(#wx_ref{type=ThisT}=This,Id)
@@ -153,6 +212,13 @@ findItem(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxMenuBar_FindItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargethelpstring">external documentation</a>.
+-doc """
+Gets the help string associated with the menu item identifier.
+
+Return: The help string, or the empty string if there was no help string or the menu item was not found.
+
+See: `setHelpString/3`
+""".
 -spec getHelpString(This, Id) -> unicode:charlist() when
 	This::wxMenuBar(), Id::integer().
 getHelpString(#wx_ref{type=ThisT}=This,Id)
@@ -162,6 +228,13 @@ getHelpString(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxMenuBar_GetHelpString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetlabel">external documentation</a>.
+-doc """
+Gets the label associated with a menu item.
+
+Return: The menu item label, or the empty string if the item was not found.
+
+Remark: Use only after the menubar has been associated with a frame.
+""".
 -spec getLabel(This, Id) -> unicode:charlist() when
 	This::wxMenuBar(), Id::integer().
 getLabel(#wx_ref{type=ThisT}=This,Id)
@@ -171,6 +244,7 @@ getLabel(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxMenuBar_GetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenulabel">external documentation</a>.
+-doc "See: `getMenuLabel/2`.".
 -spec getLabelTop(This, Pos) -> unicode:charlist() when
 	This::wxMenuBar(), Pos::integer().
 
@@ -179,6 +253,17 @@ getLabelTop(This,Pos)
   getMenuLabel(This,Pos).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenulabel">external documentation</a>.
+-doc """
+Returns the label of a top-level menu.
+
+Note that the returned string includes the accelerator characters that have been specified in the menu title string during its construction.
+
+Return: The menu label, or the empty string if the menu was not found.
+
+Remark: Use only after the menubar has been associated with a frame.
+
+See: `getMenuLabelText/2`, `setMenuLabel/3`
+""".
 -spec getMenuLabel(This, Pos) -> unicode:charlist() when
 	This::wxMenuBar(), Pos::integer().
 getMenuLabel(#wx_ref{type=ThisT}=This,Pos)
@@ -188,6 +273,17 @@ getMenuLabel(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:rec(?wxMenuBar_GetMenuLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenulabeltext">external documentation</a>.
+-doc """
+Returns the label of a top-level menu.
+
+Note that the returned string does not include any accelerator characters that may have been specified in the menu title string during its construction.
+
+Return: The menu label, or the empty string if the menu was not found.
+
+Remark: Use only after the menubar has been associated with a frame.
+
+See: `getMenuLabel/2`, `setMenuLabel/3`
+""".
 -spec getMenuLabelText(This, Pos) -> unicode:charlist() when
 	This::wxMenuBar(), Pos::integer().
 getMenuLabelText(#wx_ref{type=ThisT}=This,Pos)
@@ -197,6 +293,7 @@ getMenuLabelText(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:rec(?wxMenuBar_GetMenuLabelText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenu">external documentation</a>.
+-doc "Returns the menu at `menuIndex` (zero-based).".
 -spec getMenu(This, MenuIndex) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), MenuIndex::integer().
 getMenu(#wx_ref{type=ThisT}=This,MenuIndex)
@@ -206,6 +303,7 @@ getMenu(#wx_ref{type=ThisT}=This,MenuIndex)
   wxe_util:rec(?wxMenuBar_GetMenu).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetmenucount">external documentation</a>.
+-doc "Returns the number of menus in this menubar.".
 -spec getMenuCount(This) -> integer() when
 	This::wxMenuBar().
 getMenuCount(#wx_ref{type=ThisT}=This) ->
@@ -214,6 +312,15 @@ getMenuCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxMenuBar_GetMenuCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarinsert">external documentation</a>.
+-doc """
+Inserts the menu at the given position into the menu bar.
+
+Inserting menu at position 0 will insert it in the very beginning of it, inserting at position `getMenuCount/1` is the same as calling `append/3`.
+
+Return: true on success, false if an error occurred.
+
+See: `append/3`
+""".
 -spec insert(This, Pos, Menu, Title) -> boolean() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 insert(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
@@ -225,6 +332,11 @@ insert(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
   wxe_util:rec(?wxMenuBar_Insert).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarischecked">external documentation</a>.
+-doc """
+Determines whether an item is checked.
+
+Return: true if the item was found and is checked, false otherwise.
+""".
 -spec isChecked(This, Id) -> boolean() when
 	This::wxMenuBar(), Id::integer().
 isChecked(#wx_ref{type=ThisT}=This,Id)
@@ -234,6 +346,7 @@ isChecked(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxMenuBar_IsChecked).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetautowindowmenu">external documentation</a>.
+-doc "".
 -spec setAutoWindowMenu(Enable) -> 'ok' when
 	Enable::boolean().
 setAutoWindowMenu(Enable)
@@ -241,12 +354,22 @@ setAutoWindowMenu(Enable)
   wxe_util:queue_cmd(Enable,?get_env(),?wxMenuBar_SetAutoWindowMenu).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetautowindowmenu">external documentation</a>.
+-doc "".
 -spec getAutoWindowMenu() -> boolean().
 getAutoWindowMenu() ->
   wxe_util:queue_cmd(?get_env(), ?wxMenuBar_GetAutoWindowMenu),
   wxe_util:rec(?wxMenuBar_GetAutoWindowMenu).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarosxgetapplemenu">external documentation</a>.
+-doc """
+Returns the Apple menu.
+
+This is the leftmost menu with application's name as its title. You shouldn't remove any items from it, but it is safe to insert extra menu items or submenus into it.
+
+Only for:wxosx
+
+Since: 3.0.1
+""".
 -spec oSXGetAppleMenu(This) -> wxMenu:wxMenu() when
 	This::wxMenuBar().
 oSXGetAppleMenu(#wx_ref{type=ThisT}=This) ->
@@ -255,12 +378,28 @@ oSXGetAppleMenu(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxMenuBar_OSXGetAppleMenu).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarmacgetcommonmenubar">external documentation</a>.
+-doc """
+Enables you to get the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open.
+
+Return: The global menubar.
+
+Remark: Only exists on Mac, other platforms do not have this method.
+
+Only for:wxosx
+""".
 -spec macGetCommonMenuBar() -> wxMenuBar().
 macGetCommonMenuBar() ->
   wxe_util:queue_cmd(?get_env(), ?wxMenuBar_MacGetCommonMenuBar),
   wxe_util:rec(?wxMenuBar_MacGetCommonMenuBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarmacsetcommonmenubar">external documentation</a>.
+-doc """
+Enables you to set the global menubar on Mac, that is, the menubar displayed when the app is running without any frames open.
+
+Remark: Only exists on Mac, other platforms do not have this method.
+
+Only for:wxosx
+""".
 -spec macSetCommonMenuBar(Menubar) -> 'ok' when
 	Menubar::wxMenuBar().
 macSetCommonMenuBar(#wx_ref{type=MenubarT}=Menubar) ->
@@ -268,6 +407,11 @@ macSetCommonMenuBar(#wx_ref{type=MenubarT}=Menubar) ->
   wxe_util:queue_cmd(Menubar,?get_env(),?wxMenuBar_MacSetCommonMenuBar).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
+-doc """
+Determines whether an item is enabled.
+
+Return: true if the item was found and is enabled, false otherwise.
+""".
 -spec isEnabled(This, Id) -> boolean() when
 	This::wxMenuBar(), Id::integer().
 isEnabled(#wx_ref{type=ThisT}=This,Id)
@@ -277,6 +421,13 @@ isEnabled(#wx_ref{type=ThisT}=This,Id)
   wxe_util:rec(?wxMenuBar_IsEnabled).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarremove">external documentation</a>.
+-doc """
+Removes the menu from the menu bar and returns the menu object - the caller is responsible for deleting it.
+
+This function may be used together with `insert/4` to change the menubar dynamically.
+
+See: `replace/4`
+""".
 -spec remove(This, Pos) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer().
 remove(#wx_ref{type=ThisT}=This,Pos)
@@ -286,6 +437,13 @@ remove(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:rec(?wxMenuBar_Remove).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarreplace">external documentation</a>.
+-doc """
+Replaces the menu at the given position with another one.
+
+Return: The menu which was previously at position pos. The caller is responsible for deleting it.
+
+See: `insert/4`, `remove/2`
+""".
 -spec replace(This, Pos, Menu, Title) -> wxMenu:wxMenu() when
 	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 replace(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
@@ -297,6 +455,11 @@ replace(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
   wxe_util:rec(?wxMenuBar_Replace).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsethelpstring">external documentation</a>.
+-doc """
+Sets the help string associated with a menu item.
+
+See: `getHelpString/2`
+""".
 -spec setHelpString(This, Id, HelpString) -> 'ok' when
 	This::wxMenuBar(), Id::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
@@ -306,6 +469,13 @@ setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
   wxe_util:queue_cmd(This,Id,HelpString_UC,?get_env(),?wxMenuBar_SetHelpString).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetlabel">external documentation</a>.
+-doc """
+Sets the label of a menu item.
+
+Remark: Use only after the menubar has been associated with a frame.
+
+See: `getLabel/2`
+""".
 -spec setLabel(This, Id, Label) -> 'ok' when
 	This::wxMenuBar(), Id::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Id,Label)
@@ -315,6 +485,7 @@ setLabel(#wx_ref{type=ThisT}=This,Id,Label)
   wxe_util:queue_cmd(This,Id,Label_UC,?get_env(),?wxMenuBar_SetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetmenulabel">external documentation</a>.
+-doc "See: `setMenuLabel/3`.".
 -spec setLabelTop(This, Pos, Label) -> 'ok' when
 	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 
@@ -323,6 +494,11 @@ setLabelTop(This,Pos,Label)
   setMenuLabel(This,Pos,Label).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetmenulabel">external documentation</a>.
+-doc """
+Sets the label of a top-level menu.
+
+Remark: Use only after the menubar has been associated with a frame.
+""".
 -spec setMenuLabel(This, Pos, Label) -> 'ok' when
 	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 setMenuLabel(#wx_ref{type=ThisT}=This,Pos,Label)
@@ -332,6 +508,7 @@ setMenuLabel(#wx_ref{type=ThisT}=This,Pos,Label)
   wxe_util:queue_cmd(This,Pos,Label_UC,?get_env(),?wxMenuBar_SetMenuLabel).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the menu bar and removing it from the parent frame (if any).".
 -spec destroy(This::wxMenuBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenuBar),
@@ -695,3 +872,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

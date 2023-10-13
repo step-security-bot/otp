@@ -19,6 +19,39 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxNotebook).
+-moduledoc """
+Functions for wxNotebook class
+
+This class represents a notebook control, which manages multiple windows with associated tabs.
+
+To use the class, create a `m:wxNotebook` object and call `wxBookCtrlBase:addPage/4` or `wxBookCtrlBase:insertPage/5`, passing a window to be used as the page. Do not explicitly delete the window for a page that is currently managed by `m:wxNotebook`.
+
+`wxNotebookPage` is a typedef for `m:wxWindow`.
+
+Styles
+
+This class supports the following styles:
+
+Page backgrounds
+
+On Windows, the default theme paints a background on the notebook's pages. If you wish to suppress this theme, for aesthetic or performance reasons, there are three ways of doing it. You can use `wxNB_NOPAGETHEME` to disable themed drawing for a particular notebook, you can call `wxSystemOptions:setOption/2` to disable it for the whole application, or you can disable it for individual pages by using `wxWindow:setBackgroundColour/2`.
+
+To disable themed pages globally:
+
+Set the value to 1 to enable it again. To give a single page a solid background that more or less fits in with the overall theme, use:
+
+On platforms other than Windows, or if the application is not using Windows themes, `getThemeBackgroundColour/1` will return an uninitialised colour object, and the above code will therefore work on all platforms.
+
+See: ?wxBookCtrl, `m:wxBookCtrlEvent`, `m:wxImageList`, [Examples](https://docs.wxwidgets.org/3.1/page_samples.html#page_samples_notebook)
+
+This class is derived (and can use functions) from: `m:wxBookCtrlBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxNotebook](https://docs.wxwidgets.org/3.1/classwx_notebook.html)
+
+## Events
+
+Event types emitted from this class: [`command_notebook_page_changed`](`m:wxBookCtrlEvent`), [`command_notebook_page_changing`](`m:wxBookCtrlEvent`)
+""".
 -include("wxe.hrl").
 -export([assignImageList/2,create/3,create/4,destroy/1,getImageList/1,getPageImage/2,
   getRowCount/1,getThemeBackgroundColour/1,new/0,new/2,new/3,setImageList/2,
@@ -66,6 +99,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxNotebook() :: wx:wx_object().
 -export_type([wxNotebook/0]).
 %% @hidden
@@ -76,12 +110,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
+-doc "Constructs a notebook control.".
 -spec new() -> wxNotebook().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxNotebook_new_0),
   wxe_util:rec(?wxNotebook_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxNotebook() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -90,6 +126,11 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
+-doc """
+Constructs a notebook control.
+
+Note that sometimes you can reduce flicker by passing the wxCLIP_CHILDREN window style.
+""".
 -spec new(Parent, Id, [Option]) -> wxNotebook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -107,6 +148,11 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxNotebook_new_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookassignimagelist">external documentation</a>.
+-doc """
+Sets the image list for the page control and takes ownership of the list.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -115,6 +161,7 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxNotebook_AssignImageList).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -123,6 +170,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookcreate">external documentation</a>.
+-doc """
+Creates a notebook control.
+
+See `new/3` for a description of the parameters.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -141,6 +193,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxNotebook_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetimagelist">external documentation</a>.
+-doc """
+Returns the associated image list, may be NULL.
+
+See: `m:wxImageList`, `setImageList/2`
+""".
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxNotebook().
 getImageList(#wx_ref{type=ThisT}=This) ->
@@ -149,6 +206,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxNotebook_GetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetpageimage">external documentation</a>.
+-doc "Returns the image index for the given page.".
 -spec getPageImage(This, NPage) -> integer() when
 	This::wxNotebook(), NPage::integer().
 getPageImage(#wx_ref{type=ThisT}=This,NPage)
@@ -158,6 +216,7 @@ getPageImage(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:rec(?wxNotebook_GetPageImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetrowcount">external documentation</a>.
+-doc "Returns the number of rows in the notebook control.".
 -spec getRowCount(This) -> integer() when
 	This::wxNotebook().
 getRowCount(#wx_ref{type=ThisT}=This) ->
@@ -166,6 +225,11 @@ getRowCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxNotebook_GetRowCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookgetthemebackgroundcolour">external documentation</a>.
+-doc """
+If running under Windows and themes are enabled for the application, this function returns a suitable colour for painting the background of a notebook page, and can be passed to `wxWindow:setBackgroundColour/2`.
+
+Otherwise, an uninitialised colour will be returned.
+""".
 -spec getThemeBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxNotebook().
 getThemeBackgroundColour(#wx_ref{type=ThisT}=This) ->
@@ -174,6 +238,13 @@ getThemeBackgroundColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxNotebook_GetThemeBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetimagelist">external documentation</a>.
+-doc """
+Sets the image list to use.
+
+It does not take ownership of the image list, you must delete it yourself.
+
+See: `m:wxImageList`, `assignImageList/2`
+""".
 -spec setImageList(This, ImageList) -> 'ok' when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -182,6 +253,11 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxNotebook_SetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpadding">external documentation</a>.
+-doc """
+Sets the amount of space around each page's icon and label, in pixels.
+
+Note: The vertical padding cannot be changed in wxGTK.
+""".
 -spec setPadding(This, Padding) -> 'ok' when
 	This::wxNotebook(), Padding::{W::integer(), H::integer()}.
 setPadding(#wx_ref{type=ThisT}=This,{PaddingW,PaddingH} = Padding)
@@ -190,6 +266,11 @@ setPadding(#wx_ref{type=ThisT}=This,{PaddingW,PaddingH} = Padding)
   wxe_util:queue_cmd(This,Padding,?get_env(),?wxNotebook_SetPadding).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpagesize">external documentation</a>.
+-doc """
+Sets the width and height of the pages.
+
+Note: This method is currently not implemented for wxGTK.
+""".
 -spec setPageSize(This, Size) -> 'ok' when
 	This::wxNotebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -198,6 +279,11 @@ setPageSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxNotebook_SetPageSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpageimage">external documentation</a>.
+-doc """
+Sets the image index for the given page.
+
+`image` is an index into the image list which was set with `setImageList/2`.
+""".
 -spec setPageImage(This, Page, Image) -> boolean() when
 	This::wxNotebook(), Page::integer(), Image::integer().
 setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
@@ -207,6 +293,7 @@ setPageImage(#wx_ref{type=ThisT}=This,Page,Image)
   wxe_util:rec(?wxNotebook_SetPageImage).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the `m:wxNotebook` object.".
 -spec destroy(This::wxNotebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxNotebook),
@@ -618,3 +705,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

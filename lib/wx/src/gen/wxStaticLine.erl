@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStaticLine).
+-moduledoc """
+Functions for wxStaticLine class
+
+A static line is just a line which may be used in a dialog to separate the groups of controls.
+
+The line may be only vertical or horizontal. Moreover, not all ports (notably not wxGTK) support specifying the transversal direction of the line (e.g. height for a horizontal line) so for maximal portability you should specify it as wxDefaultCoord.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxStaticBox`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxStaticLine](https://docs.wxwidgets.org/3.1/classwx_static_line.html)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getDefaultSize/0,isVertical/1,new/0,new/1,
   new/2]).
@@ -63,6 +80,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxStaticLine() :: wx:wx_object().
 -export_type([wxStaticLine/0]).
 %% @hidden
@@ -72,12 +90,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticline.html#wxstaticlinewxstaticline">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxStaticLine().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStaticLine_new_0),
   wxe_util:rec(?wxStaticLine_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxStaticLine() when
 	Parent::wxWindow:wxWindow().
 
@@ -86,6 +106,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticline.html#wxstaticlinewxstaticline">external documentation</a>.
+-doc """
+Constructor, creating and showing a static line.
+
+See: `create/3`
+""".
 -spec new(Parent, [Option]) -> wxStaticLine() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -105,6 +130,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxStaticLine_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxStaticLine(), Parent::wxWindow:wxWindow().
 
@@ -113,6 +139,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticline.html#wxstaticlinecreate">external documentation</a>.
+-doc """
+Creates the static line for two-step construction.
+
+See `new/2` for further details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxStaticLine(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -133,6 +164,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxStaticLine_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticline.html#wxstaticlineisvertical">external documentation</a>.
+-doc "Returns true if the line is vertical, false if horizontal.".
 -spec isVertical(This) -> boolean() when
 	This::wxStaticLine().
 isVertical(#wx_ref{type=ThisT}=This) ->
@@ -141,12 +173,18 @@ isVertical(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxStaticLine_IsVertical).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticline.html#wxstaticlinegetdefaultsize">external documentation</a>.
+-doc """
+This static function returns the size which will be given to the smaller dimension of the static line, i.e.
+
+its height for a horizontal line or its width for a vertical one.
+""".
 -spec getDefaultSize() -> integer().
 getDefaultSize() ->
   wxe_util:queue_cmd(?get_env(), ?wxStaticLine_GetDefaultSize),
   wxe_util:rec(?wxStaticLine_GetDefaultSize).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxStaticLine()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticLine),
@@ -521,3 +559,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

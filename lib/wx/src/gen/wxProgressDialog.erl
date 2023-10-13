@@ -19,6 +19,15 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxProgressDialog).
+-moduledoc """
+Functions for wxProgressDialog class
+
+If supported by the platform this class will provide the platform's native progress dialog, else it will simply be the `wxGenericProgressDialog` (not implemented in wx).
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxProgressDialog](https://docs.wxwidgets.org/3.1/classwx_progress_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/2,new/3,resume/1,update/2,update/3]).
 
@@ -67,6 +76,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxProgressDialog() :: wx:wx_object().
 -export_type([wxProgressDialog/0]).
 %% @hidden
@@ -77,6 +87,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Title,Message, [])
+-doc "".
 -spec new(Title, Message) -> wxProgressDialog() when
 	Title::unicode:chardata(), Message::unicode:chardata().
 
@@ -85,6 +96,7 @@ new(Title,Message)
   new(Title,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
+-doc "".
 -spec new(Title, Message, [Option]) -> wxProgressDialog() when
 	Title::unicode:chardata(), Message::unicode:chardata(),
 	Option :: {'maximum', integer()}
@@ -103,6 +115,9 @@ new(Title,Message, Options)
   wxe_util:rec(?wxProgressDialog_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogresume">external documentation</a>.
+-doc """
+Can be used to continue with the dialog, after the user had clicked the "Abort" button.
+""".
 -spec resume(This) -> 'ok' when
 	This::wxProgressDialog().
 resume(#wx_ref{type=ThisT}=This) ->
@@ -110,6 +125,7 @@ resume(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxProgressDialog_Resume).
 
 %% @equiv update(This,Value, [])
+-doc "".
 -spec update(This, Value) -> boolean() when
 	This::wxProgressDialog(), Value::integer().
 
@@ -118,6 +134,17 @@ update(This,Value)
   update(This,Value, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
+-doc """
+Updates the dialog, setting the progress bar to the new value and updating the message if new one is specified.
+
+Returns true unless the "Cancel" button has been pressed.
+
+If false is returned, the application can either immediately destroy the dialog or ask the user for the confirmation and if the abort is not confirmed the dialog may be resumed with `resume/1` function.
+
+If `value` is the maximum value for the dialog, the behaviour of the function depends on whether `wxPD_AUTO_HIDE` was used when the dialog was created. If it was, the dialog is hidden and the function returns immediately. If it was not, the dialog becomes a modal dialog and waits for the user to dismiss it, meaning that this function does not return until this happens.
+
+Notice that if `newmsg` is longer than the currently shown message, the dialog will be automatically made wider to account for it. However if the new message is shorter than the previous one, the dialog doesn't shrink back to avoid constant resizes if the message is changed often. To do this and fit the dialog to its current contents you may call `wxWindow:fit/1` explicitly. However the native MSW implementation of this class does make the dialog shorter if the new text has fewer lines of text than the old one, so it is recommended to keep the number of lines of text constant in order to avoid jarring dialog size changes. You may also want to make the initial message, specified when creating the dialog, wide enough to avoid having to resize the dialog later, e.g. by appending a long string of unbreakable spaces (`wxString` (not implemented in wx)(L'\\u00a0', 100)) to it.
+""".
 -spec update(This, Value, [Option]) -> boolean() when
 	This::wxProgressDialog(), Value::integer(),
 	Option :: {'newmsg', unicode:chardata()}.
@@ -131,6 +158,7 @@ update(#wx_ref{type=ThisT}=This,Value, Options)
   wxe_util:rec(?wxProgressDialog_Update).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxProgressDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxProgressDialog),
@@ -568,3 +596,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

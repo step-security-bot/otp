@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxBufferedPaintDC).
+-moduledoc """
+Functions for wxBufferedPaintDC class
+
+This is a subclass of `m:wxBufferedDC` which can be used inside of an `EVT_PAINT()` event handler to achieve double-buffered drawing. Just use this class instead of `m:wxPaintDC` and make sure `wxWindow:setBackgroundStyle/2` is called with wxBG_STYLE_PAINT somewhere in the class initialization code, and that's all you have to do to (mostly) avoid flicker. The only thing to watch out for is that if you are using this class together with `wxScrolled` (not implemented in wx), you probably do `not` want to call `wxScrolledWindow:prepareDC/2` on it as it already does this internally for the real underlying `m:wxPaintDC`.
+
+See: `m:wxDC`, `m:wxBufferedDC`, `wxAutoBufferedPaintDC` (not implemented in wx), `m:wxPaintDC`
+
+This class is derived (and can use functions) from: `m:wxBufferedDC` `m:wxMemoryDC` `m:wxDC`
+
+wxWidgets docs: [wxBufferedPaintDC](https://docs.wxwidgets.org/3.1/classwx_buffered_paint_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/1,new/2,new/3]).
 
@@ -45,6 +56,7 @@
   setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,
   startDoc/2,startPage/1]).
 
+-doc "".
 -type wxBufferedPaintDC() :: wx:wx_object().
 -export_type([wxBufferedPaintDC/0]).
 %% @hidden
@@ -54,6 +66,7 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Window, [])
+-doc "".
 -spec new(Window) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow().
 
@@ -67,6 +80,7 @@ new(Window)
 %% 	Window::wxWindow:wxWindow(),<br />
 %% 	Option :: {'style', integer()}.<br />
 %% 
+-doc "".
 -spec new(Window, Buffer) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
       (Window, [Option]) -> wxBufferedPaintDC() when
@@ -86,6 +100,11 @@ new(#wx_ref{type=WindowT}=Window, Options)
   wxe_util:rec(?wxBufferedPaintDC_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
+-doc """
+As with `m:wxBufferedDC`, you may either provide the bitmap to be used for buffering or let this object create one internally (in the latter case, the size of the client part of the window is used).
+
+Pass wxBUFFER_CLIENT_AREA for the `style` parameter to indicate that just the client area of the window is buffered, or wxBUFFER_VIRTUAL_AREA to indicate that the buffer bitmap covers the virtual area.
+""".
 -spec new(Window, Buffer, [Option]) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(),
 	Option :: {'style', integer()}.
@@ -100,6 +119,7 @@ new(#wx_ref{type=WindowT}=Window,#wx_ref{type=BufferT}=Buffer, Options)
   wxe_util:rec(?wxBufferedPaintDC_new_3).
 
 %% @doc Destroys this object, do not use object again
+-doc "Copies everything drawn on the DC so far to the window associated with this object, using a `m:wxPaintDC`.".
 -spec destroy(This::wxBufferedPaintDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedPaintDC),
@@ -302,3 +322,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

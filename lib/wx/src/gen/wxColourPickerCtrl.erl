@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxColourPickerCtrl).
+-moduledoc """
+Functions for wxColourPickerCtrl class
+
+This control allows the user to select a colour. The generic implementation is a button which brings up a `m:wxColourDialog` when clicked. Native implementation may differ but this is usually a (small) widget which give access to the colour-chooser dialog. It is only available if `wxUSE_COLOURPICKERCTRL` is set to 1 (the default).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxColourDialog`, `m:wxColourPickerEvent`
+
+This class is derived (and can use functions) from: `m:wxPickerBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxColourPickerCtrl](https://docs.wxwidgets.org/3.1/classwx_colour_picker_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_colourpicker_changed`](`m:wxColourPickerEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getColour/1,new/0,new/2,new/3,setColour/2]).
 
@@ -65,6 +84,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxColourPickerCtrl() :: wx:wx_object().
 -export_type([wxColourPickerCtrl/0]).
 %% @hidden
@@ -75,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlwxcolourpickerctrl">external documentation</a>.
+-doc "".
 -spec new() -> wxColourPickerCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxColourPickerCtrl_new_0),
   wxe_util:rec(?wxColourPickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxColourPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -89,6 +111,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlwxcolourpickerctrl">external documentation</a>.
+-doc "Initializes the object and calls `create/4` with all the parameters.".
 -spec new(Parent, Id, [Option]) -> wxColourPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'col', wx:wx_colour()}
@@ -110,6 +133,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxColourPickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -118,6 +142,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlcreate">external documentation</a>.
+-doc """
+Creates a colour picker with the given arguments.
+
+Return: true if the control was successfully created or false if creation failed.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'col', wx:wx_colour()}
@@ -140,6 +169,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxColourPickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourpickerctrl.html#wxcolourpickerctrlgetcolour">external documentation</a>.
+-doc "Returns the currently selected colour.".
 -spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourPickerCtrl().
 getColour(#wx_ref{type=ThisT}=This) ->
@@ -152,6 +182,11 @@ getColour(#wx_ref{type=ThisT}=This) ->
 %% setColour(This, Col) -> 'ok' when<br />
 %% 	This::wxColourPickerCtrl(), Col::wx:wx_colour().<br />
 %% 
+-doc """
+Sets the currently selected colour.
+
+See `wxColour::Set()` (not implemented in wx).
+""".
 -spec setColour(This, Colname) -> 'ok' when
 	This::wxColourPickerCtrl(), Colname::unicode:chardata();
       (This, Col) -> 'ok' when
@@ -167,6 +202,7 @@ setColour(#wx_ref{type=ThisT}=This,Col)
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxColourPickerCtrl_SetColour_1_1).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxColourPickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourPickerCtrl),
@@ -570,3 +606,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

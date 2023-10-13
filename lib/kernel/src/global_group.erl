@@ -18,6 +18,37 @@
 %% %CopyrightEnd%
 %%
 -module(global_group).
+-moduledoc """
+Grouping nodes to global name registration groups.
+
+This module makes it possible to partition the nodes of a system into *global groups*. Each global group has its own global namespace, see `m:global`.
+
+The main advantage of dividing systems into global groups is that the background load decreases while the number of nodes to be updated is reduced when manipulating globally registered names.
+
+The Kernel configuration parameter `global_groups` defines the global groups (see also [`kernel(6)`](kernel_app.md#global_groups) and [`config(4)`](config.md)):
+
+```text
+{global_groups, [GroupTuple :: group_tuple()]}
+```
+
+For the processes and nodes to run smoothly using the global group functionality, the following criteria must be met:
+
+* An instance of the global group server, `global_group`, must be running on each node. The processes are automatically started and synchronized when a node is started.
+* All involved nodes must agree on the global group definition, otherwise the behavior of the system is undefined.
+* *All* nodes in the system must belong to exactly one global group.
+
+In the following descriptions, a *group node* is a node belonging to the same global group as the local node.
+
+## Notes
+
+* In the situation where a node has lost its connections to other nodes in its global group, but has connections to nodes in other global groups, a request from another global group can produce an incorrect or misleading result. For example, the isolated node can have inaccurate information about registered names in its global group.
+* Function [`send/2,3`](`send/2`) is not secure.
+* Distribution of applications is highly dependent of the global group definitions. It is not recommended that an application is distributed over many global groups, as the registered names can be moved to another global group at failover/takeover. Nothing prevents this to be done, but the application code must then handle the situation.
+
+## See Also
+
+`m:global`, [`erl(1)`](`p:erts:erl_cmd.md`)
+""".
 
 %% Groups nodes into global groups with an own global name space.
 
@@ -62,10 +93,17 @@
 
 %%%====================================================================================
 
+-doc """
+A node started with command-line flag `-hidden` (see [`erl(1)`](`p:erts:erl_cmd.md`)) is said to be a *hidden* node. A hidden node establishes hidden connections to nodes not part of the same global group, but normal (visible) connections to nodes part of the same global group.
+
+A global group defined with `PublishType` equal to `hidden` is said to be a hidden global group. All nodes in a hidden global group are hidden nodes, whether they are started with command-line flag `-hidden` or not.
+""".
 -type publish_type() :: 'hidden' | 'normal'.
 -type sync_state()   :: 'no_conf' | 'synced'.
 
+-doc "".
 -type group_name()  :: atom().
+-doc "A `GroupTuple` without `PublishType` is the same as a `GroupTuple` with `PublishType` equal to `normal`.".
 -type group_tuple() :: {GroupName :: group_name(), [node()]}
                      | {GroupName :: group_name(),
                         PublishType :: publish_type(),
@@ -125,12 +163,18 @@
 %%% External exported
 %%%====================================================================================
 
+-doc "Returns a tuple containing the name of the global group that the local node belongs to, and the list of all other known group names. Returns `undefined` if no global groups are defined.".
 -spec global_groups() -> {GroupName, GroupNames} | undefined when
       GroupName :: group_name(),
       GroupNames :: [GroupName].
 global_groups() ->
     request(global_groups).
 
+-doc """
+Depending on `Flag`, the calling process starts subscribing (`Flag` equal to `true`) or stops subscribing (`Flag` equal to `false`) to node status change messages.
+
+A process that has subscribed receives the messages `{nodeup, Node}` and `{nodedown, Node}` when a group node connects or disconnects, respectively.
+""".
 -spec monitor_nodes(Flag) -> 'ok' when
       Flag :: boolean().
 monitor_nodes(Flag) -> 
@@ -140,26 +184,36 @@ monitor_nodes(Flag) ->
 	_ -> {error, not_boolean}
     end.
 
+-doc "Returns the names of all group nodes, regardless of their current status.".
 -spec own_nodes() -> Nodes when
       Nodes :: [Node :: node()].
 own_nodes() ->
     request(own_nodes).
 
+-doc "A registered name.".
 -type name()  :: atom().
+-doc "".
 -type where() :: {'node', node()} | {'group', group_name()}.
 
+-doc "Returns a list of all names that are globally registered on the specified node or in the specified global group.".
 -spec registered_names(Where) -> Names when
       Where :: where(),
       Names :: [Name :: name()].
 registered_names(Arg) ->
     request({registered_names, Arg}).
 
+-doc(#{equiv => send/3}).
 -spec send(Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
       Name :: name(),
       Msg :: term().
 send(Name, Msg) ->
     request({send, Name, Msg}).
 
+-doc """
+Searches for `Name`, globally registered on the specified node or in the specified global group, or (if argument `Where` is not provided) in any global group. The global groups are searched in the order that they appear in the value of configuration parameter `global_groups`.
+
+If `Name` is found, message `Msg` is sent to the corresponding pid. The pid is also the return value of the function. If the name is not found, the function returns `{badarg, {Name, Msg}}`.
+""".
 -spec send(Where, Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
       Where :: where(),
       Name :: name(),
@@ -167,11 +221,17 @@ send(Name, Msg) ->
 send(Group, Name, Msg) ->
     request({send, Group, Name, Msg}).
 
+-doc(#{equiv => whereis_name/2}).
 -spec whereis_name(Name) -> pid() | 'undefined' when
       Name :: name().
 whereis_name(Name) ->
     request({whereis_name, Name}).
 
+-doc """
+Searches for `Name`, globally registered on the specified node or in the specified global group, or (if argument `Where` is not provided) in any global group. The global groups are searched in the order that they appear in the value of configuration parameter `global_groups`.
+
+If `Name` is found, the corresponding pid is returned. If the name is not found, the function returns `undefined`.
+""".
 -spec whereis_name(Where, Name) -> pid() | 'undefined' when
       Where :: where(),
       Name :: name().
@@ -187,6 +247,13 @@ global_groups_added(NewPara) ->
 global_groups_removed(NewPara) ->
     request({global_groups_removed, NewPara}).
 
+-doc """
+Synchronizes the group nodes, that is, the global name servers on the group nodes. Also checks the names globally registered in the current global group and unregisters them on any known node not part of the group.
+
+If synchronization is not possible, an error report is sent to the error logger (see also `m:error_logger`.
+
+Returns `{error, {'invalid global_groups definition', Bad}}` if configuration parameter `global_groups` has an invalid value `Bad`.
+""".
 -spec sync() -> 'ok'.
 sync() ->
     request(sync).
@@ -200,6 +267,40 @@ sync() ->
                    | {'other_groups', Groups :: [group_tuple()]}
                    | {'monitoring', Pids :: [pid()]}.
 
+-doc """
+```erlang
+-type info_item() ::
+          {state, State :: sync_state()} |
+          {own_group_name, GroupName :: group_name()} |
+          {own_group_nodes, Nodes :: [node()]} |
+          {synched_nodes, Nodes :: [node()]} |
+          {sync_error, Nodes :: [node()]} |
+          {no_contact, Nodes :: [node()]} |
+          {other_groups, Groups :: [group_tuple()]} |
+          {monitoring, Pids :: [pid()]}.
+```
+```erlang
+-type sync_state() :: no_conf | synced.
+```
+
+Returns a list containing information about the global groups. Each list element is a tuple. The order of the tuples is undefined.
+
+* __`{state, State}`__ - If the local node is part of a global group, `State` is equal to `synced`. If no global groups are defined, `State` is equal to `no_conf`.
+
+* __`{own_group_name, GroupName}`__ - The name (atom) of the group that the local node belongs to.
+
+* __`{own_group_nodes, Nodes}`__ - A list of node names (atoms), the group nodes.
+
+* __`{synced_nodes, Nodes}`__ - A list of node names, the group nodes currently synchronized with the local node.
+
+* __`{sync_error, Nodes}`__ - A list of node names, the group nodes with which the local node has failed to synchronize.
+
+* __`{no_contact, Nodes}`__ - A list of node names, the group nodes to which there are currently no connections.
+
+* __`{other_groups, Groups}`__ - `Groups` is a list of tuples `{GroupName, Nodes}`, specifying the name and nodes of the other global groups.
+
+* __`{monitoring, Pids}`__ - A list of pids, specifying the processes that have subscribed to `nodeup` and `nodedown` messages.
+""".
 -spec info() -> [info_item()].
 info() ->
     request(info, 3000).
@@ -1684,3 +1785,4 @@ publish(OwnPublishType, Node) when (OwnPublishType == normal
         #gconf{} ->
             false
     end.
+

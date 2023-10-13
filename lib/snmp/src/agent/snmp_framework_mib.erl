@@ -18,6 +18,13 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_framework_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-FRAMEWORK-MIB
+
+The module `snmp_framework_mib` implements instrumentation functions for the SNMP-FRAMEWORK-MIB, and functions for initializing and configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 -include("snmp_types.hrl").
 -include("STANDARD-MIB.hrl").
@@ -64,6 +71,11 @@
 %%          Note that this function won't destroy any old values.
 %%          This function should be called only once.
 %%-----------------------------------------------------------------
+-doc """
+This function is called from the supervisor at system start-up.
+
+Creates the necessary objects in the database if they do not exist. It does not destroy any old values.[](){: id=add_context }
+""".
 init() ->
     maybe_create_table(intContextTable),
     init_engine().
@@ -82,6 +94,23 @@ init() ->
 %% Fails: exit(configuration_error)
 %% PRE: init/1 has been successfully called
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old data.
+
+Thus, the data in the SNMP-FRAMEWORK-MIB, after this function has been called, is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `context.conf`.
+""".
 configure(Dir) ->
     set_sname(),
     case snmpa_agent:get_agent_mib_storage() of
@@ -445,6 +474,16 @@ table_del_row(Tab, Key) ->
 
 
 %% FIXME: does not work with mnesia
+-doc """
+Ctx = string()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a context to the agent config. Equivalent to one line in the `context.conf` file.
+
+[](){: id=delete_context }
+""".
 add_context(Ctx) ->
     case (catch check_context(Ctx)) of
 	{ok, Row} ->
@@ -463,6 +502,13 @@ add_context(Ctx) ->
     end.
 
 %% FIXME: does not work with mnesia
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a context from the agent config.
+""".
 delete_context(Key) ->
     case table_del_row(intContextTable, Key) of
         true ->
@@ -697,4 +743,5 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[FRAMEWORK-MIB]: " ++ F, A).
+
 

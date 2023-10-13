@@ -39,6 +39,19 @@
 %%  it also does not redirect console I/O from the peer node.
 %% @end
 -module(peer).
+-moduledoc """
+Controller for additional Erlang node running on the same host, or in a different container/host (e.g. Docker).
+
+### Terms
+
+Origin node - Erlang VM instance that spawns additional nodes. Peer node - a node spawned by the origin. Control process - a process running on origin node, if it terminates, peer node terminates too. Control connection - a connection between origin and peer, can be ether Erlang Distribution connection, or alternative one.
+
+I/O is forwarded from peer node to origin via control connection.
+
+When standard_io is used as alternative connection, peer node uses standard out to multiplex console output and control sequences. Characters in range of 192-255 are reserved for control sequences, see encode_port_data for details. If peer node attempts to print characters in this range, an controlling process on the origin node may terminate with an error (because CRC check will fail).
+
+Alternative connection via TCP does not have that limitation, but it also does not redirect console I/O from the peer node.
+""".
 -author("maximfca@gmail.com").
 
 %% API
@@ -61,6 +74,7 @@
 
 -export_type([server_ref/0]).
 
+-doc "".
 -type server_ref() :: % What stop, get_state, call, cast, send accepts
         pid().
 
@@ -97,22 +111,28 @@
 
 %% Origin node will listen to the specified port (port 0 is auto-select),
 %%  or specified IP/Port, and expect peer node to connect to this port.
+-doc "".
 -type connection() ::
         Port :: 0..65535 |
                 {inet:ip_address(), 0..65535} |
                 standard_io.
 
 %% Specification for boot waiting
+-doc "".
 -type wait_boot() ::
         timeout() |                 %% wait for node to boot (default, 15 sec),
         {pid(), Tag :: term()} |    %% do not wait, send {Tag, {started, node(), pid()}} to Pid when node boots
         false.                      %% don't wait, don't notify
 
+-doc """
+SSH support: \{"/usr/bin/ssh", \["account@host_b", "/usr/bin/erl"]\}
+""".
 -type exec() ::
         file:name() |               %% path to "erl" (default is init:get_argument(progname))
         {file:name(), [string()]}.  %% SSH support: {"/usr/bin/ssh", ["account@host_b", "/usr/bin/erl"]}
 
 %% Peer node start options
+-doc "".
 -type start_options() ::
         #{
           name => atom() | string(),          %% node name (part before @), if not defined, peer
@@ -140,6 +160,7 @@
          }.
 
 %% Peer node states
+-doc "".
 -type peer_state() :: booting | running | {down, Reason :: term()}.
 
 -export_type([
@@ -176,12 +197,16 @@
 %% Default timeout for peer node to boot.
 -define (WAIT_BOOT_TIMEOUT, 15000).
 
+-doc "".
 -type disconnect_timeout() :: ?MIN_DISCONNECT_TIMEOUT..?MAX_INT_TIMEOUT | infinity.
 
 %% Peer supervisor channel connect timeout.
 -define(PEER_SUP_CHANNEL_CONNECT_TIMEOUT, 30000).
 
 %% @doc Creates random node name, using "peer" as prefix.
+-doc """
+Creates random node name, using "peer" as prefix.
+""".
 -spec random_name() -> string().
 random_name() ->
     random_name(?MODULE_STRING).
@@ -189,6 +214,7 @@ random_name() ->
 %% @doc Creates sufficiently random node name,
 %%      using OS process ID for origin VM, resulting name
 %%      looks like prefix-3-7161
+-doc "Creates sufficiently random node name, using OS process ID for origin VM, resulting name looks like prefix-3-7161".
 -spec random_name(Prefix :: string() | atom()) -> string().
 random_name(Prefix) ->
     OsPid = os:getpid(),
@@ -198,6 +224,7 @@ random_name(Prefix) ->
 %% @doc Starts a distributed node with random name, on this host,
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
+-doc "Starts a distributed node with random name, on this host, and waits for that node to boot. Returns full node name, registers local process with the same name as peer node.".
 -spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
 start_link() ->
     start_link(#{name => random_name()}).
@@ -205,34 +232,40 @@ start_link() ->
 %% @doc Starts peer node, linked to the calling process.
 %%      Accepts additional command line arguments and
 %%      other important options.
+-doc "Starts peer node, linked to the calling process. Accepts additional command line arguments and other important options.".
 -spec start_link(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
 start_link(Options) ->
     start_it(Options, start_link).
 
 %% @doc Starts peer node, not linked to the calling process.
+-doc "Starts peer node, not linked to the calling process.".
 -spec start(start_options()) -> {ok, pid()} | {ok, pid(), node()} | {error, Reason}
               when Reason :: term().
 start(Options) ->
     start_it(Options, start).
 
 %% @doc Stops controlling process, shutting down peer node synchronously
+-doc "Stops controlling process, shutting down peer node synchronously".
 -spec stop(Dest :: server_ref()) -> ok.
 stop(Dest) ->
     gen_server:stop(Dest).
 
 %% @doc returns peer node state.
+-doc "returns peer node state.".
 -spec get_state(Dest :: server_ref()) -> peer_state().
 get_state(Dest) ->
     gen_server:call(Dest, get_state).
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
+-doc "Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout".
 -spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()]) -> Result :: term().
 call(Dest, M, F, A) ->
     call(Dest, M, F, A, ?SYNC_RPC_TIMEOUT).
 
 %% @doc Call M:F(A) remotely, timeout is explicitly specified
+-doc "Call M:F(A) remotely, timeout is explicitly specified".
 -spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
            Args :: [term()], Timeout :: timeout()) -> Result :: term().
 call(Dest, M, F, A, Timeout) ->
@@ -246,12 +279,14 @@ call(Dest, M, F, A, Timeout) ->
     end.
 
 %% @doc Cast M:F(A) remotely, don't care about the result
+-doc "Cast M:F(A) remotely, don't care about the result".
 -spec cast(Dest :: server_ref(), Module :: module(), Function :: atom(), Args :: [term()]) -> ok.
 cast(Dest, M, F, A) ->
     gen_server:cast(Dest, {cast, M, F, A}).
 
 %% @doc Sends a message to pid or named process on the peer node
 %%  using alternative connection. No delivery guarantee.
+-doc "Sends a message to pid or named process on the peer node using alternative connection. No delivery guarantee.".
 -spec send(Dest :: server_ref(), To :: pid() | atom(), Message :: term()) -> ok.
 send(Dest, To, Message) ->
     gen_server:cast(Dest, {send, To, Message}).
@@ -285,8 +320,10 @@ send(Dest, To, Message) ->
                      outstanding = #{} :: #{non_neg_integer() => {reference(), pid()}}
                     }).
 
+-doc "".
 -type state() :: #peer_state{}.
 
+-doc "".
 -spec init([Name :: atom(), ... ]) -> {ok, state()}.
 init([Notify, Options]) ->
     process_flag(trap_exit, true), %% need this to ensure terminate/2 is called
@@ -336,6 +373,7 @@ init([Notify, Options]) ->
     end.
 
 %% not connected: no alternative connection available
+-doc "".
 handle_call({call, _M, _F, _A}, _From, #peer_state{connection = undefined} = State) ->
     {reply, {error, noconnection}, State};
 
@@ -375,6 +413,7 @@ handle_call(get_state, _From, #peer_state{peer_state = PeerState} = State) ->
 handle_call(group_leader, _From, State) ->
     {reply, group_leader(), State}.
 
+-doc "".
 handle_cast({cast, _M, _F, _A}, #peer_state{connection = undefined} = State) ->
     {noreply, State};
 
@@ -403,6 +442,7 @@ handle_cast({send, Dest, Message}, #peer_state{connection = Socket} = State) ->
 %% alternative connections handling
 
 %% alternative communications - request or response from peer
+-doc "".
 handle_info({tcp, Socket, SocketData},  #peer_state{connection = Socket} = State) ->
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, handle_alternative_data(tcp, binary_to_term(SocketData), State)};
@@ -456,6 +496,7 @@ handle_info({tcp_closed, Sock}, #peer_state{connection = Sock} = State) ->
 %%--------------------------------------------------------------------
 %% cleanup/termination
 
+-doc "".
 -spec terminate(Reason :: term(), state()) -> ok.
 terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node}) ->
     case {maps:get(shutdown, Options, {halt, ?DEFAULT_HALT_DISCONNECT_TIMEOUT}),
@@ -501,11 +542,13 @@ terminate(_Reason, #peer_state{connection = Port, options = Options, node = Node
 %%--------------------------------------------------------------------
 %% Internal implementation
 
+-doc "".
 deadline(infinity) ->
     {timeout, infinity};
 deadline(Timeout) when is_integer(Timeout) ->
     {deadline, erlang:monotonic_time(millisecond) + Timeout}.
 
+-doc "".
 wait_disconnected(Node, WaitUntil) ->
     %% Should only be called just before we are exiting the caller, so
     %% we do not bother disabling nodes monitoring if we enable it and
@@ -538,6 +581,7 @@ wait_disconnected(Node, WaitUntil) ->
             end
     end.
 
+-doc "".
 force_disconnect_node(Node) ->
     _ = erlang:disconnect_node(Node),
     logger:warning("peer:stop() timed out waiting for disconnect from "
@@ -545,6 +589,7 @@ force_disconnect_node(Node) ->
                    [Node]).
 
 %% This hack is a temporary workaround for test coverage reports
+-doc "".
 shutdown(_Type, _Port, Node, Timeout) when is_integer(Timeout); Timeout =:= infinity ->
     erpc:cast(Node, init, stop, []),
     Timeout;
@@ -558,6 +603,7 @@ shutdown(Type, Port, Node, {Timeout, CoverNode}) when is_integer(Timeout); Timeo
     Timeout.
 
 %% Verify options correctness (Dialyzer also does the job, but slightly less convenient)
+-doc "".
 verify_args(Options) ->
     %% verify that "Args" is valid - common problem is when Args aren't strings
     Args = maps:get(args, Options, []),
@@ -615,6 +661,7 @@ verify_args(Options) ->
             ok
     end.
 
+-doc "".
 make_notify_ref(infinity) ->
     {self(), make_ref()};
 make_notify_ref(WaitBoot) when is_integer(WaitBoot) ->
@@ -624,6 +671,7 @@ make_notify_ref({ReplyTo, Tag}) when is_pid(ReplyTo) ->
 make_notify_ref(false) ->
     false.
 
+-doc "".
 start_it(Options, StartFun) ->
     verify_args(Options),
     WaitBoot = maps:get(wait_boot, Options, ?WAIT_BOOT_TIMEOUT),
@@ -655,6 +703,7 @@ start_it(Options, StartFun) ->
             Error
     end.
 
+-doc "".
 node_name(#{name := Name, host := Host}) ->
     list_to_atom(lists:concat([Name, "@", Host]));
 node_name(_Options) ->
@@ -662,6 +711,7 @@ node_name(_Options) ->
 
 %% Lost control connection to the peer while the node was
 %%  booting, this generally means a crash
+-doc "".
 maybe_stop(Reason, #peer_state{peer_state = booting} = State) ->
     _ = boot_complete(Reason, boot_failed, State),
     maybe_stop(Reason, State#peer_state{peer_state = {down, Reason}});
@@ -689,6 +739,7 @@ maybe_stop(Reason, State) ->
 %%  * {reply, From, ok | throw | error | exit | crash, Result | {Reason, Stack}}
 
 %% Handles bytes coming from alternative connection, forwarding as needed.
+-doc "".
 handle_alternative_data(Kind, {io_request, From, FromRef, IoReq}, #peer_state{connection = Conn} = State) ->
     %% TODO: make i/o completely async
     Reply = {io_reply, From, FromRef, forward_request(IoReq)},
@@ -704,6 +755,7 @@ handle_alternative_data(_Kind, {reply, Seq, Class, Result}, #peer_state{outstand
 handle_alternative_data(_Kind, {started, NodeName}, State)->
     boot_complete(NodeName, started, State).
 
+-doc "".
 forward_request(Req) ->
     GL = group_leader(),
     MRef = erlang:monitor(process, GL),
@@ -717,12 +769,14 @@ forward_request(Req) ->
     end.
 
 %% generic primitive to send data from origin to peer via alternative connection
+-doc "".
 origin_to_peer(tcp, Sock, Term) ->
     ok = gen_tcp:send(Sock, term_to_binary(Term));
 origin_to_peer(port, Port, Term) ->
     true = erlang:port_command(Port, encode_port_data(term_to_binary(Term))).
 
 %% generic primitive to send data from peer to origin
+-doc "".
 peer_to_origin(tcp, Sock, Term) ->
     ok = gen_tcp:send(Sock, term_to_binary(Term));
 peer_to_origin(port, Port, Term) ->
@@ -741,6 +795,7 @@ peer_to_origin(port, Port, Term) ->
 %% set, so the byte looks this way: 11xxxx11.
 %% Example encoding, hexadecimal 16#0F will be encoded as
 %%  11000011 11111111 (decimal 195 255).
+-doc "".
 encode_port_data(Bytes) ->
     Size = byte_size(Bytes),
     Crc = erlang:crc32(Bytes),
@@ -749,6 +804,7 @@ encode_port_data(Bytes) ->
 
 %% convert terminal codes to Erlang term, printing everything that
 %%  was detected as text
+-doc "".
 decode_port_data(<<>>, Str, Bin) ->
     {Str, Bin};
 decode_port_data(<<3:2, Quad:4, 3:2, Rest/binary>>, Str, Bin) ->
@@ -757,6 +813,7 @@ decode_port_data(<<Char:8, Rest/binary>>, Str, Bin) ->
     decode_port_data(Rest, <<Str/binary, Char>>, Bin).
 
 %% recursively process buffers, potentially changing the state
+-doc "".
 handle_port_binary(<<Size:32, Payload:Size/binary, Crc:32, Rest/binary>>, State) ->
     Crc = erlang:crc32(Payload),
     Term = binary_to_term(Payload),
@@ -765,6 +822,7 @@ handle_port_binary(<<Size:32, Payload:Size/binary, Crc:32, Rest/binary>>, State)
 handle_port_binary(NewBin, State) ->
     State#peer_state{stdio = NewBin}.
 
+-doc "".
 boot_complete(Node, _Result, #peer_state{notify = false} = State) ->
     State#peer_state{peer_state = running, node = Node};
 boot_complete(Node, Result, #peer_state{notify = {ReplyTo, Tag}} = State) ->
@@ -772,6 +830,7 @@ boot_complete(Node, Result, #peer_state{notify = {ReplyTo, Tag}} = State) ->
     State#peer_state{peer_state = running, node = Node}.
 
 %% check if TCP connection is enabled, and starts listener
+-doc "".
 maybe_listen(#{connection := Port}) when is_integer(Port) ->
     {ok, LSock} = gen_tcp:listen(Port, [binary, {reuseaddr, true}, {packet, 4}]),
     {ok, WaitPort} = inet:port(LSock),
@@ -792,6 +851,7 @@ maybe_listen(_Options) ->
     {undefined, undefined}.
 
 %% prefer localhost, IPv6 localhost, then everything else
+-doc "".
 prefer_localhost([], Preferred, Other) ->
     Preferred ++ Other;
 prefer_localhost([{127, _, _, _} = Local | Tail], Preferred, Other) ->
@@ -801,6 +861,7 @@ prefer_localhost([{0, 0, 0, 0, 0, 0, 0, 1} = Local | Tail], Preferred, Other) ->
 prefer_localhost([Local | Tail], Preferred, Other) ->
     prefer_localhost(Tail, Preferred, [Local | Other]).
 
+-doc "".
 name_arg(error, error, _) ->
     []; %% no name, no host - starting node that is not distributed
 name_arg(error, {ok, Host}, LongOrShort) ->
@@ -824,6 +885,7 @@ name_arg(Name, error, {ok, true}) ->
 name_arg(Name, error, {ok, false}) ->
     ["-sname", Name].
 
+-doc "".
 command_line(Listen, Options) ->
     %% Node name/sname
     NameArg = name_arg(maps:find(name, Options), maps:find(host, Options), maps:find(longnames, Options)),
@@ -853,6 +915,7 @@ command_line(Listen, Options) ->
     {Exec, PreArgs} = exec(Options),
     {Exec, PreArgs ++ NameArg ++ CmdOpts ++ StartCmd}.
 
+-doc "".
 exec(#{exec := Prog}) when is_list(Prog) ->
     {Prog, []};
 exec(#{exec := {Prog, Args}}) when is_list(Prog), is_list(Args) ->
@@ -870,6 +933,7 @@ exec(Options) when not is_map_key(exec, Options) ->
             default_erts()
     end.
 
+-doc "".
 maybe_otp_test_suite(Prog) ->
     case string:split(Prog, "cerl ") of
         [CerlPath, Args] ->
@@ -898,6 +962,7 @@ maybe_otp_test_suite(Prog) ->
 
 
 %% Split command line string into a list of arguments.
+-doc "".
 -spec parse_args(string()) -> [string()].
 parse_args([]) ->
     [];
@@ -910,6 +975,7 @@ parse_args(CmdLine) ->
     %% unquote arguments. It is possible to change regex capture groups to avoid extra processing.
     [unquote(Arg) || [Arg] <- Args].
 
+-doc "".
 unquote([Q | Arg]) when Q =:= $\"; Q =:= $\' ->
     case lists:last(Arg) of
         Q -> lists:droplast(Arg);
@@ -921,6 +987,7 @@ unquote([Q | Arg]) when Q =:= $\"; Q =:= $\' ->
 %% if progname is not known, use `erlexec` from the same ERTS version we're currently running
 %% BINDIR environment variable is already set
 %% EMU variable it also set
+-doc "".
 default_erts() ->
     Root = code:root_dir(),
     Erts = filename:join(Root, lists:concat(["erts-", erlang:system_info(version)])),
@@ -930,11 +997,13 @@ default_erts() ->
 %%--------------------------------------------------------------------
 %% peer node implementation
 
+-doc "".
 notify_when_started(Kind, Port) ->
     init:notify_when_started(self()) =:= started andalso
         notify_started(Kind, Port),
     ok.
 
+-doc "".
 notify_started(dist, Process) ->
     Process ! {started, node()},
     ok;
@@ -946,6 +1015,7 @@ notify_started(Kind, Port) ->
 %% sure that the peer node is halted if the peer user process crashes...
 %%
 
+-doc "".
 supervision_child_spec() ->
     case init:get_argument(user) of
         {ok, [["peer"]]} ->
@@ -959,14 +1029,17 @@ supervision_child_spec() ->
             none
     end.
 
+-doc "".
 start_supervision() ->
     proc_lib:start_link(?MODULE, init_supervision, [self(), true]).
 
+-doc "".
 start_orphan_supervision() ->
     proc_lib:start(?MODULE, init_supervision, [self(), false]).
 
 -record(peer_sup_state, {parent, channel, in_sup_tree}).
 
+-doc "".
 -spec init_supervision(term(), term()) -> no_return().
 init_supervision(Parent, InSupTree) ->
     try
@@ -996,6 +1069,7 @@ init_supervision(Parent, InSupTree) ->
             erlang:halt(1)
     end.
 
+-doc "".
 peer_sup_connect_channel(PeerSupervision, PeerChannelHandler) ->
     Ref = make_ref(),
     PeerSupervision ! {channel_connect, Ref, self(), PeerChannelHandler},
@@ -1006,6 +1080,7 @@ peer_sup_connect_channel(PeerSupervision, PeerChannelHandler) ->
             exit(peer_supervision_connect_timeout)
     end.
 
+-doc "".
 loop_supervision(#peer_sup_state{parent = Parent,
                                  channel = Channel} = State) ->
     receive
@@ -1018,18 +1093,23 @@ loop_supervision(#peer_sup_state{parent = Parent,
     end.
 
 
+-doc "".
 system_continue(_Parent, _, #peer_sup_state{} = State) ->
     loop_supervision(State).
 
+-doc "".
 system_terminate(Reason, _Parent, _Debug, _State) ->
     exit(Reason).
 
+-doc "".
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.
 
+-doc "".
 system_get_state(State) ->
     {ok, State}.
 
+-doc "".
 system_replace_state(StateFun, State) ->
     NState = StateFun(State),
     {ok, NState, NState}.
@@ -1037,6 +1117,7 @@ system_replace_state(StateFun, State) ->
 %% End of peer user supervision
 
 %% I/O redirection: peer side
+-doc "".
 -spec start() -> pid().
 start() ->
     try
@@ -1054,6 +1135,7 @@ start() ->
             erlang:halt(1)
     end.
 
+-doc "".
 start_peer_channel_handler() ->
     case init:get_argument(origin) of
         {ok, [[IpStr, PortString]]} ->
@@ -1102,6 +1184,7 @@ start_peer_channel_handler() ->
             spawn(fun io_server/0)
     end.
 
+-doc "".
 relay(GroupLeader) ->
     receive
         IO ->
@@ -1109,6 +1192,7 @@ relay(GroupLeader) ->
             relay(GroupLeader)
     end.
 
+-doc "".
 origin_link(MRef, Origin) ->
     receive
         {'DOWN', MRef, process, Origin, _Reason} ->
@@ -1118,6 +1202,7 @@ origin_link(MRef, Origin) ->
             origin_link(MRef, Origin)
     end.
 
+-doc "".
 -spec io_server() -> no_return().
 io_server() ->
    try
@@ -1132,6 +1217,7 @@ io_server() ->
             erlang:halt(1)
     end.
 
+-doc "".
 -spec tcp_init([term()], term()) -> no_return().
 tcp_init(IpList, Port) ->
     try
@@ -1144,6 +1230,7 @@ tcp_init(IpList, Port) ->
             erlang:halt(1)
     end.
 
+-doc "".
 loop_connect([], _Port) ->
     error(noconnection);
 loop_connect([Ip | More], Port) ->
@@ -1155,6 +1242,7 @@ loop_connect([Ip | More], Port) ->
     end.
 
 %% Message protocol between peers
+-doc "".
 io_server_loop(Kind, Port, Refs, Out, PortBuf) ->
     receive
         {io_request, From, ReplyAs, Request} when is_pid(From) ->
@@ -1207,6 +1295,7 @@ io_server_loop(Kind, Port, Refs, Out, PortBuf) ->
             io_server_loop(Kind, Port, Refs, Out, PortBuf)
     end.
 
+-doc "".
 handle_peer_alternative({io_reply, From, FromRef, Reply}, Refs, Out) ->
     From ! {io_reply, FromRef, Reply},
     {Refs, Out};
@@ -1222,6 +1311,7 @@ handle_peer_alternative({message, Dest, Message}, Refs, Out) ->
     {Refs, Out}.
 
 %% single port input message may contain multiple messages
+-doc "".
 handle_port_alternative(<<Size:32, Payload:Size/binary, Crc:32, Rest/binary>>, Refs, Out) ->
     Crc = erlang:crc32(Payload), %% assert
     {NewRefs, NewOut} = handle_peer_alternative(binary_to_term(Payload), Refs, Out),
@@ -1229,6 +1319,7 @@ handle_port_alternative(<<Size:32, Payload:Size/binary, Crc:32, Rest/binary>>, R
 handle_port_alternative(Rest, Refs, Out) ->
     {Refs, Out, Rest}.
 
+-doc "".
 do_call(Seq, M, F, A) ->
     Proxy = self(),
     {_, CallerRef} =
@@ -1244,3 +1335,4 @@ do_call(Seq, M, F, A) ->
                   end
           end),
     CallerRef.
+

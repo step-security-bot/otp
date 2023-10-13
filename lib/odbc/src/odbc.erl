@@ -21,6 +21,119 @@
 %
 
 -module(odbc).
+-moduledoc """
+Erlang ODBC application
+
+This application provides an Erlang interface to communicate with relational SQL-databases. It is built on top of Microsofts ODBC interface and therefore requires that you have an ODBC driver to the database that you want to connect to.
+
+> #### Note {: class=info }
+> The functions `first/[1,2]`, `last/[1,2]`, `next/[1,2]`, `prev[1,2]` and `select/[3,4]` assumes there is a result set associated with the connection to work on. Calling the function `select_count/[2,3]` associates such a result set with the connection. Calling select_count again will remove the current result set association and create a new one. Calling a function which dose not operate on an associated result sets, such as `sql_query/[2,3]`, will remove the current result set association.
+>
+> Alas some drivers only support sequential traversal of the result set, e.i. they do not support what in the ODBC world is known as scrollable cursors. This will have the effect that functions such as `first/[1,2]`, `last/[1,2]`, `prev[1,2]`, etc will return `{error, driver_does_not_support_function}`
+
+## COMMON DATA TYPES
+
+Here follows type definitions that are used by more than one function in the ODBC API.
+
+> #### Note {: class=info }
+> The type `TimeOut` has the default value `infinity`, so for instance:
+> commit(Ref, CommitMode) is the same as commit(Ref, CommitMode, infinity). If the timeout expires the client will exit with the reason timeout.
+
+```text
+ connection_reference() - as returned by connect/2
+```
+
+```text
+ time_out() = milliseconds() | infinity
+```
+
+```text
+ milliseconds() = integer() >= 0
+```
+
+```text
+ common_reason() = connection_closed | extended_error() | term() - some kind of
+ explanation of what went wrong
+```
+
+```text
+ extended_error() = {string(), integer(), Reason} - extended error type with ODBC
+ and native database error codes, as well as the base reason that would have been
+ returned had extended_errors not been enabled.
+```
+
+```text
+ string() = list of ASCII characters
+```
+
+```text
+ col_name() = string() - Name of column in the result set
+```
+
+```text
+ col_names() - [col_name()] - e.g. a list of the names of the
+           selected columns in the result set.
+```
+
+```text
+ row() = {value()} - Tuple of column values e.g. one row of the
+           result set.
+```
+
+```text
+ value() = null | term() - A column value.
+```
+
+```text
+ rows() = [row()] - A list of rows from the result set.
+```
+
+```text
+ result_tuple() =
+      {updated, n_rows()} | {selected, col_names(), rows()}
+```
+
+```text
+ n_rows() = integer() - The number of affected rows for UPDATE,
+           INSERT, or DELETE queries. For other query types the value
+           is driver defined, and hence should be ignored.
+```
+
+```text
+ odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
+      {sql_decimal, precision(), scale()} |
+      {sql_numeric, precision(), scale()} |
+      {sql_char, size()} |
+      {sql_wchar, size()} |
+      {sql_varchar, size()} |
+      {sql_wvarchar, size()}|
+      {sql_float, precision()} |
+      {sql_wlongvarchar, size()} |
+      {sql_float, precision()} |
+      sql_real | sql_double | sql_bit | atom()
+```
+
+```text
+ precision() = integer()
+```
+
+```text
+ scale() = integer()
+```
+
+```text
+ size() = integer()
+```
+
+## ERROR HANDLING
+
+The error handling strategy and possible errors sources are described in the Erlang ODBC [User's Guide.](error_handling.md)
+
+## REFERENCES
+
+\[1]: Microsoft ODBC 3.0, Programmer's Reference and SDK Guide  
+See also http://msdn.microsoft.com/
+""".
 
 -behaviour(gen_server).
 
@@ -84,9 +197,15 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
+-doc(#{equiv => start/1}).
 start() -> 
     application:start(odbc).
 
+-doc """
+Type = permanent | transient | temporary  
+
+Starts the odbc application. Default type is temporary. [See application(3)](`m:application`)
+""".
 start(Type) -> 
     application:start(odbc, Type).
 
@@ -95,6 +214,7 @@ start(Type) ->
 %%
 %% Description: Stops the odbc application.
 %%--------------------------------------------------------------------
+-doc "Stops the odbc application. [See application(3)](`m:application`)".
 stop() -> 
     application:stop(odbc).
 
@@ -105,6 +225,44 @@ stop() ->
 %%              to a c-process that uses the ODBC API to open a connection
 %%              to the database. 
 %%-------------------------------------------------------------------------
+-doc """
+ConnectStr = string()  
+  An example of a connection string: `"DSN=sql-server;UID=aladdin;PWD=sesame"` where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example `"DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame"` where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.  
+Options = [] | \[option()]  
+  All options has default values.  
+option() = \{auto_commit, on | off\} | \{timeout, milliseconds()\} | \{binary_strings, on | off\} | \{tuple_row, on | off\} | \{scrollable_cursors, on | off\} | \{trace_driver, on | off\} | \{extended_errors, on | off\}  
+Ref = connection_reference() - should be used to access the connection.  
+Reason = port_program_executable_not_found | common_reason()  
+
+Opens a connection to the database. The connection is associated with the process that created it and can only be accessed through it. This function may spawn new processes to handle the connection. These processes will terminate if the process that created the connection dies or if you call disconnect/1.
+
+If automatic commit mode is turned on, each query will be considered as an individual transaction and will be automatically committed after it has been executed. If you want more than one query to be part of the same transaction the automatic commit mode should be turned off. Then you will have to call commit/3 explicitly to end a transaction.
+
+The default timeout is infinity
+
+>If the option binary_strings is turned on all strings will be returned as binaries and strings inputted to param_query will be expected to be binaries. The user needs to ensure that the binary is in an encoding that the database expects. By default this option is turned off.
+
+As default result sets are returned as a lists of tuples. The `TupleMode` option still exists to keep some degree of backwards compatibility. If the option is set to off, result sets will be returned as a lists of lists instead of a lists of tuples.
+
+Scrollable cursors are nice but causes some overhead. For some connections speed might be more important than flexible data access and then you can disable scrollable cursor for a connection, limiting the API but gaining speed.
+
+> #### Note {: class=info }
+> Turning the scrollable_cursors option off is noted to make old odbc-drivers able to connect that will otherwise fail.
+
+If trace mode is turned on this tells the ODBC driver to write a trace log to the file SQL.LOG that is placed in the current directory of the erlang emulator. This information may be useful if you suspect there might be a bug in the erlang ODBC application, and it might be relevant for you to send this file to our support. Otherwise you will probably not have much use of this.
+
+> #### Note {: class=info }
+> For more information about the `ConnectStr` see description of the function SQLDriverConnect in \[1].
+
+The `extended_errors` option enables extended ODBC error information when an operation fails. Rather than returning `{error, Reason}`, the failing function will return `{error, {ODBCErrorCode, NativeErrorCode, Reason}}`. Note that this information is probably of little use when writing database-independent code, but can be of assistance in providing more sophisticated error handling when dealing with a known underlying database.
+
+* `ODBCErrorCode` is the ODBC error string returned by the ODBC driver.
+* `NativeErrorCode` is the numeric error code returned by the underlying database. The possible values and their meanings are dependent on the database being used.
+* `Reason` is as per the `Reason` field when extended errors are not enabled.
+
+> #### Note {: class=info }
+> The current implementation spawns a port program written in C that utilizes the actual ODBC driver. There is a default timeout of 5000 msec for this port program to connect to the Erlang ODBC application. This timeout can be changed by setting an application specific environment variable 'port_timeout' with the number of milliseconds for the ODBC application. E.g.: \[\{odbc, [\{port_timeout, 60000\}]\}] to set it to 60 seconds.
+""".
 connect(ConnectionStr, Options) when is_list(ConnectionStr), is_list(Options) ->
     
     %% Spawn the erlang control process.
@@ -124,6 +282,12 @@ connect(ConnectionStr, Options) when is_list(ConnectionStr), is_list(Options) ->
 %% Description: Disconnects from the database and terminates both the erlang
 %%              control process and the database handling c-process. 
 %%--------------------------------------------------------------------------
+-doc """
+Ref = connection_reference()  
+Reason = process_not_owner_of_odbc_connection | extended_error()  
+
+Closes a connection to a database. This will also terminate all processes that may have been spawned when the connection was opened. This call will always succeed. If the connection cannot be disconnected gracefully it will be brutally killed. However you may receive an error message as result if you try to disconnect a connection started by another process.[](){: id=describe_table }
+""".
 disconnect(ConnectionReference) when is_pid(ConnectionReference)->
     ODBCCmd = [?CLOSE_CONNECTION],
     case call(ConnectionReference, {disconnect, ODBCCmd}, 5000) of 
@@ -149,9 +313,18 @@ disconnect(ConnectionReference) when is_pid(ConnectionReference)->
 %% Description: Commits or rollbacks a transaction. Needed on connections
 %%              where automatic commit is turned off.  
 %%--------------------------------------------------------------------------
+-doc(#{equiv => commit/3}).
 commit(ConnectionReference, CommitMode) ->
     commit(ConnectionReference, CommitMode, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+CommitMode = commit | rollback  
+TimeOut = time_out()  
+Reason = not_an_explicit_commit_connection | process_not_owner_of_odbc_connection | common_reason()  
+
+Commits or rollbacks a transaction. Needed on connections where automatic commit is turned off.
+""".
 commit(ConnectionReference, commit, infinity) 
   when is_pid(ConnectionReference) ->
     ODBCCmd = [?COMMIT_TRANSACTION, ?COMMIT],
@@ -180,9 +353,24 @@ commit(ConnectionReference, rollback, TimeOut)
 %%              result set is returned, otherwise the number of affected 
 %%       	rows are returned.
 %%--------------------------------------------------------------------------
+-doc(#{equiv => sql_query/3}).
 sql_query(ConnectionReference, SQLQuery) ->
     sql_query(ConnectionReference, SQLQuery, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+SQLQuery = string() - The string may be composed by several SQL-queries separated by a ";", this is called a batch.  
+TimeOut = time_out()  
+ResultTuple = result_tuple()  
+Reason = process_not_owner_of_odbc_connection | common_reason()  
+
+Executes a SQL query or a batch of SQL queries. If it is a SELECT query the result set is returned, on the format `{selected, ColNames, Rows}`. For other query types the tuple `{updated, NRows}` is returned, and for batched queries, if the driver supports them, this function can also return a list of result tuples.
+
+> #### Note {: class=info }
+> Some drivers may not have the information of the number of affected rows available and then the return value may be `{updated, undefined} `.
+>
+> The list of column names is ordered in the same way as the list of values of a row, e.g. the first `ColName` is associated with the first `Value` in a `Row`.
+""".
 sql_query(ConnectionReference, SQLQuery, infinity) when 
   is_pid(ConnectionReference), is_list(SQLQuery) -> 
     ODBCCmd = [?QUERY, SQLQuery],
@@ -202,9 +390,23 @@ sql_query(ConnectionReference, SQLQuery, TimeOut)
 %%        	the first row in the result set and the number of
 %%	        rows in the result set is returned.
 %%--------------------------------------------------------------------------
+-doc(#{equiv => select_count/3}).
 select_count(ConnectionReference, SQLQuery) ->	
     select_count(ConnectionReference, SQLQuery, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+SelectQuery = string()  
+  SQL SELECT query.  
+TimeOut = time_out()  
+NrRows = n_rows()  
+Reason = process_not_owner_of_odbc_connection | common_reason()  
+
+Executes a SQL SELECT query and associates the result set with the connection. A cursor is positioned before the first row in the result set and the tuple `{ok, NrRows}` is returned.
+
+> #### Note {: class=info }
+> Some drivers may not have the information of the number of rows in the result set, then `NrRows` will have the value `undefined`.
+""".
 select_count(ConnectionReference, SQLQuery, infinity) when 
   is_pid(ConnectionReference), is_list(SQLQuery) ->
     ODBCCmd = [?SELECT_COUNT, SQLQuery],
@@ -222,9 +424,19 @@ select_count(ConnectionReference, SQLQuery, TimeOut) when
 %% Description: Selects the first row in the current result set. The cursor
 %%            : is positioned at this row. 
 %%--------------------------------------------------------------------------
+-doc(#{equiv => first/2}).
 first(ConnectionReference) ->	
     first(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+-doc """
+Ref = connection_reference()  
+TimeOut = time_out()  
+ColNames = col_names()  
+Rows = rows()  
+Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason()  
+
+Returns the first row of the result set and positions a cursor at this row.
+""".
 first(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_FIRST],
     call(ConnectionReference, {select_cmd, absolute, ODBCCmd}, infinity);
@@ -241,9 +453,19 @@ first(ConnectionReference, TimeOut)
 %% Description: Selects the last row in the current result set. The cursor
 %%            : is positioned at this row. 
 %%--------------------------------------------------------------------------
+-doc(#{equiv => last/2}).
 last(ConnectionReference) ->	
     last(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+-doc """
+Ref = connection_reference()  
+TimeOut = time_out()  
+ColNames = col_names()  
+Rows = rows()  
+Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason()  
+
+Returns the last row of the result set and positions a cursor at this row.
+""".
 last(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_LAST],
     call(ConnectionReference, {select_cmd, absolute, ODBCCmd}, infinity);
@@ -260,9 +482,19 @@ last(ConnectionReference, TimeOut)
 %%            : in the current result set. The cursor is positioned at 
 %%            : this row. 
 %%--------------------------------------------------------------------------
+-doc(#{equiv => next/2}).
 next(ConnectionReference) ->	
     next(ConnectionReference, ?DEFAULT_TIMEOUT).	
     
+-doc """
+Ref = connection_reference()  
+TimeOut = time_out()  
+ColNames = col_names()  
+Rows = rows()  
+Reason = result_set_does_not_exist | process_not_owner_of_odbc_connection | common_reason()  
+
+Returns the next row of the result set relative the current cursor position and positions the cursor at this row. If the cursor is positioned at the last row of the result set when this function is called the returned value will be `{selected, ColNames,[]}` e.i. the list of row values is empty indicating that there is no more data to fetch.[](){: id=param_query }
+""".
 next(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_NEXT],
     call(ConnectionReference, {select_cmd, next, ODBCCmd}, infinity);
@@ -280,9 +512,19 @@ next(ConnectionReference, TimeOut)
 %%            : position in the current result set. The cursor is
 %%            : positioned at this row. 
 %%--------------------------------------------------------------------------
+-doc(#{equiv => prev/2}).
 prev(ConnectionReference) ->	
     prev(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+-doc """
+Ref = connection_reference()  
+TimeOut = time_out()  
+ColNames = col_names()  
+Rows = rows()  
+Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason()  
+
+Returns the previous row of the result set relative the current cursor position and positions the cursor at this row.
+""".
 prev(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_PREV],
     call(ConnectionReference, {select_cmd, relative, ODBCCmd}, infinity);
@@ -305,9 +547,22 @@ prev(ConnectionReference, TimeOut)
 %%              row selected. After this function has returned the
 %%              cursor is positioned at the last selected row.
 %%--------------------------------------------------------------------------
+-doc(#{equiv => select/4}).
 select(ConnectionReference, Position, N) ->
     select(ConnectionReference, Position, N, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+Position = next | \{relative, Pos\} | \{absolute, Pos\}  
+  Selection strategy, determines at which row in the result set to start the selection.  
+Pos = integer()  
+  Should indicate a row number in the result set. When used together with the option `relative`it will be used as an offset from the current cursor position, when used together with the option `absolute`it will be interpreted as a row number.  
+N = integer()  
+TimeOut = time_out()  
+Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason()  
+
+Selects `N` consecutive rows of the result set. If `Position` is `next` it is semantically equivalent of calling `next/[1,2]` `N` times. If `Position` is `{relative, Pos}`, `Pos` will be used as an offset from the current cursor position to determine the first selected row. If `Position` is `{absolute, Pos}`, `Pos` will be the number of the first row selected. After this function has returned the cursor is positioned at the last selected row. If there is less then `N` rows left of the result set the length of `Rows` will be less than `N`. If the first row to select happens to be beyond the last row of the result set, the returned value will be `{selected, ColNames,[]}` e.i. the list of row values is empty indicating that there is no more data to fetch.
+""".
 select(ConnectionReference, next, N, infinity) 
   when is_pid(ConnectionReference), is_integer(N), N > 0 ->
     ODBCCmd = [?SELECT, ?SELECT_N_NEXT,
@@ -360,9 +615,24 @@ select(ConnectionReference, {absolute, Pos} , N, TimeOut)
 %%                                    
 %% Description: Executes a parameterized update/delete/insert-query. 
 %%--------------------------------------------------------------------------
+-doc(#{equiv => param_query/4}).
 param_query(ConnectionReference, SQLQuery, Params) ->
     param_query(ConnectionReference, SQLQuery, Params, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+SQLQuery = string() - a SQL query with parameter markers/place holders in form of question marks.  
+Params = \[\{odbc_data_type(), [value()]\}] |\[\{odbc_data_type(), in_or_out(), [value()]\}]  
+in_or_out = in | out | inout  
+  Defines IN, OUT, and IN OUT Parameter Modes for stored procedures.  
+TimeOut = time_out()  
+Values = term() - Must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType  
+
+Executes a parameterized SQL query. For an example see the ["Using the Erlang API"](getting_started.md#param_query) in the Erlang ODBC User's Guide.
+
+> #### Note {: class=info }
+> Use the function describe_table/\[2,3] to find out which ODBC data type that is expected for each column of that table. If a column has a data type that is described with capital letters, alas it is not currently supported by the param_query function. Too know which Erlang data type corresponds to an ODBC data type see the Erlang to ODBC data type [mapping](databases.md#type) in the User's Guide.
+""".
 param_query(ConnectionReference, SQLQuery, Params, infinity) 
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params) ->
     Values = param_values(Params),
@@ -391,9 +661,19 @@ param_query(ConnectionReference, SQLQuery, Params, TimeOut)
 %% Description: Queries the database to find out the datatypes of the
 %%              table <Table>
 %%--------------------------------------------------------------------------
+-doc(#{equiv => describe_table/3}).
 describe_table(ConnectionReference, Table) ->
     describe_table(ConnectionReference, Table, ?DEFAULT_TIMEOUT).
 
+-doc """
+Ref = connection_reference()  
+Table = string() - Name of database table.  
+TimeOut = time_out()  
+Description = \[\{col_name(), odbc_data_type()\}]  
+Reason = common_reason()  
+
+Queries the database to find out the ODBC data types of the columns of the table `Table`.
+""".
 describe_table(ConnectionReference, Table, infinity) when 
   is_pid(ConnectionReference), is_list(Table) -> 
     ODBCCmd = [?DESCRIBE, "SELECT * FROM " ++ Table],
@@ -988,3 +1268,4 @@ string_terminate_value(null) ->
 
 port_timeout() ->
   application:get_env(?MODULE, port_timeout, ?ODBC_PORT_TIMEOUT).
+

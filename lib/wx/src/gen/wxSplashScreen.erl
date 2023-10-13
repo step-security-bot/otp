@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSplashScreen).
+-moduledoc """
+Functions for wxSplashScreen class
+
+`m:wxSplashScreen` shows a window with a thin border, displaying a bitmap describing your application.
+
+Show it in application initialisation, and then either explicitly destroy it or let it time-out.
+
+Example usage:
+
+This class is derived (and can use functions) from: `m:wxFrame` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSplashScreen](https://docs.wxwidgets.org/3.1/classwx_splash_screen.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getSplashStyle/1,getTimeout/1,new/5,new/6]).
 
@@ -70,6 +83,7 @@
   showFullScreen/3,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSplashScreen() :: wx:wx_object().
 -export_type([wxSplashScreen/0]).
 %% @hidden
@@ -80,6 +94,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Bitmap,SplashStyle,Milliseconds,Parent,Id, [])
+-doc "".
 -spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id) -> wxSplashScreen() when
 	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -88,6 +103,13 @@ new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
   new(Bitmap,SplashStyle,Milliseconds,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
+-doc """
+Construct the splash screen passing a bitmap, a style, a timeout, a window id, optional position and size, and a window style.
+
+`splashStyle` is a bitlist of some of the following:
+
+`milliseconds` is the timeout in milliseconds.
+""".
 -spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id, [Option]) -> wxSplashScreen() when
 	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -106,6 +128,7 @@ new(#wx_ref{type=BitmapT}=Bitmap,SplashStyle,Milliseconds,#wx_ref{type=ParentT}=
   wxe_util:rec(?wxSplashScreen_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreengetsplashstyle">external documentation</a>.
+-doc "Returns the splash style (see `new/6` for details).".
 -spec getSplashStyle(This) -> integer() when
 	This::wxSplashScreen().
 getSplashStyle(#wx_ref{type=ThisT}=This) ->
@@ -114,6 +137,7 @@ getSplashStyle(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplashScreen_GetSplashStyle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreengettimeout">external documentation</a>.
+-doc "Returns the timeout in milliseconds.".
 -spec getTimeout(This) -> integer() when
 	This::wxSplashScreen().
 getTimeout(#wx_ref{type=ThisT}=This) ->
@@ -122,6 +146,7 @@ getTimeout(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplashScreen_GetTimeout).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the splash screen.".
 -spec destroy(This::wxSplashScreen()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplashScreen),
@@ -581,3 +606,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

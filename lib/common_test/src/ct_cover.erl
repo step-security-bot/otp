@@ -19,6 +19,13 @@
 %%
 
 -module(ct_cover).
+-moduledoc """
+Common Test framework code coverage support module.
+
+`Common Test` framework code coverage support module.
+
+This module exports help functions for performing code coverage analysis.
+""".
 
 -export([get_spec/1, add_nodes/1, remove_nodes/1, cross_cover_analyse/2]).
 
@@ -26,6 +33,15 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-doc """
+Nodes = \[atom()]  
+StartedNodes = \[atom()]  
+Reason = cover_not_running | not_main_node  
+
+Adds nodes to current cover test. Notice that this only works if cover support is active.
+
+To have effect, this function is to be called from `init_per_suite/1` (see `m:ct_suite`) before any tests are performed.
+""".
 add_nodes([]) ->
     {ok,[]};
 add_nodes(Nodes) ->
@@ -52,6 +68,14 @@ add_nodes(Nodes) ->
 	    end
     end.
 
+-doc """
+Nodes = \[atom()]  
+Reason = cover_not_running | not_main_node  
+
+Removes nodes from the current cover test.
+
+Call this function to stop cover test on nodes previously added with [`ct_cover:add_nodes/1`](`add_nodes/1`). Results on the remote node are transferred to the `Common Test` node.
+""".
 remove_nodes([]) ->
     ok;
 remove_nodes(Nodes) ->
@@ -77,6 +101,15 @@ remove_nodes(Nodes) ->
 	    end
     end.
     
+-doc """
+Level = overview | details  
+Tests = \[\{Tag, Dir\}]  
+Tag = atom()  
+Dir = string()  
+
+Accumulates cover results over multiple tests. See section [Cross Cover Analysis](cover_chapter.md#cross_cover) in the Users's Guide.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 cross_cover_analyse(Level,Tests) ->
     test_server_ctrl:cross_cover_analyse(Level,Tests).
 
@@ -355,3 +388,4 @@ files2mods1([F|Fs]) when is_list(F) ->
     [list_to_atom(M)|files2mods1(Fs)];
 files2mods1([]) ->
     [].
+

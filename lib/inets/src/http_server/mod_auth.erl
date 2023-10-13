@@ -19,6 +19,15 @@
 %%
 %%
 -module(mod_auth).
+-moduledoc """
+User authentication using text files, Dets, or Mnesia database.
+
+This module provides for basic user authentication using textual files, Dets databases, or Mnesia databases.
+
+## SEE ALSO
+
+`m:httpd`, `m:mod_alias`
+""".
 
 %% The functions that the webbserver call on startup stop
 %% and when the server traverse the modules.
@@ -152,6 +161,7 @@ remove(ConfigDB) ->
     mod_auth_server:stop(Addr, Port, Profile),
     ok.
 
+-doc(#{equiv => add_user/6}).
 add_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -167,14 +177,30 @@ add_user(UserName, Opt) ->
     end.
 
 
+-doc(#{equiv => add_user/6}).
 add_user(UserName, Password, UserData, Port, Dir) ->
     add_user(UserName, Password, UserData, undefined, Port, Dir).
+-doc """
+UserName = string()  
+Options = \[Option]  
+Option = \{password,Password\} | \{userData,UserData\} | \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Password = string()  
+UserData = term()  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+AuthPassword =string()  
+Reason = term()  
+
+`add_user/2, add_user/5`, and `add_user/6` each adds a user to the user database. If the operation is successful, this function returns `true`. If an error occurs, `{error,Reason}` is returned. When `add_user/2` is called, options `Password`, `UserData`, `Port`, and `Dir` are mandatory.
+""".
 add_user(UserName, Password, UserData, Addr, Port, Dir) ->
     User = [#httpd_user{username  = UserName, 
 			password  = Password,
 			user_data = UserData}],
     mod_auth_server:add_user(Addr, Port, Dir, User, ?NOPASSWORD).
 
+-doc(#{equiv => get_user/4}).
 get_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -183,11 +209,25 @@ get_user(UserName, Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => get_user/4}).
 get_user(UserName, Port, Dir) ->
     get_user(UserName, undefined, Port, Dir).
+-doc """
+UserName = string()  
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+AuthPassword = string()  
+Reason = term()  
+
+`get_user/2, get_user/3`, and `get_user/4` each returns an `httpd_user` record containing the userdata for a specific user. If the user cannot be found, `{error, Reason}` is returned. When `get_user/2` is called, options `Port` and `Dir` are mandatory.
+""".
 get_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:get_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
+-doc(#{equiv => add_group_member/5}).
 add_group_member(GroupName, UserName, Opt)->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -197,13 +237,28 @@ add_group_member(GroupName, UserName, Opt)->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => add_group_member/5}).
 add_group_member(GroupName, UserName, Port, Dir) ->
     add_group_member(GroupName, UserName, undefined, Port, Dir).
 
+-doc """
+GroupName = string()  
+UserName = string()  
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+AuthPassword = string()  
+Reason = term()  
+
+`add_group_member/3, add_group_member/4`, and `add_group_member/5` each adds a user to a group. If the group does not exist, it is created and the user is added to the group. Upon successful operation, this function returns `true`. When `add_group_members/3` is called, options `Port` and `Dir` are mandatory.
+""".
 add_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:add_group_member(Addr, Port, Dir, 
 				     GroupName, UserName, ?NOPASSWORD).
 
+-doc(#{equiv => delete_group_member/5}).
 delete_group_member(GroupName, UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -213,12 +268,28 @@ delete_group_member(GroupName, UserName, Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => delete_group_member/5}).
 delete_group_member(GroupName, UserName, Port, Dir) ->
     delete_group_member(GroupName, UserName, undefined, Port, Dir).
+-doc """
+GroupName = string()  
+UserName = string()  
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+AuthPassword = string()  
+Reason = term()  
+
+`delete_group_member/3, delete_group_member/4`, and `delete_group_member/5` each deletes a user from a group. If the group or the user does not exist, this function returns an error, otherwise `true`. When `delete_group_member/3` is called, the options `Port` and `Dir` are mandatory.
+""".
 delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_group_member(Addr, Port, Dir, 
 					GroupName, UserName, ?NOPASSWORD).
 
+-doc(#{equiv => list_users/3}).
+-doc(#{since => <<"OTP R14B01">>}).
 list_users(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -227,11 +298,27 @@ list_users(Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => list_users/3}).
+-doc(#{since => <<"OTP R14B01">>}).
 list_users(Port, Dir) ->
     list_users(undefined, Port, Dir).
+-doc """
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Users = list()  
+AuthPassword = string()  
+Reason = atom()  
+
+`list_users/1, list_users/2`, and `list_users/3` each returns a list of users in the user database for a specific `Port/Dir`. When `list_users/1` is called, options `Port` and `Dir` are mandatory.
+""".
+-doc(#{since => <<"OTP R14B01">>}).
 list_users(Addr, Port, Dir) ->
     mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
 
+-doc(#{equiv => delete_user/4}).
 delete_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -240,11 +327,25 @@ delete_user(UserName, Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => delete_user/4}).
 delete_user(UserName, Port, Dir) ->
     delete_user(UserName, undefined, Port, Dir).
+-doc """
+UserName = string()  
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+AuthPassword = string()  
+Reason = term()  
+
+`delete_user/2, delete_user/3`, and `delete_user/4` each deletes a user from the user database. If the operation is successful, this function returns `true`. If an error occurs, `{error,Reason}` is returned. When `delete_user/2` is called, options `Port` and `Dir` are mandatory.
+""".
 delete_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
+-doc(#{equiv => delete_group/4}).
 delete_group(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -255,9 +356,22 @@ delete_group(GroupName, Opt) ->
 
 delete_group(GroupName, Port, Dir) ->
     delete_group(GroupName, undefined, Port, Dir).
+-doc """
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+GroupName = string()  
+AuthPassword = string()  
+Reason = term()  
+
+`delete_group/2, delete_group/3`, and `delete_group/4` each deletes the group specified and returns `true`. If there is an error, `{error, Reason}` is returned. When `delete_group/2` is called, option `Port` and `Dir` are mandatory.
+""".
 delete_group(GroupName, Addr, Port, Dir) ->
     mod_auth_server:delete_group(Addr, Port, Dir, GroupName, ?NOPASSWORD).
 
+-doc(#{equiv => list_groups/3}).
 list_groups(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -266,11 +380,25 @@ list_groups(Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => list_groups/3}).
 list_groups(Port, Dir) ->
     list_groups(undefined, Port, Dir).
+-doc """
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Groups = list()  
+AuthPassword = string()  
+Reason = term()  
+
+`list_groups/1, list_groups/2`, and `list_groups/3` each lists all the groups available. If there is an error, `{error, Reason}` is returned. When `list_groups/1` is called, options `Port` and `Dir` are mandatory.
+""".
 list_groups(Addr, Port, Dir) ->
     mod_auth_server:list_groups(Addr, Port, Dir, ?NOPASSWORD).
 
+-doc(#{equiv => list_group_members/4}).
 list_group_members(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -280,15 +408,41 @@ list_group_members(GroupName, Opt) ->
 	    {error, Reason}
     end.
 
+-doc(#{equiv => list_group_members/4}).
 list_group_members(GroupName, Port, Dir) ->
     list_group_members(GroupName, undefined, Port, Dir).
+-doc """
+GroupName = string()  
+Options = \[Option]  
+Option = \{port,Port\} | \{addr,Address\} | \{dir,Directory\} | \{authPassword,AuthPassword\}  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Users = list()  
+AuthPassword = string()  
+Reason = term()  
+
+`list_group_members/2, list_group_members/3`, and `list_group_members/4` each lists the members of a specified group. If the group does not exist or there is an error, `{error, Reason}` is returned. When `list_group_members/2` is called, options `Port` and `Dir` are mandatory.
+""".
 list_group_members(GroupName, Addr, Port, Dir) ->
     mod_auth_server:list_group_members(Addr, Port, Dir, 
 				       GroupName, ?NOPASSWORD).
 
+-doc(#{equiv => update_password/6}).
 update_password(Port, Dir, Old, New, New)->
     update_password(undefined, Port, Dir, Old, New, New).
 
+-doc """
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+GroupName = string()  
+OldPassword = string()  
+NewPassword = string()  
+Reason = term()  
+
+`update_password/5` and `update_password/6` each updates `AuthAccessPassword` for the specified directory. If `NewPassword` is equal to "NoPassword", no password is required to change authorisation data. If `NewPassword` is equal to "DummyPassword", no changes can be done without changing the password first.
+""".
 update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
     mod_auth_server:update_password(Addr, Port, Dir, Old, New);
 
@@ -626,3 +780,4 @@ get_options(Opt, userData)->
 		    {UserData, Pwd}
 	    end
     end.
+

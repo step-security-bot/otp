@@ -30,6 +30,11 @@
 %% transform, unless the macro `MERL_NO_TRANSFORM' is defined first.
 
 -module(merl_transform).
+-moduledoc """
+Parse transform for merl. Enables the use of automatic metavariables and using quasi-quotes in matches and case switches. Also optimizes calls to functions in `merl` by partially evaluating them, turning strings to templates, etc., at compile-time.
+
+Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform, unless the macro `MERL_NO_TRANSFORM` is defined first.
+""".
 
 -export([parse_transform/2]).
 
@@ -42,9 +47,11 @@
 
 %% TODO: use Igor to make resulting code independent of merl at runtime?
 
+-doc "".
 parse_transform(Forms, _Options) ->
     erl_syntax:revert_forms(expand(erl_syntax:form_list(Forms))).
 
+-doc "".
 expand(Tree0) ->
     Tree = pre(Tree0),
     post(case erl_syntax:subtrees(Tree) of
@@ -55,6 +62,7 @@ expand(Tree0) ->
                                         [[expand(T) || T <- G] || G <- Gs])
          end).
 
+-doc "".
 pre(T) ->
     merl:switch(
       T,
@@ -74,12 +82,15 @@ pre(T) ->
        fun () -> T end
       ]).
 
+-doc "".
 case_guard([{expr,_}, {text,Text}]) ->
     erl_syntax:is_literal(Text).
 
+-doc "".
 case_body([{expr,Expr}, {text,_Text}], T) ->
     pre_expand_case(Expr, erl_syntax:case_expr_clauses(T), get_location(T)).
 
+-doc "".
 post(T) ->
     merl:switch(
       T,
@@ -103,6 +114,7 @@ post(T) ->
          end]},
        fun () -> T end]).
 
+-doc "".
 expand_qquote([Line, Text, Env], T, _) ->
     case erl_syntax:is_literal(Line) of
         true ->
@@ -129,6 +141,7 @@ expand_qquote([Text, Env], T, Line) ->
 expand_qquote(_As, T, _StartPos) ->
     T.
 
+-doc "".
 expand_template(F, [Pattern | Args], T) ->
     case erl_syntax:is_literal(Pattern) of
         true ->
@@ -144,6 +157,7 @@ expand_template(F, [Pattern | Args], T) ->
 expand_template(_F, _As, T) ->
     T.
 
+-doc "".
 eval_call(Line, F, As, T) ->
     try apply(merl, F, As) of
         T1 when F =:= quote ->
@@ -166,6 +180,7 @@ eval_call(Line, F, As, T) ->
         throw:_Reason -> T
     end.
 
+-doc "".
 pre_expand_match(Expr, Line, Text) ->
     {Template, Out, _Vars} = rewrite_pattern(Line, Text),
     merl:qquote(Line, "{ok, _@out} = merl:match(_@template, _@expr)",
@@ -173,6 +188,7 @@ pre_expand_match(Expr, Line, Text) ->
                  {out, Out},
                  {template, erl_syntax:abstract(Template)}]).
 
+-doc "".
 rewrite_pattern(Line, Text) ->
     %% we must rewrite the metavariables in the pattern to use lowercase,
     %% and then use real matching to bind the Erlang-level variables
@@ -184,6 +200,7 @@ rewrite_pattern(Line, Text) ->
                       || V <- Vars]),
      Vars}.
 
+-doc "".
 var_name(V) when is_integer(V) ->
     V1 = if V > 99, (V rem 100) =:= 99 ->
                  V div 100;
@@ -194,16 +211,19 @@ var_name(V) when is_integer(V) ->
     list_to_atom("Q" ++ integer_to_list(V1));
 var_name(V) -> V.
 
+-doc "".
 var_to_tag(V) when is_integer(V) -> V;
 var_to_tag(V) ->
     list_to_atom(string:lowercase(atom_to_list(V))).
 
+-doc "".
 pre_expand_case(Expr, Clauses, Line) ->
     merl:qquote(Line, "merl:switch(_@expr, _@clauses)",
                 [{clauses, erl_syntax:list([pre_expand_case_clause(C)
                                             || C <- Clauses])},
                  {expr, Expr}]).
 
+-doc "".
 pre_expand_case_clause(T) ->
     %% note that the only allowed non ``?Q(...) -> ...'' clause is ``_ -> ...''
     merl:switch(
@@ -220,6 +240,7 @@ pre_expand_case_clause(T) ->
         fun (Env) -> merl:qquote("fun () -> _@body end", Env) end}
       ]).
 
+-doc "".
 pre_expand_case_clause(Body, Guard, Line, Text) ->
     %% this is similar to a meta-match ``?Q("...") = Term''
     %% (note that the guards may in fact be arbitrary expressions)
@@ -246,13 +267,16 @@ pre_expand_case_clause(Body, Guard, Line, Text) ->
 %% "body" function bodies to avoid warnings for unused variables in the
 %% generated code. (Expansions at the Erlang level can't be marked up as
 %% compiler generated to allow later compiler stages to ignore them.)
+-doc "".
 dummy_uses(Vars) ->
     [?Q("_ = _@var", [{var, erl_syntax:variable(var_name(V))}])
      || V <- Vars].
 
+-doc "".
 rewrite_guard([]) -> [];
 rewrite_guard([D]) -> [make_orelse(erl_syntax:disjunction_body(D))].
 
+-doc "".
 make_orelse([]) -> [];
 make_orelse([C]) -> make_andalso(erl_syntax:conjunction_body(C));
 make_orelse([C | Cs]) ->
@@ -260,21 +284,25 @@ make_orelse([C | Cs]) ->
        [{expr, make_andalso(erl_syntax:conjunction_body(C))},
         {rest, make_orelse(Cs)}]).
 
+-doc "".
 make_andalso([E]) -> E;
 make_andalso([E | Es]) ->
     ?Q("_@expr andalso _@rest", [{expr, E}, {rest, make_andalso(Es)}]).
 
+-doc "".
 is_inline_metavar(Var) when is_atom(Var) ->
     is_erlang_var(atom_to_list(Var));
 is_inline_metavar(Var) when is_integer(Var) ->
     Var > 9 andalso (Var rem 10) =:= 9;
 is_inline_metavar(_) -> false.
 
+-doc "".
 is_erlang_var([C|_]) when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
     true;
 is_erlang_var(_) ->
     false.
 
+-doc "".
 get_location(T) ->
     Pos = erl_syntax:get_pos(T),
     case erl_anno:is_anno(Pos) of
@@ -283,3 +311,4 @@ get_location(T) ->
         false ->
             Pos
     end.
+

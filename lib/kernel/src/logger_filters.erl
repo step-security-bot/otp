@@ -18,6 +18,17 @@
 %% %CopyrightEnd%
 %%
 -module(logger_filters).
+-moduledoc """
+Filters to use with Logger.
+
+All functions exported from this module can be used as primary or handler filters. See `logger:add_primary_filter/2` and `logger:add_handler_filter/3` for more information about how filters are added.
+
+Filters are removed with `logger:remove_primary_filter/1` and `logger:remove_handler_filter/2`.
+
+## See Also
+
+`m:logger`
+""".
 
 -export([domain/2,
          level/2,
@@ -27,6 +38,52 @@
 -include("logger_internal.hrl").
 -define(IS_ACTION(A), (A==log orelse A==stop)).
 
+-doc """
+This filter provides a way of filtering log events based on a `domain` field in `Metadata`. This field is optional, and the purpose of using it is to group log events from, for example, a specific functional area. This allows filtering or other specialized treatment in a Logger handler.
+
+A domain field must be a list of atoms, creating smaller and more specialized domains as the list grows longer. The greatest domain is `[]`, which comprises all possible domains.
+
+For example, consider the following domains:
+
+```text
+D1 = [otp]
+D2 = [otp, sasl]
+```
+
+`D1` is the greatest of the two, and is said to be a super-domain of `D2`. `D2` is a sub-domain `D1`. Both `D1` and `D2` are sub-domains of `[]`.
+
+The above domains are used for logs originating from Erlang/OTP. D1 specifies that the log event comes from Erlang/OTP in general, and D2 indicates that the log event is a so called [SASL report](logger_chapter.md#sasl_reports).
+
+The `Extra` parameter to the `domain/2` function is specified when adding the filter via `logger:add_primary_filter/2` or `logger:add_handler_filter/3`.
+
+The filter compares the value of the `domain` field in the log event's metadata (`Domain`) against `MatchDomain`. The filter matches if the value of `Compare` is:
+
+* __`sub`__ - and `Domain` is equal to or a sub-domain of `MatchDomain`, that is, if `MatchDomain` is a prefix of `Domain`.
+
+* __`super`__ - and `Domain` is equal to or a super-domain of `MatchDomain`, that is, if `Domain` is a prefix of `MatchDomain`.
+
+* __`equal`__ - and `Domain` is equal to `MatchDomain`.
+
+* __`not_equal`__ - and `Domain` differs from `MatchDomain`, or if there is no domain field in metadata.
+
+* __`undefined`__ - and there is no domain field in metadata. In this case `MatchDomain` must be set to `[]`.
+
+If the filter matches and `Action` is `log`, the log event is allowed. If the filter matches and `Action` is `stop`, the log event is stopped.
+
+If the filter does not match, it returns `ignore`, meaning that other filters, or the value of the configuration parameter `filter_default`, decide if the event is allowed or not.
+
+Log events that do not contain any domain field, match only when `Compare` is equal to `undefined` or `not_equal`.
+
+Example: stop all events with domain `[otp, sasl | _]`
+
+```text
+logger:set_handler_config(h1, filter_default, log). % this is the default
+Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
+logger:add_handler_filter(h1, no_sasl, Filter).
+ok
+```
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec domain(LogEvent,Extra) -> logger:filter_return() when
       LogEvent :: logger:log_event(),
       Extra :: {Action,Compare,MatchDomain},
@@ -45,6 +102,39 @@ domain(#{meta:=Meta}=LogEvent,{Action,Compare,MatchDomain})
 domain(LogEvent,Extra) ->
     erlang:error(badarg,[LogEvent,Extra]).
 
+-doc """
+This filter provides a way of filtering log events based on the log level. It matches log events by comparing the log level with a specified `MatchLevel`
+
+The `Extra` parameter is specified when adding the filter via `logger:add_primary_filter/2` or `logger:add_handler_filter/3`.
+
+The filter compares the value of the event's log level (`Level`) to `MatchLevel` by calling [`logger:compare_levels(Level, MatchLevel)`](`logger:compare_levels/2`). The filter matches if the value of `Operator` is:
+
+* __`neq`__ - and the compare function returns `lt` or `gt`.
+
+* __`eq`__ - and the compare function returns `eq`.
+
+* __`lt`__ - and the compare function returns `lt`.
+
+* __`gt`__ - and the compare function returns `gt`.
+
+* __`lteq`__ - and the compare function returns `lt` or `eq`.
+
+* __`gteq`__ - and the compare function returns `gt` or `eq`.
+
+If the filter matches and `Action` is `log`, the log event is allowed. If the filter matches and `Action` is `stop`, the log event is stopped.
+
+If the filter does not match, it returns `ignore`, meaning that other filters, or the value of the configuration parameter `filter_default`, will decide if the event is allowed or not.
+
+Example: only allow debug level log events
+
+```text
+logger:set_handler_config(h1, filter_default, stop).
+Filter = {fun logger_filters:level/2, {log, eq, debug}}.
+logger:add_handler_filter(h1, debug_only, Filter).
+ok
+```
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec level(LogEvent,Extra) -> logger:filter_return() when
       LogEvent :: logger:log_event(),
       Extra :: {Action,Operator,MatchLevel},
@@ -64,6 +154,14 @@ level(#{level:=L1}=LogEvent,{Action,Op,L2})
 level(LogEvent,Extra) ->
     erlang:error(badarg,[LogEvent,Extra]).
 
+-doc """
+This filter matches all progress reports from `supervisor` and `application_controller`.
+
+If `Extra` is `log`, the progress reports are allowed. If `Extra` is `stop`, the progress reports are stopped.
+
+The filter returns `ignore` for all other log events.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec progress(LogEvent,Extra) -> logger:filter_return() when
       LogEvent :: logger:log_event(),
       Extra :: log | stop.
@@ -72,6 +170,14 @@ progress(LogEvent,Action) when ?IS_ACTION(Action) ->
 progress(LogEvent,Action) ->
     erlang:error(badarg,[LogEvent,Action]).
 
+-doc """
+This filter matches all events originating from a process that has its group leader on a remote node.
+
+If `Extra` is `log`, the matching events are allowed. If `Extra` is `stop`, the matching events are stopped.
+
+The filter returns `ignore` for all other log events.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec remote_gl(LogEvent,Extra) -> logger:filter_return() when
       LogEvent :: logger:log_event(),
       Extra :: log | stop.
@@ -125,3 +231,4 @@ filter_remote_gl(_,_) ->
 
 on_match(log,LogEvent) -> LogEvent;
 on_match(stop,_) -> stop.
+

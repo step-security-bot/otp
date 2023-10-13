@@ -18,6 +18,51 @@
 %% %CopyrightEnd%
 %%
 -module(cover).
+-moduledoc """
+A Coverage Analysis Tool for Erlang
+
+The module `cover` provides a set of functions for coverage analysis of Erlang programs, counting how many times each *executable line* of code is executed when a program is run.  
+An executable line contains an Erlang expression such as a matching or a function call. A blank line or a line containing a comment, function head or pattern in a `case`\- or `receive` statement is not executable.
+
+Coverage analysis can be used to verify test cases, making sure all relevant code is covered, and may also be helpful when looking for bottlenecks in the code.
+
+Before any analysis can take place, the involved modules must be *Cover compiled*. This means that some extra information is added to the module before it is compiled into a binary which then is loaded. The source file of the module is not affected and no `.beam` file is created.
+
+Each time a function in a Cover compiled module is called, information about the call is added to an internal database of Cover. The coverage analysis is performed by examining the contents of the Cover database. The output `Answer` is determined by two parameters, `Level` and `Analysis`.
+
+* `Level = module`
+
+  `Answer = {Module,Value}`, where `Module` is the module name.
+* `Level = function`
+
+  `Answer = [{Function,Value}]`, one tuple for each function in the module. A function is specified by its module name `M`, function name `F` and arity `A` as a tuple `{M,F,A}`.
+* `Level = clause`
+
+  `Answer = [{Clause,Value}]`, one tuple for each clause in the module. A clause is specified by its module name `M`, function name `F`, arity `A` and position in the function definition `C` as a tuple `{M,F,A,C}`.
+* `Level = line`
+
+  `Answer = [{Line,Value}]`, one tuple for each executable line in the module. A line is specified by its module name `M` and line number in the source file `N` as a tuple `{M,N}`.
+* `Analysis = coverage`
+
+  `Value = {Cov,NotCov}` where `Cov` is the number of executable lines in the module, function, clause or line that have been executed at least once and `NotCov` is the number of executable lines that have not been executed.
+* `Analysis = calls`
+
+  `Value = Calls` which is the number of times the module, function, or clause has been called. In the case of line level analysis, `Calls` is the number of times the line has been executed.
+
+*Distribution*
+
+Cover can be used in a distributed Erlang system. One of the nodes in the system must then be selected as the *main node*, and all Cover commands must be executed from this node. The error reason `not_main_node` is returned if an interface function is called on one of the remote nodes.
+
+Use `cover:start/1` and `cover:stop/1` to add or remove nodes. The same Cover compiled code will be loaded on each node, and analysis will collect and sum up coverage data results from all nodes.
+
+To only collect data from remote nodes without stopping `cover` on those nodes, use `cover:flush/1`
+
+If the connection to a remote node goes down, the main node will mark it as lost. If the node comes back it will be added again. If the remote node was alive during the disconnected period, cover data from before and during this period will be included in the analysis.
+
+## SEE ALSO
+
+code(3), compile(3)
+""".
 
 %%
 %% This module implements the Erlang coverage tool.
@@ -180,6 +225,7 @@
 %%% External exports
 %%%----------------------------------------------------------------------
 
+-doc "Starts the Cover server which owns the Cover internal database. This function is called automatically by the other functions in the module.".
 -spec start() -> {'ok', pid()} | {'error', Reason} when
       Reason :: {'already_started', pid()}
               | term().
@@ -208,6 +254,7 @@ start() ->
 	    {error,{already_started,Pid}}
     end.
 
+-doc "Starts a Cover server on the each of given nodes, and loads all cover compiled modules. This call will fail if `cover:local_only/0` has been called.".
 -spec start(Nodes) -> {'ok', StartedNodes}
                     | {'error', 'not_main_node'}
                     | {'error', 'local_only'} when
@@ -219,6 +266,8 @@ start(Node) when is_atom(Node) ->
 start(Nodes) ->
     call({start_nodes,remove_myself(Nodes,[])}).
 
+-doc "Only support running Cover on the local node. This function must be called before any modules have been compiled or any nodes added. When running in this mode, modules will be Cover compiled in a more efficient way, but the resulting code will only work on the same node they were compiled on.".
+-doc(#{since => <<"OTP 22.0">>}).
 -spec local_only() -> 'ok' | {'error', 'too_late'}.
 
 local_only() ->
@@ -234,6 +283,7 @@ local_only() ->
                 | {'d', Macro :: atom(), Value :: term()}
                 | 'export_all'.
 
+-doc(#{equiv => compile_module/2}).
 -spec compile(ModFiles) -> Result | [Result] when
       ModFiles :: mod_files(),
       Result :: compile_result().
@@ -241,6 +291,7 @@ local_only() ->
 compile(ModFile) ->
     compile_module(ModFile, []).
 
+-doc(#{equiv => compile_module/2}).
 -spec compile(ModFiles, Options) -> Result | [Result] when
       ModFiles :: mod_files(),
       Options :: [option()],
@@ -249,6 +300,7 @@ compile(ModFile) ->
 compile(ModFile, Options) ->
     compile_module(ModFile, Options).
 
+-doc(#{equiv => compile_module/2}).
 -spec compile_module(ModFiles) -> Result | [Result] when
       ModFiles :: mod_files(),
       Result :: compile_result().
@@ -257,6 +309,38 @@ compile_module(ModFile) when is_atom(ModFile);
 			     is_list(ModFile) ->
     compile_module(ModFile, []).
 
+-doc """
+```erlang
+-type compile_result() ::
+          {ok, Module :: module()} |
+          {error, file:filename()} |
+          {error, not_main_node}.
+```
+```erlang
+-type mod_file() :: (Module :: module()) | (File :: file:filename()).
+```
+```erlang
+-type mod_files() :: mod_file() | [mod_file()].
+```
+```erlang
+-type option() ::
+          {i, Dir :: file:filename()} |
+          {d, Macro :: atom()} |
+          {d, Macro :: atom(), Value :: term()} |
+          export_all.
+```
+  See `compile:file/2`.  
+
+Compiles a module for Cover analysis. The module is given by its module name `Module` or by its file name `File`. The `.erl` extension may be omitted. If the module is located in another directory, the path has to be specified.
+
+`Options` is a list of compiler options which defaults to `[]`. Only options defining include file directories and macros are passed to `compile:file/2`, everything else is ignored.
+
+If the module is successfully Cover compiled, the function returns `{ok, Module}`. Otherwise the function returns `{error, File}`. Errors and warnings are printed as they occur.
+
+If a list of `ModFiles` is given as input, a list of `Result` will be returned. The order of the returned list is undefined.
+
+Note that the internal database is (re-)initiated during the compilation, meaning any previously collected coverage data for the module will be lost.
+""".
 -spec compile_module(ModFiles, Options) -> Result | [Result] when
       ModFiles :: mod_files(),
       Options :: [option()],
@@ -286,6 +370,7 @@ compile_module(ModFiles, Options) when is_list(Options) ->
 
 -type file_error() :: 'eacces' | 'enoent'.
 
+-doc(#{equiv => compile_directory/2}).
 -spec compile_directory() -> [Result] | {'error', Reason} when
       Reason :: file_error(),
       Result :: compile_result().
@@ -298,6 +383,7 @@ compile_directory() ->
 	    Error
     end.
 
+-doc(#{equiv => compile_directory/2}).
 -spec compile_directory(Dir) -> [Result] | {'error', Reason} when
       Dir :: file:filename(),
       Reason :: file_error(),
@@ -307,6 +393,31 @@ compile_directory(Dir) when is_list(Dir) ->
     compile_directory(Dir, []).
 
 
+-doc """
+```erlang
+-type compile_result() ::
+          {ok, Module :: module()} |
+          {error, file:filename()} |
+          {error, not_main_node}.
+```
+```erlang
+-type file_error() :: eacces | enoent.
+```
+```erlang
+-type option() ::
+          {i, Dir :: file:filename()} |
+          {d, Macro :: atom()} |
+          {d, Macro :: atom(), Value :: term()} |
+          export_all.
+```
+  See `compile:file/2`.  
+
+Compiles all modules (`.erl` files) in a directory `Dir` for Cover analysis the same way as [`compile_module/1,2`](`compile_module/1`) and returns a list with the return values.
+
+`Dir` defaults to the current working directory.
+
+The function returns `{error, eacces}` if the directory is not readable or `{error, enoent}` if the directory does not exist.
+""".
 -spec compile_directory(Dir, Options) -> [Result] | {'error', Reason} when
       Dir :: file:filename(),
       Options :: [option()],
@@ -358,6 +469,41 @@ filter_options(Options) ->
                              | {'error', BeamFile :: file:filename()}
                              | {'error', Reason :: compile_beam_rsn()}.
 
+-doc """
+```erlang
+-type beam_mod_file() ::
+          (Module :: module()) | (BeamFile :: file:filename()).
+```
+```erlang
+-type beam_mod_files() :: beam_mod_file() | [beam_mod_file()].
+```
+```erlang
+-type compile_beam_result() ::
+          {ok, module()} |
+          {error, BeamFile :: file:filename()} |
+          {error, Reason :: compile_beam_rsn()}.
+```
+```erlang
+-type compile_beam_rsn() ::
+          non_existing |
+          {no_abstract_code, BeamFile :: file:filename()} |
+          {encrypted_abstract_code, BeamFile :: file:filename()} |
+          {already_cover_compiled, no_beam_found, module()} |
+          {{missing_backend, module()}, BeamFile :: file:filename()} |
+          {no_file_attribute, BeamFile :: file:filename()} |
+          not_main_node.
+```
+
+Does the same as [`compile/1,2`](`compile/1`), but uses an existing `.beam` file as base, that is, the module is not compiled from source. Thus `compile_beam/1` is faster than `compile/1,2`.
+
+Note that the existing `.beam` file must contain *abstract code*, that is, it must have been compiled with the [`debug_info`](`compile:file/2`) option. If not, the error reason `{no_abstract_code, BeamFile}` is returned. If the abstract code is encrypted, and no key is available for decrypting it, the error reason `{encrypted_abstract_code, BeamFile}` is returned.
+
+If only the module name (that is, not the full name of the `.beam` file) is given to this function, the `.beam` file is found by calling `code:which(Module)`. If no `.beam` file is found, the error reason `non_existing` is returned. If the module is already cover compiled with `compile_beam/1`, the `.beam` file will be picked from the same location as the first time it was compiled. If the module is already cover compiled with [`compile/1,2`](`compile/1`), there is no way to find the correct `.beam` file, so the error reason `{already_cover_compiled, no_beam_found, Module}` is returned.
+
+`{error, BeamFile}` is returned if the compiled code cannot be loaded on the node.
+
+If a list of `ModFiles` is given as input, a list of `Result` will be returned. The order of the returned list is undefined.
+""".
 -spec compile_beam(ModFiles) -> Result | [Result] when
       ModFiles :: beam_mod_files(),
       Result :: compile_beam_result().
@@ -374,6 +520,7 @@ compile_beam(ModFile0) when is_atom(ModFile0);
 compile_beam(ModFiles) when is_list(ModFiles) ->
     compile_beams(ModFiles).
 
+-doc(#{equiv => compile_beam_directory/1}).
 -spec compile_beam_directory() -> [Result] | {'error', Reason} when
       Reason :: file_error(),
       Result :: compile_beam_result().
@@ -386,6 +533,33 @@ compile_beam_directory() ->
 	    Error
     end.
 
+-doc """
+```erlang
+-type compile_beam_result() ::
+          {ok, module()} |
+          {error, BeamFile :: file:filename()} |
+          {error, Reason :: compile_beam_rsn()}.
+```
+```erlang
+-type compile_beam_rsn() ::
+          non_existing |
+          {no_abstract_code, BeamFile :: file:filename()} |
+          {encrypted_abstract_code, BeamFile :: file:filename()} |
+          {already_cover_compiled, no_beam_found, module()} |
+          {{missing_backend, module()}, BeamFile :: file:filename()} |
+          {no_file_attribute, BeamFile :: file:filename()} |
+          not_main_node.
+```
+```erlang
+-type file_error() :: eacces | enoent.
+```
+
+Compiles all modules (`.beam` files) in a directory `Dir` for Cover analysis the same way as `compile_beam/1` and returns a list with the return values.
+
+`Dir` defaults to the current working directory.
+
+The function returns `{error, eacces}` if the directory is not readable or `{error, enoent}` if the directory does not exist.
+""".
 -spec compile_beam_directory(Dir) ->
                     [Result] | {'error', Reason} when
       Dir :: file:filename(),
@@ -464,6 +638,8 @@ get_mods_and_beams([],Acc) ->
 	(__L__=:=line orelse __L__=:=clause orelse
 	 __L__=:=function orelse __L__=:=module)).
 
+-doc(#{equiv => analyse/3}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse() -> {'result', analyse_ok(), analyse_fail()} |
                    {'error', 'not_main_node'}.
 
@@ -474,6 +650,8 @@ analyse() ->
 %% modules() :: module() | [module()]. module() is an alias for
 %% atom(), which overlaps with analysis() and level(). That is,
 %% modules named 'calls' &c must be placed in a list.
+-doc(#{equiv => analyse/3}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse(Analysis) -> {'result', analyse_ok(), analyse_fail()} |
                            {'error', 'not_main_node'} when
                   Analysis :: analysis();
@@ -494,6 +672,8 @@ analyse(Module) ->
     analyse(Module, coverage).
 
 -dialyzer({no_contracts,analyse/2}). %% See comment analyse/1.
+-doc(#{equiv => analyse/3}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse(Analysis, Level) -> {'result', analyse_ok(), analyse_fail()} |
                                   {'error', 'not_main_node'} when 
                   Analysis :: analysis(),
@@ -519,6 +699,57 @@ analyse(Module, Analysis) when ?is_analysis(Analysis) ->
 analyse(Module, Level) when ?is_level(Level) ->
     analyse(Module, coverage, Level).
 
+-doc """
+```erlang
+-type analyse_fail() :: [{not_cover_compiled, module()}].
+```
+```erlang
+-type analyse_item() ::
+          (Line :: {M :: module(), N :: non_neg_integer()}) |
+          (Clause ::
+               {M :: module(),
+                F :: atom(),
+                A :: arity(),
+                C :: non_neg_integer()}) |
+          (Function :: {M :: module(), F :: atom(), A :: arity()}).
+```
+```erlang
+-type analyse_ok() ::
+          [{Module :: module(), Value :: analyse_value()}] |
+          [{Item :: analyse_item(), Value :: analyse_value()}].
+```
+```erlang
+-type analyse_value() ::
+          {Cov :: non_neg_integer(), NotCov :: non_neg_integer()} |
+          (Calls :: non_neg_integer()).
+```
+```erlang
+-type analysis() :: coverage | calls.
+```
+```erlang
+-type level() :: line | clause | function | module.
+```
+```erlang
+-type modules() :: module() | [module()].
+```
+```erlang
+-type one_result() ::
+          {ok, {Module :: module(), Value :: analyse_value()}} |
+          {ok, [{Item :: analyse_item(), Value :: analyse_value()}]} |
+          {error, {not_cover_compiled, module()}}.
+```
+
+Performs analysis of one or more Cover compiled modules, as specified by `Analysis` and `Level` (see above), by examining the contents of the internal database.
+
+`Analysis` defaults to `coverage` and `Level` defaults to `function`.
+
+If `Modules` is an atom (one module), the return will be `OneResult`, else the return will be `{result, Ok, Fail}`.
+
+If `Modules` is not given, all modules that have data in the cover data table, are analysed. Note that this includes both cover compiled modules and imported modules.
+
+If a given module is not Cover compiled, this is indicated by the error reason `{not_cover_compiled, Module}`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse(Modules, Analysis, Level) ->
                      OneResult |
                      {'result', analyse_ok(), analyse_fail()} |
@@ -541,6 +772,8 @@ analyze(Module, Analysis, Level) -> analyse(Module, Analysis, Level).
 %% analyse_to_file(Modules, OutFile) ->
 %% analyse_to_file(Modules, OutFile, Options) -> {ok,OutFile} | {error,Error}
 
+-doc(#{equiv => analyse_to_file/2}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse_to_file() -> {'result', analyse_file_ok(), analyse_file_fail()} |
                            {'error', 'not_main_node'}.
 
@@ -560,6 +793,8 @@ analyse_to_file() ->
 
 -dialyzer({no_contracts, analyse_to_file/1}).
 %% The option list [html] overlaps with module list [html].
+-doc(#{equiv => analyse_to_file/2}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse_to_file(Modules) -> Answer |
                                   {'result',
                                    analyse_file_ok(), analyse_file_fail()} |
@@ -579,6 +814,48 @@ analyse_to_file(Arg) ->
 	    analyse_to_file(Arg,[])
     end.
 
+-doc """
+```erlang
+-type analyse_answer() ::
+          {ok, OutFile :: file:filename()} | {error, analyse_rsn()}.
+```
+```erlang
+-type analyse_file_fail() :: [analyse_rsn()].
+```
+```erlang
+-type analyse_file_ok() :: [OutFile :: file:filename()].
+```
+```erlang
+-type analyse_option() ::
+          html |
+          {outfile, OutFile :: file:filename()} |
+          {outdir, OutDir :: file:filename()}.
+```
+```erlang
+-type analyse_rsn() ::
+          {not_cover_compiled, Module :: module()} |
+          {file, File :: file:filename(), Reason :: term()} |
+          {no_source_code_found, Module :: module()}.
+```
+```erlang
+-type modules() :: module() | [module()].
+```
+
+Makes copies of the source file for the given modules, where it for each executable line is specified how many times it has been executed.
+
+The output file `OutFile` defaults to `Module.COVER.out`, or `Module.COVER.html` if the option `html` was used.
+
+If `Modules` is an atom (one module), the return will be `Answer`, else the return will be a list, `{result, Ok, Fail}`.
+
+If `Modules` is not given, all modules that have da ta in the cover data table, are analysed. Note that this includes both cover compiled modules and imported modules.
+
+If a module is not Cover compiled, this is indicated by the error reason `{not_cover_compiled, Module}`.
+
+If the source file and/or the output file cannot be opened using `file:open/2`, the function returns `{error, {file, File, Reason}}` where `File` is the file name and `Reason` is the error reason.
+
+If a module was cover compiled from the `.beam` file, that is, using `compile_beam/1` or [`compile_beam_directory/0,1` ](`compile_beam_directory/0`),it is assumed that the source code can be found in the same directory as the `.beam` file, in `../src` relative to that directory, or using the source path in `Module:module_info(compile)`. When using the latter, two paths are examined: first the one constructed by joining `../src` and the tail of the compiled path below a trailing `src` component, then the compiled path itself. If no source code is found, this is indicated by the error reason `{no_source_code_found, Module}`.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec analyse_to_file(Modules, Options) ->
                              Answer |
                              {'result',
@@ -604,6 +881,8 @@ analyze_to_file(Module, OptOrOut) -> analyse_to_file(Module, OptOrOut).
 analyze_to_file(Module, OutFile, Options) -> 
     analyse_to_file(Module, OutFile, Options).
 
+-doc(#{equiv => async_analyse_to_file/3}).
+-doc(#{since => <<"OTP R14B02">>}).
 -spec async_analyse_to_file(Module) -> pid() when
       Module :: module().
 
@@ -613,6 +892,8 @@ async_analyse_to_file(Module) ->
 -dialyzer({no_contracts, async_analyse_to_file/2}).
 %% The types file:filename() (string()) and ['html'] has something in
 %% common, namely [].
+-doc(#{equiv => async_analyse_to_file/3}).
+-doc(#{since => <<"OTP R14B02">>}).
 -spec async_analyse_to_file(Module, OutFile) -> pid() when
                                 Module :: module(),
                                 OutFile :: file:filename();
@@ -624,6 +905,17 @@ async_analyse_to_file(Module) ->
 async_analyse_to_file(Module, OutFileOrOpts) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
 
+-doc """
+```erlang
+-type analyse_rsn() ::
+          {not_cover_compiled, Module :: module()} |
+          {file, File :: file:filename(), Reason :: term()} |
+          {no_source_code_found, Module :: module()}.
+```
+
+This function works exactly the same way as [`analyse_to_file`](`analyse_to_file/1`) except that it is asynchronous instead of synchronous. The spawned process will link with the caller when created. If an error of type `analyse_rsn()` occurs while doing the cover analysis the process will crash with the same error reason as [`analyse_to_file`](`analyse_to_file/1`) would return.
+""".
+-doc(#{since => <<"OTP R14B02">>}).
 -spec async_analyse_to_file(Module, OutFile, Options) -> pid() when
       Module :: module(),
       OutFile :: file:filename(),
@@ -674,6 +966,7 @@ outfilename(Module, false) ->
                           ExportFile :: file:filename(), FileReason :: term()} |
                          'not_main_node'.
 
+-doc(#{equiv => export/2}).
 -spec export(File) -> 'ok' | {'error', Reason} when
       File :: file:filename(),
       Reason :: export_reason().
@@ -681,6 +974,24 @@ outfilename(Module, false) ->
 export(File) ->
     export(File, '_').
 
+-doc """
+```erlang
+-type export_reason() ::
+          {not_cover_compiled, Module :: module()} |
+          {cant_open_file,
+           ExportFile :: file:filename(),
+           FileReason :: term()} |
+          not_main_node.
+```
+
+Exports the current coverage data for `Module` to the file `ExportFile`. It is recommended to name the `ExportFile` with the extension `.coverdata`, since other filenames cannot be read by the web based interface to cover.
+
+If `Module` is not given, data for all Cover compiled or earlier imported modules is exported.
+
+This function is useful if coverage data from different systems is to be merged.
+
+See also `import/1`.
+""".
 -spec export(File, Module) -> 'ok' | {'error', Reason} when
       File :: file:filename(),
       Module :: module(),
@@ -689,6 +1000,17 @@ export(File) ->
 export(File, Module) ->
     call({export,File,Module}).
 
+-doc """
+Imports coverage data from the file `ExportFile` created with [`export/1,2`](`export/1`). Any analysis performed after this will include the imported data.
+
+Note that when compiling a module *all existing coverage data is removed*, including imported data. If a module is already compiled when data is imported, the imported data is *added* to the existing coverage data.
+
+Coverage data from several export files can be imported into one system. The coverage data is then added up when analysing.
+
+Coverage data for a module cannot be imported from the same file twice unless the module is first reset or compiled. The check is based on the filename, so you can easily fool the system by renaming your export file.
+
+See also [`export/1,2`](`export/1`).
+""".
 -spec import(ExportFile) -> 'ok' | {'error', Reason} when
       ExportFile :: file:filename(),
       Reason :: {'cant_open_file', ExportFile, FileReason :: term()} |
@@ -697,26 +1019,31 @@ export(File, Module) ->
 import(File) ->
     call({import,File}).
 
+-doc "Returns a list with all modules that are currently Cover compiled.".
 -spec modules() -> [module()] | {'error', 'not_main_node'}.
 
 modules() ->
    call(modules).
 
+-doc "Returns a list with all modules for which there are imported data.".
 -spec imported_modules() -> [module()] | {'error', 'not_main_node'}.
 
 imported_modules() ->
    call(imported_modules).
 
+-doc "Returns a list with all imported files.".
 -spec imported() -> [file:filename()] |  {'error', 'not_main_node'}.
 
 imported() ->
    call(imported).
 
+-doc "Returns a list with all nodes that are part of the coverage analysis. Note that the current node is not returned. This node is always part of the analysis.".
 -spec which_nodes() -> [node()].
 
 which_nodes() ->
    call(which_nodes).
 
+-doc "Returns `{file, File}` if the module `Module` is Cover compiled, or `false` otherwise. `File` is the `.erl` file used by [`compile_module/1,2`](`compile_module/1`) or the `.beam` file used by `compile_beam/1`.".
 -spec is_compiled(Module) -> {'file', File :: file:filename()} |
                              'false' |
                              {'error', 'not_main_node'} when
@@ -725,6 +1052,11 @@ which_nodes() ->
 is_compiled(Module) when is_atom(Module) ->
     call({is_compiled, Module}).
 
+-doc """
+Resets all coverage data for a Cover compiled module `Module` in the Cover database on all nodes. If the argument is omitted, the coverage data will be reset for all modules known by Cover.
+
+If `Module` is not Cover compiled, the function returns `{error, {not_cover_compiled, Module}}`.
+""".
 -spec reset(Module) -> 'ok' |
                        {'error', 'not_main_node'} |
                        {'error', {'not_cover_compiled', Module}} when
@@ -733,16 +1065,19 @@ is_compiled(Module) when is_atom(Module) ->
 reset(Module) when is_atom(Module) ->
     call({reset, Module}).
 
+-doc(#{equiv => reset/1}).
 -spec reset() -> 'ok' | {'error', 'not_main_node'}.
 
 reset() ->
     call(reset).
 
+-doc "Stops the Cover server and unloads all Cover compiled code.".
 -spec stop() -> 'ok' | {'error', 'not_main_node'}.
 
 stop() ->
     call(stop).
 
+-doc "Stops the Cover server and unloads all Cover compiled code on the given nodes. Data stored in the Cover database on the remote nodes is fetched and stored on the main node.".
 -spec stop(Nodes) -> 'ok' | {'error', 'not_main_node'} when
       Nodes :: node() | [node()].
 
@@ -751,6 +1086,8 @@ stop(Node) when is_atom(Node) ->
 stop(Nodes) ->
     call({stop,remove_myself(Nodes,[])}).
 
+-doc "Fetch data from the Cover database on the remote nodes and stored on the main node.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec flush(Nodes) -> 'ok' | {'error', 'not_main_node'} when
       Nodes :: node() | [node()].
 
@@ -3204,3 +3541,4 @@ html_encoding(latin1) ->
     "iso-8859-1";
 html_encoding(utf8) ->
     "utf-8".
+

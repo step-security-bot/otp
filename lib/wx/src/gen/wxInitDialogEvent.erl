@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxInitDialogEvent).
+-moduledoc """
+Functions for wxInitDialogEvent class
+
+A `m:wxInitDialogEvent` is sent as a dialog or panel is being initialised. Handlers for this event can transfer data to the window.
+
+The default handler calls `wxWindow:transferDataToWindow/1`.
+
+See: [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxInitDialogEvent](https://docs.wxwidgets.org/3.1/classwx_init_dialog_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxInitDialogEventType`](`t:wxInitDialogEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -26,8 +43,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxInitDialogEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxInitDialogEventType() :: 'init_dialog'.
 -export_type([wxInitDialogEvent/0, wxInitDialog/0, wxInitDialogEventType/0]).
 %% @hidden
@@ -53,3 +72,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

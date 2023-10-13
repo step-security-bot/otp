@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxTextEntryDialog).
+-moduledoc """
+Functions for wxTextEntryDialog class
+
+This class represents a dialog that requests a one-line text string from the user. It is implemented as a generic wxWidgets dialog.
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_textentry)
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxTextEntryDialog](https://docs.wxwidgets.org/3.1/classwx_text_entry_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getValue/1,new/0,new/2,new/3,setValue/2]).
 
@@ -67,6 +78,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxTextEntryDialog() :: wx:wx_object().
 -export_type([wxTextEntryDialog/0]).
 %% @hidden
@@ -77,12 +89,20 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
+-doc """
+Default constructor.
+
+Call `Create()` (not implemented in wx) to really create the dialog later.
+
+Since: 2.9.5
+""".
 -spec new() -> wxTextEntryDialog().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxTextEntryDialog_new_0),
   wxe_util:rec(?wxTextEntryDialog_new_0).
 
 %% @equiv new(Parent,Message, [])
+-doc "".
 -spec new(Parent, Message) -> wxTextEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
@@ -91,6 +111,13 @@ new(Parent,Message)
   new(Parent,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
+-doc """
+Constructor.
+
+Use `wxDialog:showModal/1` to show the dialog.
+
+See `Create()` (not implemented in wx) method for parameter description.
+""".
 -spec new(Parent, Message, [Option]) -> wxTextEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
 	Option :: {'caption', unicode:chardata()}
@@ -111,6 +138,7 @@ new(#wx_ref{type=ParentT}=Parent,Message, Options)
   wxe_util:rec(?wxTextEntryDialog_new_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialoggetvalue">external documentation</a>.
+-doc "Returns the text that the user has entered if the user has pressed OK, or the original value if the user has pressed Cancel.".
 -spec getValue(This) -> unicode:charlist() when
 	This::wxTextEntryDialog().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -119,6 +147,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTextEntryDialog_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
+-doc "Sets the default text value.".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxTextEntryDialog(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Value)
@@ -128,6 +157,7 @@ setValue(#wx_ref{type=ThisT}=This,Value)
   wxe_util:queue_cmd(This,Value_UC,?get_env(),?wxTextEntryDialog_SetValue).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxTextEntryDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextEntryDialog),
@@ -567,3 +597,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

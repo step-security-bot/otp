@@ -19,6 +19,13 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxQueryNewPaletteEvent).
+-moduledoc """
+Functions for wxQueryNewPaletteEvent class
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxQueryNewPaletteEvent](https://docs.wxwidgets.org/3.1/classwx_query_new_palette_event.html)
+""".
 -include("wxe.hrl").
 -export([getPaletteRealized/1,setPaletteRealized/2]).
 
@@ -26,8 +33,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxQueryNewPaletteEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxQueryNewPaletteEventType() :: 'query_new_palette'.
 -export_type([wxQueryNewPaletteEvent/0, wxQueryNewPalette/0, wxQueryNewPaletteEventType/0]).
 %% @hidden
@@ -35,6 +44,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
+-doc "".
 -spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
 setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
@@ -43,6 +53,7 @@ setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
   wxe_util:queue_cmd(This,Realized,?get_env(),?wxQueryNewPaletteEvent_SetPaletteRealized).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventgetpaletterealized">external documentation</a>.
+-doc "".
 -spec getPaletteRealized(This) -> boolean() when
 	This::wxQueryNewPaletteEvent().
 getPaletteRealized(#wx_ref{type=ThisT}=This) ->
@@ -69,3 +80,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

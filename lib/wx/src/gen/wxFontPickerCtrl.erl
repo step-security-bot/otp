@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFontPickerCtrl).
+-moduledoc """
+Functions for wxFontPickerCtrl class
+
+This control allows the user to select a font. The generic implementation is a button which brings up a `m:wxFontDialog` when clicked. Native implementation may differ but this is usually a (small) widget which give access to the font-chooser dialog. It is only available if `wxUSE_FONTPICKERCTRL` is set to 1 (the default).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxFontDialog`, `m:wxFontPickerEvent`
+
+This class is derived (and can use functions) from: `m:wxPickerBase` `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFontPickerCtrl](https://docs.wxwidgets.org/3.1/classwx_font_picker_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_fontpicker_changed`](`m:wxFontPickerEvent`)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getMaxPointSize/1,getSelectedFont/1,new/0,
   new/2,new/3,setMaxPointSize/2,setSelectedFont/2]).
@@ -66,6 +85,7 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFontPickerCtrl() :: wx:wx_object().
 -export_type([wxFontPickerCtrl/0]).
 %% @hidden
@@ -76,12 +96,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlwxfontpickerctrl">external documentation</a>.
+-doc "".
 -spec new() -> wxFontPickerCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFontPickerCtrl_new_0),
   wxe_util:rec(?wxFontPickerCtrl_new_0).
 
 %% @equiv new(Parent,Id, [])
+-doc "".
 -spec new(Parent, Id) -> wxFontPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -90,6 +112,7 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlwxfontpickerctrl">external documentation</a>.
+-doc "Initializes the object and calls `create/4` with all the parameters.".
 -spec new(Parent, Id, [Option]) -> wxFontPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'initial', wxFont:wxFont()}
@@ -111,6 +134,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxFontPickerCtrl_new_3).
 
 %% @equiv create(This,Parent,Id, [])
+-doc "".
 -spec create(This, Parent, Id) -> boolean() when
 	This::wxFontPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
@@ -119,6 +143,11 @@ create(This,Parent,Id)
   create(This,Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlcreate">external documentation</a>.
+-doc """
+Creates this widget with given parameters.
+
+Return: true if the control was successfully created or false if creation failed.
+""".
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxFontPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {'initial', wxFont:wxFont()}
@@ -141,6 +170,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
   wxe_util:rec(?wxFontPickerCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlgetselectedfont">external documentation</a>.
+-doc """
+Returns the currently selected font.
+
+Note that this function is completely different from `wxWindow:getFont/1`.
+""".
 -spec getSelectedFont(This) -> wxFont:wxFont() when
 	This::wxFontPickerCtrl().
 getSelectedFont(#wx_ref{type=ThisT}=This) ->
@@ -149,6 +183,11 @@ getSelectedFont(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFontPickerCtrl_GetSelectedFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlsetselectedfont">external documentation</a>.
+-doc """
+Sets the currently selected font.
+
+Note that this function is completely different from `wxWindow:setFont/2`.
+""".
 -spec setSelectedFont(This, Font) -> 'ok' when
 	This::wxFontPickerCtrl(), Font::wxFont:wxFont().
 setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
@@ -157,6 +196,7 @@ setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   wxe_util:queue_cmd(This,Font,?get_env(),?wxFontPickerCtrl_SetSelectedFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlgetmaxpointsize">external documentation</a>.
+-doc "Returns the maximum point size value allowed for the user-chosen font.".
 -spec getMaxPointSize(This) -> integer() when
 	This::wxFontPickerCtrl().
 getMaxPointSize(#wx_ref{type=ThisT}=This) ->
@@ -165,6 +205,11 @@ getMaxPointSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFontPickerCtrl_GetMaxPointSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlsetmaxpointsize">external documentation</a>.
+-doc """
+Sets the maximum point size value allowed for the user-chosen font.
+
+The default value is 100. Note that big fonts can require a lot of memory and CPU time both for creation and for rendering; thus, specially because the user has the option to specify the fontsize through a text control (see wxFNTP_USE_TEXTCTRL), it's a good idea to put a limit to the maximum font size when huge fonts do not make much sense.
+""".
 -spec setMaxPointSize(This, Max) -> 'ok' when
 	This::wxFontPickerCtrl(), Max::integer().
 setMaxPointSize(#wx_ref{type=ThisT}=This,Max)
@@ -173,6 +218,7 @@ setMaxPointSize(#wx_ref{type=ThisT}=This,Max)
   wxe_util:queue_cmd(This,Max,?get_env(),?wxFontPickerCtrl_SetMaxPointSize).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxFontPickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontPickerCtrl),
@@ -576,3 +622,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

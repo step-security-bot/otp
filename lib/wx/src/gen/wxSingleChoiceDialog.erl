@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSingleChoiceDialog).
+-moduledoc """
+Functions for wxSingleChoiceDialog class
+
+This class represents a dialog that shows a list of strings, and allows the user to select one. Double-clicking on a list item is equivalent to single-clicking and then pressing OK.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_singlechoice), `m:wxMultiChoiceDialog`
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSingleChoiceDialog](https://docs.wxwidgets.org/3.1/classwx_single_choice_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getSelection/1,getStringSelection/1,new/4,new/5,setSelection/2]).
 
@@ -67,6 +82,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSingleChoiceDialog() :: wx:wx_object().
 -export_type([wxSingleChoiceDialog/0]).
 %% @hidden
@@ -77,6 +93,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent,Message,Caption,Choices, [])
+-doc "".
 -spec new(Parent, Message, Caption, Choices) -> wxSingleChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
@@ -85,6 +102,11 @@ new(Parent,Message,Caption,Choices)
   new(Parent,Message,Caption,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialogwxsinglechoicedialog">external documentation</a>.
+-doc """
+Constructor, taking an array of `wxString` (not implemented in wx) choices and optional client data.
+
+Remark: Use `wxDialog:showModal/1` to show the dialog.
+""".
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxSingleChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()],
 	Option :: {'style', integer()}
@@ -104,6 +126,7 @@ new(#wx_ref{type=ParentT}=Parent,Message,Caption,Choices, Options)
   wxe_util:rec(?wxSingleChoiceDialog_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialoggetselection">external documentation</a>.
+-doc "Returns the index of selected item.".
 -spec getSelection(This) -> integer() when
 	This::wxSingleChoiceDialog().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -112,6 +135,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSingleChoiceDialog_GetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialoggetstringselection">external documentation</a>.
+-doc "Returns the selected string.".
 -spec getStringSelection(This) -> unicode:charlist() when
 	This::wxSingleChoiceDialog().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
@@ -120,6 +144,7 @@ getStringSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSingleChoiceDialog_GetStringSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialogsetselection">external documentation</a>.
+-doc "Sets the index of the initially selected item.".
 -spec setSelection(This, Selection) -> 'ok' when
 	This::wxSingleChoiceDialog(), Selection::integer().
 setSelection(#wx_ref{type=ThisT}=This,Selection)
@@ -128,6 +153,7 @@ setSelection(#wx_ref{type=ThisT}=This,Selection)
   wxe_util:queue_cmd(This,Selection,?get_env(),?wxSingleChoiceDialog_SetSelection).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxSingleChoiceDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSingleChoiceDialog),
@@ -567,3 +593,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

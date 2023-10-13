@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGridCellFloatEditor).
+-moduledoc """
+Functions for wxGridCellFloatEditor class
+
+The editor for floating point numbers data.
+
+See: `m:wxGridCellEditor`, `wxGridCellAutoWrapStringEditor` (not implemented in wx), `m:wxGridCellBoolEditor`, `m:wxGridCellChoiceEditor`, `wxGridCellEnumEditor` (not implemented in wx), `m:wxGridCellNumberEditor`, `m:wxGridCellTextEditor`, `wxGridCellDateEditor` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxGridCellEditor`
+
+wxWidgets docs: [wxGridCellFloatEditor](https://docs.wxwidgets.org/3.1/classwx_grid_cell_float_editor.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/0,new/1,setParameters/2]).
 
@@ -26,6 +37,7 @@
 -export([handleReturn/2,isCreated/1,parent_class/1,reset/1,setSize/2,show/2,
   show/3,startingClick/1,startingKey/2]).
 
+-doc "".
 -type wxGridCellFloatEditor() :: wx:wx_object().
 -export_type([wxGridCellFloatEditor/0]).
 %% @hidden
@@ -33,12 +45,14 @@ parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new([])
+-doc "".
 -spec new() -> wxGridCellFloatEditor().
 
 new() ->
   new([]).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloateditor.html#wxgridcellfloateditorwxgridcellfloateditor">external documentation</a>.
+-doc "Float cell editor ctor.".
 -spec new([Option]) -> wxGridCellFloatEditor() when
 	Option :: {'width', integer()}
 		 | {'precision', integer()}
@@ -54,6 +68,9 @@ new(Options)
   wxe_util:rec(?wxGridCellFloatEditor_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloateditor.html#wxgridcellfloateditorsetparameters">external documentation</a>.
+-doc """
+The parameters string format is "width\[,precision[,format]]" where `format` should be chosen between f|e|g|E|G (f is used by default)
+""".
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellFloatEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
@@ -63,6 +80,7 @@ setParameters(#wx_ref{type=ThisT}=This,Params)
   wxe_util:queue_cmd(This,Params_UC,?get_env(),?wxGridCellFloatEditor_SetParameters).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxGridCellFloatEditor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatEditor),
@@ -85,3 +103,4 @@ show(This,Show) -> wxGridCellEditor:show(This,Show).
 setSize(This,Rect) -> wxGridCellEditor:setSize(This,Rect).
 %% @hidden
 isCreated(This) -> wxGridCellEditor:isCreated(This).
+

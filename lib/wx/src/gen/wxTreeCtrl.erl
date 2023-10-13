@@ -23,6 +23,35 @@
 
 %%
 -module(wxTreeCtrl).
+-moduledoc """
+Functions for wxTreeCtrl class
+
+A tree control presents information as a hierarchy, with items that may be expanded to show further items. Items in a tree control are referenced by `wxTreeItemId` (not implemented in wx) handles, which may be tested for validity by calling `wxTreeItemId::IsOk()` (not implemented in wx).
+
+A similar control with a fully native implementation for GTK+ and macOS as well is `wxDataViewTreeCtrl` (not implemented in wx).
+
+To intercept events from a tree control, use the event table macros described in `m:wxTreeEvent`.
+
+Styles
+
+This class supports the following styles:
+
+See also overview_windowstyles.
+
+`Win32` `notes:`
+
+`m:wxTreeCtrl` class uses the standard common treeview control under Win32 implemented in the system library comctl32.dll. Some versions of this library are known to have bugs with handling the tree control colours: the usual symptom is that the expanded items leave black (or otherwise incorrectly coloured) background behind them, especially for the controls using non-default background colour. The recommended solution is to upgrade the comctl32.dll to a newer version: see [http://www.microsoft.com/downloads/details.aspx?familyid=cb2cf3a2-8025-4e8f-8511-9b476a8d35d2](http://www.microsoft.com/downloads/details.aspx?familyid=cb2cf3a2-8025-4e8f-8511-9b476a8d35d2)
+
+See: `wxDataViewTreeCtrl` (not implemented in wx), `m:wxTreeEvent`, `wxTreeItemData` (not implemented in wx), [Overview treectrl](https://docs.wxwidgets.org/3.1/overview_treectrl.html#overview_treectrl), `m:wxListBox`, `m:wxListCtrl`, `m:wxImageList`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxTreeCtrl](https://docs.wxwidgets.org/3.1/classwx_tree_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_tree_begin_drag`](`m:wxTreeEvent`), [`command_tree_begin_rdrag`](`m:wxTreeEvent`), [`command_tree_end_drag`](`m:wxTreeEvent`), [`command_tree_begin_label_edit`](`m:wxTreeEvent`), [`command_tree_end_label_edit`](`m:wxTreeEvent`), [`command_tree_delete_item`](`m:wxTreeEvent`), [`command_tree_get_info`](`m:wxTreeEvent`), [`command_tree_set_info`](`m:wxTreeEvent`), [`command_tree_item_activated`](`m:wxTreeEvent`), [`command_tree_item_collapsed`](`m:wxTreeEvent`), [`command_tree_item_collapsing`](`m:wxTreeEvent`), [`command_tree_item_expanded`](`m:wxTreeEvent`), [`command_tree_item_expanding`](`m:wxTreeEvent`), [`command_tree_item_right_click`](`m:wxTreeEvent`), [`command_tree_item_middle_click`](`m:wxTreeEvent`), [`command_tree_sel_changed`](`m:wxTreeEvent`), [`command_tree_sel_changing`](`m:wxTreeEvent`), [`command_tree_key_down`](`m:wxTreeEvent`), [`command_tree_item_gettooltip`](`m:wxTreeEvent`), [`command_tree_item_menu`](`m:wxTreeEvent`), [`command_tree_state_image_click`](`m:wxTreeEvent`)
+""".
 -include("wxe.hrl").
 -export([addRoot/2,addRoot/3,appendItem/3,appendItem/4,assignImageList/2,assignStateImageList/2,
   collapse/2,collapseAndReset/2,create/2,create/3,delete/2,deleteAllItems/1,
@@ -82,6 +111,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxTreeCtrl() :: wx:wx_object().
 -export_type([wxTreeCtrl/0]).
 %% @hidden
@@ -91,12 +121,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlwxtreectrl">external documentation</a>.
+-doc "Default Constructor.".
 -spec new() -> wxTreeCtrl().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxTreeCtrl_new_0),
   wxe_util:rec(?wxTreeCtrl_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxTreeCtrl() when
 	Parent::wxWindow:wxWindow().
 
@@ -105,6 +137,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlwxtreectrl">external documentation</a>.
+-doc """
+Constructor, creating and showing a tree control.
+
+See: `create/3`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, [Option]) -> wxTreeCtrl() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -126,6 +163,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxTreeCtrl_new_2).
 
 %% @equiv addRoot(This,Text, [])
+-doc "".
 -spec addRoot(This, Text) -> integer() when
 	This::wxTreeCtrl(), Text::unicode:chardata().
 
@@ -134,6 +172,11 @@ addRoot(This,Text)
   addRoot(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrladdroot">external documentation</a>.
+-doc """
+Adds the root node to the tree, returning the new item.
+
+The `image` and `selImage` parameters are an index within the normal image list specifying the image to use for unselected and selected items, respectively. If `image` > -1 and `selImage` is -1, the same image is used for both selected and unselected items.
+""".
 -spec addRoot(This, Text, [Option]) -> integer() when
 	This::wxTreeCtrl(), Text::unicode:chardata(),
 	Option :: {'image', integer()}
@@ -152,6 +195,7 @@ addRoot(#wx_ref{type=ThisT}=This,Text, Options)
   wxe_util:rec(?wxTreeCtrl_AddRoot).
 
 %% @equiv appendItem(This,Parent,Text, [])
+-doc "".
 -spec appendItem(This, Parent, Text) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
@@ -160,6 +204,11 @@ appendItem(This,Parent,Text)
   appendItem(This,Parent,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlappenditem">external documentation</a>.
+-doc """
+Appends an item to the end of the branch identified by `parent`, return a new item id.
+
+The `image` and `selImage` parameters are an index within the normal image list specifying the image to use for unselected and selected items, respectively. If `image` > -1 and `selImage` is -1, the same image is used for both selected and unselected items.
+""".
 -spec appendItem(This, Parent, Text, [Option]) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
 	Option :: {'image', integer()}
@@ -178,6 +227,13 @@ appendItem(#wx_ref{type=ThisT}=This,Parent,Text, Options)
   wxe_util:rec(?wxTreeCtrl_AppendItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlassignimagelist">external documentation</a>.
+-doc """
+Sets the normal image list.
+
+The image list assigned with this method will be automatically deleted by `m:wxTreeCtrl` as appropriate (i.e. it takes ownership of the list).
+
+See: `setImageList/2`
+""".
 -spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -186,6 +242,13 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreeCtrl_AssignImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlassignstateimagelist">external documentation</a>.
+-doc """
+Sets the state image list.
+
+Image list assigned with this method will be automatically deleted by `m:wxTreeCtrl` as appropriate (i.e. it takes ownership of the list).
+
+See: `setStateImageList/2`
+""".
 -spec assignStateImageList(This, ImageList) -> 'ok' when
 	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -194,6 +257,7 @@ assignStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreeCtrl_AssignStateImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlcollapse">external documentation</a>.
+-doc "Collapses the given item.".
 -spec collapse(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 collapse(#wx_ref{type=ThisT}=This,Item)
@@ -202,6 +266,7 @@ collapse(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_Collapse).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlcollapseandreset">external documentation</a>.
+-doc "Collapses the given item and removes all children.".
 -spec collapseAndReset(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 collapseAndReset(#wx_ref{type=ThisT}=This,Item)
@@ -210,6 +275,7 @@ collapseAndReset(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_CollapseAndReset).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxTreeCtrl(), Parent::wxWindow:wxWindow().
 
@@ -218,6 +284,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlcreate">external documentation</a>.
+-doc """
+Creates the tree control.
+
+See `new/2` for further details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxTreeCtrl(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -240,6 +311,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxTreeCtrl_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrldelete">external documentation</a>.
+-doc """
+Deletes the specified item.
+
+A `EVT_TREE_DELETE_ITEM` event will be generated.
+
+This function may cause a subsequent call to `getNextChild/3` to fail.
+""".
 -spec delete(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 delete(#wx_ref{type=ThisT}=This,Item)
@@ -248,6 +326,11 @@ delete(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_Delete).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrldeleteallitems">external documentation</a>.
+-doc """
+Deletes all items in the control.
+
+This function generates `wxEVT_TREE_DELETE_ITEM` events for each item being deleted, including the root one if it is shown, i.e. unless wxTR_HIDE_ROOT style is used.
+""".
 -spec deleteAllItems(This) -> 'ok' when
 	This::wxTreeCtrl().
 deleteAllItems(#wx_ref{type=ThisT}=This) ->
@@ -255,6 +338,13 @@ deleteAllItems(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_DeleteAllItems).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrldeletechildren">external documentation</a>.
+-doc """
+Deletes all children of the given item (but not the item itself).
+
+A `wxEVT_TREE_DELETE_ITEM` event will be generated for every item being deleted.
+
+If you have called `setItemHasChildren/3`, you may need to call it again since `deleteChildren/2` does not automatically clear the setting.
+""".
 -spec deleteChildren(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 deleteChildren(#wx_ref{type=ThisT}=This,Item)
@@ -263,6 +353,15 @@ deleteChildren(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_DeleteChildren).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrleditlabel">external documentation</a>.
+-doc """
+Starts editing the label of the given `item`.
+
+This function generates a `EVT_TREE_BEGIN_LABEL_EDIT` event which can be vetoed so that no text control will appear for in-place editing.
+
+If the user changed the label (i.e. s/he does not press ESC or leave the text control without changes, a `EVT_TREE_END_LABEL_EDIT` event will be sent which can be vetoed as well.
+
+See: `EndEditLabel()` (not implemented in wx), `m:wxTreeEvent`
+""".
 -spec editLabel(This, Item) -> wxTextCtrl:wxTextCtrl() when
 	This::wxTreeCtrl(), Item::integer().
 editLabel(#wx_ref{type=ThisT}=This,Item)
@@ -272,6 +371,11 @@ editLabel(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_EditLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlensurevisible">external documentation</a>.
+-doc """
+Scrolls and/or expands items to ensure that the given item is visible.
+
+This method can be used, and will work, even while the window is frozen (see `wxWindow:freeze/1`).
+""".
 -spec ensureVisible(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 ensureVisible(#wx_ref{type=ThisT}=This,Item)
@@ -280,6 +384,7 @@ ensureVisible(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_EnsureVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlexpand">external documentation</a>.
+-doc "Expands the given item.".
 -spec expand(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 expand(#wx_ref{type=ThisT}=This,Item)
@@ -288,6 +393,7 @@ expand(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_Expand).
 
 %% @equiv getBoundingRect(This,Item, [])
+-doc "".
 -spec getBoundingRect(This, Item) -> Result when
 	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxTreeCtrl(), Item::integer().
@@ -297,6 +403,15 @@ getBoundingRect(This,Item)
   getBoundingRect(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetboundingrect">external documentation</a>.
+-doc """
+Retrieves the rectangle bounding the `item`.
+
+If `textOnly` is true, only the rectangle around the item's label will be returned, otherwise the item's image is also taken into account.
+
+The return value is true if the rectangle was successfully retrieved or false if it was not (in this case `rect` is not changed) - for example, if the item is currently invisible.
+
+Notice that the rectangle coordinates are logical, not physical ones. So, for example, the x coordinate may be negative if the tree has a horizontal scrollbar and its position is not 0.
+""".
 -spec getBoundingRect(This, Item, [Option]) -> Result when
 	Result :: {Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxTreeCtrl(), Item::integer(),
@@ -311,6 +426,7 @@ getBoundingRect(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxTreeCtrl_GetBoundingRect).
 
 %% @equiv getChildrenCount(This,Item, [])
+-doc "".
 -spec getChildrenCount(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -319,6 +435,11 @@ getChildrenCount(This,Item)
   getChildrenCount(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetchildrencount">external documentation</a>.
+-doc """
+Returns the number of items in the branch.
+
+If `recursively` is true, returns the total number of descendants, otherwise only one level of children is counted.
+""".
 -spec getChildrenCount(This, Item, [Option]) -> integer() when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'recursively', boolean()}.
@@ -332,6 +453,7 @@ getChildrenCount(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxTreeCtrl_GetChildrenCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetcount">external documentation</a>.
+-doc "Returns the number of items in the control.".
 -spec getCount(This) -> integer() when
 	This::wxTreeCtrl().
 getCount(#wx_ref{type=ThisT}=This) ->
@@ -340,6 +462,13 @@ getCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgeteditcontrol">external documentation</a>.
+-doc """
+Returns the edit control being currently used to edit a label.
+
+Returns NULL if no label is being edited.
+
+Note: This is currently only implemented for wxMSW.
+""".
 -spec getEditControl(This) -> wxTextCtrl:wxTextCtrl() when
 	This::wxTreeCtrl().
 getEditControl(#wx_ref{type=ThisT}=This) ->
@@ -348,6 +477,15 @@ getEditControl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetEditControl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetfirstchild">external documentation</a>.
+-doc """
+Returns the first child; call `getNextChild/3` for the next child.
+
+For this enumeration function you must pass in a 'cookie' parameter which is opaque for the application but is necessary for the library to make these functions reentrant (i.e. allow more than one enumeration on one and the same object simultaneously). The cookie passed to `getFirstChild/2` and `getNextChild/3` should be the same variable.
+
+Returns an invalid tree item (i.e. `wxTreeItemId::IsOk()` (not implemented in wx) returns false) if there are no further children.
+
+See: `getNextChild/3`, `getNextSibling/2`
+""".
 -spec getFirstChild(This, Item) -> Result when
 	Result ::{Res ::integer(), Cookie::integer()},
 	This::wxTreeCtrl(), Item::integer().
@@ -358,6 +496,15 @@ getFirstChild(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetFirstChild).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetnextchild">external documentation</a>.
+-doc """
+Returns the next child; call `getFirstChild/2` for the first child.
+
+For this enumeration function you must pass in a 'cookie' parameter which is opaque for the application but is necessary for the library to make these functions reentrant (i.e. allow more than one enumeration on one and the same object simultaneously). The cookie passed to `getFirstChild/2` and `getNextChild/3` should be the same.
+
+Returns an invalid tree item if there are no further children.
+
+See: `getFirstChild/2`
+""".
 -spec getNextChild(This, Item, Cookie) -> Result when
 	Result ::{Res ::integer(), Cookie::integer()},
 	This::wxTreeCtrl(), Item::integer(), Cookie::integer().
@@ -368,6 +515,7 @@ getNextChild(#wx_ref{type=ThisT}=This,Item,Cookie)
   wxe_util:rec(?wxTreeCtrl_GetNextChild).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetfirstvisibleitem">external documentation</a>.
+-doc "Returns the first visible item.".
 -spec getFirstVisibleItem(This) -> integer() when
 	This::wxTreeCtrl().
 getFirstVisibleItem(#wx_ref{type=ThisT}=This) ->
@@ -376,6 +524,7 @@ getFirstVisibleItem(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetFirstVisibleItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetimagelist">external documentation</a>.
+-doc "Returns the normal image list.".
 -spec getImageList(This) -> wxImageList:wxImageList() when
 	This::wxTreeCtrl().
 getImageList(#wx_ref{type=ThisT}=This) ->
@@ -384,6 +533,7 @@ getImageList(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetindent">external documentation</a>.
+-doc "Returns the current tree control indentation.".
 -spec getIndent(This) -> integer() when
 	This::wxTreeCtrl().
 getIndent(#wx_ref{type=ThisT}=This) ->
@@ -392,6 +542,7 @@ getIndent(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetIndent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitembackgroundcolour">external documentation</a>.
+-doc "Returns the background colour of the item.".
 -spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
 	This::wxTreeCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
@@ -401,6 +552,11 @@ getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemdata">external documentation</a>.
+-doc """
+Returns the tree item data associated with the item.
+
+See: `wxTreeItemData` (not implemented in wx)
+""".
 -spec getItemData(This, Item) -> term() when
 	This::wxTreeCtrl(), Item::integer().
 getItemData(#wx_ref{type=ThisT}=This,Item)
@@ -410,6 +566,11 @@ getItemData(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemfont">external documentation</a>.
+-doc """
+Returns the font of the item label.
+
+If the font hadn't been explicitly set for the specified `item` with `setItemFont/3`, returns an invalid ?wxNullFont font. `wxWindow:getFont/1` can be used to retrieve the global tree control font used for the items without any specific font.
+""".
 -spec getItemFont(This, Item) -> wxFont:wxFont() when
 	This::wxTreeCtrl(), Item::integer().
 getItemFont(#wx_ref{type=ThisT}=This,Item)
@@ -419,6 +580,7 @@ getItemFont(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemFont).
 
 %% @equiv getItemImage(This,Item, [])
+-doc "".
 -spec getItemImage(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -428,6 +590,11 @@ getItemImage(This,Item)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemimage">external documentation</a>.
 %%<br /> Which = ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+-doc """
+Gets the specified item image.
+
+The value of `which` may be:
+""".
 -spec getItemImage(This, Item, [Option]) -> integer() when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'which', wx:wx_enum()}.
@@ -441,6 +608,7 @@ getItemImage(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxTreeCtrl_GetItemImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemtext">external documentation</a>.
+-doc "Returns the item label.".
 -spec getItemText(This, Item) -> unicode:charlist() when
 	This::wxTreeCtrl(), Item::integer().
 getItemText(#wx_ref{type=ThisT}=This,Item)
@@ -450,6 +618,7 @@ getItemText(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemtextcolour">external documentation</a>.
+-doc "Returns the colour of the item label.".
 -spec getItemTextColour(This, Item) -> wx:wx_colour4() when
 	This::wxTreeCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT}=This,Item)
@@ -459,6 +628,11 @@ getItemTextColour(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetlastchild">external documentation</a>.
+-doc """
+Returns the last child of the item (or an invalid tree item if this item has no children).
+
+See: `getFirstChild/2`, `getNextSibling/2`, `getLastChild/2`
+""".
 -spec getLastChild(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getLastChild(#wx_ref{type=ThisT}=This,Item)
@@ -468,6 +642,13 @@ getLastChild(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetLastChild).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetnextsibling">external documentation</a>.
+-doc """
+Returns the next sibling of the specified item; call `getPrevSibling/2` for the previous sibling.
+
+Returns an invalid tree item if there are no further siblings.
+
+See: `getPrevSibling/2`
+""".
 -spec getNextSibling(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getNextSibling(#wx_ref{type=ThisT}=This,Item)
@@ -477,6 +658,11 @@ getNextSibling(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetNextSibling).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetnextvisible">external documentation</a>.
+-doc """
+Returns the next visible item or an invalid item if this item is the last visible one.
+
+Note: The `item` itself must be visible.
+""".
 -spec getNextVisible(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getNextVisible(#wx_ref{type=ThisT}=This,Item)
@@ -486,6 +672,7 @@ getNextVisible(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetNextVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetitemparent">external documentation</a>.
+-doc "Returns the item's parent.".
 -spec getItemParent(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getItemParent(#wx_ref{type=ThisT}=This,Item)
@@ -495,6 +682,13 @@ getItemParent(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetItemParent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetprevsibling">external documentation</a>.
+-doc """
+Returns the previous sibling of the specified item; call `getNextSibling/2` for the next sibling.
+
+Returns an invalid tree item if there are no further children.
+
+See: `getNextSibling/2`
+""".
 -spec getPrevSibling(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getPrevSibling(#wx_ref{type=ThisT}=This,Item)
@@ -504,6 +698,11 @@ getPrevSibling(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetPrevSibling).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetprevvisible">external documentation</a>.
+-doc """
+Returns the previous visible item or an invalid item if this item is the first visible one.
+
+Note: The `item` itself must be visible.
+""".
 -spec getPrevVisible(This, Item) -> integer() when
 	This::wxTreeCtrl(), Item::integer().
 getPrevVisible(#wx_ref{type=ThisT}=This,Item)
@@ -513,6 +712,7 @@ getPrevVisible(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_GetPrevVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetrootitem">external documentation</a>.
+-doc "Returns the root item for the tree control.".
 -spec getRootItem(This) -> integer() when
 	This::wxTreeCtrl().
 getRootItem(#wx_ref{type=ThisT}=This) ->
@@ -521,6 +721,11 @@ getRootItem(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetRootItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetselection">external documentation</a>.
+-doc """
+Returns the selection, or an invalid item if there is no selection.
+
+This function only works with the controls without `wxTR_MULTIPLE` style, use `getSelections/1` for the controls which do have this style or, if a single item is wanted, use `GetFocusedItem()` (not implemented in wx).
+""".
 -spec getSelection(This) -> integer() when
 	This::wxTreeCtrl().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -529,6 +734,13 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetselections">external documentation</a>.
+-doc """
+Fills the array of tree items passed in with the currently selected items.
+
+This function can be called only if the control has the `wxTR_MULTIPLE` style.
+
+Returns the number of selected items.
+""".
 -spec getSelections(This) -> Result when
 	Result ::{Res ::integer(), Selection::[integer()]},
 	This::wxTreeCtrl().
@@ -538,6 +750,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetSelections).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlgetstateimagelist">external documentation</a>.
+-doc "Returns the state image list (from which application-defined state images are taken).".
 -spec getStateImageList(This) -> wxImageList:wxImageList() when
 	This::wxTreeCtrl().
 getStateImageList(#wx_ref{type=ThisT}=This) ->
@@ -546,6 +759,11 @@ getStateImageList(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxTreeCtrl_GetStateImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlhittest">external documentation</a>.
+-doc """
+Calculates which (if any) item is under the given `point`, returning the tree item id at this point plus extra information `flags`.
+
+`flags` is a bitlist of the following:
+""".
 -spec hitTest(This, Point) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
 	This::wxTreeCtrl(), Point::{X::integer(), Y::integer()}.
@@ -556,6 +774,7 @@ hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
   wxe_util:rec(?wxTreeCtrl_HitTest).
 
 %% @equiv insertItem(This,Parent,Previous,Text, [])
+-doc "".
 -spec insertItem(This, Parent, Previous, Text) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Previous::integer(), Text::unicode:chardata().
 
@@ -564,6 +783,11 @@ insertItem(This,Parent,Previous,Text)
   insertItem(This,Parent,Previous,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlinsertitem">external documentation</a>.
+-doc """
+Inserts an item after a given one (`previous`).
+
+The `image` and `selImage` parameters are an index within the normal image list specifying the image to use for unselected and selected items, respectively. If `image` > -1 and `selImage` is -1, the same image is used for both selected and unselected items.
+""".
 -spec insertItem(This, Parent, Previous, Text, [Option]) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Previous::integer(), Text::unicode:chardata(),
 	Option :: {'image', integer()}
@@ -582,6 +806,11 @@ insertItem(#wx_ref{type=ThisT}=This,Parent,Previous,Text, Options)
   wxe_util:rec(?wxTreeCtrl_InsertItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlisbold">external documentation</a>.
+-doc """
+Returns true if the given item is in bold state.
+
+See: `setItemBold/3`
+""".
 -spec isBold(This, Item) -> boolean() when
 	This::wxTreeCtrl(), Item::integer().
 isBold(#wx_ref{type=ThisT}=This,Item)
@@ -591,6 +820,7 @@ isBold(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_IsBold).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlisexpanded">external documentation</a>.
+-doc "Returns true if the item is expanded (only makes sense if it has children).".
 -spec isExpanded(This, Item) -> boolean() when
 	This::wxTreeCtrl(), Item::integer().
 isExpanded(#wx_ref{type=ThisT}=This,Item)
@@ -600,6 +830,7 @@ isExpanded(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_IsExpanded).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlisselected">external documentation</a>.
+-doc "Returns true if the item is selected.".
 -spec isSelected(This, Item) -> boolean() when
 	This::wxTreeCtrl(), Item::integer().
 isSelected(#wx_ref{type=ThisT}=This,Item)
@@ -609,6 +840,7 @@ isSelected(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_IsSelected).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlisvisible">external documentation</a>.
+-doc "Returns true if the item is visible on the screen.".
 -spec isVisible(This, Item) -> boolean() when
 	This::wxTreeCtrl(), Item::integer().
 isVisible(#wx_ref{type=ThisT}=This,Item)
@@ -618,6 +850,7 @@ isVisible(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_IsVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlitemhaschildren">external documentation</a>.
+-doc "Returns true if the item has children.".
 -spec itemHasChildren(This, Item) -> boolean() when
 	This::wxTreeCtrl(), Item::integer().
 itemHasChildren(#wx_ref{type=ThisT}=This,Item)
@@ -627,6 +860,7 @@ itemHasChildren(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxTreeCtrl_ItemHasChildren).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlistreeitemidok">external documentation</a>.
+-doc "Returns true if the item is valid.".
 -spec isTreeItemIdOk(Item) -> boolean() when
 	Item::integer().
 isTreeItemIdOk(Item)
@@ -635,6 +869,7 @@ isTreeItemIdOk(Item)
   wxe_util:rec(?wxTreeCtrl_IsTreeItemIdOk).
 
 %% @equiv prependItem(This,Parent,Text, [])
+-doc "".
 -spec prependItem(This, Parent, Text) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
@@ -643,6 +878,11 @@ prependItem(This,Parent,Text)
   prependItem(This,Parent,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlprependitem">external documentation</a>.
+-doc """
+Appends an item as the first child of `parent`, return a new item id.
+
+The `image` and `selImage` parameters are an index within the normal image list specifying the image to use for unselected and selected items, respectively. If `image` > -1 and `selImage` is -1, the same image is used for both selected and unselected items.
+""".
 -spec prependItem(This, Parent, Text, [Option]) -> integer() when
 	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
 	Option :: {'image', integer()}
@@ -661,6 +901,13 @@ prependItem(#wx_ref{type=ThisT}=This,Parent,Text, Options)
   wxe_util:rec(?wxTreeCtrl_PrependItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlscrollto">external documentation</a>.
+-doc """
+Scrolls the specified item into view.
+
+Note that this method doesn't work while the window is frozen (See `wxWindow:freeze/1`), at least under MSW.
+
+See: `ensureVisible/2`
+""".
 -spec scrollTo(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 scrollTo(#wx_ref{type=ThisT}=This,Item)
@@ -669,6 +916,7 @@ scrollTo(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_ScrollTo).
 
 %% @equiv selectItem(This,Item, [])
+-doc "".
 -spec selectItem(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -677,6 +925,13 @@ selectItem(This,Item)
   selectItem(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlselectitem">external documentation</a>.
+-doc """
+Selects the given item.
+
+In multiple selection controls, can be also used to deselect a currently selected item if the value of `select` is false.
+
+Notice that calling this method will generate `wxEVT_TREE_SEL_CHANGING` and `wxEVT_TREE_SEL_CHANGED` events and that the change could be vetoed by the former event handler.
+""".
 -spec selectItem(This, Item, [Option]) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'select', boolean()}.
@@ -689,6 +944,7 @@ selectItem(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxTreeCtrl_SelectItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetindent">external documentation</a>.
+-doc "Sets the indentation for the tree control.".
 -spec setIndent(This, Indent) -> 'ok' when
 	This::wxTreeCtrl(), Indent::integer().
 setIndent(#wx_ref{type=ThisT}=This,Indent)
@@ -697,6 +953,13 @@ setIndent(#wx_ref{type=ThisT}=This,Indent)
   wxe_util:queue_cmd(This,Indent,?get_env(),?wxTreeCtrl_SetIndent).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetimagelist">external documentation</a>.
+-doc """
+Sets the normal image list.
+
+The image list assigned with this method will `not` be deleted by `m:wxTreeCtrl`'s destructor, you must delete it yourself.
+
+See: `assignImageList/2`
+""".
 -spec setImageList(This, ImageList) -> 'ok' when
 	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -705,6 +968,7 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreeCtrl_SetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitembackgroundcolour">external documentation</a>.
+-doc "Sets the colour of the item's background.".
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
@@ -713,6 +977,7 @@ setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxTreeCtrl_SetItemBackgroundColour).
 
 %% @equiv setItemBold(This,Item, [])
+-doc "".
 -spec setItemBold(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -721,6 +986,11 @@ setItemBold(This,Item)
   setItemBold(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitembold">external documentation</a>.
+-doc """
+Makes item appear in bold font if `bold` parameter is true or resets it to the normal state.
+
+See: `isBold/2`
+""".
 -spec setItemBold(This, Item, [Option]) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'bold', boolean()}.
@@ -733,6 +1003,11 @@ setItemBold(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxTreeCtrl_SetItemBold).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemdata">external documentation</a>.
+-doc """
+Sets the item client data.
+
+Notice that the client data previously associated with the `item` (if any) is `not` freed by this function and so calling this function multiple times for the same item will result in memory leaks unless you delete the old item data pointer yourself.
+""".
 -spec setItemData(This, Item, Data) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Data::term().
 setItemData(#wx_ref{type=ThisT}=This,Item,Data)
@@ -741,6 +1016,7 @@ setItemData(#wx_ref{type=ThisT}=This,Item,Data)
   wxe_util:queue_cmd(This,Item,Data,?get_env(),?wxTreeCtrl_SetItemData).
 
 %% @equiv setItemDropHighlight(This,Item, [])
+-doc "".
 -spec setItemDropHighlight(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -749,6 +1025,7 @@ setItemDropHighlight(This,Item)
   setItemDropHighlight(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemdrophighlight">external documentation</a>.
+-doc "Gives the item the visual feedback for Drag'n'Drop actions, which is useful if something is dragged from the outside onto the tree control (as opposed to a DnD operation within the tree control, which already is implemented internally).".
 -spec setItemDropHighlight(This, Item, [Option]) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'highlight', boolean()}.
@@ -761,6 +1038,13 @@ setItemDropHighlight(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxTreeCtrl_SetItemDropHighlight).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemfont">external documentation</a>.
+-doc """
+Sets the item's font.
+
+All items in the tree should have the same height to avoid text clipping, so the fonts height should be the same for all of them, although font attributes may vary.
+
+See: `setItemBold/3`
+""".
 -spec setItemFont(This, Item, Font) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Font::wxFont:wxFont().
 setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
@@ -770,6 +1054,7 @@ setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
   wxe_util:queue_cmd(This,Item,Font,?get_env(),?wxTreeCtrl_SetItemFont).
 
 %% @equiv setItemHasChildren(This,Item, [])
+-doc "".
 -spec setItemHasChildren(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 
@@ -778,6 +1063,11 @@ setItemHasChildren(This,Item)
   setItemHasChildren(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemhaschildren">external documentation</a>.
+-doc """
+Force appearance of the button next to the item.
+
+This is useful to allow the user to expand the items which don't have any children now, but instead adding them only when needed, thus minimizing memory usage and loading time.
+""".
 -spec setItemHasChildren(This, Item, [Option]) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(),
 	Option :: {'has', boolean()}.
@@ -790,6 +1080,7 @@ setItemHasChildren(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:queue_cmd(This,Item, Opts,?get_env(),?wxTreeCtrl_SetItemHasChildren).
 
 %% @equiv setItemImage(This,Item,Image, [])
+-doc "".
 -spec setItemImage(This, Item, Image) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Image::integer().
 
@@ -799,6 +1090,11 @@ setItemImage(This,Item,Image)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemimage">external documentation</a>.
 %%<br /> Which = ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+-doc """
+Sets the specified item's image.
+
+See `getItemImage/3` for the description of the `which` parameter.
+""".
 -spec setItemImage(This, Item, Image, [Option]) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Image::integer(),
 	Option :: {'which', wx:wx_enum()}.
@@ -811,6 +1107,7 @@ setItemImage(#wx_ref{type=ThisT}=This,Item,Image, Options)
   wxe_util:queue_cmd(This,Item,Image, Opts,?get_env(),?wxTreeCtrl_SetItemImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemtext">external documentation</a>.
+-doc "Sets the item label.".
 -spec setItemText(This, Item, Text) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT}=This,Item,Text)
@@ -820,6 +1117,7 @@ setItemText(#wx_ref{type=ThisT}=This,Item,Text)
   wxe_util:queue_cmd(This,Item,Text_UC,?get_env(),?wxTreeCtrl_SetItemText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetitemtextcolour">external documentation</a>.
+-doc "Sets the colour of the item's text.".
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
@@ -828,6 +1126,13 @@ setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxTreeCtrl_SetItemTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetstateimagelist">external documentation</a>.
+-doc """
+Sets the state image list (from which application-defined state images are taken).
+
+Image list assigned with this method will `not` be deleted by `m:wxTreeCtrl`'s destructor, you must delete it yourself.
+
+See: `assignStateImageList/2`
+""".
 -spec setStateImageList(This, ImageList) -> 'ok' when
 	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) ->
@@ -836,6 +1141,13 @@ setStateImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList) -
   wxe_util:queue_cmd(This,ImageList,?get_env(),?wxTreeCtrl_SetStateImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsetwindowstyle">external documentation</a>.
+-doc """
+Sets the mode flags associated with the display of the tree control.
+
+The new mode takes effect immediately.
+
+Note: Generic only; MSW ignores changes.
+""".
 -spec setWindowStyle(This, Styles) -> 'ok' when
 	This::wxTreeCtrl(), Styles::integer().
 setWindowStyle(#wx_ref{type=ThisT}=This,Styles)
@@ -844,6 +1156,13 @@ setWindowStyle(#wx_ref{type=ThisT}=This,Styles)
   wxe_util:queue_cmd(This,Styles,?get_env(),?wxTreeCtrl_SetWindowStyle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlsortchildren">external documentation</a>.
+-doc """
+Sorts the children of the given item using `OnCompareItems()` (not implemented in wx).
+
+You should override that method to change the sort order (the default is ascending case-sensitive alphabetical order).
+
+See: `wxTreeItemData` (not implemented in wx), `OnCompareItems()` (not implemented in wx)
+""".
 -spec sortChildren(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 sortChildren(#wx_ref{type=ThisT}=This,Item)
@@ -852,6 +1171,7 @@ sortChildren(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_SortChildren).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrltoggle">external documentation</a>.
+-doc "Toggles the given item between collapsed and expanded states.".
 -spec toggle(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 toggle(#wx_ref{type=ThisT}=This,Item)
@@ -860,6 +1180,11 @@ toggle(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_Toggle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrltoggleitemselection">external documentation</a>.
+-doc """
+Toggles the given item between selected and unselected states.
+
+For multiselection controls only.
+""".
 -spec toggleItemSelection(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 toggleItemSelection(#wx_ref{type=ThisT}=This,Item)
@@ -868,6 +1193,7 @@ toggleItemSelection(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_ToggleItemSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlunselect">external documentation</a>.
+-doc "Removes the selection from the currently selected item (if any).".
 -spec unselect(This) -> 'ok' when
 	This::wxTreeCtrl().
 unselect(#wx_ref{type=ThisT}=This) ->
@@ -875,6 +1201,7 @@ unselect(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_Unselect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlunselectall">external documentation</a>.
+-doc "This function either behaves the same as `unselect/1` if the control doesn't have `wxTR_MULTIPLE` style, or removes the selection from all items if it does have this style.".
 -spec unselectAll(This) -> 'ok' when
 	This::wxTreeCtrl().
 unselectAll(#wx_ref{type=ThisT}=This) ->
@@ -882,6 +1209,11 @@ unselectAll(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTreeCtrl_UnselectAll).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreectrl.html#wxtreectrlunselectitem">external documentation</a>.
+-doc """
+Unselects the given item.
+
+This works in multiselection controls only.
+""".
 -spec unselectItem(This, Item) -> 'ok' when
 	This::wxTreeCtrl(), Item::integer().
 unselectItem(#wx_ref{type=ThisT}=This,Item)
@@ -890,6 +1222,7 @@ unselectItem(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxTreeCtrl_UnselectItem).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the tree control.".
 -spec destroy(This::wxTreeCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTreeCtrl),
@@ -1262,3 +1595,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

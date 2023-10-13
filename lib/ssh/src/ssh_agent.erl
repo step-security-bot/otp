@@ -21,6 +21,29 @@
 %% Reference: https://tools.ietf.org/html/draft-miller-ssh-agent-02
 
 -module(ssh_agent).
+-moduledoc """
+Callback module for using an SSH agent instead of the default ssh_file callback.
+
+This module defines a callback handler for the communication with an [SSH Agent](https://tools.ietf.org/html/draft-miller-ssh-agent-02) and can be used to replace the [default callback](`m:ssh_file`). This allows to issue signing requests to an agent that stores SSH private keys to perform authentication.
+
+Ssh_agent implements the `m:ssh_client_key_api`, to allow it to be used by setting the option [`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a client (with for example [ssh:connect](`ssh:connect/3`), [ssh:shell](`ssh:shell/1`) ).
+
+```erlang
+      {key_cb, {ssh_agent, []}}
+```
+
+The agent communication is established through a UNIX domain socket. By default, the socket path will be fetched from the `SSH_AUTH_SOCK` environment variable, which is the default socket path in the agent implementation of [OpenSSH](http://www.openssh.com).
+
+[](){: id=SOCKET_PATH }
+In order to set a different socket path the `socket_path` option can be set.
+
+```erlang
+      {key_cb, {ssh_agent, [{socket_path, SocketPath}]}}
+```
+
+> #### Note {: class=info }
+> The functions are *Callbacks* for the SSH app. They are not intended to be called from the user's code\!
+""".
 
 -behaviour(ssh_client_key_api).
 
@@ -30,13 +53,21 @@
 -export([send/2]).
 -export([add_host_key/3, add_host_key/4, is_host_key/4, is_host_key/5, user_key/2, sign/3]).
 
+-doc "Sets the [socket path](`m:ssh_agent#socket_path`) for the communication with the agent.".
+-doc(#{title => <<"Options for the ssh_agent callback module">>}).
 -type socket_path_option() :: {socket_path,  string()}.
+-doc "Sets the time-out in milliseconds when communicating with the agent via the socket. The default value is `1000`.".
+-doc(#{title => <<"Options for the ssh_agent callback module">>}).
 -type timeout_option() :: {timeout, integer()}.
+-doc "The module which the `add_host_key` and `is_host_key` callbacks are delegated to. Defaults to the `m:ssh_file` module.".
+-doc(#{title => <<"Options for the ssh_agent callback module">>}).
 -type call_ssh_file_option() :: {call_ssh_file, atom()}.
 
 %% ssh_client_key_api implementation
 
 %% Old (compatibility) version
+-doc(#{equiv => add_host_key/4}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec add_host_key(string(),
                    public_key:public_key(),
                    Options
@@ -50,6 +81,8 @@ add_host_key(Host, PublicKey, Options) ->
     SshFileCb:add_host_key(Host, PublicKey, Options).
 
 
+-doc(#{equiv => is_host_key/5}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec is_host_key(Key :: public_key:public_key(),
                   Host :: string(),
                   Algorithm :: ssh:pubkey_alg(),
@@ -64,6 +97,8 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
     SshFileCb:is_host_key(Key, PeerName, Algorithm, Opts).
 
 %% New version
+-doc "This callback is delegated to the [ssh_file](`ssh_file:add_host_key/4`) module.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec add_host_key(Host,
                    inet:port_number(),
                    public_key:public_key(),
@@ -79,6 +114,8 @@ add_host_key(Host, Port, PublicKey, Options) ->
     SshFileCb:add_host_key(Host, Port, PublicKey, Options).
 
 
+-doc "This callback is delegated to the [ssh_file](`ssh_file:is_host_key/5`) module.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec is_host_key(public_key:public_key(),
                   Host,
                   inet:port_number(),
@@ -95,6 +132,12 @@ is_host_key(Key, PeerName, Port, Algorithm, Opts) ->
     SshFileCb:is_host_key(Key, PeerName, Port, Algorithm, Opts).
 
 
+-doc """
+__Types and description__
+
+See the api description in [ssh_client_key_api, Module:user_key/2](`c:ssh_client_key_api:user_key/2`).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec user_key(Algorithm :: ssh:pubkey_alg(),
                Options) -> Result when 
       Result :: {ok, public_key:private_key()} |
@@ -208,3 +251,4 @@ decode(<<?BYTE(?SSH_AGENT_IDENTITIES_ANSWER), ?UINT32(NumKeys), KeyData/binary>>
 
 decode(<<?BYTE(?SSH_AGENT_SIGN_RESPONSE), ?DEC_BIN(Signature, _SignatureLen)>>) ->
     #ssh_agent_sign_response{signature = decode_signature(Signature)}.
+

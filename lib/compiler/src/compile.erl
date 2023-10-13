@@ -20,6 +20,103 @@
 %% Purpose: Run the Erlang compiler.
 
 -module(compile).
+-moduledoc """
+Erlang Compiler
+
+This module provides an interface to the standard Erlang compiler. It can generate either a new file, which contains the object code, or return a binary, which can be loaded directly.
+
+## Default Compiler Options
+
+The (host operating system) environment variable `ERL_COMPILER_OPTIONS` can be used to give default compiler options. Its value must be a valid Erlang term. If the value is a list, it is used as is. If it is not a list, it is put into a list.
+
+The list is appended to any options given to `file/2`, `forms/2`, and [output_generated/2](`output_generated/1`). Use the alternative functions `noenv_file/2`, `noenv_forms/2`, or [noenv_output_generated/2](`noenv_output_generated/1`) if you do not want the environment variable to be consulted, for example, if you are calling the compiler recursively from inside a parse transform.
+
+The list can be retrieved with `env_compiler_options/0`.
+
+## Inlining
+
+The compiler can do function inlining within an Erlang module. Inlining means that a call to a function is replaced with the function body with the arguments replaced with the actual values. The semantics are preserved, except if exceptions are generated in the inlined code. Exceptions are reported as occurring in the function the body was inlined into. Also, `function_clause` exceptions are converted to similar `case_clause` exceptions.
+
+When a function is inlined, the original function is kept if it is exported (either by an explicit export or if the option `export_all` was given) or if not all calls to the function are inlined.
+
+Inlining does not necessarily improve running time. For example, inlining can increase Beam stack use, which probably is detrimental to performance for recursive functions.
+
+Inlining is never default. It must be explicitly enabled with a compiler option or a `-compile()` attribute in the source module.
+
+To enable inlining, either use the option `inline` to let the compiler decide which functions to inline, or `{inline,[{Name,Arity},...]}` to have the compiler inline all calls to the given functions. If the option is given inside a `compile` directive in an Erlang module, `{Name,Arity}` can be written as `Name/Arity`.
+
+Example of explicit inlining:
+
+```text
+-compile({inline,[pi/0]}).
+
+pi() -> 3.1416.
+```
+
+Example of implicit inlining:
+
+```text
+-compile(inline).
+```
+
+The option `{inline_size,Size}` controls how large functions that are allowed to be inlined. Default is `24`, which keeps the size of the inlined code roughly the same as the un-inlined version (only relatively small functions are inlined).
+
+Example:
+
+```text
+%% Aggressive inlining - will increase code size.
+-compile(inline).
+-compile({inline_size,100}).
+```
+
+## Inlining of List Functions
+
+The compiler can also inline various list manipulation functions from the module `list` in STDLIB.
+
+This feature must be explicitly enabled with a compiler option or a `-compile()` attribute in the source module.
+
+To enable inlining of list functions, use option `inline_list_funcs`.
+
+The following functions are inlined:
+
+* `lists:all/2`
+* `lists:any/2`
+* `lists:foreach/2`
+* `lists:map/2`
+* `lists:flatmap/2`
+* `lists:filter/2`
+* `lists:foldl/3`
+* `lists:foldr/3`
+* `lists:mapfoldl/3`
+* `lists:mapfoldr/3`
+
+## Parse Transformations
+
+Parse transformations are used when a programmer wants to use Erlang syntax but with different semantics. The original Erlang code is then transformed into other Erlang code.
+
+See `m:erl_id_trans` for an example and an explanation of the function `parse_transform_info/0`.
+
+[](){: id=error_information }
+## Error Information
+
+The `ErrorInfo` mentioned earlier is the standard `ErrorInfo` structure, which is returned from all I/O modules. It has the following format:
+
+```text
+{ErrorLocation, Module, ErrorDescriptor}
+```
+
+`ErrorLocation` is the atom `none` if the error does not correspond to a specific location, for example, if the source file does not exist.
+
+A string describing the error is obtained with the following call:
+
+```text
+Module:format_error(ErrorDescriptor)
+```
+
+## See Also
+
+`m:epp`, `m:erl_id_trans`, `m:erl_lint`, `m:beam_lib`
+""".
 
 %% High-level interface.
 -export([file/1,file/2,noenv_file/2,format_error/1]).
@@ -47,25 +144,36 @@
 
 %%----------------------------------------------------------------------
 
+-doc "".
 -type abstract_code() :: [erl_parse:abstract_form()].
 
+-doc "List of Erlang abstract or Core Erlang format representations, as used by `forms/2`.".
 -type forms() :: abstract_code() | cerl:c_module().
 
+-doc "See `file/2` for detailed description.".
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
+-doc "".
 -type error_description() :: erl_lint:error_description().
+-doc "".
 -type error_info() :: erl_lint:error_info().
+-doc "".
 -type errors()   :: [{file:filename(), [error_info()]}].
+-doc "".
 -type warnings() :: [{file:filename(), [error_info()]}].
+-doc "".
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
                   | {'ok',                            %% with option 'to_pp'
                      module() | [],                   %% module() if 'to_exp'
                      abstract_code()}
                   | {'ok', module(), warnings()}.
+-doc "".
 -type bin_ret()  :: {'ok', module(), binary()}
                   | {'ok', module(), binary(), warnings()}.
+-doc "".
 -type err_ret()  :: 'error' | {'error', errors(), warnings()}.
+-doc "".
 -type comp_ret() :: mod_ret() | bin_ret() | err_ret().
 
 
@@ -82,11 +190,310 @@
 
 -define(DEFAULT_OPTIONS, [verbose,report_errors,report_warnings]).
 
+-doc "Is the same as `file(File, [verbose,report_errors,report_warnings])`.".
 -spec file(module() | file:filename()) ->
           CompRet :: comp_ret().
 
 file(File) -> file(File, ?DEFAULT_OPTIONS).
 
+-doc """
+Compiles the code in the file `File`, which is an Erlang source code file without the `.erl` extension. `Options` determine the behavior of the compiler.
+
+Returns `{ok,ModuleName}` if successful, or `error` if there are errors. An object code file is created if the compilation succeeds without errors. It is considered to be an error if the module name in the source code is not the same as the basename of the output file.
+
+Available options:
+
+* __`brief`__ - Restricts error and warning messages to a single line of output. As of OTP 24, the compiler will by default also display the part of the source code that the message refers to.
+
+* __`basic_validation`__ - This option is a fast way to test whether a module will compile successfully. This is useful for code generators that want to verify the code that they emit. No code is generated. If warnings are enabled, warnings generated by the `erl_lint` module (such as warnings for unused variables and functions) are also returned.
+
+  Use option `strong_validation` to generate all warnings that the compiler would generate.
+
+* __`strong_validation`__ - Similar to option `basic_validation`. No code is generated, but more compiler passes are run to ensure that warnings generated by the optimization passes are generated (such as clauses that will not match, or expressions that are guaranteed to fail with an exception at runtime).
+
+* __`binary`__ - The compiler returns the object code in a binary instead of creating an object file. If successful, the compiler returns `{ok,ModuleName,Binary}`.
+
+* __`bin_opt_info`__ - The compiler will emit informational warnings about binary matching optimizations (both successful and unsuccessful). For more information, see the section about [bin_opt_info](`p:system:binaryhandling.md#bin_opt_info`) in the Efficiency Guide.
+
+* __`{compile_info, [{atom(), term()}]}`__ - Allows compilers built on top of `compile` to attach extra compilation metadata to the `compile_info` chunk in the generated beam file.
+
+  It is advised for compilers to remove all non-deterministic information if the `deterministic` option is supported and it was supplied by the user.
+
+* __`compressed`__ - The compiler will compress the generated object code, which can be useful for embedded systems.
+
+* __`debug_info`__ - [](){: id=debug_info }
+  Includes debug information in the form of [Erlang Abstract Format](`p:erts:absform.md`) in the `debug_info` chunk of the compiled beam module. Tools such as Debugger, Xref, and Cover require the debug information to be included.
+
+  *Warning*: Source code can be reconstructed from the debug information. Use encrypted debug information (`encrypt_debug_info`) to prevent this.
+
+  For details, see [beam_lib(3)](`m:beam_lib#debug_info`).
+
+* __`{debug_info, {Backend, Data}}`__ - [](){: id=debug_info }
+  Includes custom debug information in the form of a `Backend` module with custom `Data` in the compiled beam module. The given module must implement a `debug_info/4` function and is responsible for generating different code representations, as described in the `debug_info` under [beam_lib(3)](`m:beam_lib#debug_info`).
+
+  *Warning*: Source code can be reconstructed from the debug information. Use encrypted debug information (`encrypt_debug_info`) to prevent this.
+
+* __`{debug_info_key,KeyString}`__  
+
+* __`{debug_info_key,{Mode,KeyString}}`__ - [](){: id=debug_info_key }
+  Includes debug information, but encrypts it so that it cannot be accessed without supplying the key. (To give option `debug_info` as well is allowed, but not necessary.) Using this option is a good way to always have the debug information available during testing, yet protecting the source code.
+
+  `Mode` is the type of crypto algorithm to be used for encrypting the debug information. The default (and currently the only) type is `des3_cbc`.
+
+  For details, see [beam_lib(3)](`m:beam_lib#debug_info`).
+
+* __`encrypt_debug_info`__ - [](){: id=encrypt_debug_info }
+  Similar to the `debug_info_key` option, but the key is read from an `.erlang.crypt` file.
+
+  For details, see [beam_lib(3)](`m:beam_lib#debug_info`).
+
+* __`deterministic`__ - Omit the `options` and `source` tuples in the list returned by `Module:module_info(compile)`, and reduce the paths in stack traces to the module name alone. This option will make it easier to achieve reproducible builds.
+
+* __`{feature, Feature, enable | disable}`__ - [](){: id=feature-option }
+  Enable (disable) the [feature](`p:system:features.md#features`) `Feature` during compilation. The special feature `all` can be used to enable (disable) all features.
+
+  > #### Note {: class=info }
+  > This option has no effect when used in a `-compile(..)` attribute. Instead, the `-feature(..)` directive (below) should be used.
+  >
+  > [](){: id=feature-directive }
+  > A feature can also be enabled (disabled) using the `-feature(Feature, enable | disable).` module directive. Note that this directive can only be present in a prefix of the file, before exports and function definitions. This is the preferred method of enabling and disabling features, since it is a local property of a module.
+
+* __`makedep`__ - Produces a Makefile rule to track headers dependencies. No object file is produced.
+
+  By default, this rule is written to `<File>.Pbeam`. However, if option `binary` is set, nothing is written and the rule is returned in `Binary`.
+
+  The output will be encoded in UTF-8.
+
+  For example, if you have the following module:
+
+  ```text
+  -module(module).
+  
+  -include_lib("eunit/include/eunit.hrl").
+  -include("header.hrl").
+  ```
+
+  The Makefile rule generated by this option looks as follows:
+
+  ```text
+  module.beam: module.erl \
+    /usr/local/lib/erlang/lib/eunit/include/eunit.hrl \
+    header.hrl
+  ```
+
+* __`makedep_side_effect`__ - The dependencies are created as a side effect to the normal compilation process. This means that the object file will also be produced. This option override the `makedep` option.
+
+* __`{makedep_output, Output}`__ - Writes generated rules to `Output` instead of the default `<File>.Pbeam`. `Output` can be a filename or an `io_device()`. To write to stdout, use `standard_io`. However, if `binary` is set, nothing is written to `Output` and the result is returned to the caller with `{ok, ModuleName, Binary}`.
+
+* __`{makedep_target, Target}`__ - Changes the name of the rule emitted to `Target`.
+
+* __`makedep_quote_target`__ - Characters in `Target` special to make(1) are quoted.
+
+* __`makedep_add_missing`__ - Considers missing headers as generated files and adds them to the dependencies.
+
+* __`makedep_phony`__ - Adds a phony target for each dependency.
+
+* __`'P'`__ - Produces a listing of the parsed code, after preprocessing and parse transforms, in the file `<File>.P`. No object file is produced.
+
+* __`'E'`__ - Produces a listing of the code, after all source code transformations have been performed, in the file `<File>.E`. No object file is produced.
+
+* __`'S'`__ - Produces a listing of the assembler code in the file `<File>.S`. No object file is produced.
+
+* __`recv_opt_info`__ - The compiler will emit informational warnings about selective receive optimizations (both successful and unsuccessful). For more information, see the section about [selective receive optimization](`p:system:eff_guide_processes.md#receiving-messages`) in the Efficiency Guide.
+
+* __`report_errors/report_warnings`__ - Causes errors/warnings to be printed as they occur.
+
+* __`report`__ - A short form for both `report_errors` and `report_warnings`.
+
+* __`return_errors`__ - If this flag is set, `{error,ErrorList,WarningList}` is returned when there are errors.
+
+* __`return_warnings`__ - If this flag is set, an extra field, containing `WarningList`, is added to the tuples returned on success.
+
+* __`warnings_as_errors`__ - Causes warnings to be treated as errors. This option is supported since R13B04.
+
+* __`{error_location,line | column}`__ - If the value of this flag is `line`, the location [`ErrorLocation`](`m:compile#error_information`) of warnings and errors is a line number. If the value is `column`, `ErrorLocation` includes both a line number and a column number. Default is `column`. This option is supported since Erlang/OTP 24.0.
+
+  If the value of this flag is `column`, [debug information](`m:compile#debug_info`) includes column information.
+
+* __`return`__ - A short form for both `return_errors` and `return_warnings`.
+
+* __`verbose`__ - Causes more verbose information from the compiler, describing what it is doing.
+
+* __`{source,FileName}`__ - Overrides the source file name as presented in `module_info(compile)` and stack traces.
+
+* __`absolute_source`__ - Turns the source file name (as presented in `module_info(compile)` and stack traces) into an absolute path, which helps external tools like `perf` and `gdb` find Erlang source code.
+
+* __`{outdir,Dir}`__ - Sets a new directory for the object code. The current directory is used for output, except when a directory has been specified with this option.
+
+* __`export_all`__ - Causes all functions in the module to be exported.
+
+* __`{i,Dir}`__ - Adds `Dir` to the list of directories to be searched when including a file. When encountering an `-include` or `-include_lib` directive, the compiler searches for header files in the following directories:
+
+  1. `"."`, the current working directory of the file server
+  1. The base name of the compiled file
+  1. The directories specified using option `i`; the directory specified last is searched first
+
+* __`{d,Macro}`__  
+
+* __`{d,Macro,Value}`__ - Defines a macro `Macro` to have the value `Value`. `Macro` is of type atom, and `Value` can be any term. The default `Value` is `true`.
+
+* __`{parse_transform,Module}`__ - Causes the parse transformation function `Module:parse_transform/2` to be applied to the parsed code before the code is checked for errors.
+
+* __`from_abstr`__ - The input file is expected to contain Erlang terms representing forms in abstract format (default file suffix ".abstr"). Note that the format of such terms can change between releases.
+
+  See also the `no_lint` option.
+
+* __`from_asm`__ - The input file is expected to be assembler code (default file suffix ".S"). Notice that the format of assembler files is not documented, and can change between releases.
+
+* __`from_core`__ - The input file is expected to be core code (default file suffix ".core"). Notice that the format of core files is not documented, and can change between releases.
+
+* __`no_spawn_compiler_process`__ - By default, all code is compiled in a separate process which is terminated at the end of compilation. However, some tools, like Dialyzer or compilers for other BEAM languages, may already manage their own worker processes and spawning an extra process may slow the compilation down. In such scenarios, you can pass this option to stop the compiler from spawning an additional process.
+
+* __`no_strict_record_tests`__ - This option is not recommended.
+
+  By default, the generated code for operation `Record#record_tag.field` verifies that the tuple `Record` has the correct size for the record, and that the first element is the tag `record_tag`. Use this option to omit the verification code.
+
+* __`no_error_module_mismatch`__ - Normally the compiler verifies that the module name given in the source code is the same as the base name of the output file and refuses to generate an output file if there is a mismatch. If you have a good reason (or other reason) for having a module name unrelated to the name of the output file, this option disables that verification (there will not even be a warning if there is a mismatch).
+
+* __`{no_auto_import,[{F,A}, ...]}`__ - Makes the function `F/A` no longer being auto-imported from the `erlang` module, which resolves BIF name clashes. This option must be used to resolve name clashes with BIFs auto-imported before R14A, if it is needed to call the local function with the same name as an auto-imported BIF without module prefix.
+
+  > #### Note {: class=info }
+  > As from R14A and forward, the compiler resolves calls without module prefix to local or imported functions before trying with auto-imported BIFs. If the BIF is to be called, use the `erlang` module prefix in the call, not `{no_auto_import,[{F,A}, ...]}`.
+
+  If this option is written in the source code, as a `-compile` directive, the syntax `F/A` can be used instead of `{F,A}`, for example:
+
+  ```text
+  -compile({no_auto_import,[error/1]}).
+  ```
+
+* __`no_auto_import`__ - Do not auto-import any functions from `erlang` module.
+
+* __`no_line_info`__ - Omits line number information to produce a slightly smaller output file.
+
+* __`no_lint`__ - Skips the pass that checks for errors and warnings. Only applicable together with the `from_abstr` option. This is mainly for implementations of other languages on top of Erlang, which have already done their own checks to guarantee correctness of the code.
+
+  Caveat: When this option is used, there are no guarantees that the code output by the compiler is correct and safe to use. The responsibility for correctness lies on the code or person generating the abstract format. If the code contains errors, the compiler may crash or produce unsafe code.
+
+* __`{extra_chunks, [{binary(), binary()}]}`__ - Pass extra chunks to be stored in the `.beam` file. The extra chunks must be a list of tuples with a four byte binary as chunk name followed by a binary with the chunk contents. See `m:beam_lib` for more information.
+
+* __`{check_ssa, Tag :: atom()}`__ - Parse and check assertions on the structure and content of the BEAM SSA code produced by the compiler. The `Tag` indicates the set of assertions to check and after which compiler pass the check is performed. This option is internal to the compiler and can be changed or removed at any time without prior warning.
+
+If warnings are turned on (option `report_warnings` described earlier), the following options control what type of warnings that are generated. [](){: id=erl_lint_options }
+Except from `{warn_format,Verbosity}`, the following options have two forms:
+
+* A `warn_xxx` form, to turn on the warning.
+* A `nowarn_xxx` form, to turn off the warning.
+
+In the descriptions that follow, the form that is used to change the default value are listed.
+
+* __`{warn_format, Verbosity}`__ - Causes warnings to be emitted for malformed format strings as arguments to `io:format` and similar functions.
+
+  `Verbosity` selects the number of warnings:
+
+  * `0` = No warnings
+  * `1` = Warnings for invalid format strings and incorrect number of arguments
+  * `2` = Warnings also when the validity cannot be checked, for example, when the format string argument is a variable.
+
+  The default verbosity is `1`. Verbosity `0` can also be selected by option `nowarn_format`.
+
+* __`nowarn_bif_clash`__ - This option is removed, it generates a fatal error if used.
+
+  > #### Warning {: class=warning }
+  > As from beginning with R14A, the compiler no longer calls the auto-imported BIF if the name clashes with a local or explicitly imported function, and a call without explicit module name is issued. Instead, the local or imported function is called. Still accepting `nowarn_bif_clash` would make a module calling functions clashing with auto-imported BIFs compile with both the old and new compilers, but with completely different semantics. This is why the option is removed.
+  >
+  > The use of this option has always been discouraged. As from R14A, it is an error to use it.
+  >
+  > To resolve BIF clashes, use explicit module names or the `{no_auto_import,[F/A]}` compiler directive.
+
+* __`{nowarn_bif_clash, FAs}`__ - This option is removed, it generates a fatal error if used.
+
+  > #### Warning {: class=warning }
+  > The use of this option has always been discouraged. As from R14A, it is an error to use it.
+  >
+  > To resolve BIF clashes, use explicit module names or the `{no_auto_import,[F/A]}` compiler directive.
+
+* __`nowarn_export_all`__ - Turns off warnings for uses of the `export_all` option. Default is to emit a warning if option `export_all` is also given.
+
+* __`warn_export_vars`__ - Emits warnings for all implicitly exported variables referred to after the primitives where they were first defined. By default, the compiler only emits warnings for exported variables referred to in a pattern.
+
+* __`nowarn_shadow_vars`__ - Turns off warnings for "fresh" variables in functional objects or list comprehensions with the same name as some already defined variable. Default is to emit warnings for such variables.
+
+* __`warn_keywords`__ - [](){: id=warn-keywords }
+  Emits warnings when the code contains atoms that are used as keywords in some [feature](`p:system:features.md#features`). When the feature is enabled, any occurrences will lead to a syntax error. To prevent this, the atom has to be renamed or quoted.
+
+* __`nowarn_unused_function`__ - Turns off warnings for unused local functions. Default is to emit warnings for all local functions that are not called directly or indirectly by an exported function. The compiler does not include unused local functions in the generated beam file, but the warning is still useful to keep the source code cleaner.
+
+* __`{nowarn_unused_function, FAs}`__ - Turns off warnings for unused local functions like `nowarn_unused_function` does, but only for the mentioned local functions. `FAs` is a tuple `{Name,Arity}` or a list of such tuples.
+
+* __`nowarn_deprecated_function`__ - Turns off warnings for calls to deprecated functions. Default is to emit warnings for every call to a function known by the compiler to be deprecated. Notice that the compiler does not know about attribute `-deprecated()`, but uses an assembled list of deprecated functions in Erlang/OTP. To do a more general check, the Xref tool can be used. See also [xref(3)](`m:xref#deprecated_function`) and the function `xref:m/1`, also accessible through the function `c:xm/1`.
+
+* __`{nowarn_deprecated_function, MFAs}`__ - Turns off warnings for calls to deprecated functions like `nowarn_deprecated_function` does, but only for the mentioned functions. `MFAs` is a tuple `{Module,Name,Arity}` or a list of such tuples.
+
+* __`nowarn_deprecated_type`__ - Turns off warnings for use of deprecated types. Default is to emit warnings for every use of a type known by the compiler to be deprecated.
+
+* __`nowarn_removed`__ - Turns off warnings for calls to functions that have been removed. Default is to emit warnings for every call to a function known by the compiler to have been recently removed from Erlang/OTP.
+
+* __`{nowarn_removed, ModulesOrMFAs}`__ - Turns off warnings for calls to modules or functions that have been removed. Default is to emit warnings for every call to a function known by the compiler to have been recently removed from Erlang/OTP.
+
+* __`nowarn_obsolete_guard`__ - Turns off warnings for calls to old type testing BIFs, such as `pid/1` and `t:list/1`. See the [Erlang Reference Manual](`p:system:expressions.md#guards`) for a complete list of type testing BIFs and their old equivalents. Default is to emit warnings for calls to old type testing BIFs.
+
+* __`warn_unused_import`__ - Emits warnings for unused imported functions. Default is to emit no warnings for unused imported functions.
+
+* __`nowarn_underscore_match`__ - By default, warnings are emitted when a variable that begins with an underscore is matched after being bound. Use this option to turn off this kind of warning.
+
+* __`nowarn_unused_vars`__ - By default, warnings are emitted for unused variables, except for variables beginning with an underscore ("Prolog style warnings"). Use this option to turn off this kind of warning.
+
+* __`nowarn_unused_record`__ - Turns off warnings for unused record definitions. Default is to emit warnings for unused locally defined records.
+
+* __`{nowarn_unused_record, RecordNames}`__ - Turns off warnings for unused record definitions. Default is to emit warnings for unused locally defined records.
+
+* __`nowarn_unused_type`__ - Turns off warnings for unused type declarations. Default is to emit warnings for unused local type declarations.
+
+* __`nowarn_nif_inline`__ - By default, warnings are emitted when inlining is enabled in a module that may load NIFs, as the compiler may inline NIF fallbacks by accident. Use this option to turn off this kind of warnings.
+
+* __`warn_missing_spec`__ - By default, warnings are not emitted when a specification (or contract) for an exported function is not given. Use this option to turn on this kind of warning.
+
+* __`warn_missing_spec_all`__ - By default, warnings are not emitted when a specification (or contract) for an exported or unexported function is not given. Use this option to turn on this kind of warning.
+
+* __`nowarn_redefined_builtin_type`__ - By default, a warning is emitted when a built-in type is locally redefined. Use this option to turn off this kind of warning.
+
+* __`{nowarn_redefined_builtin_type, Types}`__ - By default, a warning is emitted when a built-in type is locally redefined. Use this option to turn off this kind of warning for the types in `Types`, where `Types` is a tuple `{TypeName,Arity}` or a list of such tuples.
+
+Other kinds of warnings are *opportunistic warnings*. They are generated when the compiler happens to notice potential issues during optimization and code generation.
+
+> #### Note {: class=info }
+> The compiler does not warn for expressions that it does not attempt to optimize. For example, the compiler will emit a warning for `1/0` but not for `X/0`, because `1/0` is a constant expression that the compiler will attempt to evaluate.
+>
+> The absence of warnings does not mean that there are no remaining errors in the code.
+
+Opportunistic warnings can be disabled using the following options:
+
+* __`nowarn_opportunistic`__ - Disable all opportunistic warnings.
+
+* __`nowarn_failed`__ - Disable warnings for expressions that will always fail (such as `atom+42`).
+
+* __`nowarn_ignored`__ - Disable warnings for expressions whose values are ignored.
+
+* __`nowarn_nomatch`__ - Disable warnings for patterns that will never match (such as `a=b`) and for guards that always evaluate to `false`.
+
+> #### Note {: class=info }
+> All options, except the include path (`{i,Dir}`), can also be given in the file with attribute `-compile([Option,...])`. Attribute `-compile()` is allowed after the function definitions.
+
+> #### Note {: class=info }
+> Before OTP 22, the option `{nowarn_deprecated_function, MFAs}` was only recognized when given in the file with attribute `-compile()`. (The option `{nowarn_unused_function,FAs}` was incorrectly documented to only work in a file, but it also worked when given in the option list.) Starting from OTP 22, all options that can be given in the file can also be given in the option list.
+
+For debugging of the compiler, or for pure curiosity, the intermediate code generated by each compiler pass can be inspected. To print a complete list of the options to produce list files, type `compile:options()` at the Erlang shell prompt. The options are printed in the order that the passes are executed. If more than one listing option is used, the one representing the earliest pass takes effect.
+
+Unrecognized options are ignored.
+
+Both `WarningList` and `ErrorList` have the following format:
+
+```text
+[{FileName,[ErrorInfo]}].
+```
+
+`ErrorInfo` is described later in this section. The filename is included here, as the compiler uses the Erlang pre-processor `epp`, which allows the code to be included in other files. It is therefore important to know to *which* file the location of an error or a warning refers.
+""".
 -spec file(module() | file:filename(), Options :: [option()] | option()) ->
           CompRet :: comp_ret().
 
@@ -95,10 +502,12 @@ file(File, Opts) when is_list(Opts) ->
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
+-doc "Is the same as `forms(Forms, [verbose,report_errors,report_warnings])`.".
 -spec forms(forms()) -> CompRet :: comp_ret().
 
 forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
 
+-doc "Analogous to `file/1`, but takes a list of forms (in either Erlang abstract or Core Erlang format representation) as first argument. Option `binary` is implicit, that is, no object code file is produced. For options that normally produce a listing file, such as 'E', the internal format for that compiler pass (an Erlang term, usually not a binary) is returned instead of a binary.".
 -spec forms(forms(), Options :: [option()] | option()) -> CompRet :: comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
@@ -110,6 +519,7 @@ forms(Forms, Opt) when is_atom(Opt) ->
 %% would have generated a Beam file, false otherwise (if only a binary or a
 %% listing file would have been generated).
 
+-doc "Determines whether the compiler generates a `beam` file with the given options. `true` means that a `beam` file is generated. `false` means that the compiler generates some listing file, returns a binary, or merely checks the syntax of the source code.".
 -spec output_generated(Options :: [option()]) -> boolean().
 
 output_generated(Opts) ->
@@ -120,6 +530,7 @@ output_generated(Opts) ->
 %% for default options.
 %%
 
+-doc "Works like `file/2`, except that the environment variable `ERL_COMPILER_OPTIONS` is not consulted.".
 -spec noenv_file(module() | file:filename(), Options :: [option()] | option()) -> comp_ret().
 
 noenv_file(File, Opts) when is_list(Opts) ->
@@ -127,6 +538,7 @@ noenv_file(File, Opts) when is_list(Opts) ->
 noenv_file(File, Opt) ->
     noenv_file(File, [Opt|?DEFAULT_OPTIONS]).
 
+-doc "Works like `forms/2`, except that the environment variable `ERL_COMPILER_OPTIONS` is not consulted.".
 -spec noenv_forms(forms(), [option()] | option()) -> comp_ret().
 
 noenv_forms(Forms, Opts) when is_list(Opts) ->
@@ -134,6 +546,7 @@ noenv_forms(Forms, Opts) when is_list(Opts) ->
 noenv_forms(Forms, Opt) when is_atom(Opt) ->
     noenv_forms(Forms, [Opt|?DEFAULT_OPTIONS]).
 
+-doc "Works like `output_generated/1`, except that the environment variable `ERL_COMPILER_OPTIONS` is not consulted.".
 -spec noenv_output_generated(Options :: [option()]) -> boolean().
 
 noenv_output_generated(Opts) ->
@@ -146,6 +559,8 @@ noenv_output_generated(Opts) ->
 %% Retrieve ERL_COMPILER_OPTIONS as a list of terms
 %%
 
+-doc "Return compiler options given via the environment variable `ERL_COMPILER_OPTIONS`. If the value is a list, it is returned as is. If it is not a list, it is put into a list.".
+-doc(#{since => <<"OTP 19.0">>}).
 -spec env_compiler_options() -> [term()].
 
 env_compiler_options() -> env_default_opts().
@@ -284,6 +699,7 @@ expand_opt({check_ssa,Tag}, Os) ->
     [check_ssa, Tag | Os];
 expand_opt(O, Os) -> [O|Os].
 
+-doc "Uses an `ErrorDescriptor` and returns a deep list of characters that describes the error. This function is usually called implicitly when an `ErrorInfo` structure (described in section [Error Information](`m:compile#error_information`)) is processed.".
 -spec format_error(ErrorDescription :: error_description()) -> string().
 
 format_error({obsolete_option,Ver}) ->
@@ -2136,3 +2552,4 @@ pre_load() ->
 	 v3_core],
     _ = code:ensure_modules_loaded(L),
     ok.
+

@@ -18,6 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(auth).
+-moduledoc """
+Erlang network authentication server.
+
+This module is deprecated. For a description of the Magic Cookie system, refer to [Distributed Erlang](`p:system:distributed.md`) in the Erlang Reference Manual.
+""".
 -behaviour(gen_server).
 
 -export([start_link/0]).
@@ -42,6 +47,7 @@
 
 -define(COOKIE_ETS_PROTECTION, protected). 
 
+-doc "".
 -type cookie() :: atom().
 -record(state, {
 	  our_cookie    :: cookie(),  %% Our own cookie
@@ -62,6 +68,13 @@ start_link() ->
 
 %%--Deprecated interface------------------------------------------------
 
+-doc """
+Returns `yes` if communication with `Node` is authorized. Notice that a connection to `Node` is established in this case. Returns `no` if `Node` does not exist or communication is not authorized (it has another cookie than `auth` thinks it has).
+
+Use [`net_adm:ping(Node)`](`net_adm:ping/1`) instead.
+""".
+-doc(#{deprecated =>
+           <<"auth:is_auth/1 is deprecated; use net_adm:ping/1 instead">>}).
 -spec is_auth(Node) -> 'yes' | 'no' when
       Node :: node().
 
@@ -71,12 +84,18 @@ is_auth(Node) ->
 	pang -> no
     end.
 
+-doc "Use [`erlang:get_cookie()`](`erlang:get_cookie/0`) in ERTS instead.".
+-doc(#{deprecated =>
+           <<"auth:cookie/0 is deprecated; use erlang:get_cookie/0 instead">>}).
 -spec cookie() -> Cookie when
       Cookie :: cookie().
 
 cookie() ->
     get_cookie().
 
+-doc "Use [`erlang:set_cookie(node(), Cookie)` in ERTS](`erlang:set_cookie/2`) instead.".
+-doc(#{deprecated =>
+           <<"auth:cookie/1 is deprecated; use erlang:set_cookie/2 instead">>}).
 -spec cookie(TheCookie) -> 'true' when
       TheCookie :: Cookie | [Cookie],
       Cookie :: cookie().
@@ -86,11 +105,22 @@ cookie([Cookie]) ->
 cookie(Cookie) ->
     set_cookie(Cookie).
 
+-doc """
+Node = node()  
+Cookie = [`cookie()`](`t:cookie/0`)  
+
+Equivalent to [`node_cookie(Node, Cookie)`](`node_cookie/2`).
+""".
+-doc(#{deprecated =>
+           <<"auth:node_cookie/1 is deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead">>}).
 -spec node_cookie(Cookies :: [node() | cookie(),...]) -> 'yes' | 'no'.
 
 node_cookie([Node, Cookie]) ->
     node_cookie(Node, Cookie).
 
+-doc "Sets the magic cookie of `Node` to `Cookie` and verifies the status of the authorization. Equivalent to calling [`erlang:set_cookie(Node, Cookie)`](`erlang:set_cookie/2`), followed by [`auth:is_auth(Node)`](`is_auth/1`).".
+-doc(#{deprecated =>
+           <<"auth:node_cookie/2 is deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead">>}).
 -spec node_cookie(Node, Cookie) -> 'yes' | 'no' when
       Node :: node(),
       Cookie :: cookie().
@@ -543,3 +573,4 @@ make_info(Name) ->
 
 next_random(X) ->
     (X*17059465+1) band 16#fffffffff.
+

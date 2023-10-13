@@ -19,6 +19,37 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxListCtrl).
+-moduledoc """
+Functions for wxListCtrl class
+
+A list control presents lists in a number of formats: list view, report view, icon view and small icon view. In any case, elements are numbered from zero. For all these modes, the items are stored in the control and must be added to it using `insertItem/4` method.
+
+A special case of report view quite different from the other modes of the list control is a virtual control in which the items data (including text, images and attributes) is managed by the main program and is requested by the control itself only when needed which allows having controls with millions of items without consuming much memory. To use virtual list control you must use `setItemCount/2` first and override at least `wxListCtrl::OnGetItemText` (not implemented in wx) (and optionally `wxListCtrl::OnGetItemImage` (not implemented in wx) or `wxListCtrl::OnGetItemColumnImage` (not implemented in wx) and `wxListCtrl::OnGetItemAttr` (not implemented in wx)) to return the information about the items when the control requests it.
+
+Virtual list control can be used as a normal one except that no operations which can take time proportional to the number of items in the control happen - this is required to allow having a practically infinite number of items. For example, in a multiple selection virtual list control, the selections won't be sent when many items are selected at once because this could mean iterating over all the items.
+
+Using many of `m:wxListCtrl` features is shown in the corresponding sample.
+
+To intercept events from a list control, use the event table macros described in `m:wxListEvent`.
+
+`wxMac Note`: Starting with wxWidgets 2.8, `m:wxListCtrl` uses a native implementation for report mode, and uses a generic implementation for other modes. You can use the generic implementation for report mode as well by setting the `mac.listctrl.always_use_generic` system option (see `m:wxSystemOptions`) to 1.
+
+Styles
+
+This class supports the following styles:
+
+Note: Under wxMSW this control uses `wxSystemThemedControl` (not implemented in wx) for an explorer style appearance by default since wxWidgets 3.1.0. If this is not desired, you can call `wxSystemThemedControl::EnableSystemTheme` (not implemented in wx) with `false` argument to disable this.
+
+See: [Overview listctrl](https://docs.wxwidgets.org/3.1/overview_listctrl.html#overview_listctrl), `m:wxListView`, `m:wxListBox`, `m:wxTreeCtrl`, `m:wxImageList`, `m:wxListEvent`, `m:wxListItem`, `wxEditableListBox` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxListCtrl](https://docs.wxwidgets.org/3.1/classwx_list_ctrl.html)
+
+## Events
+
+Event types emitted from this class: [`command_list_begin_drag`](`m:wxListEvent`), [`command_list_begin_rdrag`](`m:wxListEvent`), [`command_list_begin_label_edit`](`m:wxListEvent`), [`command_list_end_label_edit`](`m:wxListEvent`), [`command_list_delete_item`](`m:wxListEvent`), [`command_list_delete_all_items`](`m:wxListEvent`), [`command_list_item_selected`](`m:wxListEvent`), [`command_list_item_deselected`](`m:wxListEvent`), [`command_list_item_activated`](`m:wxListEvent`), [`command_list_item_focused`](`m:wxListEvent`), [`command_list_item_middle_click`](`m:wxListEvent`), [`command_list_item_right_click`](`m:wxListEvent`), [`command_list_key_down`](`m:wxListEvent`), [`command_list_insert_item`](`m:wxListEvent`), [`command_list_col_click`](`m:wxListEvent`), [`command_list_col_right_click`](`m:wxListEvent`), [`command_list_col_begin_drag`](`m:wxListEvent`), [`command_list_col_dragging`](`m:wxListEvent`), [`command_list_col_end_drag`](`m:wxListEvent`), [`command_list_cache_hint`](`m:wxListEvent`)
+""".
 -include("wxe.hrl").
 -export([ create/2, create/3 , new/0, new/1, new/2 , sortItems/2 ,arrange/1,
   arrange/2,assignImageList/3,clearAll/1,deleteAllItems/1,deleteColumn/2,
@@ -75,6 +106,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxListCtrl() :: wx:wx_object().
 -export_type([wxListCtrl/0]).
 %% @hidden
@@ -85,6 +117,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxListCtrl().
 new() ->
     Op = ?wxListCtrl_new_0,
@@ -105,6 +138,11 @@ new(Parent)
 %% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %%
 %% See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
+-doc """
+Constructor, creating and showing a list control.
+
+See: `create/3`, `wxValidator` (not implemented in wx)
+""".
 -spec new(Parent, [Option]) -> wxListCtrl() when
       Parent::wxWindow:wxWindow(),
       Option::{winid, integer()} |
@@ -124,6 +162,7 @@ new(#wx_ref{}=Parent, Options)
     ListCtrl.
 
 %% @equiv arrange(This, [])
+-doc "".
 -spec arrange(This) -> boolean() when
 	This::wxListCtrl().
 
@@ -132,6 +171,11 @@ arrange(This)
   arrange(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlarrange">external documentation</a>.
+-doc """
+Arranges the items in icon or small icon view.
+
+This only has effect on Win32. `flag` is one of:
+""".
 -spec arrange(This, [Option]) -> boolean() when
 	This::wxListCtrl(),
 	Option :: {'flag', integer()}.
@@ -145,6 +189,13 @@ arrange(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxListCtrl_Arrange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlassignimagelist">external documentation</a>.
+-doc """
+Sets the image list associated with the control and takes ownership of it (i.e.
+
+the control will, unlike when using `setImageList/3`, delete the list when destroyed). `which` is one of `wxIMAGE_LIST_NORMAL`, `wxIMAGE_LIST_SMALL`, `wxIMAGE_LIST_STATE` (the last is unimplemented).
+
+See: `setImageList/3`
+""".
 -spec assignImageList(This, ImageList, Which) -> 'ok' when
 	This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Which)
@@ -154,6 +205,11 @@ assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Whic
   wxe_util:queue_cmd(This,ImageList,Which,?get_env(),?wxListCtrl_AssignImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlclearall">external documentation</a>.
+-doc """
+Deletes all items and all columns.
+
+Note: This sends an event of type `wxEVT_LIST_DELETE_ALL_ITEMS` under all platforms.
+""".
 -spec clearAll(This) -> 'ok' when
 	This::wxListCtrl().
 clearAll(#wx_ref{type=ThisT}=This) ->
@@ -170,6 +226,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlcreate">external documentation</a>.
+-doc """
+Creates the list control.
+
+See `new/2` for further details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
       This::wxWindow:wxWindow(),
       Parent::wxWindow:wxWindow(),
@@ -203,6 +264,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
     wxe_util:rec(Op).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrldeleteallitems">external documentation</a>.
+-doc """
+Deletes all items in the list control.
+
+This function does `not` send the `wxEVT_LIST_DELETE_ITEM` event because deleting many items from the control would be too slow then (unlike `deleteItem/2`) but it does send the special `wxEVT_LIST_DELETE_ALL_ITEMS` event if the control was not empty. If it was already empty, nothing is done and no event is sent.
+
+Return: true if the items were successfully deleted or if the control was already empty, false if an error occurred while deleting the items.
+""".
 -spec deleteAllItems(This) -> boolean() when
 	This::wxListCtrl().
 deleteAllItems(#wx_ref{type=ThisT}=This) ->
@@ -211,6 +279,7 @@ deleteAllItems(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_DeleteAllItems).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrldeletecolumn">external documentation</a>.
+-doc "Deletes a column.".
 -spec deleteColumn(This, Col) -> boolean() when
 	This::wxListCtrl(), Col::integer().
 deleteColumn(#wx_ref{type=ThisT}=This,Col)
@@ -220,6 +289,13 @@ deleteColumn(#wx_ref{type=ThisT}=This,Col)
   wxe_util:rec(?wxListCtrl_DeleteColumn).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrldeleteitem">external documentation</a>.
+-doc """
+Deletes the specified item.
+
+This function sends the `wxEVT_LIST_DELETE_ITEM` event for the item being deleted.
+
+See: `deleteAllItems/1`
+""".
 -spec deleteItem(This, Item) -> boolean() when
 	This::wxListCtrl(), Item::integer().
 deleteItem(#wx_ref{type=ThisT}=This,Item)
@@ -229,6 +305,13 @@ deleteItem(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_DeleteItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrleditlabel">external documentation</a>.
+-doc """
+Starts editing the label of the given item.
+
+This function generates a `EVT_LIST_BEGIN_LABEL_EDIT` event which can be vetoed so that no text control will appear for in-place editing.
+
+If the user changed the label (i.e. s/he does not press ESC or leave the text control without changes, a `EVT_LIST_END_LABEL_EDIT` event will be sent which can be vetoed as well.
+""".
 -spec editLabel(This, Item) -> wxTextCtrl:wxTextCtrl() when
 	This::wxListCtrl(), Item::integer().
 editLabel(#wx_ref{type=ThisT}=This,Item)
@@ -238,6 +321,7 @@ editLabel(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_EditLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlensurevisible">external documentation</a>.
+-doc "Ensures this item is visible.".
 -spec ensureVisible(This, Item) -> boolean() when
 	This::wxListCtrl(), Item::integer().
 ensureVisible(#wx_ref{type=ThisT}=This,Item)
@@ -247,6 +331,7 @@ ensureVisible(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_EnsureVisible).
 
 %% @equiv findItem(This,Start,Str, [])
+-doc "".
 -spec findItem(This, Start, Str) -> integer() when
 	This::wxListCtrl(), Start::integer(), Str::unicode:chardata().
 
@@ -259,6 +344,11 @@ findItem(This,Start,Str)
 %% findItem(This, Start, Pt, Direction) -> integer() when<br />
 %% 	This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer().<br />
 %% 
+-doc """
+Find an item nearest this position in the specified direction, starting from `start` or the beginning if `start` is -1.
+
+Return: The next matching item if any or `-1` (wxNOT_FOUND) otherwise.
+""".
 -spec findItem(This, Start, Str, [Option]) -> integer() when
 	This::wxListCtrl(), Start::integer(), Str::unicode:chardata(),
 	Option :: {'partial', boolean()};
@@ -280,6 +370,11 @@ findItem(#wx_ref{type=ThisT}=This,Start,{PtX,PtY} = Pt,Direction)
   wxe_util:rec(?wxListCtrl_FindItem_3_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetcolumn">external documentation</a>.
+-doc """
+Gets information about this column.
+
+See `setItem/5` for more information.
+""".
 -spec getColumn(This, Col, Item) -> boolean() when
 	This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
 getColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
@@ -290,6 +385,7 @@ getColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
   wxe_util:rec(?wxListCtrl_GetColumn).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetcolumncount">external documentation</a>.
+-doc "Returns the number of columns.".
 -spec getColumnCount(This) -> integer() when
 	This::wxListCtrl().
 getColumnCount(#wx_ref{type=ThisT}=This) ->
@@ -298,6 +394,7 @@ getColumnCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetColumnCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetcolumnwidth">external documentation</a>.
+-doc "Gets the column width (report view only).".
 -spec getColumnWidth(This, Col) -> integer() when
 	This::wxListCtrl(), Col::integer().
 getColumnWidth(#wx_ref{type=ThisT}=This,Col)
@@ -307,6 +404,7 @@ getColumnWidth(#wx_ref{type=ThisT}=This,Col)
   wxe_util:rec(?wxListCtrl_GetColumnWidth).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetcountperpage">external documentation</a>.
+-doc "Gets the number of items that can fit vertically in the visible area of the list control (list or report view) or the total number of items in the list control (icon or small icon view).".
 -spec getCountPerPage(This) -> integer() when
 	This::wxListCtrl().
 getCountPerPage(#wx_ref{type=ThisT}=This) ->
@@ -315,6 +413,13 @@ getCountPerPage(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetCountPerPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgeteditcontrol">external documentation</a>.
+-doc """
+Returns the edit control being currently used to edit a label.
+
+Returns NULL if no label is being edited.
+
+Note: It is currently only implemented for wxMSW and the generic version, not for the native macOS version.
+""".
 -spec getEditControl(This) -> wxTextCtrl:wxTextCtrl() when
 	This::wxListCtrl().
 getEditControl(#wx_ref{type=ThisT}=This) ->
@@ -323,6 +428,11 @@ getEditControl(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetEditControl).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetimagelist">external documentation</a>.
+-doc """
+Returns the specified image list.
+
+`which` may be one of:
+""".
 -spec getImageList(This, Which) -> wxImageList:wxImageList() when
 	This::wxListCtrl(), Which::integer().
 getImageList(#wx_ref{type=ThisT}=This,Which)
@@ -332,6 +442,13 @@ getImageList(#wx_ref{type=ThisT}=This,Which)
   wxe_util:rec(?wxListCtrl_GetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitem">external documentation</a>.
+-doc """
+Gets information about the item.
+
+See `setItem/5` for more information.
+
+You must call `info.SetId()` to set the ID of item you're interested in before calling this method, and `info.SetMask()` with the flags indicating what fields you need to retrieve from `info`.
+""".
 -spec getItem(This, Info) -> boolean() when
 	This::wxListCtrl(), Info::wxListItem:wxListItem().
 getItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
@@ -341,6 +458,13 @@ getItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
   wxe_util:rec(?wxListCtrl_GetItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitembackgroundcolour">external documentation</a>.
+-doc """
+Returns the colour for this item.
+
+If the item has no specific colour, returns an invalid colour (and not the default background control of the control itself).
+
+See: `getItemTextColour/2`
+""".
 -spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
 	This::wxListCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
@@ -350,6 +474,7 @@ getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_GetItemBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemcount">external documentation</a>.
+-doc "Returns the number of items in the list control.".
 -spec getItemCount(This) -> integer() when
 	This::wxListCtrl().
 getItemCount(#wx_ref{type=ThisT}=This) ->
@@ -358,6 +483,7 @@ getItemCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetItemCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemdata">external documentation</a>.
+-doc "Gets the application-defined data associated with this item.".
 -spec getItemData(This, Item) -> integer() when
 	This::wxListCtrl(), Item::integer().
 getItemData(#wx_ref{type=ThisT}=This,Item)
@@ -367,6 +493,7 @@ getItemData(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_GetItemData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemfont">external documentation</a>.
+-doc "Returns the item's font.".
 -spec getItemFont(This, Item) -> wxFont:wxFont() when
 	This::wxListCtrl(), Item::integer().
 getItemFont(#wx_ref{type=ThisT}=This,Item)
@@ -376,6 +503,7 @@ getItemFont(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_GetItemFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemposition">external documentation</a>.
+-doc "Returns the position of the item, in icon or small icon view.".
 -spec getItemPosition(This, Item) -> Result when
 	Result ::{Res ::boolean(), Pos::{X::integer(), Y::integer()}},
 	This::wxListCtrl(), Item::integer().
@@ -386,6 +514,7 @@ getItemPosition(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_GetItemPosition).
 
 %% @equiv getItemRect(This,Item, [])
+-doc "".
 -spec getItemRect(This, Item) -> Result when
 	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxListCtrl(), Item::integer().
@@ -395,6 +524,11 @@ getItemRect(This,Item)
   getItemRect(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemrect">external documentation</a>.
+-doc """
+Returns the rectangle representing the item's size and position, in physical coordinates.
+
+`code` is one of wxLIST_RECT_BOUNDS, wxLIST_RECT_ICON, wxLIST_RECT_LABEL.
+""".
 -spec getItemRect(This, Item, [Option]) -> Result when
 	Result :: {Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
 	This::wxListCtrl(), Item::integer(),
@@ -409,6 +543,9 @@ getItemRect(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxListCtrl_GetItemRect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemspacing">external documentation</a>.
+-doc """
+Retrieves the spacing between icons in pixels: horizontal spacing is returned as `x` component of the \{Width,Height\} object and the vertical spacing as its `y` component.
+""".
 -spec getItemSpacing(This) -> {W::integer(), H::integer()} when
 	This::wxListCtrl().
 getItemSpacing(#wx_ref{type=ThisT}=This) ->
@@ -417,6 +554,11 @@ getItemSpacing(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetItemSpacing).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemstate">external documentation</a>.
+-doc """
+Gets the item state.
+
+For a list of state flags, see `setItem/5`. The `stateMask` indicates which state flags are of interest.
+""".
 -spec getItemState(This, Item, StateMask) -> integer() when
 	This::wxListCtrl(), Item::integer(), StateMask::integer().
 getItemState(#wx_ref{type=ThisT}=This,Item,StateMask)
@@ -426,6 +568,7 @@ getItemState(#wx_ref{type=ThisT}=This,Item,StateMask)
   wxe_util:rec(?wxListCtrl_GetItemState).
 
 %% @equiv getItemText(This,Item, [])
+-doc "".
 -spec getItemText(This, Item) -> unicode:charlist() when
 	This::wxListCtrl(), Item::integer().
 
@@ -434,6 +577,7 @@ getItemText(This,Item)
   getItemText(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemtext">external documentation</a>.
+-doc "Gets the item text for this item.".
 -spec getItemText(This, Item, [Option]) -> unicode:charlist() when
 	This::wxListCtrl(), Item::integer(),
 	Option :: {'col', integer()}.
@@ -447,6 +591,11 @@ getItemText(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxListCtrl_GetItemText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetitemtextcolour">external documentation</a>.
+-doc """
+Returns the colour for this item.
+
+If the item has no specific colour, returns an invalid colour (and not the default foreground control of the control itself as this wouldn't allow distinguishing between items having the same colour as the current control foreground and items with default colour which, hence, have always the same colour as the control).
+""".
 -spec getItemTextColour(This, Item) -> wx:wx_colour4() when
 	This::wxListCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT}=This,Item)
@@ -456,6 +605,7 @@ getItemTextColour(#wx_ref{type=ThisT}=This,Item)
   wxe_util:rec(?wxListCtrl_GetItemTextColour).
 
 %% @equiv getNextItem(This,Item, [])
+-doc "".
 -spec getNextItem(This, Item) -> integer() when
 	This::wxListCtrl(), Item::integer().
 
@@ -464,6 +614,17 @@ getNextItem(This,Item)
   getNextItem(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetnextitem">external documentation</a>.
+-doc """
+Searches for an item with the given geometry or state, starting from `item` but excluding the `item` itself.
+
+If `item` is -1, the first item that matches the specified flags will be returned. Returns the first item with given state following `item` or -1 if no such item found. This function may be used to find all selected items in the control like this:
+
+`geometry` can be one of:
+
+Note: this parameter is only supported by wxMSW currently and ignored on other platforms.
+
+`state` can be a bitlist of the following:
+""".
 -spec getNextItem(This, Item, [Option]) -> integer() when
 	This::wxListCtrl(), Item::integer(),
 	Option :: {'geometry', integer()}
@@ -479,6 +640,7 @@ getNextItem(#wx_ref{type=ThisT}=This,Item, Options)
   wxe_util:rec(?wxListCtrl_GetNextItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetselecteditemcount">external documentation</a>.
+-doc "Returns the number of selected items in the list control.".
 -spec getSelectedItemCount(This) -> integer() when
 	This::wxListCtrl().
 getSelectedItemCount(#wx_ref{type=ThisT}=This) ->
@@ -487,6 +649,7 @@ getSelectedItemCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetSelectedItemCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgettextcolour">external documentation</a>.
+-doc "Gets the text colour of the list control.".
 -spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxListCtrl().
 getTextColour(#wx_ref{type=ThisT}=This) ->
@@ -495,6 +658,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgettopitem">external documentation</a>.
+-doc "Gets the index of the topmost visible item when in list or report view.".
 -spec getTopItem(This) -> integer() when
 	This::wxListCtrl().
 getTopItem(#wx_ref{type=ThisT}=This) ->
@@ -503,6 +667,13 @@ getTopItem(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetTopItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlgetviewrect">external documentation</a>.
+-doc """
+Returns the rectangle taken by all items in the control.
+
+In other words, if the controls client size were equal to the size of this rectangle, no scrollbars would be needed and no free space would be left.
+
+Note that this function only works in the icon and small icon views, not in list or report views (this is a limitation of the native Win32 control).
+""".
 -spec getViewRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
 	This::wxListCtrl().
 getViewRect(#wx_ref{type=ThisT}=This) ->
@@ -511,6 +682,15 @@ getViewRect(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxListCtrl_GetViewRect).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlhittest">external documentation</a>.
+-doc """
+Determines which item (if any) is at the specified point, giving details in `flags`.
+
+Returns index of the item or `wxNOT_FOUND` if no item is at the specified point.
+
+`flags` will be a combination of the following flags:
+
+If `ptrSubItem` is not NULL and the `m:wxListCtrl` is in the report mode the subitem (or column) number will also be provided. This feature is only available in version 2.7.0 or higher and is currently only implemented under wxMSW and requires at least comctl32.dll of version 4.70 on the host system or the value stored in `ptrSubItem` will be always -1. To compile this feature into wxWidgets library you need to have access to commctrl.h of version 4.70 that is provided by Microsoft.
+""".
 -spec hitTest(This, Point) -> Result when
 	Result ::{Res ::integer(), Flags::integer(), PtrSubItem::integer()},
 	This::wxListCtrl(), Point::{X::integer(), Y::integer()}.
@@ -525,6 +705,11 @@ hitTest(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
 %% insertColumn(This, Col, Info) -> integer() when<br />
 %% 	This::wxListCtrl(), Col::integer(), Info::wxListItem:wxListItem().<br />
 %% 
+-doc """
+For report view mode (only), inserts a column.
+
+For more details, see `setItem/5`. Also see `insertColumn/4` overload for a usually more convenient alternative to this method and the description of how the item width is interpreted by this method.
+""".
 -spec insertColumn(This, Col, Heading) -> integer() when
 	This::wxListCtrl(), Col::integer(), Heading::unicode:chardata();
       (This, Col, Info) -> integer() when
@@ -541,6 +726,15 @@ insertColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=InfoT}=Info)
   wxe_util:rec(?wxListCtrl_InsertColumn_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
+-doc """
+For report view mode (only), inserts a column.
+
+Insert a new column in the list control in report view mode at the given position specifying its most common attributes.
+
+Notice that to set the image for the column you need to use `insertColumn/4` overload and specify ?wxLIST_MASK_IMAGE in the item mask.
+
+Return: The index of the inserted column or -1 if adding it failed.
+""".
 -spec insertColumn(This, Col, Heading, [Option]) -> integer() when
 	This::wxListCtrl(), Col::integer(), Heading::unicode:chardata(),
 	Option :: {'format', integer()}
@@ -557,6 +751,7 @@ insertColumn(#wx_ref{type=ThisT}=This,Col,Heading, Options)
   wxe_util:rec(?wxListCtrl_InsertColumn_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlinsertitem">external documentation</a>.
+-doc "Inserts an item, returning the index of the new item if successful, -1 otherwise.".
 -spec insertItem(This, Info) -> integer() when
 	This::wxListCtrl(), Info::wxListItem:wxListItem().
 insertItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
@@ -570,6 +765,7 @@ insertItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
 %% insertItem(This, Index, Label) -> integer() when<br />
 %% 	This::wxListCtrl(), Index::integer(), Label::unicode:chardata().<br />
 %% 
+-doc "Insert a string item.".
 -spec insertItem(This, Index, ImageIndex) -> integer() when
 	This::wxListCtrl(), Index::integer(), ImageIndex::integer();
       (This, Index, Label) -> integer() when
@@ -587,6 +783,7 @@ insertItem(#wx_ref{type=ThisT}=This,Index,Label)
   wxe_util:rec(?wxListCtrl_InsertItem_2_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlinsertitem">external documentation</a>.
+-doc "Insert an image/string item.".
 -spec insertItem(This, Index, Label, ImageIndex) -> integer() when
 	This::wxListCtrl(), Index::integer(), Label::unicode:chardata(), ImageIndex::integer().
 insertItem(#wx_ref{type=ThisT}=This,Index,Label,ImageIndex)
@@ -597,6 +794,13 @@ insertItem(#wx_ref{type=ThisT}=This,Index,Label,ImageIndex)
   wxe_util:rec(?wxListCtrl_InsertItem_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlrefreshitem">external documentation</a>.
+-doc """
+Redraws the given `item`.
+
+This is only useful for the virtual list controls as without calling this function the displayed value of the item doesn't change even when the underlying data does change.
+
+See: `refreshItems/3`
+""".
 -spec refreshItem(This, Item) -> 'ok' when
 	This::wxListCtrl(), Item::integer().
 refreshItem(#wx_ref{type=ThisT}=This,Item)
@@ -605,6 +809,13 @@ refreshItem(#wx_ref{type=ThisT}=This,Item)
   wxe_util:queue_cmd(This,Item,?get_env(),?wxListCtrl_RefreshItem).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlrefreshitems">external documentation</a>.
+-doc """
+Redraws the items between `itemFrom` and `itemTo`.
+
+The starting item must be less than or equal to the ending one.
+
+Just as `refreshItem/2` this is only useful for virtual list controls.
+""".
 -spec refreshItems(This, ItemFrom, ItemTo) -> 'ok' when
 	This::wxListCtrl(), ItemFrom::integer(), ItemTo::integer().
 refreshItems(#wx_ref{type=ThisT}=This,ItemFrom,ItemTo)
@@ -613,6 +824,13 @@ refreshItems(#wx_ref{type=ThisT}=This,ItemFrom,ItemTo)
   wxe_util:queue_cmd(This,ItemFrom,ItemTo,?get_env(),?wxListCtrl_RefreshItems).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlscrolllist">external documentation</a>.
+-doc """
+Scrolls the list control.
+
+If in icon, small icon or report view mode, `dx` specifies the number of pixels to scroll. If in list view mode, `dx` specifies the number of columns to scroll. `dy` always specifies the number of pixels to scroll vertically.
+
+Note: This method is currently only implemented in the Windows version.
+""".
 -spec scrollList(This, Dx, Dy) -> boolean() when
 	This::wxListCtrl(), Dx::integer(), Dy::integer().
 scrollList(#wx_ref{type=ThisT}=This,Dx,Dy)
@@ -622,6 +840,11 @@ scrollList(#wx_ref{type=ThisT}=This,Dx,Dy)
   wxe_util:rec(?wxListCtrl_ScrollList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetbackgroundcolour">external documentation</a>.
+-doc """
+Sets the background colour.
+
+Note that the `wxWindow:getBackgroundColour/1` function of `m:wxWindow` base class can be used to retrieve the current background colour.
+""".
 -spec setBackgroundColour(This, Col) -> boolean() when
 	This::wxListCtrl(), Col::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,Col)
@@ -631,6 +854,11 @@ setBackgroundColour(#wx_ref{type=ThisT}=This,Col)
   wxe_util:rec(?wxListCtrl_SetBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetcolumn">external documentation</a>.
+-doc """
+Sets information about this column.
+
+See `setItem/5` for more information.
+""".
 -spec setColumn(This, Col, Item) -> boolean() when
 	This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
 setColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
@@ -641,6 +869,17 @@ setColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
   wxe_util:rec(?wxListCtrl_SetColumn).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetcolumnwidth">external documentation</a>.
+-doc """
+Sets the column width.
+
+`width` can be a width in pixels or `wxLIST_AUTOSIZE` (-1) or `wxLIST_AUTOSIZE_USEHEADER` (-2).
+
+`wxLIST_AUTOSIZE` will resize the column to the length of its longest item.
+
+`wxLIST_AUTOSIZE_USEHEADER` will resize the column to the length of the header (Win32) or 80 pixels (other platforms).
+
+In small or normal icon view, `col` must be -1, and the column width is set for all columns.
+""".
 -spec setColumnWidth(This, Col, Width) -> boolean() when
 	This::wxListCtrl(), Col::integer(), Width::integer().
 setColumnWidth(#wx_ref{type=ThisT}=This,Col,Width)
@@ -650,6 +889,15 @@ setColumnWidth(#wx_ref{type=ThisT}=This,Col,Width)
   wxe_util:rec(?wxListCtrl_SetColumnWidth).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetimagelist">external documentation</a>.
+-doc """
+Sets the image list associated with the control.
+
+`which` is one of `wxIMAGE_LIST_NORMAL`, `wxIMAGE_LIST_SMALL`, `wxIMAGE_LIST_STATE` (the last is unimplemented).
+
+This method does not take ownership of the image list, you have to delete it yourself.
+
+See: `assignImageList/3`
+""".
 -spec setImageList(This, ImageList, Which) -> 'ok' when
 	This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Which)
@@ -659,6 +907,13 @@ setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Which)
   wxe_util:queue_cmd(This,ImageList,Which,?get_env(),?wxListCtrl_SetImageList).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitem">external documentation</a>.
+-doc """
+Sets the data of an item.
+
+Using the `m:wxListItem`'s mask and state mask, you can change only selected attributes of a `m:wxListCtrl` item.
+
+Return: true if the item was successfully updated or false if the update failed for some reason (e.g. an invalid item index).
+""".
 -spec setItem(This, Info) -> boolean() when
 	This::wxListCtrl(), Info::wxListItem:wxListItem().
 setItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
@@ -668,6 +923,7 @@ setItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
   wxe_util:rec(?wxListCtrl_SetItem_1).
 
 %% @equiv setItem(This,Index,Column,Label, [])
+-doc "".
 -spec setItem(This, Index, Column, Label) -> boolean() when
 	This::wxListCtrl(), Index::integer(), Column::integer(), Label::unicode:chardata().
 
@@ -676,6 +932,11 @@ setItem(This,Index,Column,Label)
   setItem(This,Index,Column,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitem">external documentation</a>.
+-doc """
+Sets an item string field at a particular column.
+
+Return: true if the item was successfully updated or false if the update failed for some reason (e.g. an invalid item index).
+""".
 -spec setItem(This, Index, Column, Label, [Option]) -> boolean() when
 	This::wxListCtrl(), Index::integer(), Column::integer(), Label::unicode:chardata(),
 	Option :: {'imageId', integer()}.
@@ -690,6 +951,11 @@ setItem(#wx_ref{type=ThisT}=This,Index,Column,Label, Options)
   wxe_util:rec(?wxListCtrl_SetItem_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitembackgroundcolour">external documentation</a>.
+-doc """
+Sets the background colour for this item.
+
+This function only works in report view mode. The colour can be retrieved using `getItemBackgroundColour/2`.
+""".
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
@@ -698,6 +964,13 @@ setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxListCtrl_SetItemBackgroundColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemcount">external documentation</a>.
+-doc """
+This method can only be used with virtual list controls.
+
+It is used to indicate to the control the number of items it contains. After calling it, the main program should be ready to handle calls to various item callbacks (such as `wxListCtrl::OnGetItemText` (not implemented in wx)) for all items in the range from 0 to `count`.
+
+Notice that the control is not necessarily redrawn after this call as it may be undesirable if an item which is not visible on the screen anyhow was added to or removed from a control displaying many items, if you do need to refresh the display you can just call `wxWindow:refresh/2` manually.
+""".
 -spec setItemCount(This, Count) -> 'ok' when
 	This::wxListCtrl(), Count::integer().
 setItemCount(#wx_ref{type=ThisT}=This,Count)
@@ -706,6 +979,11 @@ setItemCount(#wx_ref{type=ThisT}=This,Count)
   wxe_util:queue_cmd(This,Count,?get_env(),?wxListCtrl_SetItemCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemdata">external documentation</a>.
+-doc """
+Associates application-defined data with this item.
+
+Notice that this function cannot be used to associate pointers with the control items, use `SetItemPtrData()` (not implemented in wx) instead.
+""".
 -spec setItemData(This, Item, Data) -> boolean() when
 	This::wxListCtrl(), Item::integer(), Data::integer().
 setItemData(#wx_ref{type=ThisT}=This,Item,Data)
@@ -715,6 +993,7 @@ setItemData(#wx_ref{type=ThisT}=This,Item,Data)
   wxe_util:rec(?wxListCtrl_SetItemData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemfont">external documentation</a>.
+-doc "Sets the item's font.".
 -spec setItemFont(This, Item, Font) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Font::wxFont:wxFont().
 setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
@@ -724,6 +1003,7 @@ setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
   wxe_util:queue_cmd(This,Item,Font,?get_env(),?wxListCtrl_SetItemFont).
 
 %% @equiv setItemImage(This,Item,Image, [])
+-doc "".
 -spec setItemImage(This, Item, Image) -> boolean() when
 	This::wxListCtrl(), Item::integer(), Image::integer().
 
@@ -732,6 +1012,11 @@ setItemImage(This,Item,Image)
   setItemImage(This,Item,Image, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemimage">external documentation</a>.
+-doc """
+Sets the unselected and selected images associated with the item.
+
+The images are indices into the image list associated with the list control.
+""".
 -spec setItemImage(This, Item, Image, [Option]) -> boolean() when
 	This::wxListCtrl(), Item::integer(), Image::integer(),
 	Option :: {'selImage', integer()}.
@@ -745,6 +1030,11 @@ setItemImage(#wx_ref{type=ThisT}=This,Item,Image, Options)
   wxe_util:rec(?wxListCtrl_SetItemImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemcolumnimage">external documentation</a>.
+-doc """
+Sets the image associated with the item.
+
+In report view, you can specify the column. The image is an index into the image list associated with the list control.
+""".
 -spec setItemColumnImage(This, Item, Column, Image) -> boolean() when
 	This::wxListCtrl(), Item::integer(), Column::integer(), Image::integer().
 setItemColumnImage(#wx_ref{type=ThisT}=This,Item,Column,Image)
@@ -754,6 +1044,11 @@ setItemColumnImage(#wx_ref{type=ThisT}=This,Item,Column,Image)
   wxe_util:rec(?wxListCtrl_SetItemColumnImage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemposition">external documentation</a>.
+-doc """
+Sets the position of the item, in icon or small icon view.
+
+Windows only.
+""".
 -spec setItemPosition(This, Item, Pos) -> boolean() when
 	This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}.
 setItemPosition(#wx_ref{type=ThisT}=This,Item,{PosX,PosY} = Pos)
@@ -763,6 +1058,17 @@ setItemPosition(#wx_ref{type=ThisT}=This,Item,{PosX,PosY} = Pos)
   wxe_util:rec(?wxListCtrl_SetItemPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemstate">external documentation</a>.
+-doc """
+Sets the item state.
+
+The `stateMask` is a combination of `wxLIST_STATE_XXX` constants described in `m:wxListItem` documentation. For each of the bits specified in `stateMask`, the corresponding state is set or cleared depending on whether `state` argument contains the same bit or not.
+
+So to select an item you can use while to deselect it you should use
+
+Consider using `m:wxListView` if possible to avoid dealing with this error-prone and confusing method.
+
+Also notice that contrary to the usual rule that only user actions generate events, this method does generate wxEVT_LIST_ITEM_SELECTED event when it is used to select an item.
+""".
 -spec setItemState(This, Item, State, StateMask) -> boolean() when
 	This::wxListCtrl(), Item::integer(), State::integer(), StateMask::integer().
 setItemState(#wx_ref{type=ThisT}=This,Item,State,StateMask)
@@ -772,6 +1078,7 @@ setItemState(#wx_ref{type=ThisT}=This,Item,State,StateMask)
   wxe_util:rec(?wxListCtrl_SetItemState).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemtext">external documentation</a>.
+-doc "Sets the item text for this item.".
 -spec setItemText(This, Item, Text) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT}=This,Item,Text)
@@ -781,6 +1088,11 @@ setItemText(#wx_ref{type=ThisT}=This,Item,Text)
   wxe_util:queue_cmd(This,Item,Text_UC,?get_env(),?wxListCtrl_SetItemText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetitemtextcolour">external documentation</a>.
+-doc """
+Sets the colour for this item.
+
+This function only works in report view. The colour can be retrieved using `getItemTextColour/2`.
+""".
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
 	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
@@ -789,6 +1101,7 @@ setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
   wxe_util:queue_cmd(This,Item,wxe_util:color(Col),?get_env(),?wxListCtrl_SetItemTextColour).
 
 %% @equiv setSingleStyle(This,Style, [])
+-doc "".
 -spec setSingleStyle(This, Style) -> 'ok' when
 	This::wxListCtrl(), Style::integer().
 
@@ -797,6 +1110,7 @@ setSingleStyle(This,Style)
   setSingleStyle(This,Style, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetsinglestyle">external documentation</a>.
+-doc "Adds or removes a single window style.".
 -spec setSingleStyle(This, Style, [Option]) -> 'ok' when
 	This::wxListCtrl(), Style::integer(),
 	Option :: {'add', boolean()}.
@@ -809,6 +1123,7 @@ setSingleStyle(#wx_ref{type=ThisT}=This,Style, Options)
   wxe_util:queue_cmd(This,Style, Opts,?get_env(),?wxListCtrl_SetSingleStyle).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsettextcolour">external documentation</a>.
+-doc "Sets the text colour of the list control.".
 -spec setTextColour(This, Col) -> 'ok' when
 	This::wxListCtrl(), Col::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,Col)
@@ -817,6 +1132,7 @@ setTextColour(#wx_ref{type=ThisT}=This,Col)
   wxe_util:queue_cmd(This,wxe_util:color(Col),?get_env(),?wxListCtrl_SetTextColour).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlsetwindowstyleflag">external documentation</a>.
+-doc "Sets the whole window style, deleting all items.".
 -spec setWindowStyleFlag(This, Style) -> 'ok' when
 	This::wxListCtrl(), Style::integer().
 setWindowStyleFlag(#wx_ref{type=ThisT}=This,Style)
@@ -825,6 +1141,17 @@ setWindowStyleFlag(#wx_ref{type=ThisT}=This,Style)
   wxe_util:queue_cmd(This,Style,?get_env(),?wxListCtrl_SetWindowStyleFlag).
 
 
+-doc """
+Sort the items in the list control.
+
+Sorts the items with supplied `SortCallBack` fun.
+
+SortCallBack receives the client data associated with two items to compare (`NOT` the the index), and should return 0 if the items are equal, a negative value if the first item is less than the second one and a positive value if the first item is greater than the second one.
+
+Remark: Notice that the control may only be sorted on client data associated with the items, so you must use SetItemData if you want to be able to sort the items in the control.
+
+The callback may not call other (wx) processes.
+""".
 -spec sortItems(This::wxListCtrl(), SortCallBack) -> boolean()
               when SortCallBack :: fun((integer(), integer()) -> integer()).
 sortItems(#wx_ref{type=ThisT}=This, SortCallBack)
@@ -836,6 +1163,7 @@ sortItems(#wx_ref{type=ThisT}=This, SortCallBack)
     wxe_util:rec(Op).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the list control.".
 -spec destroy(This::wxListCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListCtrl),
@@ -1206,3 +1534,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

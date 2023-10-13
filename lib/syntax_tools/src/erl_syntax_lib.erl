@@ -31,6 +31,11 @@
 %%
 
 -module(erl_syntax_lib).
+-moduledoc """
+Support library for abstract Erlang syntax trees.
+
+This module contains utility functions for working with the abstract data type defined in the module `m:erl_syntax`.
+""".
 
 -export([analyze_application/1, analyze_attribute/1,
          analyze_export_attribute/1, analyze_file_attribute/1,
@@ -52,6 +57,7 @@
 %% =====================================================================
 %% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
 %% tree. See the {@link erl_syntax} module for details.
+-doc "".
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
 %% =====================================================================
@@ -65,6 +71,11 @@
 %%
 %% @see map_subtrees/2
 
+-doc """
+Applies a function to each node of a syntax tree. The result of each application replaces the corresponding original node. The order of traversal is bottom-up.
+
+*See also: *`map_subtrees/2`.
+""".
 -spec map(fun((syntaxTree()) -> syntaxTree()),
 	  syntaxTree()) -> syntaxTree().
 
@@ -91,6 +102,11 @@ map(F, Tree) ->
 %%
 %% @see map/2
 
+-doc """
+Applies a function to each immediate subtree of a syntax tree. The result of each application replaces the corresponding original node.
+
+*See also: *`map/2`.
+""".
 -spec map_subtrees(fun((syntaxTree()) -> syntaxTree()),
 		   syntaxTree()) -> syntaxTree().
 
@@ -118,6 +134,11 @@ map_subtrees(F, Tree) ->
 %% @see fold_subtrees/3
 %% @see foldl_listlist/3
 
+-doc """
+Folds a function over all nodes of a syntax tree. The result is the value of `Function(X1, Function(X2, ... Function(Xn, Start) ... ))`, where `[X1, X2, ..., Xn]` are the nodes of `Tree` in a post-order traversal.
+
+*See also: *`fold_subtrees/3`, `foldl_listlist/3`.
+""".
 -spec fold(fun((syntaxTree(), term()) -> term()),
 	   term(), syntaxTree()) -> term().
 
@@ -129,11 +150,13 @@ fold(F, S, Tree) ->
             F(Tree, fold_1(F, S, Gs))
     end.
 
+-doc "".
 fold_1(F, S, [L | Ls]) ->
     fold_1(F, fold_2(F, S, L), Ls);
 fold_1(_, S, []) ->
     S.
 
+-doc "".
 fold_2(F, S, [T | Ts]) ->
     fold_2(F, fold(F, S, T), Ts);
 fold_2(_, S, []) ->
@@ -153,6 +176,11 @@ fold_2(_, S, []) ->
 %%
 %% @see fold/3
 
+-doc """
+Folds a function over the immediate subtrees of a syntax tree. This is similar to `fold/3`, but only on the immediate subtrees of `Tree`, in left-to-right order; it does not include the root node of `Tree`.
+
+*See also: *`fold/3`.
+""".
 -spec fold_subtrees(fun((syntaxTree(), term()) -> term()),
 		    term(), syntaxTree()) -> term().
 
@@ -170,6 +198,11 @@ fold_subtrees(F, S, Tree) ->
 %% @see fold/3
 %% @see //stdlib/lists:foldl/3
 
+-doc """
+Like `lists:foldl/3`, but over a list of lists.
+
+*See also: *[//stdlib/lists:foldl/3](`lists:foldl/3`), `fold/3`.
+""".
 -spec foldl_listlist(fun((term(), term()) -> term()),
 		     term(), [[term()]]) -> term().
 
@@ -178,6 +211,7 @@ foldl_listlist(F, S, [L | Ls]) ->
 foldl_listlist(_, S, []) ->
     S.
 
+-doc "".
 foldl(F, S, [T | Ts]) ->
     foldl(F, F(T, S), Ts);
 foldl(_, S, []) ->
@@ -200,6 +234,11 @@ foldl(_, S, []) ->
 %% @see map/2
 %% @see fold/3
 
+-doc """
+Combines map and fold in a single operation. This is similar to `map/2`, but also propagates an extra value from each application of the `Function` to the next, while doing a post-order traversal of the tree like `fold/3`. The value `Start` is passed to the first function application, and the final result is the result of the last application.
+
+*See also: *`fold/3`, `map/2`.
+""".
 -spec mapfold(fun((syntaxTree(), term()) -> {syntaxTree(), term()}),
 	      term(), syntaxTree()) -> {syntaxTree(), term()}.
 
@@ -213,6 +252,7 @@ mapfold(F, S, Tree) ->
             F(erl_syntax:copy_attrs(Tree, Tree1), S1)
     end.
 
+-doc "".
 mapfold_1(F, S, [L | Ls]) ->
     {L1, S1} = mapfold_2(F, S, L),
     {Ls1, S2} = mapfold_1(F, S1, Ls),
@@ -220,6 +260,7 @@ mapfold_1(F, S, [L | Ls]) ->
 mapfold_1(_, S, []) ->
     {[], S}.
 
+-doc "".
 mapfold_2(F, S, [T | Ts]) ->
     {T1, S1} = mapfold(F, S, T),
     {Ts1, S2} = mapfold_2(F, S1, Ts),
@@ -241,6 +282,11 @@ mapfold_2(_, S, []) ->
 %%
 %% @see mapfold/3
 
+-doc """
+Does a mapfold operation over the immediate subtrees of a syntax tree. This is similar to `mapfold/3`, but only on the immediate subtrees of `Tree`, in left-to-right order; it does not include the root node of `Tree`.
+
+*See also: *`mapfold/3`.
+""".
 -spec mapfold_subtrees(fun((syntaxTree(), term()) ->
 			      {syntaxTree(), term()}),
 		       term(), syntaxTree()) ->
@@ -267,6 +313,7 @@ mapfold_subtrees(F, S, Tree) ->
 %% The list of lists in the result has the same structure as the given
 %% list of lists.
 
+-doc "Like `lists:mapfoldl/3`, but over a list of lists. The list of lists in the result has the same structure as the given list of lists.".
 -spec mapfoldl_listlist(fun((term(), term()) -> {term(), term()}),
 			term(), [[term()]]) -> {[[term()]], term()}.
 
@@ -277,6 +324,7 @@ mapfoldl_listlist(F, S, [L | Ls]) ->
 mapfoldl_listlist(_, S, []) ->
     {[], S}.
 
+-doc "".
 mapfoldl(F, S, [L | Ls]) ->
     {L1, S1} = F(L, S),
     {Ls1, S2} = mapfoldl(F, S1, Ls),
@@ -286,6 +334,7 @@ mapfoldl(_, S, []) ->
 
 %% =====================================================================
 %% @type set(T) = //stdlib/sets:set(T)
+-doc "".
 -type set(T) :: sets:set(T).
 
 %% =====================================================================
@@ -298,11 +347,17 @@ mapfoldl(_, S, []) ->
 %%
 %% @see //stdlib/sets
 
+-doc """
+Returns the names of variables occurring in a syntax tree, The result is a set of variable names represented by atoms. Macro names are not included.
+
+*See also: *[//stdlib/sets](`m:sets`).
+""".
 -spec variables(syntaxTree()) -> set(atom()).
 
 variables(Tree) ->
     variables(Tree, sets:new()).
 
+-doc "".
 variables(T, S) ->
     case erl_syntax:type(T) of
 	variable ->
@@ -323,11 +378,13 @@ variables(T, S) ->
 	    end
     end.
 
+-doc "".
 variables_1([L | Ls], S) ->
     variables_1(Ls, variables_2(L, S));
 variables_1([], S) ->
     S.
 
+-doc "".
 variables_2([T | Ts], S) ->
     variables_2(Ts, variables(T, S));
 variables_2([], S) ->
@@ -340,6 +397,7 @@ variables_2([], S) ->
 -define(ENLARGE_ENUM, 8).   % range enlargement enumerator
 -define(ENLARGE_DENOM, 1).  % range enlargement denominator
 
+-doc "".
 default_variable_name(N) ->
     list_to_atom("V" ++ integer_to_list(N)).
 
@@ -353,6 +411,11 @@ default_variable_name(N) ->
 %%
 %% @see new_variable_name/2
 
+-doc """
+Returns an atom which is not already in the set `Used`. This is equivalent to `new_variable_name(Function, Used)`, where `Function` maps a given integer `N` to the atom whose name consists of "`V`" followed by the numeral for `N`.
+
+*See also: *`new_variable_name/2`.
+""".
 -spec new_variable_name(set(atom())) -> atom().
 
 new_variable_name(S) ->
@@ -379,15 +442,24 @@ new_variable_name(S) ->
 %% @see //stdlib/sets
 %% @see //stdlib/random
 
+-doc """
+Returns a user-named atom which is not already in the set `Used`. The atom is generated by applying the given `Function` to a generated integer. Integers are generated using an algorithm which tries to keep the names randomly distributed within a reasonably small range relative to the number of elements in the set.
+
+This function uses the module `rand` to generate new keys. The seed it uses may be initialized by calling `rand:seed/1` or `rand:seed/2` before this function is first called.
+
+*See also: *[//stdlib/random](`m:random`), [//stdlib/sets](`m:sets`), `new_variable_name/1`.
+""".
 -spec new_variable_name(fun((integer()) -> atom()), set(atom())) -> atom().
 
 new_variable_name(F, S) ->
     R = start_range(S),
     new_variable_name(R, F, S).
 
+-doc "".
 new_variable_name(R, F, S) ->
     new_variable_name(generate(R, R), R, 0, F, S).
 
+-doc "".
 new_variable_name(N, R, T, F, S) when T < ?MAX_RETRIES ->
     A = F(N),
     case sets:is_element(A, S) of
@@ -405,6 +477,7 @@ new_variable_name(N, R, _T, F, S) ->
 %% the given set. This should be valid for the stdlib
 %% implementation of `sets'.
 
+-doc "".
 start_range(S) ->
     erlang:max(sets:size(S) * ?START_RANGE_FACTOR, ?MINIMUM_RANGE).
 
@@ -414,6 +487,7 @@ start_range(S) ->
 %% It is important that this function does not generate values in
 %% order, but (pseudo-)randomly distributed over the range.
 
+-doc "".
 generate(_Key, Range) ->
     _ = case rand:export_seed() of
 	    undefined ->
@@ -432,6 +506,11 @@ generate(_Key, Range) ->
 %% 
 %% @see new_variable_name/1
 
+-doc """
+Like `new_variable_name/1`, but generates a list of `N` new names.
+
+*See also: *`new_variable_name/1`.
+""".
 -spec new_variable_names(integer(), set(atom())) -> [atom()].
 
 new_variable_names(N, S) ->
@@ -448,6 +527,11 @@ new_variable_names(N, S) ->
 %% 
 %% @see new_variable_name/2
 
+-doc """
+Like `new_variable_name/2`, but generates a list of `N` new names.
+
+*See also: *`new_variable_name/2`.
+""".
 -spec new_variable_names(integer(), fun((integer()) -> atom()), set(atom())) ->
 	[atom()].
 
@@ -455,6 +539,7 @@ new_variable_names(N, F, S) when is_integer(N) ->
     R = start_range(S),
     new_variable_names(N, [], R, F, S).
 
+-doc "".
 new_variable_names(N, Names, R, F, S) when N > 0 ->
     Name = new_variable_name(R, F, S),
     S1 = sets:add_element(Name, S),
@@ -463,6 +548,7 @@ new_variable_names(0, Names, _, _, _) ->
     Names.
 
 %% @type ordset(T) = //stdlib/ordsets:ordset(T)
+-doc "".
 -type ordset(T) :: ordsets:ordset(T).
 
 %% =====================================================================
@@ -490,6 +576,16 @@ new_variable_names(0, Names, _, _, _) ->
 %% @see annotate_bindings/1
 %% @see //stdlib/ordsets
 
+-doc """
+Adds or updates annotations on nodes in a syntax tree. `Bindings` specifies the set of bound variables in the environment of the top level node. The following annotations are affected:
+* `{env, Vars}`, representing the input environment of the subtree.
+* `{bound, Vars}`, representing the variables that are bound in the subtree.
+* `{free, Vars}`, representing the free variables in the subtree.
+
+`Bindings` and `Vars` are ordered-set lists (cf. module `ordsets`) of atoms representing variable names.
+
+*See also: *[//stdlib/ordsets](`m:ordsets`), `annotate_bindings/1`.
+""".
 -spec annotate_bindings(syntaxTree(), ordset(atom())) ->
         syntaxTree().
 
@@ -509,6 +605,11 @@ annotate_bindings(Tree, Env) ->
 %%
 %% @see annotate_bindings/2
 
+-doc """
+Adds or updates annotations on nodes in a syntax tree. Equivalent to `annotate_bindings(Tree, Bindings)` where the top-level environment `Bindings` is taken from the annotation `{env, Bindings}` on the root node of `Tree`. An exception is thrown if no such annotation should exist.
+
+*See also: *`annotate_bindings/2`.
+""".
 -spec annotate_bindings(syntaxTree()) -> syntaxTree().
 
 annotate_bindings(Tree) ->
@@ -520,6 +621,7 @@ annotate_bindings(Tree) ->
             erlang:error(badarg)
     end.
 
+-doc "".
 vann(Tree, Env) ->
     case erl_syntax:type(Tree) of
         variable ->
@@ -564,6 +666,7 @@ vann(Tree, Env) ->
             {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
 
+-doc "".
 vann_list_join(Env) ->
     fun (T, {Bound, Free}) ->
             {T1, Bound1, Free1} = vann(T, Env),
@@ -571,9 +674,11 @@ vann_list_join(Env) ->
                   ordsets:union(Free, Free1)}}
     end.
 
+-doc "".
 vann_list(Ts, Env) ->
     lists:mapfoldl(vann_list_join(Env), {[], []}, Ts).
 
+-doc "".
 vann_function(Tree, Env) ->
     Cs = erl_syntax:function_clauses(Tree),
     {Cs1, {_, Free}} = vann_clauses(Cs, Env),
@@ -583,6 +688,7 @@ vann_function(Tree, Env) ->
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_fun_expr(Tree, Env) ->
     Cs = erl_syntax:fun_expr_clauses(Tree),
     {Cs1, {_, Free}} = vann_clauses(Cs, Env),
@@ -590,6 +696,7 @@ vann_fun_expr(Tree, Env) ->
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_named_fun_expr(Tree, Env) ->
     N = erl_syntax:named_fun_expr_name(Tree),
     NBound = [erl_syntax:variable_name(N)],
@@ -602,6 +709,7 @@ vann_named_fun_expr(Tree, Env) ->
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_match_expr(Tree, Env) ->
     E = erl_syntax:match_expr_body(Tree),
     {E1, Bound1, Free1} = vann(E, Env),
@@ -613,6 +721,7 @@ vann_match_expr(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:match_expr(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_case_expr(Tree, Env) ->
     E = erl_syntax:case_expr_argument(Tree),
     {E1, Bound1, Free1} = vann(E, Env),
@@ -624,12 +733,14 @@ vann_case_expr(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:case_expr(E1, Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_if_expr(Tree, Env) ->
     Cs = erl_syntax:if_expr_clauses(Tree),
     {Cs1, {Bound, Free}} = vann_clauses(Cs, Env),
     Tree1 = rewrite(Tree, erl_syntax:if_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_catch_expr(Tree, Env) ->
     E = erl_syntax:catch_expr_body(Tree),
     {E1, _, Free} = vann(E, Env),
@@ -637,6 +748,7 @@ vann_catch_expr(Tree, Env) ->
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_try_expr(Tree, Env) ->
     Es = erl_syntax:try_expr_body(Tree),
     {Es1, {Bound1, Free1}} = vann_body(Es, Env),
@@ -653,6 +765,7 @@ vann_try_expr(Tree, Env) ->
     Free = ordsets:union(Free1, ordsets:union(Free2, ordsets:union(Free3, Free4))),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_receive_expr(Tree, Env) ->
     %% The timeout action is treated as an extra clause.
     %% Bindings in the expiry expression are local only.
@@ -671,6 +784,7 @@ vann_receive_expr(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:receive_expr(Cs1, T1, Es1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_list_comp(Tree, Env) ->
     Es = erl_syntax:list_comp_body(Tree),
     {Es1, {Bound1, Free1}} = vann_list_comp_body(Es, Env),
@@ -682,6 +796,7 @@ vann_list_comp(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:list_comp(T1, Es1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_list_comp_body_join() ->
     fun (T, {Env, Bound, Free}) ->
             {T1, Bound1, Free1} = case erl_syntax:type(T) of
@@ -702,11 +817,13 @@ vann_list_comp_body_join() ->
                                 ordsets:subtract(Free1, Bound))}}
     end.
 
+-doc "".
 vann_list_comp_body(Ts, Env) ->
     F = vann_list_comp_body_join(),
     {Ts1, {_, Bound, Free}} = lists:mapfoldl(F, {Env, [], []}, Ts),
     {Ts1, {Bound, Free}}.
 
+-doc "".
 vann_binary_comp(Tree, Env) ->
     Es = erl_syntax:binary_comp_body(Tree),
     {Es1, {Bound1, Free1}} = vann_binary_comp_body(Es, Env),
@@ -718,6 +835,7 @@ vann_binary_comp(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:binary_comp(T1, Es1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_binary_comp_body_join() ->
     fun (T, {Env, Bound, Free}) ->
             {T1, Bound1, Free1} = case erl_syntax:type(T) of
@@ -738,6 +856,7 @@ vann_binary_comp_body_join() ->
                                 ordsets:subtract(Free1, Bound))}}
     end.
 
+-doc "".
 vann_binary_comp_body(Ts, Env) ->
     F = vann_binary_comp_body_join(),
     {Ts1, {_, Bound, Free}} = lists:mapfoldl(F, {Env, [], []}, Ts),
@@ -748,6 +867,7 @@ vann_binary_comp_body(Ts, Env) ->
 %% environment (thus, the pattern contains no variable uses, only
 %% bindings). Bindings in the generator body are not exported.
 
+-doc "".
 vann_generator(Tree, Env) ->
     P = erl_syntax:generator_pattern(Tree),
     {P1, Bound, _} = vann_pattern(P, []),
@@ -756,6 +876,7 @@ vann_generator(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_binary_generator(Tree, Env) ->
     P = erl_syntax:binary_generator_pattern(Tree),
     {P1, Bound, _} = vann_pattern(P, Env),
@@ -764,12 +885,14 @@ vann_binary_generator(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:binary_generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_block_expr(Tree, Env) ->
     Es = erl_syntax:block_expr_body(Tree),
     {Es1, {Bound, Free}} = vann_body(Es, Env),
     Tree1 = rewrite(Tree, erl_syntax:block_expr(Es1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_body_join() ->
     fun (T, {Env, Bound, Free}) ->
             {T1, Bound1, Free1} = vann(T, Env),
@@ -779,6 +902,7 @@ vann_body_join() ->
                                 ordsets:subtract(Free1, Bound))}}
     end.
 
+-doc "".
 vann_body(Ts, Env) ->
     {Ts1, {_, Bound, Free}} = lists:mapfoldl(vann_body_join(),
                                              {Env, [], []}, Ts),
@@ -787,6 +911,7 @@ vann_body(Ts, Env) ->
 %% Macro names must be ignored even if they happen to be variables,
 %% lexically speaking.
 
+-doc "".
 vann_macro(Tree, Env) ->
     {As, {Bound, Free}} = case erl_syntax:macro_arguments(Tree) of
                               none ->
@@ -798,6 +923,7 @@ vann_macro(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:macro(N, As)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_pattern(Tree, Env) ->
     case erl_syntax:type(Tree) of
         variable ->
@@ -844,6 +970,7 @@ vann_pattern(Tree, Env) ->
             {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
     end.
 
+-doc "".
 vann_patterns_join(Env) ->
     fun (T, {Bound, Free}) ->
             {T1, Bound1, Free1} = vann_pattern(T, Env),
@@ -851,9 +978,11 @@ vann_patterns_join(Env) ->
                   ordsets:union(Free, Free1)}}
     end.
 
+-doc "".
 vann_patterns(Ps, Env) ->
     lists:mapfoldl(vann_patterns_join(Env), {[], []}, Ps).
 
+-doc "".
 vann_clause(C, Env) ->
     {Ps, {Bound1, Free1}} = vann_patterns(erl_syntax:clause_patterns(C),
                                           Env),
@@ -873,6 +1002,7 @@ vann_clause(C, Env) ->
     Tree1 = rewrite(C, erl_syntax:clause(Ps, G1, Es)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+-doc "".
 vann_clauses_join(Env) ->
     fun (C, {Bound, Free}) ->
             {C1, Bound1, Free1} = vann_clause(C, Env),
@@ -880,6 +1010,7 @@ vann_clauses_join(Env) ->
                   ordsets:union(Free, Free1)}}
     end.
 
+-doc "".
 vann_clauses([C | Cs], Env) ->
     {C1, Bound, Free} = vann_clause(C, Env),
     {Cs1, BF} = lists:mapfoldl(vann_clauses_join(Env), {Bound, Free}, Cs),
@@ -887,6 +1018,7 @@ vann_clauses([C | Cs], Env) ->
 vann_clauses([], _Env) ->
     {[], {[], []}}.
 
+-doc "".
 ann_bindings(Tree, Env, Bound, Free) ->
     As0 = erl_syntax:get_ann(Tree),
     As1 = [{env, Env},
@@ -895,6 +1027,7 @@ ann_bindings(Tree, Env, Bound, Free) ->
            | delete_binding_anns(As0)],
     erl_syntax:set_ann(Tree, As1).
 
+-doc "".
 delete_binding_anns([{env, _} | As]) ->
     delete_binding_anns(As);
 delete_binding_anns([{bound, _} | As]) ->
@@ -921,6 +1054,11 @@ delete_binding_anns([]) ->
 %% @see //erts/erlang:error/1
 %% @see //erts/erlang:error/2
 
+-doc """
+Returns `true` if `Tree` represents an expression which never terminates normally. Note that the reverse does not apply. Currently, the detected cases are calls to `exit/1`, `throw/1`, `erlang:error/1` and `erlang:error/2`.
+
+*See also: *[//erts/erlang:error/1](`erlang:error/1`), [//erts/erlang:error/2](`erlang:error/2`), [//erts/erlang:exit/1](`erlang:exit/1`), [//erts/erlang:throw/1](`erlang:throw/1`).
+""".
 -spec is_fail_expr(syntaxTree()) -> boolean().
 
 is_fail_expr(E) ->          
@@ -1084,10 +1222,61 @@ is_fail_expr(E) ->
 %% @see erl_syntax:error_marker_info/1
 %% @see erl_syntax:warning_marker_info/1
 
+-doc "".
 -type key() :: 'attributes' | 'errors' | 'exports' | 'functions' | 'imports'
              | 'module' | 'records' | 'warnings'.
+-doc "".
 -type info_pair() :: {key(), term()}.
 
+-doc """
+Analyzes a sequence of "program forms". The given `Forms` may be a single syntax tree of type `form_list`, or a list of "program form" syntax trees. The returned value is a list of pairs `{Key, Info}`, where each value of `Key` occurs at most once in the list; the absence of a particular key indicates that there is no well-defined value for that key.
+
+Each entry in the resulting list contains the following corresponding information about the program forms:
+* __`{attributes, Attributes}`__ - * `Attributes = [{atom(), term()}]`
+
+  `Attributes` is a list of pairs representing the names and corresponding values of all so-called "wild" attributes (as e.g. "`-compile(...)`") occurring in `Forms` (cf. `analyze_wild_attribute/1`). We do not guarantee that each name occurs at most once in the list. The order of listing is not defined.
+
+* __`{errors, Errors}`__ - * `Errors = [term()]`
+
+  `Errors` is the list of error descriptors of all `error_marker` nodes that occur in `Forms`. The order of listing is not defined.
+
+* __`{exports, Exports}`__ - * `Exports = [FunctionName]`
+  * `FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}`
+  * `ModuleName = atom()`
+
+  `Exports` is a list of representations of those function names that are listed by export declaration attributes in `Forms` (cf. `analyze_export_attribute/1`). We do not guarantee that each name occurs at most once in the list. The order of listing is not defined.
+
+* __`{functions, Functions}`__ - * `Functions = [{atom(), integer()}]`
+
+  `Functions` is a list of the names of the functions that are defined in `Forms` (cf. `analyze_function/1`). We do not guarantee that each name occurs at most once in the list. The order of listing is not defined.
+
+* __`{imports, Imports}`__ - * `Imports = [{Module, Names}]`
+  * `Module = atom()`
+  * `Names = [FunctionName]`
+  * `FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}`
+  * `ModuleName = atom()`
+
+  `Imports` is a list of pairs representing those module names and corresponding function names that are listed by import declaration attributes in `Forms` (cf. `analyze_import_attribute/1`), where each `Module` occurs at most once in `Imports`. We do not guarantee that each name occurs at most once in the lists of function names. The order of listing is not defined.
+
+* __`{module, ModuleName}`__ - * `ModuleName = atom()`
+
+  `ModuleName` is the name declared by a module attribute in `Forms`. If no module name is defined in `Forms`, the result will contain no entry for the `module` key. If multiple module name declarations should occur, all but the first will be ignored.
+
+* __`{records, Records}`__ - * `Records = [{atom(), Fields}]`
+  * `Fields = [{atom(), {Default, Type}}]`
+  * `Default = none | syntaxTree()`
+  * `Type = none | syntaxTree()`
+
+  `Records` is a list of pairs representing the names and corresponding field declarations of all record declaration attributes occurring in `Forms`. For fields declared without a default value, the corresponding value for `Default` is the atom `none`. Similarly, for fields declared without a type, the corresponding value for `Type` is the atom `none` (cf. `analyze_record_attribute/1`). We do not guarantee that each record name occurs at most once in the list. The order of listing is not defined.
+
+* __`{warnings, Warnings}`__ - * `Warnings = [term()]`
+
+  `Warnings` is the list of error descriptors of all `warning_marker` nodes that occur in `Forms`. The order of listing is not defined.
+
+The evaluation throws `syntax_error` if an ill-formed Erlang construct is encountered.
+
+*See also: *`analyze_export_attribute/1`, `analyze_function/1`, `analyze_import_attribute/1`, `analyze_record_attribute/1`, `analyze_wild_attribute/1`, `erl_syntax:error_marker_info/1`, `erl_syntax:warning_marker_info/1`.
+""".
 -spec analyze_forms(erl_syntax:forms()) -> [info_pair()].
 
 analyze_forms(Forms) when is_list(Forms) ->
@@ -1097,6 +1286,7 @@ analyze_forms(Forms) ->
       erl_syntax:form_list_elements(
         erl_syntax:flatten_form_list(Forms))).
 
+-doc "".
 collect_form(Node, Info) ->
     case analyze_form(Node) of
         {attribute, {Name, Data}} ->
@@ -1113,6 +1303,7 @@ collect_form(Node, Info) ->
             Info
     end.
 
+-doc "".
 collect_attribute(module, M, Info) ->
     finfo_set_module(M, Info);
 collect_attribute(export, L, Info) ->
@@ -1142,12 +1333,16 @@ collect_attribute(N, V, Info) ->
 		warnings       = []   :: [term()],
 		functions      = []   :: [{atom(), arity()}]}).
 
+-doc "".
 -type field_default() :: 'none' | syntaxTree().
+-doc "".
 -type field_type()    :: 'none' | syntaxTree().
 
+-doc "".
 new_finfo() ->
     #forms{}.
 
+-doc "".
 finfo_set_module(Name, Info) ->
     case Info#forms.module of
         none ->
@@ -1156,12 +1351,15 @@ finfo_set_module(Name, Info) ->
             Info
     end.
 
+-doc "".
 finfo_add_exports(L, Info) ->
     Info#forms{exports = L ++ Info#forms.exports}.
 
+-doc "".
 finfo_add_module_import(M, Info) ->
     Info#forms{module_imports = [M | Info#forms.module_imports]}.
 
+-doc "".
 finfo_add_imports(M, L, Info) ->
     Es = Info#forms.imports,
     case lists:keyfind(M, 1, Es) of
@@ -1172,21 +1370,27 @@ finfo_add_imports(M, L, Info) ->
             Info#forms{imports = [{M, L} | Es]}
     end.
 
+-doc "".
 finfo_add_attribute(Name, Val, Info) ->
     Info#forms{attributes = [{Name, Val} | Info#forms.attributes]}.
 
+-doc "".
 finfo_add_record(R, L, Info) ->
     Info#forms{records = [{R, L} | Info#forms.records]}.
 
+-doc "".
 finfo_add_error(R, Info) ->
     Info#forms{errors = [R | Info#forms.errors]}.
 
+-doc "".
 finfo_add_warning(R, Info) ->
     Info#forms{warnings = [R | Info#forms.warnings]}.
 
+-doc "".
 finfo_add_function(F, Info) ->
     Info#forms{functions = [F | Info#forms.functions]}.
 
+-doc "".
 finfo_to_list(Info) ->
     [{Key, Value}
      || {Key, {value, Value}} <-
@@ -1201,6 +1405,7 @@ finfo_to_list(Info) ->
              {functions, list_value(Info#forms.functions)}
             ]].
 
+-doc "".
 list_value([]) ->
     none;
 list_value(List) ->
@@ -1245,6 +1450,22 @@ list_value(List) ->
 %% @see erl_syntax:error_marker_info/1
 %% @see erl_syntax:warning_marker_info/1
 
+-doc """
+Analyzes a "source code form" node. If `Node` is a "form" type (cf. `erl_syntax:is_form/1`), the returned value is a tuple `{Type, Info}` where `Type` is the node type and `Info` depends on `Type`, as follows:
+* __`{attribute, Info}`__ - where `Info = analyze_attribute(Node)`.
+
+* __`{error_marker, Info}`__ - where `Info = erl_syntax:error_marker_info(Node)`.
+
+* __`{function, Info}`__ - where `Info = analyze_function(Node)`.
+
+* __`{warning_marker, Info}`__ - where `Info = erl_syntax:warning_marker_info(Node)`.
+
+For other types of forms, only the node type is returned.
+
+The evaluation throws `syntax_error` if `Node` is not well-formed.
+
+*See also: *`analyze_attribute/1`, `analyze_function/1`, `erl_syntax:error_marker_info/1`, `erl_syntax:is_form/1`, `erl_syntax:warning_marker_info/1`.
+""".
 -spec analyze_form(syntaxTree()) -> {atom(), term()} | atom().
 
 analyze_form(Node) ->
@@ -1317,6 +1538,24 @@ analyze_form(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_wild_attribute/1
 
+-doc """
+Analyzes an attribute node. If `Node` represents a preprocessor directive, the atom `preprocessor` is returned. Otherwise, if `Node` represents a module attribute "`-Name...`", a tuple `{Name, Info}` is returned, where `Info` depends on `Name`, as follows:
+* __`{module, Info}`__ - where `Info = analyze_module_attribute(Node)`.
+
+* __`{export, Info}`__ - where `Info = analyze_export_attribute(Node)`.
+
+* __`{import, Info}`__ - where `Info = analyze_import_attribute(Node)`.
+
+* __`{file, Info}`__ - where `Info = analyze_file_attribute(Node)`.
+
+* __`{record, Info}`__ - where `Info = analyze_record_attribute(Node)`.
+
+* __`{Name, Info}`__ - where `{Name, Info} = analyze_wild_attribute(Node)`.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed module attribute.
+
+*See also: *`analyze_export_attribute/1`, `analyze_file_attribute/1`, `analyze_import_attribute/1`, `analyze_module_attribute/1`, `analyze_record_attribute/1`, `analyze_wild_attribute/1`.
+""".
 -spec analyze_attribute(syntaxTree()) ->
         'preprocessor' | {atom(), term()}.  % XXX: underspecified
 
@@ -1342,6 +1581,7 @@ analyze_attribute(Node) ->
             throw(syntax_error)
     end.
 
+-doc "".
 analyze_attribute(module, Node) ->
     analyze_module_attribute(Node);
 analyze_attribute(export, Node) ->
@@ -1374,6 +1614,13 @@ analyze_attribute(_, Node) ->
 %%
 %% @see analyze_attribute/1
 
+-doc """
+Returns the module name and possible parameters declared by a module attribute. If the attribute is a plain module declaration such as `-module(name)`, the result is the module name. If the attribute is a parameterized module declaration, the result is a tuple containing the module name and a list of the parameter variable names.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed module attribute.
+
+*See also: *`analyze_attribute/1`.
+""".
 -spec analyze_module_attribute(syntaxTree()) ->
         atom() | {atom(), [atom()]}.
 
@@ -1394,6 +1641,7 @@ analyze_module_attribute(Node) ->
             throw(syntax_error)
     end.
 
+-doc "".
 analyze_variable_list(Node) ->
     case erl_syntax:is_proper_list(Node) of
         true ->
@@ -1420,9 +1668,18 @@ analyze_variable_list(Node) ->
 %%
 %% @see analyze_attribute/1
 
+-doc "".
 -type functionN()    :: atom() | {atom(), arity()}.
+-doc "".
 -type functionName() :: functionN() | {atom(), functionN()}.
 
+-doc """
+Returns the list of function names declared by an export attribute. We do not guarantee that each name occurs at most once in the list. The order of listing is not defined.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed export attribute.
+
+*See also: *`analyze_attribute/1`.
+""".
 -spec analyze_export_attribute(syntaxTree()) -> [functionName()].
 
 analyze_export_attribute(Node) ->
@@ -1438,6 +1695,7 @@ analyze_export_attribute(Node) ->
             throw(syntax_error)
     end.
 
+-doc "".
 analyze_function_name_list(Node) ->
     case erl_syntax:is_proper_list(Node) of
         true ->
@@ -1465,6 +1723,11 @@ analyze_function_name_list(Node) ->
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed function name.
 
+-doc """
+Returns the function name represented by a syntax tree. If `Node` represents a function name, such as "`foo/1`" or "`bloggs:fred/2`", a uniform representation of that name is returned. Different nestings of arity and module name qualifiers in the syntax tree does not affect the result.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed function name.
+""".
 -spec analyze_function_name(syntaxTree()) -> functionName().
 
 analyze_function_name(Node) ->
@@ -1495,6 +1758,7 @@ analyze_function_name(Node) ->
             throw(syntax_error)
     end.
 
+-doc "".
 append_arity(A, {Module, Name}) ->
     {Module, append_arity(A, Name)};
 append_arity(A, Name) when is_atom(Name) ->
@@ -1526,6 +1790,13 @@ append_arity(_A, Name) ->
 %%
 %% @see analyze_attribute/1
 
+-doc """
+Returns the module name and (if present) list of function names declared by an import attribute. The returned value is an atom `Module` or a pair `{Module, Names}`, where `Names` is a list of function names declared as imported from the module named by `Module`. We do not guarantee that each name occurs at most once in `Names`. The order of listing is not defined.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed import attribute.
+
+*See also: *`analyze_attribute/1`.
+""".
 -spec analyze_import_attribute(syntaxTree()) ->
         {atom(), [functionName()]} | atom().
 
@@ -1563,6 +1834,11 @@ analyze_import_attribute(Node) ->
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed type name.
 
+-doc """
+Returns the type name represented by a syntax tree. If `Node` represents a type name, such as "`foo/1`" or "`bloggs:fred/2`", a uniform representation of that name is returned.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed type name.
+""".
 -spec analyze_type_name(syntaxTree()) -> typeName().
 
 analyze_type_name(Node) ->
@@ -1611,6 +1887,15 @@ analyze_type_name(Node) ->
 %%
 %% @see analyze_attribute/1
 
+-doc """
+Returns the name and value of a "wild" attribute. The result is the pair `{Name, Value}`, if `Node` represents "`-Name(Value)`".
+
+Note that no checking is done whether `Name` is a reserved attribute name such as `module` or `export`: it is assumed that the attribute is "wild".
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed wild attribute.
+
+*See also: *`analyze_attribute/1`.
+""".
 -spec analyze_wild_attribute(syntaxTree()) -> {atom(), term()}.
 
 analyze_wild_attribute(Node) ->
@@ -1667,10 +1952,19 @@ analyze_wild_attribute(Node) ->
 %% @see analyze_attribute/1
 %% @see analyze_record_field/1
 
+-doc "".
 -type field() :: {atom(), {field_default(), field_type()}}.
 
+-doc "".
 -type fields() :: [field()].
 
+-doc """
+Returns the name and the list of fields of a record declaration attribute. The result is a pair `{Name, Fields}`, if `Node` represents "`-record(Name, {...}).`", where `Fields` is a list of pairs `{Label, {Default, Type}}` for each field "`Label`", "`Label = Default`", "`Label :: Type`", or "`Label = Default :: Type`" in the declaration, listed in left-to-right order. If the field has no default-value declaration, the value for `Default` will be the atom `none`. If the field has no type declaration, the value for `Type` will be the atom `none`. We do not guarantee that each label occurs at most once in the list.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed record declaration attribute.
+
+*See also: *`analyze_attribute/1`, `analyze_record_field/1`.
+""".
 -spec analyze_record_attribute(syntaxTree()) -> {atom(), fields()}.
 
 analyze_record_attribute(Node) ->
@@ -1692,6 +1986,7 @@ analyze_record_attribute(Node) ->
             throw(syntax_error)
     end.
 
+-doc "".
 analyze_record_attribute_tuple(Node) ->
     case erl_syntax:type(Node) of
         tuple ->
@@ -1741,9 +2036,24 @@ analyze_record_attribute_tuple(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_field/1
 
+-doc "".
 -type info() :: {atom(), [{atom(), syntaxTree()}]}
               | {atom(), atom()} | atom().
 
+-doc """
+Returns the record name and field name/names of a record expression. If `Node` has type `record_expr`, `record_index_expr` or `record_access`, a pair `{Type, Info}` is returned, otherwise an atom `Type` is returned. `Type` is the node type of `Node`, and `Info` depends on `Type`, as follows:
+* __`record_expr`:__ - `{atom(), [{atom(), Value}]}`
+
+* __`record_access`:__ - `{atom(), atom()}`
+
+* __`record_index_expr`:__ - `{atom(), atom()}`
+
+For a `record_expr` node, `Info` represents the record name and the list of descriptors for the involved fields, listed in the order they appear. A field descriptor is a pair `{Label, Value}`, if `Node` represents "`Label = Value`". For a `record_access` node, `Info` represents the record name and the field name. For a `record_index_expr` node, `Info` represents the record name and the name field name.
+
+The evaluation throws `syntax_error` if `Node` represents a record expression that is not well-formed.
+
+*See also: *`analyze_record_attribute/1`, `analyze_record_field/1`.
+""".
 -spec analyze_record_expr(syntaxTree()) -> {atom(), info()} | atom().
 
 analyze_record_expr(Node) ->
@@ -1816,6 +2126,13 @@ analyze_record_expr(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_expr/1
 
+-doc """
+Returns the label, value-expression, and type of a record field specifier. The result is a pair `{Label, {Default, Type}}`, if `Node` represents "`Label`", "`Label = Default`", "`Label :: Type`", or "`Label = Default :: Type`". If the field has no value-expression, the value for `Default` will be the atom `none`. If the field has no type, the value for `Type` will be the atom `none`.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed record field specifier.
+
+*See also: *`analyze_record_attribute/1`, `analyze_record_expr/1`.
+""".
 -spec analyze_record_field(syntaxTree()) -> field().
 
 analyze_record_field(Node) ->
@@ -1853,6 +2170,13 @@ analyze_record_field(Node) ->
 %%
 %% @see analyze_attribute/1
 
+-doc """
+Returns the file name and line number of a `file` attribute. The result is the pair `{File, Line}` if `Node` represents "`-file(File, Line).`".
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed `file` attribute.
+
+*See also: *`analyze_attribute/1`.
+""".
 -spec analyze_file_attribute(syntaxTree()) -> {string(), integer()}.
 
 analyze_file_attribute(Node) ->
@@ -1888,6 +2212,11 @@ analyze_file_attribute(Node) ->
 %% `Node' does not represent a well-formed function
 %% definition.
 
+-doc """
+Returns the name and arity of a function definition. The result is a pair `{Name, A}` if `Node` represents a function definition "`Name(P_1, ..., P_A) -> ...`".
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed function definition.
+""".
 -spec analyze_function(syntaxTree()) -> {atom(), arity()}.
 
 analyze_function(Node) ->
@@ -1922,6 +2251,13 @@ analyze_function(Node) ->
 %%
 %% @see analyze_function_name/1
 
+-doc """
+Returns the name of an implicit fun expression "`fun F`". The result is a representation of the function name `F`. (Cf. `analyze_function_name/1`.)
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed implicit fun.
+
+*See also: *`analyze_function_name/1`.
+""".
 -spec analyze_implicit_fun(syntaxTree()) -> functionName().
 
 analyze_implicit_fun(Node) ->
@@ -1953,8 +2289,16 @@ analyze_implicit_fun(Node) ->
 %%
 %% @see analyze_function_name/1
 
+-doc "".
 -type appFunName() :: {atom(), arity()} | {atom(), {atom(), arity()}}.
 
+-doc """
+Returns the name of a called function. The result is a representation of the name of the applied function `F/A`, if `Node` represents a function application "`F(X_1, ..., X_A)`". If the function is not explicitly named (i.e., `F` is given by some expression), only the arity `A` is returned.
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed application expression.
+
+*See also: *`analyze_function_name/1`.
+""".
 -spec analyze_application(syntaxTree()) -> appFunName() | arity().
 
 analyze_application(Node) ->
@@ -1995,8 +2339,16 @@ analyze_application(Node) ->
 %%
 %% @see analyze_type_name/1
 
+-doc "".
 -type typeName() :: atom() | {module(), {atom(), arity()}} | {atom(), arity()}.
 
+-doc """
+Returns the name of a used type. The result is a representation of the name of the used pre-defined or local type `N/A`, if `Node` represents a local (user) type application "`N(T_1, ..., T_A)`", or a representation of the name of the used remote type `M:N/A` if `Node` represents a remote user type application "`M:N(T_1, ..., T_A)`".
+
+The evaluation throws `syntax_error` if `Node` does not represent a well-formed (user) type application expression.
+
+*See also: *`analyze_type_name/1`.
+""".
 -spec analyze_type_application(syntaxTree()) -> typeName().
 
 analyze_type_application(Node) ->
@@ -2046,20 +2398,31 @@ analyze_type_application(Node) ->
 %%
 %% @see analyze_function_name/1
 
+-doc "".
 -type shortname() :: atom() | {atom(), arity()}.
+-doc "".
 -type name()      :: shortname() | {atom(), shortname()}.
 
+-doc """
+Creates a mapping from corresponding short names to full function names. Names are represented by nested tuples of atoms and integers (cf. `analyze_function_name/1`). The result is a list containing a pair `{ShortName, Name}` for each element `Name` in the given list, where the corresponding `ShortName` is the rightmost-innermost part of `Name`. The list thus represents a finite mapping from unqualified names to the corresponding qualified names.
+
+Note: the resulting list can contain more than one tuple `{ShortName, Name}` for the same `ShortName`, possibly with different values for `Name`, depending on the given list.
+
+*See also: *`analyze_function_name/1`.
+""".
 -spec function_name_expansions([name()]) -> [{shortname(), name()}].
 
 function_name_expansions(Fs) ->
     function_name_expansions(Fs, []).
 
+-doc "".
 function_name_expansions([F | Fs], Ack) ->
     function_name_expansions(Fs,
                              function_name_expansions(F, F, Ack));
 function_name_expansions([], Ack) ->
     Ack.
 
+-doc "".
 function_name_expansions({A, N}, Name, Ack) when is_integer(N) ->
     [{{A, N}, Name} | Ack];
 function_name_expansions({_, N}, Name, Ack) ->
@@ -2076,11 +2439,13 @@ function_name_expansions(A, Name, Ack) ->
 %% Standalone comments in form lists are removed; any other standalone
 %% comments are changed into null-comments (no text, no indentation).
 
+-doc "Removes all comments from all nodes of a syntax tree. All other attributes (such as position information) remain unchanged. Standalone comments in form lists are removed; any other standalone comments are changed into null-comments (no text, no indentation).".
 -spec strip_comments(syntaxTree()) -> syntaxTree().
 
 strip_comments(Tree) ->
     map(fun strip_comments_1/1, Tree).
 
+-doc "".
 strip_comments_1(T) ->
     case erl_syntax:type(T) of
 	form_list ->
@@ -2098,6 +2463,9 @@ strip_comments_1(T) ->
 %% @spec to_comment(Tree) -> syntaxTree()
 %% @equiv to_comment(Tree, "% ")
 
+-doc """
+Equivalent to [to_comment(Tree, "% ")](`to_comment/2`).
+""".
 -spec to_comment(syntaxTree()) -> syntaxTree().
 
 to_comment(Tree) ->
@@ -2114,6 +2482,11 @@ to_comment(Tree) ->
 %% @see to_comment/3
 %% @see erl_prettypr:format/1
 
+-doc """
+Equivalent to `to_comment(Tree, Prefix, F)` for a default formatting function `F`. The default `F` simply calls `erl_prettypr:format/1`.
+
+*See also: *`to_comment/3`, `erl_prettypr:format/1`.
+""".
 -spec to_comment(syntaxTree(), string()) -> syntaxTree().
 
 to_comment(Tree, Prefix) ->
@@ -2145,6 +2518,21 @@ to_comment(Tree, Prefix) ->
 %% @see to_comment/1
 %% @see to_comment/2
 
+-doc """
+Transforms a syntax tree into an abstract comment. The lines of the comment contain the text for `Node`, as produced by the given `Printer` function. Each line of the comment is prefixed by the string `Prefix` (this does not include the initial "`%`" character of the comment line).
+
+For example, the result of `to_comment(erl_syntax:abstract([a,b,c]))` represents
+
+```text
+          %% [a,b,c]
+```
+
+(cf. `to_comment/1`).
+
+Note: the text returned by the formatting function will be split automatically into separate comment lines at each line break. No extra work is needed.
+
+*See also: *`to_comment/1`, `to_comment/2`.
+""".
 -spec to_comment(syntaxTree(), string(),
 		 fun((syntaxTree()) -> string())) ->
         syntaxTree().
@@ -2162,6 +2550,11 @@ to_comment(Tree, Prefix, F) ->
 %% @see limit/3
 %% @see erl_syntax:text/1
 
+-doc """
+Equivalent to `limit(Tree, Depth, Text)` using the text `"..."` as default replacement.
+
+*See also: *`limit/3`, `erl_syntax:text/1`.
+""".
 -spec limit(syntaxTree(), integer()) -> syntaxTree().
 
 limit(Tree, Depth) ->
@@ -2192,6 +2585,15 @@ limit(Tree, Depth) ->
 %%
 %% @see limit/2
 
+-doc """
+Limits a syntax tree to a specified depth. Replaces all non-leaf subtrees in `Tree` at the given `Depth` by `Node`. If `Depth` is negative, the result is always `Node`, even if `Tree` has no subtrees.
+
+When a group of subtrees (as e.g., the argument list of an `application` node) is at the specified depth, and there are two or more subtrees in the group, these will be collectively replaced by `Node` even if they are leaf nodes. Groups of subtrees that are above the specified depth will be limited in size, as if each subsequent tree in the group were one level deeper than the previous. E.g., if `Tree` represents a list of integers "`[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]`", the result of `limit(Tree, 5)` will represent `[1, 2, 3, 4, ...]`.
+
+The resulting syntax tree is typically only useful for pretty-printing or similar visual formatting.
+
+*See also: *`limit/2`.
+""".
 -spec limit(syntaxTree(), integer(), syntaxTree()) ->
         syntaxTree().
 
@@ -2200,6 +2602,7 @@ limit(_Tree, Depth, Node) when Depth < 0 ->
 limit(Tree, Depth, Node) ->
     limit_1(Tree, Depth, Node).
 
+-doc "".
 limit_1(Tree, Depth, Node) ->
     %% Depth is nonnegative here.
     case erl_syntax:subtrees(Tree) of
@@ -2236,6 +2639,7 @@ limit_1(Tree, Depth, Node) ->
             end
     end.
 
+-doc "".
 cut_group([], _Node) ->
     [];
 cut_group([T], Node) ->
@@ -2245,6 +2649,7 @@ cut_group([T], Node) ->
 cut_group(_Ts, Node) ->
     [Node].
 
+-doc "".
 is_simple_leaf(Tree) ->
     case erl_syntax:type(Tree) of
         atom -> true;
@@ -2262,6 +2667,7 @@ is_simple_leaf(Tree) ->
 %% If list has more than N elements, take the N - 1 first and
 %% append Node; otherwise return list as is.
 
+-doc "".
 limit_list(Ts, N, Node) ->
     if length(Ts) > N ->
             limit_list_1(Ts, N - 1, Node);
@@ -2269,6 +2675,7 @@ limit_list(Ts, N, Node) ->
             Ts
     end.
 
+-doc "".
 limit_list_1([T | Ts], N, Node) ->
     if N > 0 ->
             [T | limit_list_1(Ts, N - 1, Node)];
@@ -2282,9 +2689,11 @@ limit_list_1([], _N, _Node) ->
 %% =====================================================================
 %% Utility functions
 
+-doc "".
 rewrite(Tree, Tree1) ->
     erl_syntax:copy_attrs(Tree, Tree1).
 
+-doc "".
 module_name_to_atom(M) ->
     case erl_syntax:type(M) of
 	atom ->
@@ -2299,12 +2708,15 @@ module_name_to_atom(M) ->
 % split_lines(Cs) ->
 %     split_lines(Cs, "").
 
+-doc "".
 split_lines(Cs, Prefix) ->
     split_lines(Cs, Prefix, 0).
 
+-doc "".
 split_lines(Cs, Prefix, N) ->
     lists:reverse(split_lines(Cs, N, [], [], Prefix)).
 
+-doc "".
 split_lines([$\r, $\n | Cs], _N, Cs1, Ls, Prefix) ->
     split_lines_1(Cs, Cs1, Ls, Prefix);
 split_lines([$\r | Cs], _N, Cs1, Ls, Prefix) ->
@@ -2321,12 +2733,15 @@ split_lines([], _, [], Ls, _) ->
 split_lines([], _N, Cs, Ls, Prefix) ->
     [Prefix ++ lists:reverse(Cs) | Ls].
 
+-doc "".
 split_lines_1(Cs, Cs1, Ls, Prefix) ->
     split_lines(Cs, 0, [], [Prefix ++ lists:reverse(Cs1) | Ls],
                 Prefix).
 
+-doc "".
 push(N, C, Cs) when N > 0 ->
     push(N - 1, C, [C | Cs]);
 push(0, _, Cs) ->
     Cs.
+
 

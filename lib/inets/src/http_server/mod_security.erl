@@ -19,6 +19,11 @@
 %%
 %%
 -module(mod_security).
+-moduledoc """
+Security Audit and Trailing Functionality
+
+Security Audit and Trailing Functionality
+""".
 
 %% Security Audit Functionality
 
@@ -40,12 +45,36 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
+-doc(#{title => <<"SecurityCallbackModule">>,
+       equiv => {callback,event,5},
+       since => <<"OTP 18.1">>}).
 -callback event(What, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),
       Dir :: string(),
       Data :: [Info],
       Info :: {Name :: term(), Value :: term()}.
+-doc """
+What = atom()  
+Port = integer()  
+Address = \{A,B,C,D\} | string()  
+Dir = string()  
+Data = \[Info]  
+Info = \{Name, Value\}  
+
+[](){: id=callback_module_event }
+`c:event/4` or `c:event/5` is called whenever an event occurs in the `mod_security` Erlang web server API module. (`c:event/4` is called if `Address` is undefined, otherwise `c:event/5`. Argument `What` specifies the type of event that has occurred and is one of the following reasons:
+
+* __`auth_fail`__ - A failed user authentication.
+
+* __`user_block`__ - A user is being blocked from access.
+
+* __`user_unblock`__ - A user is being removed from the block list.
+
+> #### Note {: class=info }
+> The event `user_unblock` is not triggered when a user is removed from the block list explicitly using the `unblock_user` function.
+""".
+-doc(#{title => <<"SecurityCallbackModule">>,since => <<"OTP 18.1">>}).
 -callback event(What, Address, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),
@@ -164,9 +193,11 @@ remove(ConfigDB) ->
     mod_security_server:stop(Addr, Port, Profile).
     
 
+-doc(#{equiv => list_blocked_users/3}).
 list_blocked_users(Port) ->
     list_blocked_users(undefined, Port).
 
+-doc(#{equiv => list_blocked_users/3}).
 list_blocked_users(Port, Dir) when is_integer(Port) ->
     list_blocked_users(undefined,Port,Dir);
 list_blocked_users(Addr, Port) when is_integer(Port) ->
@@ -175,36 +206,76 @@ list_blocked_users(Addr, Port) when is_integer(Port) ->
 	      end,
 	      mod_security_server:list_blocked_users(Addr, Port)).
 
+-doc """
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Users = list() = \[string()]  
+
+`list_blocked_users/1`, `list_blocked_users/2`, and `list_blocked_users/3` each returns a list of users that are currently blocked from access.
+""".
 list_blocked_users(Addr, Port, Dir) ->
     lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
 		      {User, Addr0, Port0, Dir0,Time}
 	      end,
 	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
 
+-doc(#{equiv => block_user/5}).
 block_user(User, Port, Dir, Time) ->
     block_user(User, undefined, Port, Dir, Time).
+-doc """
+User = string()  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Seconds = integer() | infinity  
+Reason = no_such_directory  
+
+`block_user/4` and `block_user/5` each blocks the user `User` from directory `Dir` for a specified amount of time.
+""".
 block_user(User, Addr, Port, Dir, Time) ->
     mod_security_server:block_user(User, Addr, Port, Dir, Time).
 
+-doc(#{equiv => unblock_user/4}).
 unblock_user(User, Port) ->
     unblock_user(User, undefined, Port).
 
+-doc(#{equiv => unblock_user/4}).
 unblock_user(User, Port, Dir) when is_integer(Port) ->
     unblock_user(User, undefined, Port, Dir);
 unblock_user(User, Addr, Port) when is_integer(Port) ->
     mod_security_server:unblock_user(User, Addr, Port).
 
+-doc """
+User = string()  
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Reason = term()  
+
+`unblock_user/2`, `unblock_user/3`, and `unblock_user/4` each removes the user `User` from the list of blocked users for `Port` (and `Dir`).
+""".
 unblock_user(User, Addr, Port, Dir) ->
     mod_security_server:unblock_user(User, Addr, Port, Dir).
 
+-doc(#{equiv => list_auth_users/3}).
 list_auth_users(Port) ->
     list_auth_users(undefined,Port).
 
+-doc(#{equiv => list_auth_users/3}).
 list_auth_users(Port, Dir) when is_integer(Port) ->
     list_auth_users(undefined, Port, Dir);
 list_auth_users(Addr, Port) when is_integer(Port) ->
     mod_security_server:list_auth_users(Addr, Port).
 
+-doc """
+Port = integer()  
+Address = \{A,B,C,D\} | string() | undefined  
+Dir = string()  
+Users = list() = \[string()]  
+
+`list_auth_users/1`, `list_auth_users/2`, and `list_auth_users/3` each returns a list of users that are currently authenticated. Authentications are stored for `SecurityAuthTimeout` seconds, and then discarded.
+""".
 list_auth_users(Addr, Port, Dir) ->
     mod_security_server:list_auth_users(Addr, Port, Dir).
 
@@ -264,5 +335,6 @@ secret_path(Path, [[NewDir]|Rest], Dir) ->
 	nomatch ->
 	    secret_path(Path, Rest, Dir)
     end.
+
 
 

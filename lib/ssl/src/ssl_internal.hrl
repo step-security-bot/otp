@@ -31,6 +31,8 @@
 
 -define(SECRET_PRINTOUT, "***").
 
+-doc "".
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type reason()            :: any().
 -type reply()             :: any().
 -type msg()               :: any().
@@ -208,3 +210,4 @@
 -define(DEFAULT_OCSP_NONCE, true).
 -define(DEFAULT_OCSP_RESPONDER_CERTS, []).
 -endif. % -ifdef(ssl_internal).
+

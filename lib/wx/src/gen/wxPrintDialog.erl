@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPrintDialog).
+-moduledoc """
+Functions for wxPrintDialog class
+
+This class represents the print and print setup common dialogs. You may obtain a `wxPrinterDC` (not implemented in wx) device context from a successfully dismissed print dialog.
+
+See: [Overview printing](https://docs.wxwidgets.org/3.1/overview_printing.html#overview_printing), [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_print)
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPrintDialog](https://docs.wxwidgets.org/3.1/classwx_print_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getPrintDC/1,getPrintDialogData/1,new/1,new/2]).
 
@@ -67,6 +78,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPrintDialog() :: wx:wx_object().
 -export_type([wxPrintDialog/0]).
 %% @hidden
@@ -77,6 +89,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxPrintDialog() when
 	Parent::wxWindow:wxWindow().
 
@@ -89,6 +102,7 @@ new(Parent)
 %% new(Parent, Data) -> wxPrintDialog() when<br />
 %% 	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().<br />
 %% 
+-doc "".
 -spec new(Parent, [Option]) -> wxPrintDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'data', wxPrintDialogData:wxPrintDialogData()};
@@ -109,6 +123,7 @@ new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   wxe_util:rec(?wxPrintDialog_new_2_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html#wxprintdialoggetprintdialogdata">external documentation</a>.
+-doc "Returns the print dialog data associated with the print dialog.".
 -spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
 	This::wxPrintDialog().
 getPrintDialogData(#wx_ref{type=ThisT}=This) ->
@@ -117,6 +132,11 @@ getPrintDialogData(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPrintDialog_GetPrintDialogData).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintdialog.html#wxprintdialoggetprintdc">external documentation</a>.
+-doc """
+Returns the device context created by the print dialog, if any.
+
+When this function has been called, the ownership of the device context is transferred to the application, so it must then be deleted explicitly.
+""".
 -spec getPrintDC(This) -> wxDC:wxDC() when
 	This::wxPrintDialog().
 getPrintDC(#wx_ref{type=ThisT}=This) ->
@@ -125,6 +145,11 @@ getPrintDC(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxPrintDialog_GetPrintDC).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+If `getPrintDC/1` has not been called, the device context obtained by the dialog (if any) will be deleted.
+""".
 -spec destroy(This::wxPrintDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintDialog),
@@ -564,3 +589,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPopupTransientWindow).
+-moduledoc """
+Functions for wxPopupTransientWindow class
+
+A `m:wxPopupWindow` which disappears automatically when the user clicks mouse outside it or if it loses focus in any other way.
+
+This window can be useful for implementing custom combobox-like controls for example.
+
+See: `m:wxPopupWindow`
+
+This class is derived (and can use functions) from: `m:wxPopupWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPopupTransientWindow](https://docs.wxwidgets.org/3.1/classwx_popup_transient_window.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,dismiss/1,new/0,new/1,new/2,popup/1,popup/2]).
 
@@ -62,6 +75,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPopupTransientWindow() :: wx:wx_object().
 -export_type([wxPopupTransientWindow/0]).
 %% @hidden
@@ -71,12 +85,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowwxpopuptransientwindow">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxPopupTransientWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPopupTransientWindow_new_0),
   wxe_util:rec(?wxPopupTransientWindow_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxPopupTransientWindow() when
 	Parent::wxWindow:wxWindow().
 
@@ -85,6 +101,7 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowwxpopuptransientwindow">external documentation</a>.
+-doc "Constructor.".
 -spec new(Parent, [Option]) -> wxPopupTransientWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'style', integer()}.
@@ -98,6 +115,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxPopupTransientWindow_new_2).
 
 %% @equiv popup(This, [])
+-doc "".
 -spec popup(This) -> 'ok' when
 	This::wxPopupTransientWindow().
 
@@ -106,6 +124,13 @@ popup(This)
   popup(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowpopup">external documentation</a>.
+-doc """
+Popup the window (this will show it too).
+
+If `focus` is non-NULL, it will be kept focused while this window is shown if supported by the current platform, otherwise the popup itself will receive focus. In any case, the popup will disappear automatically if it loses focus because of a user action.
+
+See: `dismiss/1`
+""".
 -spec popup(This, [Option]) -> 'ok' when
 	This::wxPopupTransientWindow(),
 	Option :: {'focus', wxWindow:wxWindow()}.
@@ -118,6 +143,7 @@ popup(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxPopupTransientWindow_Popup).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowdismiss">external documentation</a>.
+-doc "Hide the window.".
 -spec dismiss(This) -> 'ok' when
 	This::wxPopupTransientWindow().
 dismiss(#wx_ref{type=ThisT}=This) ->
@@ -125,6 +151,7 @@ dismiss(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPopupTransientWindow_Dismiss).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxPopupTransientWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPopupTransientWindow),
@@ -501,3 +528,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

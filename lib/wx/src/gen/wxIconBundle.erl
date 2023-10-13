@@ -19,6 +19,15 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxIconBundle).
+-moduledoc """
+Functions for wxIconBundle class
+
+This class contains multiple copies of an icon in different sizes. It is typically used in `wxDialog::SetIcons` (not implemented in wx) and `wxTopLevelWindow:setIcons/2`.
+
+Predefined objects (include wx.hrl): ?wxNullIconBundle
+
+wxWidgets docs: [wxIconBundle](https://docs.wxwidgets.org/3.1/classwx_icon_bundle.html)
+""".
 -include("wxe.hrl").
 -export([addIcon/2,addIcon/3,destroy/1,getIcon/1,getIcon/2,getIcon/3,new/0,new/1,
   new/2]).
@@ -26,12 +35,14 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-doc "".
 -type wxIconBundle() :: wx:wx_object().
 -export_type([wxIconBundle/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxIconBundle().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxIconBundle_new_0),
@@ -42,6 +53,7 @@ new() ->
 %% new(File) -> wxIconBundle() when<br />
 %% 	File::unicode:chardata().<br />
 %% 
+-doc "Initializes the bundle with the icon(s) found in the file.".
 -spec new(Ic) -> wxIconBundle() when
 	Ic::wxIconBundle:wxIconBundle() | wxIcon:wxIcon();
       (File) -> wxIconBundle() when
@@ -64,6 +76,7 @@ new(File)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+-doc "".
 -spec new(File, Type) -> wxIconBundle() when
 	File::unicode:chardata(), Type::wx:wx_enum().
 new(File,Type)
@@ -77,6 +90,7 @@ new(File,Type)
 %% addIcon(This, Icon) -> 'ok' when<br />
 %% 	This::wxIconBundle(), Icon::wxIcon:wxIcon().<br />
 %% 
+-doc "Adds the icon to the collection; if the collection already contains an icon with the same width and height, it is replaced by the new one.".
 -spec addIcon(This, File) -> 'ok' when
 	This::wxIconBundle(), File::unicode:chardata();
       (This, Icon) -> 'ok' when
@@ -93,6 +107,7 @@ addIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxiconbundle.html#wxiconbundleaddicon">external documentation</a>.
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+-doc "".
 -spec addIcon(This, File, Type) -> 'ok' when
 	This::wxIconBundle(), File::unicode:chardata(), Type::wx:wx_enum().
 addIcon(#wx_ref{type=ThisT}=This,File,Type)
@@ -102,6 +117,7 @@ addIcon(#wx_ref{type=ThisT}=This,File,Type)
   wxe_util:queue_cmd(This,File_UC,Type,?get_env(),?wxIconBundle_AddIcon_2).
 
 %% @equiv getIcon(This, [])
+-doc "".
 -spec getIcon(This) -> wxIcon:wxIcon() when
 	This::wxIconBundle().
 
@@ -116,6 +132,11 @@ getIcon(This)
 %% 	Option :: {'size', integer()}<br />
 %% 		 | {'flags', integer()}.<br />
 %% 
+-doc """
+Same as.
+
+.
+""".
 -spec getIcon(This, Size) -> wxIcon:wxIcon() when
 	This::wxIconBundle(), Size::{W::integer(), H::integer()};
       (This, [Option]) -> wxIcon:wxIcon() when
@@ -137,6 +158,15 @@ getIcon(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxIconBundle_GetIcon_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxiconbundle.html#wxiconbundlegeticon">external documentation</a>.
+-doc """
+Returns the icon with the given size.
+
+If `size` is ?wxDefaultSize, it is interpreted as the standard system icon size, i.e. the size returned by `wxSystemSettings:getMetric/2` for `wxSYS_ICON_X` and `wxSYS_ICON_Y`.
+
+If the bundle contains an icon with exactly the requested size, it's always returned. Otherwise, the behaviour depends on the flags. If only `wxIconBundle::FALLBACK_NONE` (not implemented in wx) is given, the function returns an invalid icon. If `wxIconBundle::FALLBACK_SYSTEM` (not implemented in wx) is given, it tries to find the icon of standard system size, regardless of the size passed as parameter. Otherwise, or if the icon system size is not found neither, but `wxIconBundle::FALLBACK_NEAREST_LARGER` (not implemented in wx) flag is specified, the function returns the smallest icon of the size larger than the requested one or, if this fails too, just the icon closest to the specified size.
+
+The `flags` parameter is available only since wxWidgets 2.9.4.
+""".
 -spec getIcon(This, Size, [Option]) -> wxIcon:wxIcon() when
 	This::wxIconBundle(), Size::{W::integer(), H::integer()},
 	Option :: {'flags', integer()}.
@@ -150,8 +180,10 @@ getIcon(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size, Options)
   wxe_util:rec(?wxIconBundle_GetIcon_2).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxIconBundle()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIconBundle),
   wxe_util:queue_cmd(Obj, ?get_env(), ?wxIconBundle_destruct),
   ok.
+

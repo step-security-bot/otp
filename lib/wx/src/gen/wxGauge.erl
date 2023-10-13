@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxGauge).
+-moduledoc """
+Functions for wxGauge class
+
+A gauge is a horizontal or vertical bar which shows a quantity (often time).
+
+`m:wxGauge` supports two working modes: determinate and indeterminate progress.
+
+The first is the usual working mode (see `setValue/2` and `setRange/2`) while the second can be used when the program is doing some processing but you don't know how much progress is being done. In this case, you can periodically call the `pulse/1` function to make the progress bar switch to indeterminate mode (graphically it's usually a set of blocks which move or bounce in the bar control).
+
+`m:wxGauge` supports dynamic switch between these two work modes.
+
+There are no user commands for the gauge.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxSlider`, `m:wxScrollBar`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxGauge](https://docs.wxwidgets.org/3.1/classwx_gauge.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getRange/1,getValue/1,isVertical/1,new/0,
   new/3,new/4,pulse/1,setRange/2,setValue/2]).
@@ -63,6 +86,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxGauge() :: wx:wx_object().
 -export_type([wxGauge/0]).
 %% @hidden
@@ -72,12 +96,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugewxgauge">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxGauge().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxGauge_new_0),
   wxe_util:rec(?wxGauge_new_0).
 
 %% @equiv new(Parent,Id,Range, [])
+-doc "".
 -spec new(Parent, Id, Range) -> wxGauge() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
 
@@ -86,6 +112,11 @@ new(Parent,Id,Range)
   new(Parent,Id,Range, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugewxgauge">external documentation</a>.
+-doc """
+Constructor, creating and showing a gauge.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Range, [Option]) -> wxGauge() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -105,6 +136,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Range, Options)
   wxe_util:rec(?wxGauge_new_4).
 
 %% @equiv create(This,Parent,Id,Range, [])
+-doc "".
 -spec create(This, Parent, Id, Range) -> boolean() when
 	This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
 
@@ -113,6 +145,11 @@ create(This,Parent,Id,Range)
   create(This,Parent,Id,Range, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugecreate">external documentation</a>.
+-doc """
+Creates the gauge for two-step construction.
+
+See `new/4` for further details.
+""".
 -spec create(This, Parent, Id, Range, [Option]) -> boolean() when
 	This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -133,6 +170,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Range, Options)
   wxe_util:rec(?wxGauge_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugegetrange">external documentation</a>.
+-doc """
+Returns the maximum position of the gauge.
+
+See: `setRange/2`
+""".
 -spec getRange(This) -> integer() when
 	This::wxGauge().
 getRange(#wx_ref{type=ThisT}=This) ->
@@ -141,6 +183,11 @@ getRange(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGauge_GetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugegetvalue">external documentation</a>.
+-doc """
+Returns the current position of the gauge.
+
+See: `setValue/2`
+""".
 -spec getValue(This) -> integer() when
 	This::wxGauge().
 getValue(#wx_ref{type=ThisT}=This) ->
@@ -149,6 +196,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGauge_GetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugeisvertical">external documentation</a>.
+-doc "Returns true if the gauge is vertical (has `wxGA_VERTICAL` style) and false otherwise.".
 -spec isVertical(This) -> boolean() when
 	This::wxGauge().
 isVertical(#wx_ref{type=ThisT}=This) ->
@@ -157,6 +205,15 @@ isVertical(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGauge_IsVertical).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugesetrange">external documentation</a>.
+-doc """
+Sets the range (maximum value) of the gauge.
+
+This function makes the gauge switch to determinate mode, if it's not already.
+
+When the gauge is in indeterminate mode, under wxMSW the gauge repeatedly goes from zero to `range` and back; under other ports when in indeterminate mode, the `range` setting is ignored.
+
+See: `getRange/1`
+""".
 -spec setRange(This, Range) -> 'ok' when
 	This::wxGauge(), Range::integer().
 setRange(#wx_ref{type=ThisT}=This,Range)
@@ -165,6 +222,15 @@ setRange(#wx_ref{type=ThisT}=This,Range)
   wxe_util:queue_cmd(This,Range,?get_env(),?wxGauge_SetRange).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugesetvalue">external documentation</a>.
+-doc """
+Sets the position of the gauge.
+
+The `pos` must be between 0 and the gauge range as returned by `getRange/1`, inclusive.
+
+This function makes the gauge switch to determinate mode, if it was in indeterminate mode before.
+
+See: `getValue/1`
+""".
 -spec setValue(This, Pos) -> 'ok' when
 	This::wxGauge(), Pos::integer().
 setValue(#wx_ref{type=ThisT}=This,Pos)
@@ -173,6 +239,11 @@ setValue(#wx_ref{type=ThisT}=This,Pos)
   wxe_util:queue_cmd(This,Pos,?get_env(),?wxGauge_SetValue).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgauge.html#wxgaugepulse">external documentation</a>.
+-doc """
+Switch the gauge to indeterminate mode (if required) and makes the gauge move a bit to indicate the user that some progress has been made.
+
+Note: After calling this function the value returned by `getValue/1` is undefined and thus you need to explicitly call `setValue/2` if you want to restore the determinate mode.
+""".
 -spec pulse(This) -> 'ok' when
 	This::wxGauge().
 pulse(#wx_ref{type=ThisT}=This) ->
@@ -180,6 +251,7 @@ pulse(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGauge_Pulse).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor, destroying the gauge.".
 -spec destroy(This::wxGauge()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGauge),
@@ -554,3 +626,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

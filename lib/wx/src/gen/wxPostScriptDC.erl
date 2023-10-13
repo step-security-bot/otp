@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPostScriptDC).
+-moduledoc """
+Functions for wxPostScriptDC class
+
+This defines the wxWidgets Encapsulated PostScript device context, which can write PostScript files on any platform. See `m:wxDC` for descriptions of the member functions.
+
+Starting a document
+
+Document should be started with call to `wxDC:startDoc/2` prior to calling any function to execute a drawing operation. However, some functions, like `wxDC:setFont/2`, may be legitimately called even before `wxDC:startDoc/2`.
+
+This class is derived (and can use functions) from: `m:wxDC`
+
+wxWidgets docs: [wxPostScriptDC](https://docs.wxwidgets.org/3.1/classwx_post_script_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/0,new/1]).
 
@@ -44,6 +57,7 @@
   setLogicalFunction/2,setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,
   setTextForeground/2,setUserScale/3,startDoc/2,startPage/1]).
 
+-doc "".
 -type wxPostScriptDC() :: wx:wx_object().
 -export_type([wxPostScriptDC/0]).
 %% @hidden
@@ -51,12 +65,14 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+-doc "".
 -spec new() -> wxPostScriptDC().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPostScriptDC_new_0),
   wxe_util:rec(?wxPostScriptDC_new_0).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+-doc "Constructs a PostScript printer device context from a `m:wxPrintData` object.".
 -spec new(PrintData) -> wxPostScriptDC() when
 	PrintData::wxPrintData:wxPrintData().
 new(#wx_ref{type=PrintDataT}=PrintData) ->
@@ -65,6 +81,7 @@ new(#wx_ref{type=PrintDataT}=PrintData) ->
   wxe_util:rec(?wxPostScriptDC_new_1).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxPostScriptDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPostScriptDC),
@@ -255,3 +272,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

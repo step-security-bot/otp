@@ -19,6 +19,15 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxTaskBarIconEvent).
+-moduledoc """
+Functions for wxTaskBarIconEvent class
+
+The event class used by `m:wxTaskBarIcon`. For a list of the event macros meant to be used with `m:wxTaskBarIconEvent`, please look at `m:wxTaskBarIcon` description.
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxTaskBarIconEvent](https://docs.wxwidgets.org/3.1/classwx_task_bar_icon_event.html)
+""".
 -include("wxe.hrl").
 -export([]).
 
@@ -26,8 +35,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxTaskBarIconEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxTaskBarIconEventType() :: 'taskbar_move' | 'taskbar_left_down' | 'taskbar_left_up' | 'taskbar_right_down' | 'taskbar_right_up' | 'taskbar_left_dclick' | 'taskbar_right_dclick'.
 -export_type([wxTaskBarIconEvent/0, wxTaskBarIcon/0, wxTaskBarIconEventType/0]).
 %% @hidden
@@ -53,3 +64,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

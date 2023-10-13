@@ -25,6 +25,7 @@
 %% Each contain more elaborate settings of xmerl_scan that makes usage of
 %% the customization functions.
 -module(xmerl_eventp).
+-moduledoc "Simple event-based front-ends to xmerl_scan for processing of XML documents in streams and for parsing in SAX style. Each contain more elaborate settings of xmerl_scan that makes usage of the customization functions.".
 -vsn('0.19').
 -date('03-09-17').
 
@@ -37,6 +38,7 @@
 -include_lib("kernel/include/file.hrl").
 
 %% @type xmlElement() = #xmlElement{}.
+-doc "".
 -type xmlElement() :: #xmlElement{}.
 
 %% @type option_list(). <p>Options allow to customize the behaviour of the
@@ -120,6 +122,7 @@
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
 %% </dl> 
+-doc "".
 -type option_list() :: [{atom(),term()}].
 
 %% @spec stream(Fname::string(), Options::option_list()) -> xmlElement()
@@ -130,6 +133,7 @@
 %% Note that the <code>continuation_fun</code>, <code>acc_fun</code>,
 %% <code>fetch_fun</code>, <code>rules</code> and <code>close_fun</code>
 %% options cannot be user defined using this parser.
+-doc "Parse file containing an XML document as a stream, DOM style. Wrapper for a call to the XML parser `xmerl_scan` with a `continuation_fun` for handling streams of XML data. Note that the `continuation_fun`, `acc_fun`, `fetch_fun`, `rules` and `close_fun` options cannot be user defined using this parser.".
 -spec stream(Fname::string(), Options::option_list()) -> xmlElement().
 stream(Fname, Options) ->
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
@@ -161,6 +165,7 @@ stream(Fname, Options) ->
 %% <code>fetch_fun</code>, <code>rules</code>, <code>hook_fun</code>,
 %% <code>close_fun</code> and <code>user_state</code> options cannot be user
 %% defined using this parser.
+-doc "Parse file containing an XML document as a stream, SAX style. Wrapper for a call to the XML parser `xmerl_scan` with a `continuation_fun` for handling streams of XML data. Note that the `continuation_fun`, `acc_fun`, `fetch_fun`, `rules`, `hook_fun`, `close_fun` and `user_state` options cannot be user defined using this parser.".
 stream_sax(Fname, CallBack, UserState,Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
@@ -207,6 +212,7 @@ stream_sax(Fname, CallBack, UserState,Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-doc "Parse file containing an XML document, SAX style. Wrapper for a call to the XML parser `xmerl_scan` with a `hook_fun` for using xmerl export functionality directly after an entity is parsed.".
 file_sax(Fname,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -240,6 +246,7 @@ file_sax(Fname,CallBack, UserState, Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-doc "Parse file containing an XML document, SAX style. Wrapper for a call to the XML parser `xmerl_scan` with a `hook_fun` for using xmerl export functionality directly after an entity is parsed.".
 string_sax(String,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -270,6 +277,7 @@ string_sax(String,CallBack, UserState, Options) ->
 %%% Streaming support functions
 
 %%% Continuation callback function for xmerl_scan
+-doc "".
 cont(F, Exception, S) ->
     case xmerl_scan:cont_state(S) of
 	[{_Fname, eof}|_] ->
@@ -279,6 +287,7 @@ cont(F, Exception, S) ->
     end.
 
 
+-doc "".
 cont2(F, Exception, Sofar, Fd, Fname, T, S) ->
     case catch read_chunk(Fd, Fname, Sofar) of
 	{ok, Bin} ->
@@ -292,14 +301,17 @@ cont2(F, Exception, Sofar, Fd, Fname, T, S) ->
 	    exit(Error)
     end.
     
+-doc "".
 read_chunk(Fd, _Fname, _Sofar) ->
     file:read(Fd, 8192).
 
 -ifndef(no_bitsyntax).
 
+-doc "".
 find_good_split(Bin, F, Exception, Fd, Fname, T, S) when is_binary(Bin) ->
     find_good_split(byte_size(Bin)-1, Bin, F, Exception, Fd, Fname, T, S).
 
+-doc "".
 find_good_split(0, B, F, Exception, Fd, Fname, T, S) ->
     cont2(F, Exception, B, Fd, Fname, T, S);
 find_good_split(Size, B, F, Exception, Fd, Fname, T, S) ->
@@ -334,6 +346,7 @@ find_good_split(Size, B, F, Exception, Fd, Fname, T, S) ->
 
 
 %%% Accumulator callback function for xmerl_scan
+-doc "".
 acc(X = #xmlText{value = Text}, Acc, S) ->
     case detect_nul_text(Text) of 
 	ok->
@@ -345,6 +358,7 @@ acc(X, Acc, S) ->
     {[X|Acc], S}.
 
 %%% don't acc xmlText when text contains only " " , "\n" and "\t".
+-doc "".
 detect_nul_text([H|T]) when H==10; H==32; H==9->
     detect_nul_text(T);
 detect_nul_text([]) ->
@@ -355,11 +369,13 @@ detect_nul_text(_)->
 
 
 %%% Fetch callback function for xmerl_scan
+-doc "".
 fetch({system, URI}, S) ->
     fetch_URI(URI, S);
 fetch({public, _PublicID, URI}, S) ->
     fetch_URI(URI, S).
 
+-doc "".
 fetch_URI(URI, S) ->
     %% assume URI is a filename
     Split = filename:split(URI),
@@ -387,6 +403,7 @@ fetch_URI(URI, S) ->
 	    {ok, not_fetched, S}
     end.
 
+-doc "".
 path_locate([Dir|Dirs], FN, FullName) ->
     F = filename:join(Dir, FN),
     case file:read_file_info(F) of
@@ -399,6 +416,7 @@ path_locate([], _FN, FullName) ->
     FullName.
 
 %%% Close callback function for xmerl_scan
+-doc "".
 close(S) ->
     ContS = xmerl_scan:cont_state(S),
     case ContS of
@@ -411,6 +429,7 @@ close(S) ->
 
 
 %%% Rules callback functions for xmerl_scan
+-doc "".
 rules_write(Context, Name, Value, #xmerl_scanner{rules = undefined}=S) ->
     Tab = ets:new(rules, [set, public]),
     rules_write(Context, Name, Value, S#xmerl_scanner{rules = Tab});
@@ -418,6 +437,7 @@ rules_write(Context, Name, Value, #xmerl_scanner{rules = T} = S) ->
     ets:insert(T, {{Context, Name}, Value}),
     S.
 
+-doc "".
 rules_read(_Context, _Name, #xmerl_scanner{rules = undefined}) ->
     undefined;
 rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
@@ -433,6 +453,7 @@ rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
 %%% ----------------------------------------------------------------------------
 %%% Generic helper functions
 
+-doc "".
 scanner_options([H|T], Opts) ->
     case catch keyreplace(H, 1, Opts) of
 	false ->
@@ -443,11 +464,13 @@ scanner_options([H|T], Opts) ->
 scanner_options([], Opts) ->
     Opts.
 
+-doc "".
 keyreplace(X, Pos, [H|T]) when element(Pos, X) == element(Pos, H) ->
     [X|T];
 keyreplace(X, Pos, [H|T]) ->
     [H|keyreplace(X, Pos, T)];
 keyreplace(_, _Pos, []) ->
     throw(false).
+
 
 

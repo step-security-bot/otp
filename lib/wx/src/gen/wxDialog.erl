@@ -19,6 +19,41 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxDialog).
+-moduledoc """
+Functions for wxDialog class
+
+A dialog box is a window with a title bar and sometimes a system menu, which can be moved around the screen. It can contain controls and other windows and is often used to allow the user to make some choice or to answer a question.
+
+Dialogs can be made scrollable, automatically, for computers with low resolution screens: please see overview_dialog_autoscrolling for further details.
+
+Dialogs usually contain either a single button allowing to close the dialog or two buttons, one accepting the changes and the other one discarding them (such button, if present, is automatically activated if the user presses the "Esc" key). By default, buttons with the standard wxID_OK and wxID_CANCEL identifiers behave as expected. Starting with wxWidgets 2.7 it is also possible to use a button with a different identifier instead, see `setAffirmativeId/2` and `SetEscapeId()` (not implemented in wx).
+
+Also notice that the `createButtonSizer/2` should be used to create the buttons appropriate for the current platform and positioned correctly (including their order which is platform-dependent).
+
+Modal and Modeless
+
+There are two kinds of dialog, modal and modeless. A modal dialog blocks program flow and user input on other windows until it is dismissed, whereas a modeless dialog behaves more like a frame in that program flow continues, and input in other windows is still possible. To show a modal dialog you should use the `showModal/1` method while to show a dialog modelessly you simply use `show/2`, just as with frames.
+
+Note that the modal dialog is one of the very few examples of wxWindow-derived objects which may be created on the stack and not on the heap. In other words, while most windows would be created like this:
+
+You can achieve the same result with dialogs by using simpler code:
+
+An application can define a `m:wxCloseEvent` handler for the dialog to respond to system close events.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview dialog](https://docs.wxwidgets.org/3.1/overview_dialog.html#overview_dialog), `m:wxFrame`, [Overview validator](https://docs.wxwidgets.org/3.1/overview_validator.html#overview_validator)
+
+This class is derived (and can use functions) from: `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxDialog](https://docs.wxwidgets.org/3.1/classwx_dialog.html)
+
+## Events
+
+Event types emitted from this class: [`close_window`](`m:wxCloseEvent`), [`init_dialog`](`m:wxInitDialogEvent`)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,createButtonSizer/2,createStdDialogButtonSizer/2,
   destroy/1,endModal/2,getAffirmativeId/1,getReturnCode/1,isModal/1,
@@ -68,6 +103,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxDialog() :: wx:wx_object().
 -export_type([wxDialog/0]).
 %% @hidden
@@ -77,12 +113,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxDialog().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxDialog_new_0),
   wxe_util:rec(?wxDialog_new_0).
 
 %% @equiv new(Parent,Id,Title, [])
+-doc "".
 -spec new(Parent, Id, Title) -> wxDialog() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -91,6 +129,11 @@ new(Parent,Id,Title)
   new(Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
+-doc """
+Constructor.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Title, [Option]) -> wxDialog() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -109,6 +152,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxDialog_new_4).
 
 %% @equiv create(This,Parent,Id,Title, [])
+-doc "".
 -spec create(This, Parent, Id, Title) -> boolean() when
 	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
@@ -117,6 +161,11 @@ create(This,Parent,Id,Title)
   create(This,Parent,Id,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreate">external documentation</a>.
+-doc """
+Used for two-step dialog box construction.
+
+See: `new/4`
+""".
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -136,6 +185,15 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Title, Options)
   wxe_util:rec(?wxDialog_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreatebuttonsizer">external documentation</a>.
+-doc """
+Creates a sizer with standard buttons.
+
+`flags` is a bit list of the following flags: wxOK, wxCANCEL, wxYES, wxNO, wxAPPLY, wxCLOSE, wxHELP, wxNO_DEFAULT.
+
+The sizer lays out the buttons in a manner appropriate to the platform.
+
+This function uses `createStdDialogButtonSizer/2` internally for most platforms but doesn't create the sizer at all for the platforms with hardware buttons (such as smartphones) for which it sets up the hardware buttons appropriately and returns NULL, so don't forget to test that the return value is valid before using it.
+""".
 -spec createButtonSizer(This, Flags) -> wxSizer:wxSizer() when
 	This::wxDialog(), Flags::integer().
 createButtonSizer(#wx_ref{type=ThisT}=This,Flags)
@@ -145,6 +203,13 @@ createButtonSizer(#wx_ref{type=ThisT}=This,Flags)
   wxe_util:rec(?wxDialog_CreateButtonSizer).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreatestddialogbuttonsizer">external documentation</a>.
+-doc """
+Creates a `m:wxStdDialogButtonSizer` with standard buttons.
+
+`flags` is a bit list of the following flags: wxOK, wxCANCEL, wxYES, wxNO, wxAPPLY, wxCLOSE, wxHELP, wxNO_DEFAULT.
+
+The sizer lays out the buttons in a manner appropriate to the platform.
+""".
 -spec createStdDialogButtonSizer(This, Flags) -> wxStdDialogButtonSizer:wxStdDialogButtonSizer() when
 	This::wxDialog(), Flags::integer().
 createStdDialogButtonSizer(#wx_ref{type=ThisT}=This,Flags)
@@ -154,6 +219,11 @@ createStdDialogButtonSizer(#wx_ref{type=ThisT}=This,Flags)
   wxe_util:rec(?wxDialog_CreateStdDialogButtonSizer).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogendmodal">external documentation</a>.
+-doc """
+Ends a modal dialog, passing a value to be returned from the `showModal/1` invocation.
+
+See: `showModal/1`, `getReturnCode/1`, `setReturnCode/2`
+""".
 -spec endModal(This, RetCode) -> 'ok' when
 	This::wxDialog(), RetCode::integer().
 endModal(#wx_ref{type=ThisT}=This,RetCode)
@@ -162,6 +232,11 @@ endModal(#wx_ref{type=ThisT}=This,RetCode)
   wxe_util:queue_cmd(This,RetCode,?get_env(),?wxDialog_EndModal).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialoggetaffirmativeid">external documentation</a>.
+-doc """
+Gets the identifier of the button which works like standard OK button in this dialog.
+
+See: `setAffirmativeId/2`
+""".
 -spec getAffirmativeId(This) -> integer() when
 	This::wxDialog().
 getAffirmativeId(#wx_ref{type=ThisT}=This) ->
@@ -170,6 +245,13 @@ getAffirmativeId(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDialog_GetAffirmativeId).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialoggetreturncode">external documentation</a>.
+-doc """
+Gets the return code for this window.
+
+Remark: A return code is normally associated with a modal dialog, where `showModal/1` returns a code to the application.
+
+See: `setReturnCode/2`, `showModal/1`, `endModal/2`
+""".
 -spec getReturnCode(This) -> integer() when
 	This::wxDialog().
 getReturnCode(#wx_ref{type=ThisT}=This) ->
@@ -178,6 +260,7 @@ getReturnCode(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDialog_GetReturnCode).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogismodal">external documentation</a>.
+-doc "Returns true if the dialog box is modal, false otherwise.".
 -spec isModal(This) -> boolean() when
 	This::wxDialog().
 isModal(#wx_ref{type=ThisT}=This) ->
@@ -186,6 +269,17 @@ isModal(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDialog_IsModal).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetaffirmativeid">external documentation</a>.
+-doc """
+Sets the identifier to be used as OK button.
+
+When the button with this identifier is pressed, the dialog calls `wxWindow:validate/1` and `wxWindow:transferDataFromWindow/1` and, if they both return true, closes the dialog with the affirmative id return code.
+
+Also, when the user presses a hardware OK button on the devices having one or the special OK button in the PocketPC title bar, an event with this id is generated.
+
+By default, the affirmative id is wxID_OK.
+
+See: `getAffirmativeId/1`, `SetEscapeId()` (not implemented in wx)
+""".
 -spec setAffirmativeId(This, Id) -> 'ok' when
 	This::wxDialog(), Id::integer().
 setAffirmativeId(#wx_ref{type=ThisT}=This,Id)
@@ -194,6 +288,13 @@ setAffirmativeId(#wx_ref{type=ThisT}=This,Id)
   wxe_util:queue_cmd(This,Id,?get_env(),?wxDialog_SetAffirmativeId).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetreturncode">external documentation</a>.
+-doc """
+Sets the return code for this window.
+
+A return code is normally associated with a modal dialog, where `showModal/1` returns a code to the application. The function `endModal/2` calls `setReturnCode/2`.
+
+See: `getReturnCode/1`, `showModal/1`, `endModal/2`
+""".
 -spec setReturnCode(This, RetCode) -> 'ok' when
 	This::wxDialog(), RetCode::integer().
 setReturnCode(#wx_ref{type=ThisT}=This,RetCode)
@@ -202,6 +303,7 @@ setReturnCode(#wx_ref{type=ThisT}=This,RetCode)
   wxe_util:queue_cmd(This,RetCode,?get_env(),?wxDialog_SetReturnCode).
 
 %% @equiv show(This, [])
+-doc "".
 -spec show(This) -> boolean() when
 	This::wxDialog().
 
@@ -210,6 +312,11 @@ show(This)
   show(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogshow">external documentation</a>.
+-doc """
+Hides or shows the dialog.
+
+The preferred way of dismissing a modal dialog is to use `endModal/2`.
+""".
 -spec show(This, [Option]) -> boolean() when
 	This::wxDialog(),
 	Option :: {'show', boolean()}.
@@ -223,6 +330,19 @@ show(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxDialog_Show).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogshowmodal">external documentation</a>.
+-doc """
+Shows an application-modal dialog.
+
+Program flow does not return until the dialog has been dismissed with `endModal/2`.
+
+Notice that it is possible to call `showModal/1` for a dialog which had been previously shown with `show/2`, this allows making an existing modeless dialog modal. However `showModal/1` can't be called twice without intervening `endModal/2` calls.
+
+Note that this function creates a temporary event loop which takes precedence over the application's main event loop (see `wxEventLoopBase` (not implemented in wx)) and which is destroyed when the dialog is dismissed. This also results in a call to `wxApp::ProcessPendingEvents()` (not implemented in wx).
+
+Return: The value set with `setReturnCode/2`.
+
+See: `ShowWindowModal()` (not implemented in wx), `ShowWindowModalThenDo()` (not implemented in wx), `endModal/2`, `getReturnCode/1`, `setReturnCode/2`
+""".
 -spec showModal(This) -> integer() when
 	This::wxDialog().
 showModal(#wx_ref{type=ThisT}=This) ->
@@ -231,6 +351,13 @@ showModal(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDialog_ShowModal).
 
 %% @doc Destroys this object, do not use object again
+-doc """
+Destructor.
+
+Deletes any child windows before deleting the physical window.
+
+See overview_windowdeletion for more info.
+""".
 -spec destroy(This::wxDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDialog),
@@ -647,3 +774,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

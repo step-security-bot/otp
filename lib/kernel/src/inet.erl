@@ -18,6 +18,207 @@
 %% %CopyrightEnd%
 %%
 -module(inet).
+-moduledoc """
+Access to TCP/IP protocols.
+
+This module provides access to TCP/IP protocols.
+
+See also [ERTS User's Guide: Inet Configuration](`p:erts:inet_cfg.md`) for more information about how to configure an Erlang runtime system for IP communication.
+
+The following two Kernel configuration parameters affect the behavior of all sockets opened on an Erlang node:
+
+* `inet_default_connect_options` can contain a list of default options used for all sockets returned when doing `connect`.
+* `inet_default_listen_options` can contain a list of default options used when issuing a `listen` call.
+
+When `accept` is issued, the values of the listening socket options are inherited. No such application variable is therefore needed for `accept`.
+
+Using the Kernel configuration parameters above, one can set default options for all TCP sockets on a node, but use this with care. Options such as `{delay_send,true}` can be specified in this way. The following is an example of starting an Erlang node with all sockets using delayed send:
+
+```text
+$ erl -sname test -kernel \
+inet_default_connect_options '[{delay_send,true}]' \
+inet_default_listen_options '[{delay_send,true}]'
+```
+
+Notice that default option `{active, true}` cannot be changed, for internal reasons.
+
+Addresses as inputs to functions can be either a string or a tuple. For example, the IP address 150.236.20.73 can be passed to `gethostbyaddr/1`, either as string `"150.236.20.73"` or as tuple `{150, 236, 20, 73}`.
+
+*IPv4 address examples:*
+
+```text
+Address          ip_address()
+-------          ------------
+127.0.0.1        {127,0,0,1}
+192.168.42.2     {192,168,42,2}
+```
+
+*IPv6 address examples:*
+
+```text
+Address          ip_address()
+-------          ------------
+::1             {0,0,0,0,0,0,0,1}
+::192.168.42.2  {0,0,0,0,0,0,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
+::FFFF:192.168.42.2
+                {0,0,0,0,0,16#FFFF,(192 bsl 8) bor 168,(42 bsl 8) bor 2}
+3ffe:b80:1f8d:2:204:acff:fe17:bf38
+                {16#3ffe,16#b80,16#1f8d,16#2,16#204,16#acff,16#fe17,16#bf38}
+fe80::204:acff:fe17:bf38
+                {16#fe80,0,0,0,16#204,16#acff,16#fe17,16#bf38}
+```
+
+Function `parse_address/1` can be useful:
+
+```text
+1> inet:parse_address("192.168.42.2").
+{ok,{192,168,42,2}}
+2> inet:parse_address("::FFFF:192.168.42.2").
+{ok,{0,0,0,0,0,65535,49320,10754}}
+```
+
+[](){: id=error_codes }
+## POSIX Error Codes
+
+* `e2big` \- Too long argument list
+* `eacces` \- Permission denied
+* `eaddrinuse` \- Address already in use
+* `eaddrnotavail` \- Cannot assign requested address
+* `eadv` \- Advertise error
+* `eafnosupport` \- Address family not supported by protocol family
+* `eagain` \- Resource temporarily unavailable
+* `ealign` \- EALIGN
+* `ealready` \- Operation already in progress
+* `ebade` \- Bad exchange descriptor
+* `ebadf` \- Bad file number
+* `ebadfd` \- File descriptor in bad state
+* `ebadmsg` \- Not a data message
+* `ebadr` \- Bad request descriptor
+* `ebadrpc` \- Bad RPC structure
+* `ebadrqc` \- Bad request code
+* `ebadslt` \- Invalid slot
+* `ebfont` \- Bad font file format
+* `ebusy` \- File busy
+* `echild` \- No children
+* `echrng` \- Channel number out of range
+* `ecomm` \- Communication error on send
+* `econnaborted` \- Software caused connection abort
+* `econnrefused` \- Connection refused
+* `econnreset` \- Connection reset by peer
+* `edeadlk` \- Resource deadlock avoided
+* `edeadlock` \- Resource deadlock avoided
+* `edestaddrreq` \- Destination address required
+* `edirty` \- Mounting a dirty fs without force
+* `edom` \- Math argument out of range
+* `edotdot` \- Cross mount point
+* `edquot` \- Disk quota exceeded
+* `eduppkg` \- Duplicate package name
+* `eexist` \- File already exists
+* `efault` \- Bad address in system call argument
+* `efbig` \- File too large
+* `ehostdown` \- Host is down
+* `ehostunreach` \- Host is unreachable
+* `eidrm` \- Identifier removed
+* `einit` \- Initialization error
+* `einprogress` \- Operation now in progress
+* `eintr` \- Interrupted system call
+* `einval` \- Invalid argument
+* `eio` \- I/O error
+* `eisconn` \- Socket is already connected
+* `eisdir` \- Illegal operation on a directory
+* `eisnam` \- Is a named file
+* `el2hlt` \- Level 2 halted
+* `el2nsync` \- Level 2 not synchronized
+* `el3hlt` \- Level 3 halted
+* `el3rst` \- Level 3 reset
+* `elbin` \- ELBIN
+* `elibacc` \- Cannot access a needed shared library
+* `elibbad` \- Accessing a corrupted shared library
+* `elibexec` \- Cannot exec a shared library directly
+* `elibmax` \- Attempting to link in more shared libraries than system limit
+* `elibscn` \- `.lib` section in `a.out` corrupted
+* `elnrng` \- Link number out of range
+* `eloop` \- Too many levels of symbolic links
+* `emfile` \- Too many open files
+* `emlink` \- Too many links
+* `emsgsize` \- Message too long
+* `emultihop` \- Multihop attempted
+* `enametoolong` \- Filename too long
+* `enavail` \- Unavailable
+* `enet` \- ENET
+* `enetdown` \- Network is down
+* `enetreset` \- Network dropped connection on reset
+* `enetunreach` \- Network is unreachable
+* `enfile` \- File table overflow
+* `enoano` \- Anode table overflow
+* `enobufs` \- No buffer space available
+* `enocsi` \- No CSI structure available
+* `enodata` \- No data available
+* `enodev` \- No such device
+* `enoent` \- No such file or directory
+* `enoexec` \- Exec format error
+* `enolck` \- No locks available
+* `enolink` \- Link has been severed
+* `enomem` \- Not enough memory
+* `enomsg` \- No message of desired type
+* `enonet` \- Machine is not on the network
+* `enopkg` \- Package not installed
+* `enoprotoopt` \- Bad protocol option
+* `enospc` \- No space left on device
+* `enosr` \- Out of stream resources or not a stream device
+* `enosym` \- Unresolved symbol name
+* `enosys` \- Function not implemented
+* `enotblk` \- Block device required
+* `enotconn` \- Socket is not connected
+* `enotdir` \- Not a directory
+* `enotempty` \- Directory not empty
+* `enotnam` \- Not a named file
+* `enotsock` \- Socket operation on non-socket
+* `enotsup` \- Operation not supported
+* `enotty` \- Inappropriate device for `ioctl`
+* `enotuniq` \- Name not unique on network
+* `enxio` \- No such device or address
+* `eopnotsupp` \- Operation not supported on socket
+* `eperm` \- Not owner
+* `epfnosupport` \- Protocol family not supported
+* `epipe` \- Broken pipe
+* `eproclim` \- Too many processes
+* `eprocunavail` \- Bad procedure for program
+* `eprogmismatch` \- Wrong program version
+* `eprogunavail` \- RPC program unavailable
+* `eproto` \- Protocol error
+* `eprotonosupport` \- Protocol not supported
+* `eprototype` \- Wrong protocol type for socket
+* `erange` \- Math result unrepresentable
+* `erefused` \- EREFUSED
+* `eremchg` \- Remote address changed
+* `eremdev` \- Remote device
+* `eremote` \- Pathname hit remote filesystem
+* `eremoteio` \- Remote I/O error
+* `eremoterelease` \- EREMOTERELEASE
+* `erofs` \- Read-only filesystem
+* `erpcmismatch` \- Wrong RPC version
+* `erremote` \- Object is remote
+* `eshutdown` \- Cannot send after socket shutdown
+* `esocktnosupport` \- Socket type not supported
+* `espipe` \- Invalid seek
+* `esrch` \- No such process
+* `esrmnt` \- Srmount error
+* `estale` \- Stale remote file handle
+* `esuccess` \- Error 0
+* `etime` \- Timer expired
+* `etimedout` \- Connection timed out
+* `etoomanyrefs` \- Too many references
+* `etxtbsy` \- Text file or pseudo-device busy
+* `euclean` \- Structure needs cleaning
+* `eunatch` \- Protocol driver not attached
+* `eusers` \- Too many users
+* `eversion` \- Version mismatch
+* `ewouldblock` \- Operation would block
+* `exdev` \- Cross-device link
+* `exfull` \- Message tables full
+* `nxdomain` \- Hostname or domain name cannot be found
+""".
 
 -include("inet.hrl").
 -include("inet_int.hrl").
@@ -113,23 +314,71 @@
 %%% Contract type definitions
 
 
+-doc """
+The record is defined in the Kernel include file `"inet.hrl"`.
+
+Add the following directive to the module:
+
+```text
+-include_lib("kernel/include/inet.hrl").
+```
+""".
+-doc(#{title => <<"Exported data types">>}).
 -type hostent() :: #hostent{}.
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type hostname() :: atom() | string().
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type ip4_address() :: {0..255,0..255,0..255,0..255}.
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type ip6_address() :: {0..65535,0..65535,0..65535,0..65535,
 			0..65535,0..65535,0..65535,0..65535}.
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type ip_address() :: ip4_address() | ip6_address().
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type port_number() :: 0..65535.
+-doc "A general address format on the form `{Family, Destination}` where `Family` is an atom such as `local` and the format of `Destination` depends on `Family`, and is a complete address (for example an IP address including port number).".
+-doc(#{title => <<"Exported data types">>}).
 -type family_address() :: inet_address() | inet6_address() | local_address().
+-doc """
+> #### Warning {: class=warning }
+> This address format is for now experimental and for completeness to make all address families have a `{Family, Destination}` representation.
+""".
+-doc(#{title => <<"Internal data types">>}).
 -type inet_address() ::
         {'inet', {ip4_address() | 'any' | 'loopback', port_number()}}.
+-doc """
+> #### Warning {: class=warning }
+> This address format is for now experimental and for completeness to make all address families have a `{Family, Destination}` representation.
+""".
+-doc(#{title => <<"Internal data types">>}).
 -type inet6_address() ::
         {'inet6', {ip6_address() | 'any' | 'loopback', port_number()}}.
+-doc """
+This address family only works on Unix-like systems.
+
+`File` is normally a file pathname in a local filesystem. It is limited in length by the operating system, traditionally to 108 bytes.
+
+A `t:binary()` is passed as is to the operating system, but a `t:string()` is encoded according to the [system filename encoding mode.](`file:native_name_encoding/0`)
+
+Other addresses are possible, for example Linux implements "Abstract Addresses". See the documentation for Unix Domain Sockets on your system, normally `unix` in manual section 7.
+
+In most API functions where you can use this address family the port number must be `0`.
+""".
+-doc(#{title => <<"Exported data types">>}).
 -type local_address() :: {'local', File :: binary() | string()}.
+-doc "Addresses besides [`ip_address()` ](`t:ip_address/0`)ones that are returned from socket API functions. See in particular [`local_address()`. ](`t:local_address/0`)The `unspec` family corresponds to AF_UNSPEC and can occur if the other side has no socket address. The `undefined` family can only occur in the unlikely event of an address family that the VM does not recognize.".
+-doc(#{title => <<"Exported data types">>}).
 -type returned_non_ip_address() ::
 	{'local', binary()} |
 	{'unspec', <<>>} |
 	{'undefined', any()}.
+-doc "An atom that is named from the POSIX error codes used in Unix, and in the runtime libraries of most C compilers. See section [POSIX Error Codes](`m:inet#error_codes`).".
+-doc(#{title => <<"Exported data types">>}).
 -type posix() ::
         'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
         'econnaborted' | 'econnrefused' | 'econnreset' |
@@ -146,16 +395,30 @@
         'exbadport' | 'exbadseq' | file:posix().
 -type module_socket() :: {'$inet', Handler :: module(), Handle :: term()}.
 -define(module_socket(Handler, Handle), {'$inet', (Handler), (Handle)}).
+-doc "See [`gen_tcp:type-socket`](`t:gen_tcp:socket/0`) and [`gen_udp:type-socket`](`t:gen_udp:socket/0`).".
+-doc(#{title => <<"Exported data types">>}).
 -type socket() :: port() | module_socket().
+-doc """
+Select the implementation backend for sockets. The current default is `inet` which at the bottom uses `inet_drv.c` to call the platform's socket API. The value `socket` instead at the bottom uses the `m:socket` module and its NIF implementation.
+
+This is a *temporary* option that will be ignored in a future release.
+""".
+-doc(#{title => <<"Exported data types">>}).
 -type inet_backend() :: {'inet_backend', 'inet' | 'socket'}.
 
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type socket_optval() ::
         gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
         gen_tcp:pktoptions_value().
 
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type socket_getopt() ::
         gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
 
@@ -187,6 +450,26 @@
 		 'running' | 'multicast' | 'loopback']} |
       {'hwaddr', ether_address()}.
 
+-doc """
+Interface address description list returned from [`getifaddrs/0,1`](`getifaddrs/0`) for a named interface, translated from the returned data of the POSIX API function `getaddrinfo()`.
+
+`Hwaddr` is hardware dependent, for example, on Ethernet interfaces it is the 6-byte Ethernet address (MAC address (EUI-48 address)).
+
+The tuples `{addr,Addr}`, `{netmask,Netmask}`, and possibly `{broadaddr,Broadaddr}` or `{dstaddr,Dstaddr}` are repeated in the list if the interface has got multiple addresses. An interface may have multiple `{flag,_}` tuples for example if it has different flags for different address families. Multiple `{hwaddr,Hwaddr}` tuples is hard to say anything definite about, though. The tuple `{flag,Flags}` is mandatory, all others are optional.
+
+Do not rely too much on the order of `Flags` atoms or the `Ifopt` tuples. There are however some rules:
+
+* A `{flag,_}` tuple applies to all other tuples that follow.
+* Immediately after `{addr,_}` follows `{netmask,_}`.
+* Immediately thereafter may `{broadaddr,_}` follow if `broadcast` is member of `Flags`, or `{dstaddr,_}` if `pointtopoint` is member of `Flags`. Both `{dstaddr,_}` and `{broadaddr,_}` does not occur for the same `{addr,_}`.
+* Any `{netmask,_}`, `{broadaddr,_}`, or `{dstaddr,_}` tuples that follow an `{addr,Addr}` tuple concerns the address `Addr`.
+
+The tuple `{hwaddr,_}` is not returned on Solaris, as the hardware address historically belongs to the link layer and it is not returned by the Solaris API function `getaddrinfo()`.
+
+> #### Warning {: class=warning }
+> On Windows, the data is fetched from different OS API functions, so the `Netmask` and `Broadaddr` values may be calculated, just as some `Flags` values.
+""".
+-doc(#{title => <<"Internal data types">>}).
 -type getifaddrs_ifopts() ::
         [Ifopt :: {flags, Flags :: [up | broadcast | loopback |
                                     pointtopoint | running | multicast]} |
@@ -196,26 +479,46 @@
                   {dstaddr, Dstaddr :: ip_address()} |
                   {hwaddr, Hwaddr :: [byte()]}].
 
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type address_family() :: 'inet' | 'inet6' | 'local'.
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type socket_address() ::
 	ip_address() | 'any' | 'loopback' | local_address().
+-doc "".
+-doc(#{title => <<"Exported data types">>}).
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
 
+-doc """
+Ancillary data received with the data packet, read with the socket option [`pktoptions` ](`t:gen_tcp:pktoptions_value/0`)from a TCP socket, or to set in a call to [`gen_udp:send/4`](`m:gen_udp#send-4-ancdata`) or `gen_udp:send/5`.
+
+The value(s) correspond to the currently active socket [options](`t:socket_setopt/0`) [`recvtos`](`m:inet#option-recvtos`), [`recvtclass`](`m:inet#option-recvtclass`) and [`recvttl`](`m:inet#option-recvttl`), or for a single send operation the option(s) to override the currently active socket option(s).
+""".
+-doc(#{title => <<"Exported data types">>}).
 -type ancillary_data() ::
         [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 
 %%% ---------------------------------
 
+-doc """
+Returns the state of the `Inet` configuration database in form of a list of recorded configuration parameters. For more information, see [ERTS User's Guide: Inet Configuration](`p:erts:inet_cfg.md`).
+
+Only actual parameters with other than default values are returned, for example not directives that specify other sources for configuration parameters nor directives that clear parameters.
+""".
 -spec get_rc() -> [{Par :: atom(), Val :: any()} |
                    {Par :: atom(), Val1 :: any(), Val2 :: any()}].
 
 get_rc() ->
     inet_db:get_rc().
 
+-doc "Closes a socket of any type.".
 -spec close(Socket) -> 'ok' when
       Socket :: socket().
 
@@ -233,6 +536,26 @@ close(Socket) ->
 
 %% -- Socket monitor
 
+-doc """
+Start monitor the socket `Socket`.
+
+If the monitored socket does not exist or when the monitor is triggered, a `'DOWN'` message is sent that has the following pattern:
+
+```text
+	    {'DOWN', MonitorRef, Type, Object, Info}
+```
+
+* __`MonitorRef`__ - The identity of the socket.
+
+* __`Type`__ - The type of socket, can be one of the following atoms: port or socket.
+
+* __`Object`__ - The monitored entity, the socket, which triggered the event.
+
+* __`Info`__ - Either the termination reason of the socket or `nosock` (socket `Socket` did not exist at the time of monitor creation).
+
+Making several calls to `inet:monitor/1` for the same `Socket` is not an error; it results in as many independent monitoring instances.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec monitor(Socket) -> reference() when
       Socket :: socket().
 
@@ -260,6 +583,18 @@ monitor(Socket) ->
 
 %% -- Cancel socket monitor
 
+-doc """
+If `MRef` is a reference that the calling process obtained by calling `monitor/1`, this monitor is turned off. If the monitoring is already turned off, nothing happens.
+
+The returned value is one of the following:
+
+* __`true`__ - The monitor was found and removed. In this case, no `'DOWN'` message corresponding to this monitor has been delivered and will not be delivered.
+
+* __`false`__ - The monitor was not found and could not be removed. This probably because a `'DOWN'` message corresponding to this monitor has already been placed in the caller message queue.
+
+Failure: It is an error if `MRef` refers to a monitor started by another process.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec cancel_monitor(MRef) -> boolean() when
       MRef :: reference().
 
@@ -278,6 +613,11 @@ cancel_monitor(MRef) ->
 
 %% -- Socket peername
 
+-doc """
+Returns the address and port for the other end of a connection.
+
+Notice that for SCTP sockets, this function returns only one of the peer addresses of the socket. Function [`peernames/1,2`](`peernames/1`) returns all.
+""".
 -spec peername(Socket :: socket()) ->
 		      {ok,
 		       {ip_address(), port_number()} |
@@ -302,6 +642,12 @@ setpeername(Socket, {IP,Port}) ->
 setpeername(Socket, undefined) ->
     prim_inet:setpeername(Socket, undefined).
 
+-doc """
+Equivalent to [`peernames(Socket, 0)`](`peernames/2`).
+
+Notice that the behavior of this function for an SCTP one-to-many style socket is not defined by the [SCTP Sockets API Extensions](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13).
+""".
+-doc(#{since => <<"OTP R16B03">>}).
 -spec peernames(Socket :: socket()) ->
 		       {ok,
 			[{ip_address(), port_number()} |
@@ -311,6 +657,14 @@ setpeername(Socket, undefined) ->
 peernames(Socket) ->
     prim_inet:peernames(Socket).
 
+-doc """
+Returns a list of all address/port number pairs for the other end of an association `Assoc` of a socket.
+
+This function can return multiple addresses for multihomed sockets, such as SCTP sockets. For other sockets it returns a one-element list.
+
+Notice that parameter `Assoc` is by the [SCTP Sockets API Extensions](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13) defined to be ignored for one-to-one style sockets. What the special value `0` means, hence its behavior for one-to-many style sockets, is unfortunately undefined.
+""".
+-doc(#{since => <<"OTP R16B03">>}).
 -spec peernames(Socket, Assoc) ->
 		       {ok, [{Address, Port}]} | {error, posix()} when
       Socket :: socket(),
@@ -322,6 +676,11 @@ peernames(Socket, Assoc) ->
     prim_inet:peernames(Socket, Assoc).
 
 
+-doc """
+Returns the local address and port number for a socket.
+
+Notice that for SCTP sockets this function returns only one of the socket addresses. Function [`socknames/1,2`](`socknames/1`) returns all.
+""".
 -spec sockname(Socket :: socket()) ->
 		      {ok,
 		       {ip_address(), port_number()} |
@@ -346,6 +705,8 @@ setsockname(Socket, {IP,Port}) ->
 setsockname(Socket, undefined) ->
     prim_inet:setsockname(Socket, undefined).
 
+-doc "Equivalent to [`socknames(Socket, 0)`](`socknames/2`).".
+-doc(#{since => <<"OTP R16B03">>}).
 -spec socknames(Socket :: socket()) ->
 		       {ok,
 			[{ip_address(), port_number()} |
@@ -357,6 +718,14 @@ socknames(?module_socket(GenSocketMod, _) = Socket) when is_atom(GenSocketMod) -
 socknames(Socket) ->
     prim_inet:socknames(Socket).
 
+-doc """
+Returns a list of all local address/port number pairs for a socket for the specified association `Assoc`.
+
+This function can return multiple addresses for multihomed sockets, such as SCTP sockets. For other sockets it returns a one-element list.
+
+Notice that parameter `Assoc` is by the [SCTP Sockets API Extensions](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13) defined to be ignored for one-to-one style sockets. For one-to-many style sockets, the special value `0` is defined to mean that the returned addresses must be without any particular association. How different SCTP implementations interpret this varies somewhat.
+""".
+-doc(#{since => <<"OTP R16B03">>}).
 -spec socknames(Socket, Assoc) ->
 		       {ok, [{Address, Port}]} | {error, posix()} when
       Socket :: socket(),
@@ -368,6 +737,7 @@ socknames(Socket, Assoc) ->
     prim_inet:socknames(Socket, Assoc).
 
 
+-doc "Returns the local port number for a socket.".
 -spec port(Socket) -> {'ok', Port} | {'error', any()} when
       Socket :: socket(),
       Port :: port_number().
@@ -389,6 +759,305 @@ port(Socket) ->
 send(Socket, Packet) -> 
     prim_inet:send(Socket, Packet).
     
+-doc """
+Sets one or more options for a socket.
+
+The following options are available:
+
+* __`{active, true | false | once | N}`__ - If the value is `true`, which is the default, everything received from the socket is sent as messages to the receiving process.
+
+  If the value is `false` (passive mode), the process must explicitly receive incoming data by calling [`gen_tcp:recv/2,3`](`gen_tcp:recv/2`), [`gen_udp:recv/2,3`](`gen_udp:recv/2`), or [`gen_sctp:recv/1,2`](`gen_sctp:recv/1`) (depending on the type of socket).
+
+  If the value is `once` (`{active, once}`), *one* data message from the socket is sent to the process. To receive one more message, `setopts/2` must be called again with option `{active, once}`.
+
+  If the value is an integer `N` in the range -32768 to 32767 (inclusive), the value is added to the socket's count of data messages sent to the controlling process. A socket's default message count is `0`. If a negative value is specified, and its magnitude is equal to or greater than the socket's current message count, the socket's message count is set to `0`. Once the socket's message count reaches `0`, either because of sending received data messages to the process or by being explicitly set, the process is then notified by a special message, specific to the type of socket, that the socket has entered passive mode. Once the socket enters passive mode, to receive more messages `setopts/2` must be called again to set the socket back into an active mode.
+
+  When using `{active, once}` or `{active, N}`, the socket changes behavior automatically when data is received. This can be confusing in combination with connection-oriented sockets (that is, `gen_tcp`), as a socket with `{active, false}` behavior reports closing differently than a socket with `{active, true}` behavior. To simplify programming, a socket where the peer closed, and this is detected while in `{active, false}` mode, still generates message `{tcp_closed,Socket}` when set to `{active, once}`, `{active, true}`, or `{active, N}` mode. It is therefore safe to assume that message `{tcp_closed,Socket}`, possibly followed by socket port termination (depending on option `exit_on_close`) eventually appears when a socket changes back and forth between `{active, true}` and `{active, false}` mode. However, *when* peer closing is detected it is all up to the underlying TCP/IP stack and protocol.
+
+  Notice that `{active, true}` mode provides no flow control; a fast sender can easily overflow the receiver with incoming messages. The same is true for `{active, N}` mode, while the message count is greater than zero.
+
+  Use active mode only if your high-level protocol provides its own flow control (for example, acknowledging received messages) or the amount of data exchanged is small. `{active, false}` mode, use of the `{active, once}` mode, or `{active, N}` mode with values of `N` appropriate for the application provides flow control. The other side cannot send faster than the receiver can read.
+
+  [](){: id=option-broadcast }
+
+* __`{broadcast, Boolean}` (UDP sockets)__ - Enables/disables permission to send broadcasts.
+
+  [](){: id=option-buffer }
+
+* __`{buffer, Size}`__ - The size of the user-level buffer used by the driver. Not to be confused with options `sndbuf` and `recbuf`, which correspond to the Kernel socket buffers. For TCP it is recommended to have `val(buffer) >= val(recbuf)` to avoid performance issues because of unnecessary copying. For UDP the same recommendation applies, but the max should not be larger than the MTU of the network path. `val(buffer)` is automatically set to the above maximum when `recbuf` is set. However, as the size set for `recbuf` usually become larger, you are encouraged to use `getopts/2` to analyze the behavior of your operating system.
+
+  Note that this is also the maximum amount of data that can be received from a single recv call. If you are using higher than normal MTU consider setting buffer higher.
+
+* __`{delay_send, Boolean}`__ - Normally, when an Erlang process sends to a socket, the driver tries to send the data immediately. If that fails, the driver uses any means available to queue up the message to be sent whenever the operating system says it can handle it. Setting `{delay_send, true}` makes *all* messages queue up. The messages sent to the network are then larger but fewer. The option affects the scheduling of send requests versus Erlang processes instead of changing any real property of the socket. The option is implementation-specific. Defaults to `false`.
+
+* __`{deliver, port | term}`__ - When `{active, true}`, data is delivered on the form `port` : `{S, {data, [H1,..Hsz | Data]}}` or `term` : `{tcp, S, [H1..Hsz | Data]}`.
+
+* __`{dontroute, Boolean}`__ - Enables/disables routing bypass for outgoing messages.
+
+* __`{exit_on_close, Boolean}`__ - This option is set to `true` by default.
+
+  The only reason to set it to `false` is if you want to continue sending data to the socket after a close is detected, for example, if the peer uses `gen_tcp:shutdown/2` to shut down the write side.
+
+* __`{exclusiveaddruse, Boolean}`[](){: id=option-exclusiveaddruse }
+__  
+  Enables/disables exclusive address/port usage on Windows. That is, by enabling this option you can prevent other sockets from binding to the same address/port. By default this option is disabled. That is, other sockets may use the same address/port by setting [`{reuseaddr, true}`](`m:inet#option-reuseaddr`) in combination with [`{reuseport, true}`](`m:inet#option-reuseport`) unless `{exclusiveaddruse, true}` has been set on `Socket`. On non-Windows systems this option is silently ignored.
+
+* __`{header, Size}`__ - This option is only meaningful if option `binary` was specified when the socket was created. If option `header` is specified, the first `Size` number bytes of data received from the socket are elements of a list, and the remaining data is a binary specified as the tail of the same list. For example, if `Size == 2`, the data received matches `[Byte1,Byte2|Binary]`.
+
+* __`{high_msgq_watermark, Size}`__ - The socket message queue is set to a busy state when the amount of data on the message queue reaches this limit. Notice that this limit only concerns data that has not yet reached the ERTS internal socket implementation. Defaults to 8 kB.
+
+  Senders of data to the socket are suspended if either the socket message queue is busy or the socket itself is busy.
+
+  For more information, see options `low_msgq_watermark`, `high_watermark`, and `low_watermark`.
+
+  Notice that distribution sockets disable the use of `high_msgq_watermark` and `low_msgq_watermark`. Instead use the [distribution buffer busy limit](`m:erlang#system_info_dist_buf_busy_limit`), which is a similar feature.
+
+* __`{high_watermark, Size}` (TCP/IP sockets)__ - The socket is set to a busy state when the amount of data queued internally by the ERTS socket implementation reaches this limit. Defaults to 8 kB.
+
+  Senders of data to the socket are suspended if either the socket message queue is busy or the socket itself is busy.
+
+  For more information, see options `low_watermark`, `high_msgq_watermark`, and `low_msqg_watermark`.
+
+* __`{ipv6_v6only, Boolean}`__ - Restricts the socket to use only IPv6, prohibiting any IPv4 connections. This is only applicable for IPv6 sockets (option `inet6`).
+
+  On most platforms this option must be set on the socket before associating it to an address. It is therefore only reasonable to specify it when creating the socket and not to use it when calling function (`setopts/2`) containing this description.
+
+  The behavior of a socket with this option set to `true` is the only portable one. The original idea when IPv6 was new of using IPv6 for all traffic is now not recommended by FreeBSD (you can use `{ipv6_v6only,false}` to override the recommended system default value), forbidden by OpenBSD (the supported GENERIC kernel), and impossible on Windows (which has separate IPv4 and IPv6 protocol stacks). Most Linux distros still have a system default value of `false`. This policy shift among operating systems to separate IPv6 from IPv4 traffic has evolved, as it gradually proved hard and complicated to get a dual stack implementation correct and secure.
+
+  On some platforms, the only allowed value for this option is `true`, for example, OpenBSD and Windows. Trying to set this option to `false`, when creating the socket, fails in this case.
+
+  Setting this option on platforms where it does not exist is ignored. Getting this option with `getopts/2` returns no value, that is, the returned list does not contain an `{ipv6_v6only,_}` tuple. On Windows, the option does not exist, but it is emulated as a read-only option with value `true`.
+
+  Therefore, setting this option to `true` when creating a socket never fails, except possibly on a platform where you have customized the kernel to only allow `false`, which can be doable (but awkward) on, for example, OpenBSD.
+
+  If you read back the option value using `getopts/2` and get no value, the option does not exist in the host operating system. The behavior of both an IPv6 and an IPv4 socket listening on the same port, and for an IPv6 socket getting IPv4 traffic is then no longer predictable.
+
+* __`{keepalive, Boolean}`(TCP/IP sockets)__ - Enables/disables periodic transmission on a connected socket when no other data is exchanged. If the other end does not respond, the connection is considered broken and an error message is sent to the controlling process. Defaults to `false`.
+
+  [](){: id=option-linger }
+
+* __`{linger, {true|false, Seconds}}`__ - Determines the time-out, in seconds, for flushing unsent data in the `close/1` socket call.
+
+  The first component is if linger is enabled, the second component is the flushing time-out, in seconds. There are 3 alternatives:
+
+  * __`{false, _}`__ - close/1 or shutdown/2 returns immediately, not waiting for data to be flushed, with closing happening in the background.
+
+  * __`{true, 0}`__ - Aborts the connection when it is closed. Discards any data still remaining in the send buffers and sends RST to the peer.
+
+    This avoids TCP's TIME_WAIT state, but leaves open the possibility that another "incarnation" of this connection being created.
+
+  * __`{true, Time} when Time > 0`__ - close/1 or shutdown/2 will not return until all queued messages for the socket have been successfully sent or the linger timeout (Time) has been reached.
+
+  
+
+* __`{low_msgq_watermark, Size}`__ - If the socket message queue is in a busy state, the socket message queue is set in a not busy state when the amount of data queued in the message queue falls below this limit. Notice that this limit only concerns data that has not yet reached the ERTS internal socket implementation. Defaults to 4 kB.
+
+  Senders that are suspended because of either a busy message queue or a busy socket are resumed when the socket message queue and the socket are not busy.
+
+  For more information, see options `high_msgq_watermark`, `high_watermark`, and `low_watermark`.
+
+  Notice that distribution sockets disable the use of `high_msgq_watermark` and `low_msgq_watermark`. Instead they use the [distribution buffer busy limit](`m:erlang#system_info_dist_buf_busy_limit`), which is a similar feature.
+
+* __`{low_watermark, Size}` (TCP/IP sockets)__ - If the socket is in a busy state, the socket is set in a not busy state when the amount of data queued internally by the ERTS socket implementation falls below this limit. Defaults to 4 kB.
+
+  Senders that are suspended because of a busy message queue or a busy socket are resumed when the socket message queue and the socket are not busy.
+
+  For more information, see options `high_watermark`, `high_msgq_watermark`, and `low_msgq_watermark`.
+
+* __`{mode, Mode :: binary | list}`__ - Received `Packet` is delivered as defined by `Mode`.
+
+* __`{netns, Namespace :: file:filename_all()}`{: id=option-netns }__ - Sets a network namespace for the socket. Parameter `Namespace` is a filename defining the namespace, for example, `"/var/run/netns/example"`, typically created by command `ip netns add example`. This option must be used in a function call that creates a socket, that is, [`gen_tcp:connect/3,4`](`gen_tcp:connect/3`), `gen_tcp:listen/2`, [`gen_udp:open/1,2`](`gen_udp:open/1`) or [`gen_sctp:open/0,1,2`](`gen_sctp:open/0`), and also `getifaddrs/1`.
+
+  This option uses the Linux-specific syscall `setns()`, such as in Linux kernel 3.0 or later, and therefore only exists when the runtime system is compiled for such an operating system.
+
+  The virtual machine also needs elevated privileges, either running as superuser or (for Linux) having capability `CAP_SYS_ADMIN` according to the documentation for `setns(2)`. However, during testing also `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH` have proven to be necessary.
+
+  *Example:*
+
+  ```text
+  setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
+  ```
+
+  Notice that the filesystem containing the virtual machine executable (`beam.smp` in the example) must be local, mounted without flag `nosetuid`, support extended attributes, and the kernel must support file capabilities. All this runs out of the box on at least Ubuntu 12.04 LTS, except that SCTP sockets appear to not support network namespaces.
+
+  `Namespace` is a filename and is encoded and decoded as discussed in module `m:file`, with the following exceptions:
+
+  * Emulator flag `+fnu` is ignored.
+  * `getopts/2` for this option returns a binary for the filename if the stored filename cannot be decoded. This is only to occur if you set the option using a binary that cannot be decoded with the emulator's filename encoding: `file:native_name_encoding/0`.
+
+* __`{bind_to_device, Ifname :: binary()}`__ - Binds a socket to a specific network interface. This option must be used in a function call that creates a socket, that is, [`gen_tcp:connect/3,4`](`gen_tcp:connect/3`), `gen_tcp:listen/2`, [`gen_udp:open/1,2`](`gen_udp:open/1`), or [`gen_sctp:open/0,1,2`](`gen_sctp:open/0`).
+
+  Unlike `getifaddrs/0`, Ifname is encoded a binary. In the unlikely case that a system is using non-7-bit-ASCII characters in network device names, special care has to be taken when encoding this argument.
+
+  This option uses the Linux-specific socket option `SO_BINDTODEVICE`, such as in Linux kernel 2.0.30 or later, and therefore only exists when the runtime system is compiled for such an operating system.
+
+  Before Linux 3.8, this socket option could be set, but could not retrieved with `getopts/2`. Since Linux 3.8, it is readable.
+
+  The virtual machine also needs elevated privileges, either running as superuser or (for Linux) having capability `CAP_NET_RAW`.
+
+  The primary use case for this option is to bind sockets into [Linux VRF instances](http://www.kernel.org/doc/Documentation/networking/vrf.txt).
+
+* __`list`__ - Received `Packet` is delivered as a list.
+
+* __`binary`__ - Received `Packet` is delivered as a binary.
+
+  [](){: id=option-nodelay }
+
+* __`{nodelay, Boolean}`(TCP/IP sockets)__ - If `Boolean == true`, option `TCP_NODELAY` is turned on for the socket, which means that also small amounts of data are sent immediately.
+
+  This option is *not* supported for `domain = local`, but if `inet_backend =/= socket` this error will be *ignored*.
+
+* __`{nopush, Boolean}`(TCP/IP sockets)__ - This translates to `TCP_NOPUSH` on BSD and to `TCP_CORK` on Linux.
+
+  If `Boolean == true`, the corresponding option is turned on for the socket, which means that small amounts of data are accumulated until a full MSS-worth of data is available or this option is turned off.
+
+  Note that while `TCP_NOPUSH` socket option is available on OSX, its semantics is very different (e.g., unsetting it does not cause immediate send of accumulated data). Hence, `nopush` option is intentionally ignored on OSX.
+
+* __`{packet, PacketType}`(TCP/IP sockets)__ - [](){: id=packet }
+  Defines the type of packets to use for a socket. Possible values:
+
+  * __`raw | 0`__ - No packaging is done.
+
+  * __`1 | 2 | 4`__ - Packets consist of a header specifying the number of bytes in the packet, followed by that number of bytes. The header length can be one, two, or four bytes, and containing an unsigned integer in big-endian byte order. Each send operation generates the header, and the header is stripped off on each receive operation.
+
+    The 4-byte header is limited to 2Gb.
+
+  * __`asn1 | cdr | sunrm | fcgi | tpkt | line`__ - These packet types only have effect on receiving. When sending a packet, it is the responsibility of the application to supply a correct header. On receiving, however, one message is sent to the controlling process for each complete packet received, and, similarly, each call to `gen_tcp:recv/2,3` returns one complete packet. The header is *not* stripped off.
+
+    The meanings of the packet types are as follows:
+
+    * `asn1` \- ASN.1 BER
+    * `sunrm` \- Sun's RPC encoding
+    * `cdr` \- CORBA (GIOP 1.1)
+    * `fcgi` \- Fast CGI
+    * `tpkt` \- TPKT format \[RFC1006]
+    * `line` \- Line mode, a packet is a line-terminated with newline, lines longer than the receive buffer are truncated
+
+  * __`http | http_bin`__ - The Hypertext Transfer Protocol. The packets are returned with the format according to `HttpPacket` described in `erlang:decode_packet/3` in ERTS. A socket in passive mode returns `{ok, HttpPacket}` from `gen_tcp:recv` while an active socket sends messages like `{http, Socket, HttpPacket}`.
+
+  * __`httph | httph_bin`__ - These two types are often not needed, as the socket automatically switches from `http`/`http_bin` to `httph`/`httph_bin` internally after the first line is read. However, there can be occasions when they are useful, such as parsing trailers from chunked encoding.
+
+  
+
+* __`{packet_size, Integer}`(TCP/IP sockets)__ - Sets the maximum allowed length of the packet body. If the packet header indicates that the length of the packet is longer than the maximum allowed length, the packet is considered invalid. The same occurs if the packet header is too large for the socket receive buffer.
+
+  For line-oriented protocols (`line`, `http*`), option `packet_size` also guarantees that lines up to the indicated length are accepted and not considered invalid because of internal buffer limitations.
+
+  [](){: id=option-line_delimiter }
+
+* __`{line_delimiter, Char}`(TCP/IP sockets)__ - Sets the line delimiting character for line-oriented protocols (`line`). Defaults to `$\n`.
+
+* __`{raw, Protocol, OptionNum, ValueBin}`__ - See below.
+
+  [](){: id=option-read_packets }
+
+* __`{read_packets, Integer}`(UDP sockets)__ - Sets the maximum number of UDP packets to read without intervention from the socket when data is available. When this many packets have been read and delivered to the destination process, new packets are not read until a new notification of available data has arrived. Defaults to `5`. If this parameter is set too high, the system can become unresponsive because of UDP packet flooding.
+
+  [](){: id=option-recbuf }
+
+* __`{recbuf, Size}`__ - The minimum size of the receive buffer to use for the socket. You are encouraged to use `getopts/2` to retrieve the size set by your operating system.
+
+  [](){: id=option-recvtclass }
+
+* __`{recvtclass, Boolean}`__ - If set to `true` activates returning the received `TCLASS` value on platforms that implements the protocol `IPPROTO_IPV6` option `IPV6_RECVTCLASS` or `IPV6_2292RECVTCLASS` for the socket. The value is returned as a `{tclass,TCLASS}` tuple regardless of if the platform returns an `IPV6_TCLASS` or an `IPV6_RECVTCLASS` CMSG value.
+
+  For packet oriented sockets that supports receiving ancillary data with the payload data (`gen_udp` and `gen_sctp`), the `TCLASS` value is returned in an extended return tuple contained in an [ancillary data ](`t:ancillary_data/0`)list. For stream oriented sockets (`gen_tcp`) the only way to get the `TCLASS` value is if the platform supports the [`pktoptions` ](`t:gen_tcp:pktoptions_value/0`)option.
+
+  [](){: id=option-recvtos }
+
+* __`{recvtos, Boolean}`__ - If set to `true` activates returning the received `TOS` value on platforms that implements the protocol `IPPROTO_IP` option `IP_RECVTOS` for the socket. The value is returned as a `{tos,TOS}` tuple regardless of if the platform returns an `IP_TOS` or an `IP_RECVTOS` CMSG value.
+
+  For packet oriented sockets that supports receiving ancillary data with the payload data (`gen_udp` and `gen_sctp`), the `TOS` value is returned in an extended return tuple contained in an [ancillary data ](`t:ancillary_data/0`)list. For stream oriented sockets (`gen_tcp`) the only way to get the `TOS` value is if the platform supports the [`pktoptions` ](`t:gen_tcp:pktoptions_value/0`)option.
+
+  [](){: id=option-recvttl }
+
+* __`{recvttl, Boolean}`__ - If set to `true` activates returning the received `TTL` value on platforms that implements the protocol `IPPROTO_IP` option `IP_RECVTTL` for the socket. The value is returned as a `{ttl,TTL}` tuple regardless of if the platform returns an `IP_TTL` or an `IP_RECVTTL` CMSG value.
+
+  For packet oriented sockets that supports receiving ancillary data with the payload data (`gen_udp` and `gen_sctp`), the `TTL` value is returned in an extended return tuple contained in an [ancillary data ](`t:ancillary_data/0`)list. For stream oriented sockets (`gen_tcp`) the only way to get the `TTL` value is if the platform supports the [`pktoptions` ](`t:gen_tcp:pktoptions_value/0`)option.
+
+* __`{reuseaddr, Boolean}`[](){: id=option-reuseaddr }
+__  
+  Allows or disallows reuse of local address. By default, reuse is disallowed.
+
+  > #### Note {: class=info }
+  > On windows `{reuseaddr, true}` will have no effect unless also [`{reuseport, true}`](`m:inet#option-reuseport`) is set. If both are set, the `SO_REUSEADDR` Windows socket option will be enabled. This since setting `SO_REUSEADDR` on Windows more or less has the same behavior as setting both `SO_REUSEADDR` and `SO_REUSEPORT` on BSD. This behavior was introduced as of OTP 26.0.
+  >
+  > > #### Change {: class=neutral }
+  > > Previous behavior on Windows:
+  > >
+  > > * Prior to OTP 25.0, the `{reuseaddr, true}` option was silently ignored.
+  > > * Between OTP 25.0 and up to the predecessor of OTP 25.2, the underlying `SO_REUSEADDR` socket option was set if `{reuseaddr, true}` was set.
+  > > * Between OTP 25.2 and up to the predecessor of OTP 26.0, the underlying `SO_REUSEADDR` socket option was only set on UDP sockets if `{reuseaddr, true}` was set, and silently ignored on other sockets.
+  >
+  > See also the [`exclusiveaddruse`](`m:inet#option-exclusiveaddruse`) option.
+
+* __`{reuseport, Boolean}`[](){: id=option-reuseport }
+__  
+  Allows or disallows reuse of local port which *may or may not* have load balancing depending on the underlying OS. By default, reuse is disallowed. See also [`reuseport_lb`](`m:inet#option-reuseport_lb`).
+
+  > #### Note {: class=info }
+  > On windows `{reuseport, true}` will have no effect unless also [`{reuseaddr, true}`](`m:inet#option-reuseaddr`) is set. If both are set, the `SO_REUSEADDR` Windows socket option will be enabled. This since setting `SO_REUSEADDR` on Windows more or less has the same behavior as setting both `SO_REUSEADDR` and `SO_REUSEPORT` on BSD. The `reuseport` option was introduced as of OTP 26.0.
+  >
+  > See also the [`exclusiveaddruse`](`m:inet#option-exclusiveaddruse`) option.
+
+  > #### Note {: class=info }
+  > `reuseport` *may or may not* be the same underlying option as [`reuseport_lb`](`m:inet#option-reuseport_lb`) depending on the underlying OS. They, for example, are on Linux. When they are the same underlying option, operating on both may cause them to interact in surprising ways. For example, by enabling `reuseport` and then disabling `reuseport_lb` both will end up being disabled.
+
+* __`{reuseport_lb, Boolean}`[](){: id=option-reuseport_lb }
+__  
+  Allows or disallows reuse of local port *with* load balancing. By default, reuse is disallowed. See also [`reuseport`](`m:inet#option-reuseport`).
+
+  > #### Note {: class=info }
+  > `reuseport_lb` *may or may not* be the same underlying option as [`reuseport`](`m:inet#option-reuseport`) depending on the underlying OS. They, for example, are on Linux. When they are the same underlying option, operating on both may cause them to interact in surprising ways. For example, by enabling `reuseport_lb` and then disabling `reuseport` both will end up being disabled.
+
+* __`{send_timeout, Integer}`__ - Only allowed for connection-oriented sockets.
+
+  Specifies a longest time to wait for a send operation to be accepted by the underlying TCP stack. When the limit is exceeded, the send operation returns `{error,timeout}`. How much of a packet that got sent is unknown; the socket is therefore to be closed whenever a time-out has occurred (see `send_timeout_close` below). Defaults to `infinity`.
+
+* __`{send_timeout_close, Boolean}`__ - Only allowed for connection-oriented sockets.
+
+  Used together with `send_timeout` to specify whether the socket is to be automatically closed when the send operation returns `{error,timeout}`. The recommended setting is `true`, which automatically closes the socket. Defaults to `false` because of backward compatibility.
+
+  [](){: id=option-show_econnreset }
+
+* __`{show_econnreset, Boolean}` (TCP/IP sockets)__ - When this option is set to `false`, which is default, an RST received from the TCP peer is treated as a normal close (as though an FIN was sent). A caller to `gen_tcp:recv/2` gets `{error, closed}`. In active mode, the controlling process receives a `{tcp_closed, Socket}` message, indicating that the peer has closed the connection.
+
+  Setting this option to `true` allows you to distinguish between a connection that was closed normally, and one that was aborted (intentionally or unintentionally) by the TCP peer. A call to `gen_tcp:recv/2` returns `{error, econnreset}`. In active mode, the controlling process receives a `{tcp_error, Socket, econnreset}` message before the usual `{tcp_closed, Socket}`, as is the case for any other socket error. Calls to `gen_tcp:send/2` also returns `{error, econnreset}` when it is detected that a TCP peer has sent an RST.
+
+  A connected socket returned from `gen_tcp:accept/1` inherits the `show_econnreset` setting from the listening socket.
+
+  [](){: id=option-sndbuf }
+
+* __`{sndbuf, Size}`__ - The minimum size of the send buffer to use for the socket. You are encouraged to use `getopts/2`, to retrieve the size set by your operating system.
+
+* __`{priority, Integer}`__ - Sets the `SO_PRIORITY` socket level option on platforms where this is implemented. The behavior and allowed range varies between different systems. The option is ignored on platforms where it is not implemented. Use with caution.
+
+* __`{tos, Integer}`__ - Sets `IP_TOS IP` level options on platforms where this is implemented. The behavior and allowed range varies between different systems. The option is ignored on platforms where it is not implemented. Use with caution.
+
+* __`{tclass, Integer}`__ - Sets `IPV6_TCLASS IP` level options on platforms where this is implemented. The behavior and allowed range varies between different systems. The option is ignored on platforms where it is not implemented. Use with caution.
+
+In addition to these options, *raw* option specifications can be used. The raw options are specified as a tuple of arity four, beginning with tag `raw`, followed by the protocol level, the option number, and the option value specified as a binary. This corresponds to the second, third, and fourth arguments to the `setsockopt` call in the C socket API. The option value must be coded in the native endianness of the platform and, if a structure is required, must follow the structure alignment conventions on the specific platform.
+
+Using raw socket options requires detailed knowledge about the current operating system and TCP stack.
+
+*Example:*
+
+This example concerns the use of raw options. Consider a Linux system where you want to set option `TCP_LINGER2` on protocol level `IPPROTO_TCP` in the stack. You know that on this particular system it defaults to 60 (seconds), but you want to lower it to 30 for a particular socket. Option `TCP_LINGER2` is not explicitly supported by `inet`, but you know that the protocol level translates to number 6, the option number to number 8, and the value is to be specified as a 32-bit integer. You can use this code line to set the option for the socket named `Sock`:
+
+```text
+inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),
+```
+
+As many options are silently discarded by the stack if they are specified out of range; it can be a good idea to check that a raw option is accepted. The following code places the value in variable `TcpLinger2:`
+
+```text
+{ok,[{raw,6,8,<<TcpLinger2:32/native>>}]}=inet:getopts(Sock,[{raw,6,8,4}]),
+```
+
+Code such as these examples is inherently non-portable, even different versions of the same OS on the same platform can respond differently to this kind of option manipulation. Use with care.
+
+Notice that the default options for TCP/IP sockets can be changed with the Kernel configuration parameters mentioned in the beginning of this manual page.
+""".
 -spec setopts(Socket, Options) -> ok | {error, posix()} when
       Socket :: socket(),
       Options :: [socket_setopt()].
@@ -405,6 +1074,37 @@ setopts(Socket, Opts) ->
 	 end || Opt <- Opts],
     prim_inet:setopts(Socket, SocketOpts).
 
+-doc """
+Gets one or more options for a socket. For a list of available inet options, see `setopts/2`. See also the descriptions for the protocol specific types referenced by [`socket_optval()` ](`t:socket_optval/0`).
+
+The number of elements in the returned `OptionValues` list does not necessarily correspond to the number of options asked for. If the operating system fails to support an option, it is left out in the returned list. An error tuple is returned only when getting options for the socket is impossible (that is, the socket is closed or the buffer size in a raw request is too large). This behavior is kept for backward compatibility reasons.
+
+A raw option request `RawOptReq = {raw, Protocol, OptionNum, ValueSpec}` can be used to get information about socket options not (explicitly) supported by the emulator. The use of raw socket options makes the code non-portable, but allows the Erlang programmer to take advantage of unusual features present on a particular platform.
+
+`RawOptReq` consists of tag `raw` followed by the protocol level, the option number, and either a binary or the size, in bytes, of the buffer in which the option value is to be stored. A binary is to be used when the underlying `getsockopt` requires *input* in the argument field. In this case, the binary size is to correspond to the required buffer size of the return value. The supplied values in a `RawOptReq` correspond to the second, third, and fourth/fifth parameters to the `getsockopt` call in the C socket API. The value stored in the buffer is returned as a binary `ValueBin`, where all values are coded in the native endianness.
+
+Asking for and inspecting raw socket options require low-level information about the current operating system and TCP stack.
+
+*Example:*
+
+Consider a Linux machine where option `TCP_INFO` can be used to collect TCP statistics for a socket. Assume you are interested in field `tcpi_sacked` of `struct tcp_info` filled in when asking for `TCP_INFO`. To be able to access this information, you need to know the following:
+
+* The numeric value of protocol level `IPPROTO_TCP`
+* The numeric value of option `TCP_INFO`
+* The size of `struct tcp_info`
+* The size and offset of the specific field
+
+By inspecting the headers or writing a small C program, it is found that `IPPROTO_TCP` is 6, `TCP_INFO` is 11, the structure size is 92 (bytes), the offset of `tcpi_sacked` is 28 bytes, and the value is a 32-bit integer. The following code can be used to retrieve the value:
+
+```text
+get_tcpi_sacked(Sock) ->
+    {ok,[{raw,_,_,Info}]} = inet:getopts(Sock,[{raw,6,11,92}]),
+    <<_:28/binary,TcpiSacked:32/native,_/binary>> = Info,
+    TcpiSacked.
+```
+
+Preferably, you would check the machine type, the operating system, and the Kernel version before executing anything similar to this code.
+""".
 -spec getopts(Socket, Options) ->
 	{'ok', OptionValues} | {'error', posix()} when
       Socket :: socket(),
@@ -428,6 +1128,18 @@ getopts(Socket, Opts) ->
 	    Other
     end.
 
+-doc """
+Opts = \[\{netns, Namespace\}]  
+Namespace = [file:filename_all()](`t:file:filename_all/0`)  
+Ifname = string()  
+Ifopts = [getifaddrs_ifopts()](`t:getifaddrs_ifopts/0`)  
+Posix = [posix()](`t:posix/0`)  
+
+The same as `getifaddrs/0` but the `Option` `{netns, Namespace}` sets a network namespace for the OS call, on platforms that supports that feature.
+
+See the socket option [`{netns, Namespace}` ](`m:inet#option-netns`)under `setopts/2`.
+""".
+-doc(#{since => <<"OTP 21.2">>}).
 -spec getifaddrs(
         [Option :: {netns, Namespace :: file:filename_all()}]
         | socket()) ->
@@ -439,6 +1151,12 @@ getifaddrs(Opts) when is_list(Opts) ->
 getifaddrs(Socket) ->
     prim_inet:getifaddrs(Socket).
 
+-doc """
+Returns a list of 2-tuples containing interface names and the interfaces' addresses. `Ifname` is a Unicode string and `Ifopts` is a list of interface address description tuples.
+
+The interface address description tuples are documented under the type of the [`Ifopts` ](`t:getifaddrs_ifopts/0`)value.
+""".
+-doc(#{since => <<"OTP R14B01">>}).
 -spec getifaddrs() ->
                         {'ok', [{Ifname :: string(),
                                  Ifopts :: getifaddrs_ifopts()}]}
@@ -568,6 +1286,7 @@ popf(_Socket) ->
 % use of the DHCP-protocol
 % should never fail
 
+-doc "Returns the local hostname. Never fails.".
 -spec gethostname() -> {'ok', Hostname} when
       Hostname :: string().
 
@@ -590,6 +1309,7 @@ gethostname() ->
 gethostname(Socket) ->
     prim_inet:gethostname(Socket).
 
+-doc(#{equiv => getstat/2}).
 -spec getstat(Socket) ->
 	{ok, OptionValues} | {error, posix()} when
       Socket :: socket(),
@@ -598,6 +1318,39 @@ gethostname(Socket) ->
 getstat(Socket) ->
     getstat(Socket, stats()).
 
+-doc """
+```erlang
+-type stat_option() ::
+          recv_cnt | recv_max | recv_avg | recv_oct | recv_dvi |
+          send_cnt | send_max | send_avg | send_oct | send_pend.
+```
+
+Gets one or more statistic options for a socket.
+
+`getstat(Socket)` is equivalent to `getstat(Socket, [recv_avg, recv_cnt, recv_dvi, recv_max, recv_oct, send_avg, send_cnt, send_pend, send_max, send_oct])`.
+
+The following options are available:
+
+* __`recv_avg`__ - Average size of packets, in bytes, received by the socket.
+
+* __`recv_cnt`__ - Number of packets received by the socket.
+
+* __`recv_dvi`__ - Average packet size deviation, in bytes, received by the socket.
+
+* __`recv_max`__ - Size of the largest packet, in bytes, received by the socket.
+
+* __`recv_oct`__ - Number of bytes received by the socket.
+
+* __`send_avg`__ - Average size of packets, in bytes, sent from the socket.
+
+* __`send_cnt`__ - Number of packets sent from the socket.
+
+* __`send_pend`__ - Number of bytes waiting to be sent by the socket.
+
+* __`send_max`__ - Size of the largest packet, in bytes, sent from the socket.
+
+* __`send_oct`__ - Number of bytes sent from the socket.
+""".
 -spec getstat(Socket, Options) ->
 	{ok, OptionValues} | {error, posix()} when
       Socket :: socket(),
@@ -610,6 +1363,17 @@ getstat(?module_socket(GenSocketMod, _) = Socket, What)
 getstat(Socket, What) ->
     prim_inet:getstat(Socket, What).
 
+-doc """
+Returns a `hostent` record for the host with the specified hostname.
+
+This function uses the resolver, which is often the native (OS) resolver.
+
+If resolver option `inet6` is `true`, an IPv6 address is looked up.
+
+See [ERTS User's Guide: Inet Configuration](`p:erts:inet_cfg.md`) for information about the resolver configuration.
+
+A quirk of many resolver(s) is that an integer string is interpreted as an IP address. For instance, the integer string "3232235521" and the string "192.168.0.1" is equal to the IP address `{192,168,0,1}`.
+""".
 -spec gethostbyname(Hostname) -> {ok, Hostent} | {error, posix()} when
       Hostname :: hostname(),
       Hostent :: hostent().
@@ -622,6 +1386,15 @@ gethostbyname(Name) ->
 	    gethostbyname_tm(Name, inet, false)
     end.
 
+-doc """
+Returns a `hostent` record for the host with the specified name, restricted to the specified address family.
+
+This function uses the resolver, which is often the native (OS) resolver.
+
+See [ERTS User's Guide: Inet Configuration](`p:erts:inet_cfg.md`) for information about the resolver configuration.
+
+A quirk of many resolver(s) is that an integer string is interpreted as an IP address. For instance, the integer string "3232235521" and the string "192.168.0.1" is equal to the IP address `{192,168,0,1}`.
+""".
 -spec gethostbyname(Hostname, Family) ->
                            {ok, Hostent} | {error, posix()} when
       Hostname :: hostname(),
@@ -656,6 +1429,7 @@ gethostbyname_tm(Name,Family,Timer) ->
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
+-doc "Returns a `hostent` record for the host with the specified address.".
 -spec gethostbyaddr(Address) -> {ok, Hostent} | {error, posix()} when
       Address :: string() | ip_address(),
       Hostent :: hostent().
@@ -688,6 +1462,8 @@ socket_to_list(Socket) when is_port(Socket) ->
 
 
 
+-doc "Produces a term containing miscellaneous information about a socket.".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec info(Socket) -> Info when
       Socket :: socket(),
       Info :: term().
@@ -765,6 +1541,8 @@ ip(Name) ->
 	Error -> Error
     end.
 
+-doc "Tests if `IPAddress` is an [`ip4_address()`](`t:ip4_address/0`) and returns `true` if so, otherwise `false`.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec is_ipv4_address(IPv4Address) -> boolean() when
       IPv4Address :: ip4_address() | term().
 is_ipv4_address({A,B,C,D}) when ?ip(A,B,C,D) ->
@@ -772,6 +1550,8 @@ is_ipv4_address({A,B,C,D}) when ?ip(A,B,C,D) ->
 is_ipv4_address(_) ->
     false.
 
+-doc "Tests if `IPAddress` is an [`ip6_address()`](`t:ip6_address/0`) and returns `true` if so, otherwise `false`.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec is_ipv6_address(IPv6Address) -> boolean() when
       IPv6Address :: ip6_address() | term().
 is_ipv6_address({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
@@ -779,6 +1559,8 @@ is_ipv6_address({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
 is_ipv6_address(_) ->
     false.
 
+-doc "Tests if `IPAddress` is an [`ip_address()`](`t:ip_address/0`) and returns `true` if so, otherwise `false`.".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec is_ip_address(IPAddress) -> boolean() when
       IPAddress :: ip_address() | term().
 is_ip_address(Address) ->
@@ -805,6 +1587,7 @@ getfd(Socket) ->
 %% Lookup an ip address
 %%
 
+-doc "Returns the IP address for `Host` as a tuple of integers. `Host` can be an IP address, a single hostname, or a fully qualified hostname.".
 -spec getaddr(Host, Family) -> {ok, Address} | {error, posix()} when
       Host :: ip_address() | hostname(),
       Family :: address_family(),
@@ -830,6 +1613,7 @@ getaddr_tm(Address, Family, Timer) ->
 	Error -> Error
     end.
 
+-doc "Returns a list of all IP addresses for `Host`. `Host` can be an IP address, a single hostname, or a fully qualified hostname.".
 -spec getaddrs(Host, Family) ->
 	{ok, Addresses} | {error, posix()} when
       Host :: ip_address() | hostname(),
@@ -875,12 +1659,16 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 	Error -> Error
     end.
 
+-doc "Parses an [`ip_address()`](`t:ip_address/0`) and returns an IPv4 or IPv6 address string.".
+-doc(#{since => <<"OTP R16B02">>}).
 -spec ntoa(IpAddress) -> Address | {error, einval} when
       Address :: string(),
       IpAddress :: ip_address().
 ntoa(Addr) ->
     inet_parse:ntoa(Addr).
 
+-doc "Parses an IPv4 address string and returns an [`ip4_address()`](`t:ip4_address/0`). Accepts a shortened IPv4 address string.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
@@ -888,6 +1676,8 @@ ntoa(Addr) ->
 parse_ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
 
+-doc "Parses an IPv6 address string and returns an [`ip6_address()`](`t:ip6_address/0`). If an IPv4 address string is specified, an IPv4-mapped IPv6 address is returned.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
@@ -895,6 +1685,8 @@ parse_ipv4_address(Addr) ->
 parse_ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
 
+-doc "Parses an IPv4 address string containing four fields, that is, *not* shortened, and returns an [`ip4_address()`](`t:ip4_address/0`).".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4strict_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
@@ -902,6 +1694,8 @@ parse_ipv6_address(Addr) ->
 parse_ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
 
+-doc "Parses an IPv6 address string and returns an [`ip6_address()`](`t:ip6_address/0`). Does *not* accept IPv4 addresses.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6strict_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
@@ -909,6 +1703,8 @@ parse_ipv4strict_address(Addr) ->
 parse_ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
 
+-doc "Parses an IPv4 or IPv6 address string and returns an [`ip4_address()`](`t:ip4_address/0`) or [`ip6_address()`](`t:ip6_address/0`). Accepts a shortened IPv4 address string.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
       Address :: string(),
@@ -929,6 +1725,8 @@ parse_address(Addr, inet) ->
 parse_address(Addr, inet6) ->
     inet_parse:ipv6_address(Addr).
 
+-doc "Parses an IPv4 or IPv6 address string and returns an [`ip4_address()`](`t:ip4_address/0`) or [`ip6_address()`](`t:ip6_address/0`). Does *not* accept a shortened IPv4 address string.".
+-doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
       Address :: string(),
@@ -949,6 +1747,8 @@ parse_strict_address(Addr, inet) ->
 parse_strict_address(Addr, inet6) ->
     inet_parse:ipv6strict_address(Addr).
 
+-doc "Convert an IPv4 address to an IPv4-mapped IPv6 address or the reverse. When converting from an IPv6 address all but the 2 low words are ignored so this function also works on some other types of addresses than IPv4-mapped.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec ipv4_mapped_ipv6_address(ip_address()) -> ip_address().
 ipv4_mapped_ipv6_address({D1,D2,D3,D4})
   when (D1 bor D2 bor D3 bor D4) < 256 ->
@@ -1951,13 +2751,41 @@ fdopen(Fd, Opts, Protocol, Family, Type, Module)
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc(#{equiv => i/2}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec i() -> ok.
 i() -> i(tcp), i(udp), i(sctp).
 
+-doc(#{equiv => i/2}).
+-doc(#{since => <<"OTP 21.0">>}).
 -spec i(socket_protocol()) -> ok.
 i(Proto) -> i(Proto, [port, module, recv, sent, owner,
 		      local_address, foreign_address, state, type]).
 
+-doc """
+Lists all TCP, UDP and SCTP sockets, including those that the Erlang runtime system uses as well as those created by the application.
+
+The following options are available:
+
+* __`port`__ - The internal index of the port.
+
+* __`module`__ - The callback module of the socket.
+
+* __`recv`__ - Number of bytes received by the socket.
+
+* __`sent`__ - Number of bytes sent from the socket.
+
+* __`owner`__ - The socket owner process.
+
+* __`local_address`__ - The local address of the socket.
+
+* __`foreign_address`__ - The address and port of the other end of the connection.
+
+* __`state`__ - The connection state.
+
+* __`type`__ - STREAM or DGRAM or SEQPACKET.
+""".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec i(socket_protocol(), [atom()]) -> ok.
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
@@ -2205,6 +3033,7 @@ port_list(Name) ->
 %%  utils
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc "Returns a diagnostic error string. For possible POSIX values and corresponding strings, see section [POSIX Error Codes](`m:inet#error_codes`).".
 -spec format_error(Reason) -> string() when
       Reason :: posix() | system_limit.
 
@@ -2376,3 +3205,4 @@ ensure_sockaddr(SockAddr) ->
         throw : {invalid, _} = Invalid : Stacktrace ->
             erlang:raise(error, Invalid, Stacktrace)
     end.
+

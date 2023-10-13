@@ -19,6 +19,17 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxCaret).
+-moduledoc """
+Functions for wxCaret class
+
+A caret is a blinking cursor showing the position where the typed text will appear. Text controls usually have their own caret but `m:wxCaret` provides a way to use a caret in other windows.
+
+Currently, the caret appears as a rectangle of the given size. In the future, it will be possible to specify a bitmap to be used for the caret shape.
+
+A caret is always associated with a window and the current caret can be retrieved using `wxWindow:getCaret/1`. The same caret can't be reused in two different windows.
+
+wxWidgets docs: [wxCaret](https://docs.wxwidgets.org/3.1/classwx_caret.html)
+""".
 -include("wxe.hrl").
 -export([create/3,create/4,destroy/1,getBlinkTime/0,getPosition/1,getSize/1,
   getWindow/1,hide/1,isOk/1,isVisible/1,move/2,move/3,new/2,new/3,setBlinkTime/1,
@@ -27,12 +38,14 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-doc "".
 -type wxCaret() :: wx:wx_object().
 -export_type([wxCaret/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretwxcaret">external documentation</a>.
+-doc "".
 -spec new(Window, Size) -> wxCaret() when
 	Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
 new(#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
@@ -42,6 +55,7 @@ new(#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
   wxe_util:rec(?wxCaret_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretwxcaret">external documentation</a>.
+-doc "Creates a caret with the given size (in pixels) and associates it with the `window`.".
 -spec new(Window, Width, Height) -> wxCaret() when
 	Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
 new(#wx_ref{type=WindowT}=Window,Width,Height)
@@ -51,6 +65,7 @@ new(#wx_ref{type=WindowT}=Window,Width,Height)
   wxe_util:rec(?wxCaret_new_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretcreate">external documentation</a>.
+-doc "".
 -spec create(This, Window, Size) -> boolean() when
 	This::wxCaret(), Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
@@ -61,6 +76,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Siz
   wxe_util:rec(?wxCaret_Create_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretcreate">external documentation</a>.
+-doc "Creates a caret with the given size (in pixels) and associates it with the `window` (same as the equivalent constructors).".
 -spec create(This, Window, Width, Height) -> boolean() when
 	This::wxCaret(), Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,Width,Height)
@@ -71,12 +87,14 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,Width,Height)
   wxe_util:rec(?wxCaret_Create_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretgetblinktime">external documentation</a>.
+-doc "Returns the blink time which is measured in milliseconds and is the time elapsed between 2 inversions of the caret (blink time of the caret is the same for all carets, so this functions is static).".
 -spec getBlinkTime() -> integer().
 getBlinkTime() ->
   wxe_util:queue_cmd(?get_env(), ?wxCaret_GetBlinkTime),
   wxe_util:rec(?wxCaret_GetBlinkTime).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretgetposition">external documentation</a>.
+-doc "".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxCaret().
 getPosition(#wx_ref{type=ThisT}=This) ->
@@ -85,6 +103,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCaret_GetPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretgetsize">external documentation</a>.
+-doc "".
 -spec getSize(This) -> {W::integer(), H::integer()} when
 	This::wxCaret().
 getSize(#wx_ref{type=ThisT}=This) ->
@@ -93,6 +112,7 @@ getSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCaret_GetSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretgetwindow">external documentation</a>.
+-doc "Get the window the caret is associated with.".
 -spec getWindow(This) -> wxWindow:wxWindow() when
 	This::wxCaret().
 getWindow(#wx_ref{type=ThisT}=This) ->
@@ -101,6 +121,7 @@ getWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCaret_GetWindow).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcarethide">external documentation</a>.
+-doc "Hides the caret, same as Show(false).".
 -spec hide(This) -> 'ok' when
 	This::wxCaret().
 hide(#wx_ref{type=ThisT}=This) ->
@@ -108,6 +129,7 @@ hide(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_Hide).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretisok">external documentation</a>.
+-doc "Returns true if the caret was created successfully.".
 -spec isOk(This) -> boolean() when
 	This::wxCaret().
 isOk(#wx_ref{type=ThisT}=This) ->
@@ -116,6 +138,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCaret_IsOk).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretisvisible">external documentation</a>.
+-doc "Returns true if the caret is visible and false if it is permanently hidden (if it is blinking and not shown currently but will be after the next blink, this method still returns true).".
 -spec isVisible(This) -> boolean() when
 	This::wxCaret().
 isVisible(#wx_ref{type=ThisT}=This) ->
@@ -124,6 +147,7 @@ isVisible(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxCaret_IsVisible).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretmove">external documentation</a>.
+-doc "".
 -spec move(This, Pt) -> 'ok' when
 	This::wxCaret(), Pt::{X::integer(), Y::integer()}.
 move(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
@@ -132,6 +156,7 @@ move(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxCaret_Move_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretmove">external documentation</a>.
+-doc "Move the caret to given position (in logical coordinates).".
 -spec move(This, X, Y) -> 'ok' when
 	This::wxCaret(), X::integer(), Y::integer().
 move(#wx_ref{type=ThisT}=This,X,Y)
@@ -140,6 +165,13 @@ move(#wx_ref{type=ThisT}=This,X,Y)
   wxe_util:queue_cmd(This,X,Y,?get_env(),?wxCaret_Move_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretsetblinktime">external documentation</a>.
+-doc """
+Sets the blink time for all the carets.
+
+Warning: Under Windows, this function will change the blink time for all carets permanently (until the next time it is called), even for carets in other applications.
+
+See: `getBlinkTime/0`
+""".
 -spec setBlinkTime(Milliseconds) -> 'ok' when
 	Milliseconds::integer().
 setBlinkTime(Milliseconds)
@@ -147,6 +179,7 @@ setBlinkTime(Milliseconds)
   wxe_util:queue_cmd(Milliseconds,?get_env(),?wxCaret_SetBlinkTime).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretsetsize">external documentation</a>.
+-doc "".
 -spec setSize(This, Size) -> 'ok' when
 	This::wxCaret(), Size::{W::integer(), H::integer()}.
 setSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -155,6 +188,7 @@ setSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxCaret_SetSize_1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretsetsize">external documentation</a>.
+-doc "Changes the size of the caret.".
 -spec setSize(This, Width, Height) -> 'ok' when
 	This::wxCaret(), Width::integer(), Height::integer().
 setSize(#wx_ref{type=ThisT}=This,Width,Height)
@@ -163,6 +197,7 @@ setSize(#wx_ref{type=ThisT}=This,Width,Height)
   wxe_util:queue_cmd(This,Width,Height,?get_env(),?wxCaret_SetSize_2).
 
 %% @equiv show(This, [])
+-doc "".
 -spec show(This) -> 'ok' when
 	This::wxCaret().
 
@@ -171,6 +206,11 @@ show(This)
   show(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcaret.html#wxcaretshow">external documentation</a>.
+-doc """
+Shows or hides the caret.
+
+Notice that if the caret was hidden N times, it must be shown N times as well to reappear on the screen.
+""".
 -spec show(This, [Option]) -> 'ok' when
 	This::wxCaret(),
 	Option :: {'show', boolean()}.
@@ -183,8 +223,10 @@ show(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxCaret_Show).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxCaret()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCaret),
   wxe_util:queue_cmd(Obj, ?get_env(), ?wxCaret_destroy),
   ok.
+

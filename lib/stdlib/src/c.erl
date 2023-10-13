@@ -18,6 +18,18 @@
 %% %CopyrightEnd%
 %%
 -module(c).
+-moduledoc """
+Command interface module.
+
+This module enables users to enter the short form of some commonly used commands.
+
+> #### Note {: class=info }
+> These functions are intended for interactive use in the Erlang shell only. The module prefix can be omitted.
+
+## See Also
+
+`m:filename`, `m:compile`, `m:erlang`, `m:yecc`, `m:xref`
+""".
 
 -include_lib("kernel/include/eep48.hrl").
 
@@ -43,6 +55,7 @@
 
 %%-----------------------------------------------------------------------
 
+-doc "Displays help information: all valid shell internal commands, and commands in this module.".
 -spec help() -> 'ok'.
 
 help() ->
@@ -81,12 +94,26 @@ help() ->
 %% c(Module)
 %%  Compile a module/file.
 
+-doc "Works like `c(Module, [])`.".
 -spec c(Module) -> {'ok', ModuleName} | 'error' when
       Module :: file:name(),
       ModuleName :: module().
 
 c(Module) -> c(Module, []).
 
+-doc """
+Compiles and then purges and loads the code for a module. `Module` can be either a module name or a source file path, with or without `.erl` extension.
+
+If `Module` is a string, it is assumed to be a source file path, and the compiler will attempt to compile the source file with the options `Options`. If compilation fails, the old object file (if any) is deleted.
+
+If `Module` is an atom, a source file with that exact name or with `.erl` extension will be looked for. If found, the source file is compiled with the options `Options`. If compilation fails, the old object file (if any) is deleted.
+
+If `Module` is an atom and is not the path of a source file, then the code path is searched to locate the object file for the module and extract its original compiler options and source path. If the source file is not found in the original location, `filelib:find_source/1` is used to search for it relative to the directory of the object file.
+
+The source file is compiled with the the original options appended to the given `Options`, the output replacing the old object file if and only if compilation succeeds.
+
+Notice that purging the code means that any processes lingering in old code for the module are killed without warning. For more information, see the `m:code` module.
+""".
 -spec c(Module, Options) -> {'ok', ModuleName} | 'error' when
       Module :: file:name(),
       Options :: [compile:option()] | compile:option(),
@@ -117,6 +144,16 @@ c(Module, Opts) ->
 %% source path to recompile the module, overwriting the old object file.
 %% The Filter parameter is applied to the old compile options
 
+-doc """
+Compiles and then purges and loads the code for module `Module`, which must be an atom.
+
+The code path is searched to locate the object file for module `Module` and extract its original compiler options and source path. If the source file is not found in the original location, `filelib:find_source/1` is used to search for it relative to the directory of the object file.
+
+The source file is compiled with the the original options appended to the given `Options`, the output replacing the old object file if and only if compilation succeeds. The function `Filter` specifies which elements to remove from the original compiler options before the new options are added. The `Filter` fun should return `true` for options to keep, and `false` for options to remove.
+
+Notice that purging the code means that any processes lingering in old code for the module are killed without warning. For more information, see the `m:code` module.
+""".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec c(Module, Options, Filter) -> {'ok', ModuleName} | 'error' when
       Module :: atom(),
       Options :: [compile:option()],
@@ -162,6 +199,15 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
         Format =:= ?NATIVE_FORMAT;
         binary_part(Format, 0, 5) =:= <<"text/">>).
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+
+Print the documentation for `Module`
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec h(module()) -> h_return().
 h(Module) ->
     case code:get_doc(Module) of
@@ -173,6 +219,18 @@ h(Module) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type hf_return() :: h_return() | {error, function_missing}.
+```
+
+Print the documentation for all `Module:Function`s (regardless of arity).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec h(module(),function()) -> hf_return().
 h(Module,Function) ->
     case code:get_doc(Module) of
@@ -184,6 +242,18 @@ h(Module,Function) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type hf_return() :: h_return() | {error, function_missing}.
+```
+
+Print the documentation for `Module:Function/Arity`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec h(module(),function(),arity()) -> hf_return().
 h(Module,Function,Arity) ->
     case code:get_doc(Module) of
@@ -195,6 +265,15 @@ h(Module,Function,Arity) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+
+Print the type documentation for `Module`
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec ht(module()) -> h_return().
 ht(Module) ->
     case code:get_doc(Module) of
@@ -206,6 +285,18 @@ ht(Module) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type ht_return() :: h_return() | {error, type_missing}.
+```
+
+Print the type documentation for `Type` in `Module` regardless of arity.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec ht(module(),Type :: atom()) -> ht_return().
 ht(Module,Type) ->
     case code:get_doc(Module) of
@@ -217,6 +308,18 @@ ht(Module,Type) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type ht_return() :: h_return() | {error, type_missing}.
+```
+
+Print the type documentation for `Type/Arity` in `Module`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec ht(module(),Type :: atom(),arity()) ->
           ht_return().
 ht(Module,Type,Arity) ->
@@ -229,6 +332,15 @@ ht(Module,Type,Arity) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+
+Print the callback documentation for `Module`
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec hcb(module()) -> h_return().
 hcb(Module) ->
     case code:get_doc(Module) of
@@ -240,6 +352,18 @@ hcb(Module) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type hcb_return() :: h_return() | {error, callback_missing}.
+```
+
+Print the callback documentation for all `Module:Callback`s (regardless of arity).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec hcb(module(),Callback :: atom()) -> hcb_return().
 hcb(Module,Callback) ->
     case code:get_doc(Module) of
@@ -251,6 +375,18 @@ hcb(Module,Callback) ->
             Error
     end.
 
+-doc """
+```erlang
+-type h_return() ::
+          ok | {error, missing | {unknown_format, unicode:chardata()}}.
+```
+```erlang
+-type hcb_return() :: h_return() | {error, callback_missing}.
+```
+
+Print the callback documentation for `Module:Callback/Arity`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec hcb(module(),Callback :: atom(),arity()) ->
           hcb_return().
 hcb(Module,Callback,Arity) ->
@@ -489,6 +625,14 @@ purge_and_load(Mod, File, Opts) ->
 %% with constant c2 defined, c1=v1 (v1 must be a term!), include dir
 %% IDir, outdir ODir.
 
+-doc """
+Files = \[File]  
+File  
+
+Compiles a list of files by calling `compile:file(File, [report_errors, report_warnings])` for each `File` in `Files`.
+
+For information about `File`, see [`file:filename()`](`t:file:filename/0`).
+""".
 -spec lc(Files) -> 'ok' | 'error' when
       Files :: [File :: erl_compile:cmd_line_arg()].
 
@@ -555,12 +699,20 @@ make_term(Str) ->
 	    throw(error)
     end.
 
+-doc(#{equiv => nc/2}).
 -spec nc(File) -> {'ok', Module} | 'error' when
       File :: file:name(),
       Module :: module().
 
 nc(File) -> nc(File, []).
 
+-doc """
+Compiles and then loads the code for a file on all nodes. `Options` defaults to `[]`. Compilation is equivalent to:
+
+```text
+compile:file(File, Options ++ [report_errors, report_warnings])
+```
+""".
 -spec nc(File, Options) -> {'ok', Module} | 'error' when
       File :: file:name(),
       Options :: [Option] | Option,
@@ -589,6 +741,11 @@ nc(File, Opt) when is_atom(Opt) ->
 
 %% l(Mod)
 %%  Reload module Mod from file of same name
+-doc """
+Purges and loads, or reloads, a module by calling `code:purge(Module)` followed by `code:load_file(Module)`.
+
+Notice that purging the code means that any processes lingering in old code for the module are killed without warning. For more information, see `code/3`.
+""".
 -spec l(Module) -> code:load_ret() when
       Module :: module().
 
@@ -597,6 +754,7 @@ l(Mod) ->
     code:load_file(Mod).
 
 %% Network version of l/1
+-doc "Loads `Module` on all nodes.".
 -spec nl(Module) -> abcast | error when
       Module :: module().
 
@@ -608,10 +766,12 @@ nl(Mod) ->
 	    Other
     end.
 
+-doc(#{equiv => ni/0}).
 -spec i() -> 'ok'.
 
 i() -> i(processes()).
 
+-doc "`i/0` displays system information, listing information about all processes. `ni/0` does the same, but for all nodes the network.".
 -spec ni() -> 'ok'.
 
 ni() -> i(all_procs()).
@@ -755,6 +915,7 @@ fetch(Key, Info) ->
 	false -> 0
     end.
 
+-doc "Converts `X`, `Y`, `Z` to pid `<X.Y.Z>`. This function is only to be used when debugging.".
 -spec pid(X, Y, Z) -> pid() when
       X :: non_neg_integer(),
       Y :: non_neg_integer(),
@@ -765,6 +926,7 @@ pid(X, Y, Z) ->
 		integer_to_list(Y) ++ "." ++
 		integer_to_list(Z) ++ ">").
 
+-doc "Displays information about a process, Equivalent to `process_info(pid(X, Y, Z))`, but location transparent.".
 -spec i(X, Y, Z) -> [{atom(), term()}] when
       X :: non_neg_integer(),
       Y :: non_neg_integer(),
@@ -772,11 +934,13 @@ pid(X, Y, Z) ->
 
 i(X, Y, Z) -> pinfo(pid(X, Y, Z)).
 
+-doc "This function is shorthand for `init:stop()`, that is, it causes the node to stop in a controlled fashion.".
 -spec q() -> no_return().
 
 q() ->
     init:stop().
 
+-doc "Stack backtrace for a process. Equivalent to `erlang:process_display(Pid, backtrace)`.".
 -spec bt(Pid) -> 'ok' | 'undefined' when
       Pid :: pid().
 
@@ -788,6 +952,7 @@ bt(Pid) ->
 	    ok
     end.
 
+-doc "Displays information about the loaded modules, including the files from which they have been loaded.".
 -spec m() -> 'ok'.
 
 m() ->
@@ -797,11 +962,15 @@ m() ->
 mformat(A1, A2) ->
     format("~-20s  ~ts\n", [A1,A2]).
 
+-doc "Lists all modified modules. Shorthand for `code:modified_modules/0`.".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec mm() -> [module()].
 
 mm() ->
     code:modified_modules().
 
+-doc "Reloads all currently loaded modules that have changed on disk (see `mm()`). Returns the list of results from calling `l(M)` for each such `M`.".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec lm() -> [code:load_ret()].
 
 lm() ->
@@ -821,6 +990,8 @@ erlangrc() ->
             {error, enoent}
     end.
 
+-doc "Search `PathList` and load `.erlang` resource file if found.".
+-doc(#{since => <<"OTP 21.0">>}).
 -spec erlangrc(PathList) -> {ok, file:filename()} | {error, term()}
                                 when PathList :: [Dir :: file:name()].
 
@@ -856,6 +1027,7 @@ bi(I) ->
 %%
 %% Short and nice form of module info
 %%
+-doc "Displays information about `Module`.".
 -spec m(Module) -> 'ok' when
       Module :: module().
 
@@ -924,6 +1096,7 @@ split_print_exports([{F1, A1}|T1], [{F2, A2} | T2]) ->
 split_print_exports([], []) -> ok.
 
 %% Just because we can't eval receive statements...
+-doc "Flushes any messages sent to the shell.".
 -spec flush() -> 'ok'.
 
 flush() ->
@@ -941,11 +1114,13 @@ flush() ->
     end.
 
 %% Print formatted info about all registered names in the system
+-doc(#{equiv => regs/0}).
 -spec nregs() -> 'ok'.
 
 nregs() ->
     foreach(fun (N) -> print_node_regs(N) end, all_regs()).
 
+-doc "`regs/0` displays information about all registered processes. `nregs/0` does the same, but for all nodes in the network.".
 -spec regs() -> 'ok'.
 
 regs() ->
@@ -1021,6 +1196,7 @@ portformat(Name, Id, Cmd) ->
 %% cd(Directory)
 %%  These are just wrappers around the file:get/set_cwd functions.
 
+-doc "Prints the name of the working directory.".
 -spec pwd() -> 'ok'.
 
 pwd() ->
@@ -1031,6 +1207,16 @@ pwd() ->
 	    ok = io:format("Cannot determine current directory\n")
     end.
 
+-doc """
+Changes working directory to `Dir`, which can be a relative name, and then prints the name of the new working directory.
+
+*Example:*
+
+```text
+2> cd("../erlang").
+/home/ron/erlang
+```
+""".
 -spec cd(Dir) -> 'ok' when
       Dir :: file:name().
 
@@ -1042,11 +1228,13 @@ cd(Dir) ->
 %% ls(Directory)
 %%  The strategy is to print in fixed width files.
 
+-doc "Lists files in the current directory.".
 -spec ls() -> 'ok'.
 
 ls() ->
     ls(".").
 
+-doc "Lists files in directory `Dir` or, if `Dir` is a file, only lists it.".
 -spec ls(Dir) -> 'ok' when
       Dir :: file:name().
 
@@ -1092,12 +1280,14 @@ w(X) ->
 %% memory/[0,1]
 %%
 
+-doc "Memory allocation information. Equivalent to `erlang:memory/0`.".
 -spec memory() -> [{Type, Size}] when
       Type :: atom(),
       Size :: non_neg_integer().
 
 memory() -> erlang:memory().
 
+-doc "Memory allocation information. Equivalent to `erlang:memory/1`.".
 -spec memory(Type) -> Size when
                Type :: atom(),
                Size :: non_neg_integer()
@@ -1112,6 +1302,8 @@ memory(TypeSpec) -> erlang:memory(TypeSpec).
 %% uptime/0
 %%
 
+-doc "Prints the node uptime (as specified by `erlang:statistics(wall_clock)`) in human-readable form.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec uptime() -> 'ok'.
 
 uptime() ->
@@ -1132,6 +1324,13 @@ get_uptime() ->
 %% Cross Reference Check
 %% 
 %%-spec xm(module() | file:filename()) -> xref:m/1 return
+-doc """
+ModSpec = Module | Filename  
+ Module = atom()  
+ Filename = string()  
+
+Finds undefined functions, unused functions, and calls to deprecated functions in a module by calling `xref:m/1`.
+""".
 xm(M) ->
     appcall(tools, xref, m, [M]).
 
@@ -1139,9 +1338,33 @@ xm(M) ->
 %% Call yecc 
 %% 
 %%-spec y(file:name()) -> yecc:file/2 return
+-doc """
+File = name()  
+YeccRet  
+
+Generates an LALR-1 parser. Equivalent to:
+
+```text
+yecc:file(File)
+```
+
+For information about `File = name()`, see `m:filename`. For information about `YeccRet`, see [`yecc:file/2`](`yecc:file/1`).
+""".
 y(File) -> y(File, []).
 
 %%-spec y(file:name(), [yecc:option()]) -> yecc:file/2 return
+-doc """
+File = name()  
+Options, YeccRet  
+
+Generates an LALR-1 parser. Equivalent to:
+
+```text
+yecc:file(File, Options)
+```
+
+For information about `File = name()`, see `m:filename`. For information about `Options` and `YeccRet`, see [`yecc:file/2`](`yecc:file/1`).
+""".
 y(File, Opts) ->
     appcall(parsetools, yecc, file, [File, Opts]).
 
@@ -1165,3 +1388,4 @@ appcall(App, M, F, Args) ->
 		    erlang:raise(error, undef, Stk)
 	    end
     end.
+

@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxFindReplaceDialog).
+-moduledoc """
+Functions for wxFindReplaceDialog class
+
+`m:wxFindReplaceDialog` is a standard modeless dialog which is used to allow the user to search for some text (and possibly replace it with something else).
+
+The actual searching is supposed to be done in the owner window which is the parent of this dialog. Note that it means that unlike for the other standard dialogs this one `must` have a parent window. Also note that there is no way to use this dialog in a modal way; it is always, by design and implementation, modeless.
+
+Please see the page_samples_dialogs sample for an example of using it.
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxFindReplaceDialog](https://docs.wxwidgets.org/3.1/classwx_find_replace_dialog.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getData/1,new/0,new/3,new/4]).
 
@@ -67,6 +80,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxFindReplaceDialog() :: wx:wx_object().
 -export_type([wxFindReplaceDialog/0]).
 %% @hidden
@@ -77,12 +91,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
+-doc "".
 -spec new() -> wxFindReplaceDialog().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFindReplaceDialog_new_0),
   wxe_util:rec(?wxFindReplaceDialog_new_0).
 
 %% @equiv new(Parent,Data,Title, [])
+-doc "".
 -spec new(Parent, Data, Title) -> wxFindReplaceDialog() when
 	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
@@ -91,6 +107,11 @@ new(Parent,Data,Title)
   new(Parent,Data,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
+-doc """
+After using default constructor `create/5` must be called.
+
+The `parent` and `data` parameters must be non-NULL.
+""".
 -spec new(Parent, Data, Title, [Option]) -> wxFindReplaceDialog() when
 	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {'style', integer()}.
@@ -106,6 +127,7 @@ new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data,Title, Options)
   wxe_util:rec(?wxFindReplaceDialog_new_4).
 
 %% @equiv create(This,Parent,Data,Title, [])
+-doc "".
 -spec create(This, Parent, Data, Title) -> boolean() when
 	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
@@ -114,6 +136,11 @@ create(This,Parent,Data,Title)
   create(This,Parent,Data,Title, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialogcreate">external documentation</a>.
+-doc """
+Creates the dialog; use `wxWindow:show/2` to show it on screen.
+
+The `parent` and `data` parameters must be non-NULL.
+""".
 -spec create(This, Parent, Data, Title, [Option]) -> boolean() when
 	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {'style', integer()}.
@@ -130,6 +157,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}
   wxe_util:rec(?wxFindReplaceDialog_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfindreplacedialog.html#wxfindreplacedialoggetdata">external documentation</a>.
+-doc "Get the `m:wxFindReplaceData` object used by this dialog.".
 -spec getData(This) -> wxFindReplaceData:wxFindReplaceData() when
 	This::wxFindReplaceDialog().
 getData(#wx_ref{type=ThisT}=This) ->
@@ -138,6 +166,7 @@ getData(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFindReplaceDialog_GetData).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destructor.".
 -spec destroy(This::wxFindReplaceDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFindReplaceDialog),
@@ -577,3 +606,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

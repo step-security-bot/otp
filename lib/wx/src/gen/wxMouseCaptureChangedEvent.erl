@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMouseCaptureChangedEvent).
+-moduledoc """
+Functions for wxMouseCaptureChangedEvent class
+
+An mouse capture changed event is sent to a window that loses its mouse capture. This is called even if `wxWindow:releaseMouse/1` was called by the application code. Handling this event allows an application to cater for unexpected capture releases which might otherwise confuse mouse handling code.
+
+Only for:wxmsw
+
+See: `m:wxMouseCaptureLostEvent`, [Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events), `wxWindow:captureMouse/1`, `wxWindow:releaseMouse/1`, `wxWindow:getCapture/0`
+
+This class is derived (and can use functions) from: `m:wxEvent`
+
+wxWidgets docs: [wxMouseCaptureChangedEvent](https://docs.wxwidgets.org/3.1/classwx_mouse_capture_changed_event.html)
+
+## Events
+
+Use `wxEvtHandler:connect/3` with [`wxMouseCaptureChangedEventType`](`t:wxMouseCaptureChangedEventType/0`) to subscribe to events of this type.
+""".
 -include("wxe.hrl").
 -export([getCapturedWindow/1]).
 
@@ -26,8 +43,10 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-doc "".
 -type wxMouseCaptureChangedEvent() :: wx:wx_object().
 -include("wx.hrl").
+-doc "".
 -type wxMouseCaptureChangedEventType() :: 'mouse_capture_changed'.
 -export_type([wxMouseCaptureChangedEvent/0, wxMouseCaptureChanged/0, wxMouseCaptureChangedEventType/0]).
 %% @hidden
@@ -35,6 +54,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmousecapturechangedevent.html#wxmousecapturechangedeventgetcapturedwindow">external documentation</a>.
+-doc "Returns the window that gained the capture, or NULL if it was a non-wxWidgets window.".
 -spec getCapturedWindow(This) -> wxWindow:wxWindow() when
 	This::wxMouseCaptureChangedEvent().
 getCapturedWindow(#wx_ref{type=ThisT}=This) ->
@@ -61,3 +81,4 @@ getTimestamp(This) -> wxEvent:getTimestamp(This).
 getSkipped(This) -> wxEvent:getSkipped(This).
 %% @hidden
 getId(This) -> wxEvent:getId(This).
+

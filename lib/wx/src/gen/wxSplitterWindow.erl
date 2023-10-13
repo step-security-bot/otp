@@ -19,6 +19,25 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxSplitterWindow).
+-moduledoc """
+Functions for wxSplitterWindow class
+
+This class manages up to two subwindows. The current view can be split into two programmatically (perhaps from a menu command), and unsplit either programmatically or via the `m:wxSplitterWindow` user interface.
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxSplitterEvent`, [Overview splitterwindow](https://docs.wxwidgets.org/3.1/overview_splitterwindow.html#overview_splitterwindow)
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxSplitterWindow](https://docs.wxwidgets.org/3.1/classwx_splitter_window.html)
+
+## Events
+
+Event types emitted from this class: [`command_splitter_sash_pos_changing`](`m:wxSplitterEvent`), [`command_splitter_sash_pos_changed`](`m:wxSplitterEvent`), [`command_splitter_unsplit`](`m:wxSplitterEvent`)
+""".
 -include("wxe.hrl").
 -export([create/2,create/3,destroy/1,getMinimumPaneSize/1,getSashGravity/1,
   getSashPosition/1,getSplitMode/1,getWindow1/1,getWindow2/1,initialize/2,
@@ -67,6 +86,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxSplitterWindow() :: wx:wx_object().
 -export_type([wxSplitterWindow/0]).
 %% @hidden
@@ -75,12 +95,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowwxsplitterwindow">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxSplitterWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxSplitterWindow_new_0),
   wxe_util:rec(?wxSplitterWindow_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxSplitterWindow() when
 	Parent::wxWindow:wxWindow().
 
@@ -89,6 +111,13 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowwxsplitterwindow">external documentation</a>.
+-doc """
+Constructor for creating the window.
+
+Remark: After using this constructor, you must create either one or two subwindows with the splitter window as parent, and then call one of `initialize/2`, `splitVertically/4` and `splitHorizontally/4` in order to set the pane(s). You can create two windows, with one hidden when not being shown; or you can create and delete the second pane on demand.
+
+See: `initialize/2`, `splitVertically/4`, `splitHorizontally/4`, `create/3`
+""".
 -spec new(Parent, [Option]) -> wxSplitterWindow() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -108,6 +137,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxSplitterWindow_new_2).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxSplitterWindow(), Parent::wxWindow:wxWindow().
 
@@ -116,6 +146,11 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowcreate">external documentation</a>.
+-doc """
+Creation function, for two-step construction.
+
+See `new/2` for details.
+""".
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -136,6 +171,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxSplitterWindow_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetminimumpanesize">external documentation</a>.
+-doc """
+Returns the current minimum pane size (defaults to zero).
+
+See: `setMinimumPaneSize/2`
+""".
 -spec getMinimumPaneSize(This) -> integer() when
 	This::wxSplitterWindow().
 getMinimumPaneSize(#wx_ref{type=ThisT}=This) ->
@@ -144,6 +184,11 @@ getMinimumPaneSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_GetMinimumPaneSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetsashgravity">external documentation</a>.
+-doc """
+Returns the current sash gravity.
+
+See: `setSashGravity/2`
+""".
 -spec getSashGravity(This) -> number() when
 	This::wxSplitterWindow().
 getSashGravity(#wx_ref{type=ThisT}=This) ->
@@ -152,6 +197,11 @@ getSashGravity(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_GetSashGravity).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetsashposition">external documentation</a>.
+-doc """
+Returns the current sash position.
+
+See: `setSashPosition/3`
+""".
 -spec getSashPosition(This) -> integer() when
 	This::wxSplitterWindow().
 getSashPosition(#wx_ref{type=ThisT}=This) ->
@@ -161,6 +211,11 @@ getSashPosition(#wx_ref{type=ThisT}=This) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetsplitmode">external documentation</a>.
 %%<br /> Res = ?wxSPLIT_HORIZONTAL | ?wxSPLIT_VERTICAL
+-doc """
+Gets the split mode.
+
+See: `setSplitMode/2`, `splitVertically/4`, `splitHorizontally/4`
+""".
 -spec getSplitMode(This) -> wx:wx_enum() when
 	This::wxSplitterWindow().
 getSplitMode(#wx_ref{type=ThisT}=This) ->
@@ -169,6 +224,7 @@ getSplitMode(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_GetSplitMode).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetwindow1">external documentation</a>.
+-doc "Returns the left/top or only pane.".
 -spec getWindow1(This) -> wxWindow:wxWindow() when
 	This::wxSplitterWindow().
 getWindow1(#wx_ref{type=ThisT}=This) ->
@@ -177,6 +233,7 @@ getWindow1(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_GetWindow1).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowgetwindow2">external documentation</a>.
+-doc "Returns the right/bottom pane.".
 -spec getWindow2(This) -> wxWindow:wxWindow() when
 	This::wxSplitterWindow().
 getWindow2(#wx_ref{type=ThisT}=This) ->
@@ -185,6 +242,15 @@ getWindow2(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_GetWindow2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowinitialize">external documentation</a>.
+-doc """
+Initializes the splitter window to have one pane.
+
+The child window is shown if it is currently hidden.
+
+Remark: This should be called if you wish to initially view only a single pane in the splitter window.
+
+See: `splitVertically/4`, `splitHorizontally/4`
+""".
 -spec initialize(This, Window) -> 'ok' when
 	This::wxSplitterWindow(), Window::wxWindow:wxWindow().
 initialize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
@@ -193,6 +259,7 @@ initialize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   wxe_util:queue_cmd(This,Window,?get_env(),?wxSplitterWindow_Initialize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowissplit">external documentation</a>.
+-doc "Returns true if the window is split, false otherwise.".
 -spec isSplit(This) -> boolean() when
 	This::wxSplitterWindow().
 isSplit(#wx_ref{type=ThisT}=This) ->
@@ -201,6 +268,15 @@ isSplit(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxSplitterWindow_IsSplit).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowreplacewindow">external documentation</a>.
+-doc """
+This function replaces one of the windows managed by the `m:wxSplitterWindow` with another one.
+
+It is in general better to use it instead of calling `unsplit/2` and then resplitting the window back because it will provoke much less flicker (if any). It is valid to call this function whether the splitter has two windows or only one.
+
+Both parameters should be non-NULL and `winOld` must specify one of the windows managed by the splitter. If the parameters are incorrect or the window couldn't be replaced, false is returned. Otherwise the function will return true, but please notice that it will not delete the replaced window and you may wish to do it yourself.
+
+See: `getMinimumPaneSize/1`
+""".
 -spec replaceWindow(This, WinOld, WinNew) -> boolean() when
 	This::wxSplitterWindow(), WinOld::wxWindow:wxWindow(), WinNew::wxWindow:wxWindow().
 replaceWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinOldT}=WinOld,#wx_ref{type=WinNewT}=WinNew) ->
@@ -211,6 +287,15 @@ replaceWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinOldT}=WinOld,#wx_ref{type
   wxe_util:rec(?wxSplitterWindow_ReplaceWindow).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsashgravity">external documentation</a>.
+-doc """
+Sets the sash gravity.
+
+Remark: Gravity is real factor which controls position of sash while resizing `m:wxSplitterWindow`. Gravity tells `m:wxSplitterWindow` how much will left/top window grow while resizing. Example values:
+
+Notice that when sash gravity for a newly created splitter window, it is often necessary to explicitly set the splitter size using `wxWindow:setSize/6` to ensure that is big enough for its initial sash position. Otherwise, i.e. if the window is created with the default tiny size and only resized to its correct size later, the initial sash position will be affected by the gravity and typically result in sash being at the rightmost position for the gravity of 1. See the example code creating `m:wxSplitterWindow` in the splitter sample for more details.
+
+See: `getSashGravity/1`
+""".
 -spec setSashGravity(This, Gravity) -> 'ok' when
 	This::wxSplitterWindow(), Gravity::number().
 setSashGravity(#wx_ref{type=ThisT}=This,Gravity)
@@ -219,6 +304,7 @@ setSashGravity(#wx_ref{type=ThisT}=This,Gravity)
   wxe_util:queue_cmd(This,Gravity,?get_env(),?wxSplitterWindow_SetSashGravity).
 
 %% @equiv setSashPosition(This,Position, [])
+-doc "".
 -spec setSashPosition(This, Position) -> 'ok' when
 	This::wxSplitterWindow(), Position::integer().
 
@@ -227,6 +313,13 @@ setSashPosition(This,Position)
   setSashPosition(This,Position, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsashposition">external documentation</a>.
+-doc """
+Sets the sash position.
+
+Remark: Does not currently check for an out-of-range value.
+
+See: `getSashPosition/1`
+""".
 -spec setSashPosition(This, Position, [Option]) -> 'ok' when
 	This::wxSplitterWindow(), Position::integer(),
 	Option :: {'redraw', boolean()}.
@@ -239,6 +332,13 @@ setSashPosition(#wx_ref{type=ThisT}=This,Position, Options)
   wxe_util:queue_cmd(This,Position, Opts,?get_env(),?wxSplitterWindow_SetSashPosition).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetminimumpanesize">external documentation</a>.
+-doc """
+Sets the minimum pane size.
+
+Remark: The default minimum pane size is zero, which means that either pane can be reduced to zero by dragging the sash, thus removing one of the panes. To prevent this behaviour (and veto out-of-range sash dragging), set a minimum size, for example 20 pixels. If the wxSP_PERMIT_UNSPLIT style is used when a splitter window is created, the window may be unsplit even if minimum size is non-zero.
+
+See: `getMinimumPaneSize/1`
+""".
 -spec setMinimumPaneSize(This, PaneSize) -> 'ok' when
 	This::wxSplitterWindow(), PaneSize::integer().
 setMinimumPaneSize(#wx_ref{type=ThisT}=This,PaneSize)
@@ -247,6 +347,13 @@ setMinimumPaneSize(#wx_ref{type=ThisT}=This,PaneSize)
   wxe_util:queue_cmd(This,PaneSize,?get_env(),?wxSplitterWindow_SetMinimumPaneSize).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsplitmode">external documentation</a>.
+-doc """
+Sets the split mode.
+
+Remark: Only sets the internal variable; does not update the display.
+
+See: `getSplitMode/1`, `splitVertically/4`, `splitHorizontally/4`
+""".
 -spec setSplitMode(This, Mode) -> 'ok' when
 	This::wxSplitterWindow(), Mode::integer().
 setSplitMode(#wx_ref{type=ThisT}=This,Mode)
@@ -255,6 +362,7 @@ setSplitMode(#wx_ref{type=ThisT}=This,Mode)
   wxe_util:queue_cmd(This,Mode,?get_env(),?wxSplitterWindow_SetSplitMode).
 
 %% @equiv splitHorizontally(This,Window1,Window2, [])
+-doc "".
 -spec splitHorizontally(This, Window1, Window2) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
 
@@ -263,6 +371,17 @@ splitHorizontally(This,Window1,Window2)
   splitHorizontally(This,Window1,Window2, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsplithorizontally">external documentation</a>.
+-doc """
+Initializes the top and bottom panes of the splitter window.
+
+The child windows are shown if they are currently hidden.
+
+Return: true if successful, false otherwise (the window was already split).
+
+Remark: This should be called if you wish to initially view two panes. It can also be called at any subsequent time, but the application should check that the window is not currently split using `isSplit/1`.
+
+See: `splitVertically/4`, `isSplit/1`, `unsplit/2`
+""".
 -spec splitHorizontally(This, Window1, Window2, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow(),
 	Option :: {'sashPosition', integer()}.
@@ -278,6 +397,7 @@ splitHorizontally(#wx_ref{type=ThisT}=This,#wx_ref{type=Window1T}=Window1,#wx_re
   wxe_util:rec(?wxSplitterWindow_SplitHorizontally).
 
 %% @equiv splitVertically(This,Window1,Window2, [])
+-doc "".
 -spec splitVertically(This, Window1, Window2) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
 
@@ -286,6 +406,17 @@ splitVertically(This,Window1,Window2)
   splitVertically(This,Window1,Window2, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsplitvertically">external documentation</a>.
+-doc """
+Initializes the left and right panes of the splitter window.
+
+The child windows are shown if they are currently hidden.
+
+Return: true if successful, false otherwise (the window was already split).
+
+Remark: This should be called if you wish to initially view two panes. It can also be called at any subsequent time, but the application should check that the window is not currently split using `isSplit/1`.
+
+See: `splitHorizontally/4`, `isSplit/1`, `unsplit/2`
+""".
 -spec splitVertically(This, Window1, Window2, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow(),
 	Option :: {'sashPosition', integer()}.
@@ -301,6 +432,7 @@ splitVertically(#wx_ref{type=ThisT}=This,#wx_ref{type=Window1T}=Window1,#wx_ref{
   wxe_util:rec(?wxSplitterWindow_SplitVertically).
 
 %% @equiv unsplit(This, [])
+-doc "".
 -spec unsplit(This) -> boolean() when
 	This::wxSplitterWindow().
 
@@ -309,6 +441,15 @@ unsplit(This)
   unsplit(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowunsplit">external documentation</a>.
+-doc """
+Unsplits the window.
+
+Return: true if successful, false otherwise (the window was not split).
+
+Remark: This call will not actually delete the pane being removed; it calls `OnUnsplit()` (not implemented in wx) which can be overridden for the desired behaviour. By default, the pane being removed is hidden.
+
+See: `splitHorizontally/4`, `splitVertically/4`, `isSplit/1`, `OnUnsplit()` (not implemented in wx)
+""".
 -spec unsplit(This, [Option]) -> boolean() when
 	This::wxSplitterWindow(),
 	Option :: {'toRemove', wxWindow:wxWindow()}.
@@ -322,6 +463,11 @@ unsplit(#wx_ref{type=ThisT}=This, Options)
   wxe_util:rec(?wxSplitterWindow_Unsplit).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowupdatesize">external documentation</a>.
+-doc """
+Causes any pending sizing of the sash and child panes to take place immediately.
+
+Such resizing normally takes place in idle time, in order to wait for layout to be completed. However, this can cause unacceptable flicker as the panes are resized after the window has been shown. To work around this, you can perform window layout (for example by sending a size event to the parent window), and then call this function, before showing the top-level window.
+""".
 -spec updateSize(This) -> 'ok' when
 	This::wxSplitterWindow().
 updateSize(#wx_ref{type=ThisT}=This) ->
@@ -329,6 +475,7 @@ updateSize(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_UpdateSize).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the `m:wxSplitterWindow` and its children.".
 -spec destroy(This::wxSplitterWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplitterWindow),
@@ -702,3 +849,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

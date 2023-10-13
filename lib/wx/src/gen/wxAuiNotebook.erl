@@ -19,6 +19,29 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxAuiNotebook).
+-moduledoc """
+Functions for wxAuiNotebook class
+
+`m:wxAuiNotebook` is part of the wxAUI class framework, which represents a notebook control, managing multiple windows with associated tabs.
+
+See also overview_aui.
+
+`m:wxAuiNotebook` is a notebook control which implements many features common in applications with dockable panes. Specifically, `m:wxAuiNotebook` implements functionality which allows the user to rearrange tab order via drag-and-drop, split the tab window into many different splitter configurations, and toggle through different themes to customize the control's look and feel.
+
+The default theme that is used is `wxAuiDefaultTabArt` (not implemented in wx), which provides a modern, glossy look and feel. The theme can be changed by calling `setArtProvider/2`.
+
+Styles
+
+This class supports the following styles:
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxAuiNotebook](https://docs.wxwidgets.org/3.1/classwx_aui_notebook.html)
+
+## Events
+
+Event types emitted from this class: [`command_auinotebook_page_close`](`m:wxAuiNotebookEvent`), [`command_auinotebook_page_closed`](`m:wxAuiNotebookEvent`), [`command_auinotebook_page_changed`](`m:wxAuiNotebookEvent`), [`command_auinotebook_page_changing`](`m:wxAuiNotebookEvent`), [`command_auinotebook_button`](`m:wxAuiNotebookEvent`), [`command_auinotebook_begin_drag`](`m:wxAuiNotebookEvent`), [`command_auinotebook_end_drag`](`m:wxAuiNotebookEvent`), [`command_auinotebook_drag_motion`](`m:wxAuiNotebookEvent`), [`command_auinotebook_allow_dnd`](`m:wxAuiNotebookEvent`), [`command_auinotebook_drag_done`](`m:wxAuiNotebookEvent`), [`command_auinotebook_tab_middle_down`](`m:wxAuiNotebookEvent`), [`command_auinotebook_tab_middle_up`](`m:wxAuiNotebookEvent`), [`command_auinotebook_tab_right_down`](`m:wxAuiNotebookEvent`), [`command_auinotebook_tab_right_up`](`m:wxAuiNotebookEvent`), [`command_auinotebook_bg_dclick`](`m:wxAuiNotebookEvent`)
+""".
 -include("wxe.hrl").
 -export([addPage/3,addPage/4,addPage/5,create/2,create/3,create/4,deletePage/2,
   destroy/1,getArtProvider/1,getPage/2,getPageBitmap/2,getPageCount/1,
@@ -66,6 +89,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxAuiNotebook() :: wx:wx_object().
 -export_type([wxAuiNotebook/0]).
 %% @hidden
@@ -75,12 +99,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-doc "Default ctor.".
 -spec new() -> wxAuiNotebook().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxAuiNotebook_new_0),
   wxe_util:rec(?wxAuiNotebook_new_0).
 
 %% @equiv new(Parent, [])
+-doc "".
 -spec new(Parent) -> wxAuiNotebook() when
 	Parent::wxWindow:wxWindow().
 
@@ -89,6 +115,11 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-doc """
+Constructor.
+
+Creates a wxAuiNotebok control.
+""".
 -spec new(Parent, [Option]) -> wxAuiNotebook() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -108,6 +139,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxAuiNotebook_new_2).
 
 %% @equiv addPage(This,Page,Caption, [])
+-doc "".
 -spec addPage(This, Page, Caption) -> boolean() when
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
@@ -116,6 +148,11 @@ addPage(This,Page,Caption)
   addPage(This,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
+-doc """
+Adds a page.
+
+If the `select` parameter is true, calling this will generate a page change event.
+""".
 -spec addPage(This, Page, Caption, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {'select', boolean()}
@@ -133,6 +170,21 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Caption, Options)
   wxe_util:rec(?wxAuiNotebook_AddPage_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
+-doc """
+Adds a new page.
+
+The page must have the book control itself as the parent and must not have been added to this control previously.
+
+The call to this function may generate the page changing events.
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `insertPage/6`
+
+Since: 2.9.3
+""".
 -spec addPage(This, Page, Text, Select, ImageId) -> boolean() when
 	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
@@ -144,6 +196,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
   wxe_util:rec(?wxAuiNotebook_AddPage_4).
 
 %% @equiv create(This,Parent, [])
+-doc "".
 -spec create(This, Parent) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow().
 
@@ -160,6 +213,7 @@ create(This,Parent)
 %% 		 | {'size', {W::integer(), H::integer()}}<br />
 %% 		 | {'style', integer()}.<br />
 %% 
+-doc "Creates the notebook window.".
 -spec create(This, Parent, Winid) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer();
       (This, Parent, [Option]) -> boolean() when
@@ -186,6 +240,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxAuiNotebook_Create_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookcreate">external documentation</a>.
+-doc "Constructs the book control with the given parameters.".
 -spec create(This, Parent, Winid, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -204,6 +259,11 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Winid, Options)
   wxe_util:rec(?wxAuiNotebook_Create_3).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookdeletepage">external documentation</a>.
+-doc """
+Deletes a page at the given index.
+
+Calling this method will generate a page change event.
+""".
 -spec deletePage(This, Page) -> boolean() when
 	This::wxAuiNotebook(), Page::integer().
 deletePage(#wx_ref{type=ThisT}=This,Page)
@@ -213,6 +273,7 @@ deletePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_DeletePage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetartprovider">external documentation</a>.
+-doc "Returns the associated art provider.".
 -spec getArtProvider(This) -> wxAuiTabArt:wxAuiTabArt() when
 	This::wxAuiNotebook().
 getArtProvider(#wx_ref{type=ThisT}=This) ->
@@ -221,6 +282,7 @@ getArtProvider(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiNotebook_GetArtProvider).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpage">external documentation</a>.
+-doc "Returns the page specified by the given index.".
 -spec getPage(This, Page_idx) -> wxWindow:wxWindow() when
 	This::wxAuiNotebook(), Page_idx::integer().
 getPage(#wx_ref{type=ThisT}=This,Page_idx)
@@ -230,6 +292,7 @@ getPage(#wx_ref{type=ThisT}=This,Page_idx)
   wxe_util:rec(?wxAuiNotebook_GetPage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagebitmap">external documentation</a>.
+-doc "Returns the tab bitmap for the page.".
 -spec getPageBitmap(This, Page) -> wxBitmap:wxBitmap() when
 	This::wxAuiNotebook(), Page::integer().
 getPageBitmap(#wx_ref{type=ThisT}=This,Page)
@@ -239,6 +302,7 @@ getPageBitmap(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_GetPageBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagecount">external documentation</a>.
+-doc "Returns the number of pages in the notebook.".
 -spec getPageCount(This) -> integer() when
 	This::wxAuiNotebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
@@ -247,6 +311,11 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiNotebook_GetPageCount).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpageindex">external documentation</a>.
+-doc """
+Returns the page index for the specified window.
+
+If the window is not found in the notebook, wxNOT_FOUND is returned.
+""".
 -spec getPageIndex(This, Page_wnd) -> integer() when
 	This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow().
 getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
@@ -256,6 +325,7 @@ getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
   wxe_util:rec(?wxAuiNotebook_GetPageIndex).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetpagetext">external documentation</a>.
+-doc "Returns the tab label for the page.".
 -spec getPageText(This, Page) -> unicode:charlist() when
 	This::wxAuiNotebook(), Page::integer().
 getPageText(#wx_ref{type=ThisT}=This,Page)
@@ -265,6 +335,7 @@ getPageText(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_GetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookgetselection">external documentation</a>.
+-doc "Returns the currently selected page.".
 -spec getSelection(This) -> integer() when
 	This::wxAuiNotebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
@@ -273,6 +344,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxAuiNotebook_GetSelection).
 
 %% @equiv insertPage(This,Page_idx,Page,Caption, [])
+-doc "".
 -spec insertPage(This, Page_idx, Page, Caption) -> boolean() when
 	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
@@ -281,6 +353,11 @@ insertPage(This,Page_idx,Page,Caption)
   insertPage(This,Page_idx,Page,Caption, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
+-doc """
+`insertPage/6` is similar to AddPage, but allows the ability to specify the insert location.
+
+If the `select` parameter is true, calling this will generate a page change event.
+""".
 -spec insertPage(This, Page_idx, Page, Caption, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {'select', boolean()}
@@ -298,6 +375,17 @@ insertPage(#wx_ref{type=ThisT}=This,Page_idx,#wx_ref{type=PageT}=Page,Caption, O
   wxe_util:rec(?wxAuiNotebook_InsertPage_4).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
+-doc """
+Inserts a new page at the specified position.
+
+Return: true if successful, false otherwise.
+
+Remark: Do not delete the page, it will be deleted by the book control.
+
+See: `addPage/5`
+
+Since: 2.9.3
+""".
 -spec insertPage(This, Index, Page, Text, Select, ImageId) -> boolean() when
 	This::wxAuiNotebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
@@ -309,6 +397,7 @@ insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,I
   wxe_util:rec(?wxAuiNotebook_InsertPage_5).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebookremovepage">external documentation</a>.
+-doc "Removes a page, without deleting the window pointer.".
 -spec removePage(This, Page) -> boolean() when
 	This::wxAuiNotebook(), Page::integer().
 removePage(#wx_ref{type=ThisT}=This,Page)
@@ -318,6 +407,7 @@ removePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:rec(?wxAuiNotebook_RemovePage).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetartprovider">external documentation</a>.
+-doc "Sets the art provider to be used by the notebook.".
 -spec setArtProvider(This, Art) -> 'ok' when
 	This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt().
 setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=ArtT}=Art) ->
@@ -326,6 +416,7 @@ setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=ArtT}=Art) ->
   wxe_util:queue_cmd(This,Art,?get_env(),?wxAuiNotebook_SetArtProvider).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetfont">external documentation</a>.
+-doc "Sets the font for drawing the tab labels, using a bold version of the font for selected tab labels.".
 -spec setFont(This, Font) -> boolean() when
 	This::wxAuiNotebook(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
@@ -335,6 +426,11 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   wxe_util:rec(?wxAuiNotebook_SetFont).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetpagebitmap">external documentation</a>.
+-doc """
+Sets the bitmap for the page.
+
+To remove a bitmap from the tab caption, pass wxNullBitmap.
+""".
 -spec setPageBitmap(This, Page, Bitmap) -> boolean() when
 	This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap().
 setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
@@ -345,6 +441,7 @@ setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
   wxe_util:rec(?wxAuiNotebook_SetPageBitmap).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetpagetext">external documentation</a>.
+-doc "Sets the tab label for the page.".
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
@@ -355,6 +452,11 @@ setPageText(#wx_ref{type=ThisT}=This,Page,Text)
   wxe_util:rec(?wxAuiNotebook_SetPageText).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetselection">external documentation</a>.
+-doc """
+Sets the page selection.
+
+Calling this method will generate a page change event.
+""".
 -spec setSelection(This, New_page) -> integer() when
 	This::wxAuiNotebook(), New_page::integer().
 setSelection(#wx_ref{type=ThisT}=This,New_page)
@@ -364,6 +466,13 @@ setSelection(#wx_ref{type=ThisT}=This,New_page)
   wxe_util:rec(?wxAuiNotebook_SetSelection).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksettabctrlheight">external documentation</a>.
+-doc """
+Sets the tab height.
+
+By default, the tab control height is calculated by measuring the text height and bitmap sizes on the tab captions. Calling this method will override that calculation and set the tab control to the specified height parameter. A call to this method will override any call to `setUniformBitmapSize/2`.
+
+Specifying -1 as the height will return the control to its default auto-sizing behaviour.
+""".
 -spec setTabCtrlHeight(This, Height) -> 'ok' when
 	This::wxAuiNotebook(), Height::integer().
 setTabCtrlHeight(#wx_ref{type=ThisT}=This,Height)
@@ -372,6 +481,11 @@ setTabCtrlHeight(#wx_ref{type=ThisT}=This,Height)
   wxe_util:queue_cmd(This,Height,?get_env(),?wxAuiNotebook_SetTabCtrlHeight).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebook.html#wxauinotebooksetuniformbitmapsize">external documentation</a>.
+-doc """
+Ensure that all tabs have the same height, even if some of them don't have bitmaps.
+
+Passing ?wxDefaultSize as `size` undoes the effect of a previous call to this function and instructs the control to use dynamic tab height.
+""".
 -spec setUniformBitmapSize(This, Size) -> 'ok' when
 	This::wxAuiNotebook(), Size::{W::integer(), H::integer()}.
 setUniformBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
@@ -380,6 +494,7 @@ setUniformBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
   wxe_util:queue_cmd(This,Size,?get_env(),?wxAuiNotebook_SetUniformBitmapSize).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxAuiNotebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiNotebook),
@@ -752,3 +867,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

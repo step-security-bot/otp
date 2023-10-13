@@ -18,6 +18,16 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_mpd).
+-moduledoc """
+Message Processing and Dispatch module for the SNMP agent
+
+The module `snmpa_mpd` implements the version independent Message Processing and Dispatch functionality in SNMP for the agent. It is supposed to be used from a Network Interface process ([Definition of Agent Net if](snmp_agent_netif.md)).
+
+[](){: id=init }
+## DATA TYPES
+
+See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
+""".
 
 -export([init/1, reset/0, inc/1, counters/0, 
 	 discarded_pdu/1,
@@ -84,6 +94,16 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+-doc """
+Vsns = \[Vsn]  
+Vsn = v1 | v2 | v3  
+
+This function can be called from the net_if process at start-up. The options list defines which versions to use.
+
+It also initializes some SNMP counters.
+
+[](){: id=process_packet }
+""".
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
@@ -147,6 +167,8 @@ empty_msg_size() ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
+-doc(#{equiv => process_packet/6}).
+-doc(#{since => <<"OTP 17.3,OTP R14B">>}).
 process_packet(Packet, From, State, NoteStore, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
@@ -156,6 +178,32 @@ process_packet(
     From = {Domain, Address},
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
+-doc """
+Packet = binary()  
+From = \{TDomain, TAddr\}  
+TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6  
+TAddr = \{IpAddr, IpPort\}  
+LocalEngineID = string()  
+IpAddr = [inet:ip_address()](`t:inet:ip_address/0`)  
+IpPort = inet:port_number()  
+State = mpd_state()  
+NoteStore = pid()  
+Log = snmp_log()  
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+Pdu = #pdu  
+PduMs = integer()  
+ACMData = acm_data()  
+Reason = term()  
+DiscoPacket = binary()  
+
+Processes an incoming packet. Performs authentication and decryption as necessary. The return values should be passed to the agent.
+
+> #### Note {: class=info }
+> Note that the use of the LocalEngineID argument is only intended for special cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: id=generate_response_msg }
+""".
+-doc(#{since => <<"OTP 17.3,OTP R14B">>}).
 process_packet(Packet, Domain, Address, State, NoteStore, Log)
   when is_atom(Domain) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
@@ -224,6 +272,11 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    {discarded, snmpInBadVersions}
     end.
 
+-doc """
+Variable = atom()  
+
+Increments the variable associated with a discarded pdu. This function can be used when the net_if process receives a `discarded_pdu` message from the agent.
+""".
 discarded_pdu(false) -> ok;
 discarded_pdu(Variable) -> inc(Variable).
 
@@ -641,9 +694,27 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Executed when a response or report message is generated.
 %%-----------------------------------------------------------------
+-doc(#{equiv => generate_response_msg/6}).
+-doc(#{since => <<"OTP R14B">>}).
 generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
     generate_response_msg(Vsn, RePdu, Type, ACMData, Log, 1).
 
+-doc """
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+RePdu = #pdu  
+Type = atom()  
+ACMData = acm_data()  
+LocalEngineID = string()  
+Packet = binary()  
+
+Generates a possibly encrypted response packet to be sent to the network. `Type` is the `#pdu.type` of the original request.
+
+> #### Note {: class=info }
+> Note that the use of the LocalEngineID argument is only intended for special cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: id=generate_msg }
+""".
+-doc(#{since => <<"OTP R14B">>}).
 generate_response_msg(Vsn, RePdu, Type, ACMData, Log, N) when is_integer(N) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, N);
@@ -918,10 +989,38 @@ set_vb_null([]) ->
 %% Executed when a message that isn't a response is generated, i.e.
 %% a trap or an inform.
 %%-----------------------------------------------------------------
+-doc(#{equiv => generate_msg/6}).
+-doc(#{since => <<"OTP R14B">>}).
 generate_msg(Vsn, NoteStore, Pdu, ACMData, To) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     generate_msg(Vsn, NoteStore, Pdu, ACMData, LocalEngineID, To).
 
+-doc """
+Vsn = 'version-1' | 'version-2' | 'version-3'  
+NoteStore = pid()  
+Pdu = #pdu  
+MsgData = msg_data()  
+LocalEngineID = string()  
+To = \[dest_addrs()]  
+PacketsAndAddresses = \[\{TDomain, TAddress, Packet\}]  
+TDomain = snmpUDPDomain  
+TAddress = \{Ip, Udp\}  
+Ip = \{integer(), integer(), integer(), integer()\}  
+Udp = integer()  
+Packet = binary()  
+
+Generates a possibly encrypted request packet to be sent to the network.
+
+`MsgData` is the message specific data used in the SNMP message. This value is received in a [`send_pdu`](snmp_agent_netif.md#im_send_pdu) or [`send_pdu_req`](snmp_agent_netif.md#im_send_pdu_req) message from the agent. In SNMPv1 and SNMPv2c, this message data is the community string. In SNMPv3, it is the context information.
+
+`To` is a list of destination addresses and their corresponding security parameters. This value is received in the same message from the agent and then transformed through [`process_taddrs`](`m:snmpa_mpd#process_taddrs`) before passed to this function.
+
+> #### Note {: class=info }
+> Note that the use of the LocalEngineID argument is only intended for special cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: id=process_taddrs }
+""".
+-doc(#{since => <<"OTP R14B">>}).
 generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
     Message = #message{version = Vsn, vsn_hdr = Community, data = Pdu},
     case catch list_to_binary(snmp_pdus:enc_message(Message)) of
@@ -1161,6 +1260,24 @@ transform_taddr(BadTDomain, TAddress) ->
     end.
 
 
+-doc """
+TDests = \[TDest]  
+TDest = \{\{TDomain, TAddr\}, SecData\} | \{TDomain, TAddr\}  
+TDomain = term() % Not at tuple  
+TAddr = term()  
+SecData = term()  
+Dests = \[Dest]  
+Dest = \{\{Domain, Addr\}, SecData\} | \{Domain, Addr\}  
+Domain = transportDomain()  
+Addr = transportAddress() % Depends on Domain  
+
+Transforms addresses from internal MIB format to one more useful to [Agent Net if](snmp_agent_netif.md).
+
+See also [`generate_msg`.](`m:snmpa_mpd#generate_msg`)
+
+[](){: id=discarded_pdu }
+""".
+-doc(#{since => <<"OTP 17.3">>}).
 process_taddrs(Dests) ->
     ?vtrace("process_taddrs -> entry with"
 	    "~n   Dests: ~p", [Dests]),
@@ -1560,4 +1677,5 @@ user_err(F, A) ->
 
 config_err(F, A) ->
     snmpa_error:config_err(F, A).
+
 

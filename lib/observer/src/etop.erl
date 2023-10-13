@@ -18,6 +18,57 @@
 %% %CopyrightEnd%
 %%
 -module(etop).
+-moduledoc """
+Erlang Top is a tool for presenting information about Erlang processes similar to the information presented by "top" in UNIX.
+
+Start Erlang Top with the provided scripts `etop`. This starts a hidden Erlang node that connects to the node to be measured. The measured node is specified with option `-node`. If the measured node has a different cookie than the default cookie for the user who invokes the script, the cookie must be explicitly specified with option `-setcookie`.
+
+Under Windows, batch file `etop.bat` can be used.
+
+When executing the `etop` script, configuration parameters can be specified as command-line options, for example, `etop -node testnode@myhost -setcookie MyCookie`. The following configuration parameters exist for the tool:
+
+* __`node`__ - The measured node.
+
+  Value: `t:atom()`
+
+  Mandatory
+
+* __`setcookie`__ - Cookie to use for the `etop` node. Must be same as the cookie on the measured node.
+
+  Value: `t:atom()`
+
+* __`lines`__ - Number of lines (processes) to display.
+
+  Value: `t:integer()`
+
+  Default: `10`
+
+* __`interval`__ - Time interval (in seconds) between each update of the display.
+
+  Value: `t:integer()`
+
+  Default: `5`
+
+* __`accumulate`__ - If `true`, the execution time and reductions are accumulated.
+
+  Value: `t:boolean()`
+
+  Default: `false`
+
+* __`sort`__ - Identifies what information to sort by.
+
+  Value: `runtime | reductions | memory | msg_q`
+
+  Default: `runtime` (`reductions` if `tracing=off`)
+
+* __`tracing`__ - `etop` uses the Erlang trace facility, and thus no other tracing is possible on the measured node while `etop` is running, unless this option is set to `off`. Also helpful if the `etop` tracing causes too high load on the measured node. With tracing off, runtime is not measured.
+
+  Value: `on | off`
+
+  Default: `on`
+
+For details about Erlang Top, see the [User's Guide](etop_ug.md).
+""".
 -author('siri@erix.ericsson.se').
 
 -export([start/0, start/1, config/2, stop/0, dump/1, help/0]).
@@ -30,6 +81,8 @@
 
 -define(change_at_runtime_config,[lines,interval,sort,accumulate]).
 
+-doc "Displays the help of `etop` and its options.".
+-doc(#{since => <<"OTP R15B01">>}).
 help() ->
     io:format(
       "Usage of the Erlang top program~n~n"
@@ -57,12 +110,20 @@ help() ->
       "                         This is not an etop parameter~n"
      ).
 
+-doc "Terminates `etop`.".
 stop() ->
     case whereis(etop_server) of
 	undefined -> not_started;
 	Pid when is_pid(Pid) -> etop_server ! stop
     end.
 
+-doc """
+Result = ok | \{error,Reason\}  
+Key = lines | interval | accumulate | sort  
+Value = term()  
+
+Changes the configuration parameters of the tool during runtime. Allowed parameters are `lines`, `interval`, `accumulate`, and `sort`.
+""".
 config(Key,Value) ->
     case check_runtime_config(Key,Value) of
 	ok ->
@@ -80,15 +141,32 @@ check_runtime_config(sort,S) when S=:=runtime;
 check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
+-doc """
+Result = ok | \{error,Reason\}  
+File = string()  
+
+Dumps the current display to a text file.
+""".
 dump(File) ->
     case file:open(File,[write,{encoding,utf8}]) of
 	{ok,Fd} -> etop_server ! {dump,Fd};
 	Error -> Error
     end.
 
+-doc "Starts `etop`. Notice that `etop` is preferably started with the `etop` script.".
+-doc(#{since => <<"OTP R15B01">>}).
 start() ->
     start([]).
     
+-doc """
+Options = \[Option]  
+Option = \{Key, Value\}  
+Key = atom()  
+Value = term()  
+
+Starts `etop`. To view the possible options, use `help/0`.
+""".
+-doc(#{since => <<"OTP R15B01">>}).
 start(Opts) ->
     process_flag(trap_exit, true),
     Config1 = handle_args(init:get_arguments() ++ Opts, #opts{}),
@@ -380,4 +458,5 @@ get_mem(Tag, MemI) ->
 	{value, {Tag, I}} -> I;			       %these are in bytes
 	_ -> 0
     end.
+
 

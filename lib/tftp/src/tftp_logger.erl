@@ -19,6 +19,11 @@
 %%
 %%
 -module(tftp_logger).
+-moduledoc """
+Trivial FTP logger.
+
+A `tftp_logger` callback module is to be implemented as a `tftp_logger` behavior and export the following functions:
+""".
 
 %%-------------------------------------------------------------------
 %% Interface
@@ -31,8 +36,32 @@
 	 info_msg/2
 	]).
 
+-doc """
+Format = string()  
+Data = \[term()]  
+Reason = term()  
+
+Logs a warning message. See `error_logger:warning_msg/2` for details.
+""".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback warning_msg(Format :: string(), Data :: [term()]) -> ok.
+-doc """
+Format = string()  
+Data = \[term()]  
+Reason = term()  
+
+Logs an info message. See `error_logger:info_msg/2` for details.
+""".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback info_msg(Format :: string(), Data :: [term()]) -> ok.
+-doc """
+Format = string()  
+Data = \[term()]  
+Reason = term()  
+
+Logs an error message. See `error_logger:error_msg/2` for details.
+""".
+-doc(#{since => <<"OTP 18.1">>}).
 -callback error_msg(Format :: string(), Data :: [term()]) -> ok.
 
 -optional_callbacks([warning_msg/2, error_msg/2, info_msg/2]).
@@ -96,3 +125,4 @@ t(Int) ->
 	[Single] -> [$0, Single];
         Multi    -> Multi
     end.
+

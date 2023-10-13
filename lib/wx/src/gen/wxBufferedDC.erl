@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxBufferedDC).
+-moduledoc """
+Functions for wxBufferedDC class
+
+This class provides a simple way to avoid flicker: when drawing on it, everything is in fact first drawn on an in-memory buffer (a `m:wxBitmap`) and then copied to the screen, using the associated `m:wxDC`, only once, when this object is destroyed. `m:wxBufferedDC` itself is typically associated with `m:wxClientDC`, if you want to use it in your `EVT_PAINT` handler, you should look at `m:wxBufferedPaintDC` instead.
+
+When used like this, a valid `DC` must be specified in the constructor while the `buffer` bitmap doesn't have to be explicitly provided, by default this class will allocate the bitmap of required size itself. However using a dedicated bitmap can speed up the redrawing process by eliminating the repeated creation and destruction of a possibly big bitmap. Otherwise, `m:wxBufferedDC` can be used in the same way as any other device context.
+
+Another possible use for `m:wxBufferedDC` is to use it to maintain a backing store for the window contents. In this case, the associated `DC` may be NULL but a valid backing store bitmap should be specified.
+
+Finally, please note that GTK+ 2.0 as well as macOS provide double buffering themselves natively. You can either use `wxWindow:isDoubleBuffered/1` to determine whether you need to use buffering or not, or use `wxAutoBufferedPaintDC` (not implemented in wx) to avoid needless double buffering on the systems which already do it automatically.
+
+See: `m:wxDC`, `m:wxMemoryDC`, `m:wxBufferedPaintDC`, `wxAutoBufferedPaintDC` (not implemented in wx)
+
+This class is derived (and can use functions) from: `m:wxMemoryDC` `m:wxDC`
+
+wxWidgets docs: [wxBufferedDC](https://docs.wxwidgets.org/3.1/classwx_buffered_d_c.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,init/2,init/3,init/4,new/0,new/1,new/2,new/3]).
 
@@ -45,6 +62,7 @@
   setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,
   startDoc/2,startPage/1]).
 
+-doc "".
 -type wxBufferedDC() :: wx:wx_object().
 -export_type([wxBufferedDC/0]).
 %% @hidden
@@ -53,12 +71,18 @@ parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-doc """
+Default constructor.
+
+You must call one of the `init/4` methods later in order to use the device context.
+""".
 -spec new() -> wxBufferedDC().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxBufferedDC_new_0),
   wxe_util:rec(?wxBufferedDC_new_0).
 
 %% @equiv new(Dc, [])
+-doc "".
 -spec new(Dc) -> wxBufferedDC() when
 	Dc::wxDC:wxDC().
 
@@ -73,6 +97,11 @@ new(Dc)
 %% 	Option :: {'buffer', wxBitmap:wxBitmap()}<br />
 %% 		 | {'style', integer()}.<br />
 %% 
+-doc """
+Creates a buffer for the provided dc.
+
+`init/4` must not be called when using this constructor.
+""".
 -spec new(Dc, Area) -> wxBufferedDC() when
 	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (Dc, [Option]) -> wxBufferedDC() when
@@ -94,6 +123,11 @@ new(#wx_ref{type=DcT}=Dc, Options)
   wxe_util:rec(?wxBufferedDC_new_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-doc """
+Creates a buffer for the provided `dc`.
+
+`init/4` must not be called when using this constructor.
+""".
 -spec new(Dc, Area, [Option]) -> wxBufferedDC() when
 	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
 	Option :: {'style', integer()}.
@@ -107,6 +141,7 @@ new(#wx_ref{type=DcT}=Dc,{AreaW,AreaH} = Area, Options)
   wxe_util:rec(?wxBufferedDC_new_3).
 
 %% @equiv init(This,Dc, [])
+-doc "".
 -spec init(This, Dc) -> 'ok' when
 	This::wxBufferedDC(), Dc::wxDC:wxDC().
 
@@ -121,6 +156,7 @@ init(This,Dc)
 %% 	Option :: {'buffer', wxBitmap:wxBitmap()}<br />
 %% 		 | {'style', integer()}.<br />
 %% 
+-doc "".
 -spec init(This, Dc, Area) -> 'ok' when
 	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (This, Dc, [Option]) -> 'ok' when
@@ -142,6 +178,11 @@ init(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc, Options)
   wxe_util:queue_cmd(This,Dc, Opts,?get_env(),?wxBufferedDC_Init_2).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
+-doc """
+Initializes the object created using the default constructor.
+
+Please see the constructors for parameter details.
+""".
 -spec init(This, Dc, Area, [Option]) -> 'ok' when
 	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
 	Option :: {'style', integer()}.
@@ -155,6 +196,7 @@ init(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc,{AreaW,AreaH} = Area, Options
   wxe_util:queue_cmd(This,Dc,Area, Opts,?get_env(),?wxBufferedDC_Init_3).
 
 %% @doc Destroys this object, do not use object again
+-doc "Copies everything drawn on the DC so far to the underlying DC associated with this object, if any.".
 -spec destroy(This::wxBufferedDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
@@ -350,3 +392,4 @@ calcBoundingBox(This,X,Y) -> wxDC:calcBoundingBox(This,X,Y).
 blit(This,Dest,Size,Source,Src, Options) -> wxDC:blit(This,Dest,Size,Source,Src, Options).
 %% @hidden
 blit(This,Dest,Size,Source,Src) -> wxDC:blit(This,Dest,Size,Source,Src).
+

@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxStaticText).
+-moduledoc """
+Functions for wxStaticText class
+
+A static text control displays one or more lines of read-only text. `m:wxStaticText` supports the three classic text alignments, label ellipsization i.e. replacing parts of the text with the ellipsis ("...") if the label doesn't fit into the provided space and also formatting markup with `wxControl::SetLabelMarkup()` (not implemented in wx).
+
+Styles
+
+This class supports the following styles:
+
+See: `m:wxStaticBitmap`, `m:wxStaticBox`
+
+This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxStaticText](https://docs.wxwidgets.org/3.1/classwx_static_text.html)
+""".
 -include("wxe.hrl").
 -export([create/4,create/5,destroy/1,getLabel/1,new/0,new/3,new/4,setLabel/2,wrap/2]).
 
@@ -61,6 +76,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxStaticText() :: wx:wx_object().
 -export_type([wxStaticText/0]).
 %% @hidden
@@ -70,12 +86,14 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
+-doc "Default constructor.".
 -spec new() -> wxStaticText().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxStaticText_new_0),
   wxe_util:rec(?wxStaticText_new_0).
 
 %% @equiv new(Parent,Id,Label, [])
+-doc "".
 -spec new(Parent, Id, Label) -> wxStaticText() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -84,6 +102,11 @@ new(Parent,Id,Label)
   new(Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
+-doc """
+Constructor, creating and showing a text control.
+
+See: `create/5`
+""".
 -spec new(Parent, Id, Label, [Option]) -> wxStaticText() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -102,6 +125,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxStaticText_new_4).
 
 %% @equiv create(This,Parent,Id,Label, [])
+-doc "".
 -spec create(This, Parent, Id, Label) -> boolean() when
 	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
@@ -110,6 +134,11 @@ create(This,Parent,Id,Label)
   create(This,Parent,Id,Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
+-doc """
+Creation function, for two-step construction.
+
+For details see `new/4`.
+""".
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {'pos', {X::integer(), Y::integer()}}
@@ -129,6 +158,13 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Label, Options)
   wxe_util:rec(?wxStaticText_Create).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextgetlabel">external documentation</a>.
+-doc """
+Returns the control's label, as it was passed to `wxControl:setLabel/2`.
+
+Note that the returned string may contains mnemonics ("&" characters) if they were passed to the `wxControl:setLabel/2` function; use `GetLabelText()` (not implemented in wx) if they are undesired.
+
+Also note that the returned string is always the string which was passed to `wxControl:setLabel/2` but may be different from the string passed to `SetLabelText()` (not implemented in wx) (since this last one escapes mnemonic characters).
+""".
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxStaticText().
 getLabel(#wx_ref{type=ThisT}=This) ->
@@ -137,6 +173,13 @@ getLabel(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxStaticText_GetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextsetlabel">external documentation</a>.
+-doc """
+Change the label shown in the control.
+
+Notice that since wxWidgets 3.1.1 this function is guaranteed not to do anything if the label didn't really change, so there is no benefit to checking if the new label is different from the current one in the application code.
+
+See: `wxControl:setLabel/2`
+""".
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
@@ -146,6 +189,13 @@ setLabel(#wx_ref{type=ThisT}=This,Label)
   wxe_util:queue_cmd(This,Label_UC,?get_env(),?wxStaticText_SetLabel).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwrap">external documentation</a>.
+-doc """
+This functions wraps the controls label so that each of its lines becomes at most `width` pixels wide if possible (the lines are broken at words boundaries so it might not be the case if words are too long).
+
+If `width` is negative, no wrapping is done. Note that this width is not necessarily the total width of the control, since a few pixels for the border (depending on the controls border style) may be added.
+
+Since: 2.6.2
+""".
 -spec wrap(This, Width) -> 'ok' when
 	This::wxStaticText(), Width::integer().
 wrap(#wx_ref{type=ThisT}=This,Width)
@@ -154,6 +204,7 @@ wrap(#wx_ref{type=ThisT}=This,Width)
   wxe_util:queue_cmd(This,Width,?get_env(),?wxStaticText_Wrap).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxStaticText()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticText),
@@ -524,3 +575,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

@@ -19,6 +19,21 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMultiChoiceDialog).
+-moduledoc """
+Functions for wxMultiChoiceDialog class
+
+This class represents a dialog that shows a list of strings, and allows the user to select one or more.
+
+Styles
+
+This class supports the following styles:
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_multichoice), `m:wxSingleChoiceDialog`
+
+This class is derived (and can use functions) from: `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMultiChoiceDialog](https://docs.wxwidgets.org/3.1/classwx_multi_choice_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,getSelections/1,new/4,new/5,setSelections/2]).
 
@@ -67,6 +82,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMultiChoiceDialog() :: wx:wx_object().
 -export_type([wxMultiChoiceDialog/0]).
 %% @hidden
@@ -77,6 +93,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent,Message,Caption,Choices, [])
+-doc "".
 -spec new(Parent, Message, Caption, Choices) -> wxMultiChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
@@ -85,6 +102,11 @@ new(Parent,Message,Caption,Choices)
   new(Parent,Message,Caption,Choices, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialogwxmultichoicedialog">external documentation</a>.
+-doc """
+Constructor taking an array of `wxString` (not implemented in wx) choices.
+
+Remark: Use `wxDialog:showModal/1` to show the dialog.
+""".
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxMultiChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()],
 	Option :: {'style', integer()}
@@ -104,6 +126,7 @@ new(#wx_ref{type=ParentT}=Parent,Message,Caption,Choices, Options)
   wxe_util:rec(?wxMultiChoiceDialog_new).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialoggetselections">external documentation</a>.
+-doc "Returns array with indexes of selected items.".
 -spec getSelections(This) -> [integer()] when
 	This::wxMultiChoiceDialog().
 getSelections(#wx_ref{type=ThisT}=This) ->
@@ -112,6 +135,7 @@ getSelections(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxMultiChoiceDialog_GetSelections).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialogsetselections">external documentation</a>.
+-doc "Sets selected items from the array of selected items' indexes.".
 -spec setSelections(This, Selections) -> 'ok' when
 	This::wxMultiChoiceDialog(), Selections::[integer()].
 setSelections(#wx_ref{type=ThisT}=This,Selections)
@@ -120,6 +144,7 @@ setSelections(#wx_ref{type=ThisT}=This,Selections)
   wxe_util:queue_cmd(This,Selections,?get_env(),?wxMultiChoiceDialog_SetSelections).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxMultiChoiceDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMultiChoiceDialog),
@@ -559,3 +584,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

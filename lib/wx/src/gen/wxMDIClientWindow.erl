@@ -19,6 +19,23 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxMDIClientWindow).
+-moduledoc """
+Functions for wxMDIClientWindow class
+
+An MDI client window is a child of `m:wxMDIParentFrame`, and manages zero or more `m:wxMDIChildFrame` objects.
+
+The client window is the area where MDI child windows exist. It doesn't have to cover the whole parent frame; other windows such as toolbars and a help window might coexist with it. There can be scrollbars on a client window, which are controlled by the parent window style.
+
+The `m:wxMDIClientWindow` class is usually adequate without further derivation, and it is created automatically when the MDI parent frame is created. If the application needs to derive a new class, the function `wxMDIParentFrame::OnCreateClient()` (not implemented in wx) must be overridden in order to give an opportunity to use a different class of client window.
+
+Under wxMSW, the client window will automatically have a sunken border style when the active child is not maximized, and no border style when a child is maximized.
+
+See: `m:wxMDIChildFrame`, `m:wxMDIParentFrame`, `m:wxFrame`
+
+This class is derived (and can use functions) from: `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxMDIClientWindow](https://docs.wxwidgets.org/3.1/classwx_m_d_i_client_window.html)
+""".
 -include("wxe.hrl").
 -export([createClient/2,createClient/3,destroy/1,new/0]).
 
@@ -62,6 +79,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-doc "".
 -type wxMDIClientWindow() :: wx:wx_object().
 -export_type([wxMDIClientWindow/0]).
 %% @hidden
@@ -70,12 +88,18 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiclientwindow.html#wxmdiclientwindowwxmdiclientwindow">external documentation</a>.
+-doc """
+Default constructor.
+
+Objects of this class are only created by `m:wxMDIParentFrame` which uses the default constructor and calls `createClient/3` immediately afterwards.
+""".
 -spec new() -> wxMDIClientWindow().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxMDIClientWindow_new),
   wxe_util:rec(?wxMDIClientWindow_new).
 
 %% @equiv createClient(This,Parent, [])
+-doc "".
 -spec createClient(This, Parent) -> boolean() when
 	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame().
 
@@ -84,6 +108,11 @@ createClient(This,Parent)
   createClient(This,Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiclientwindow.html#wxmdiclientwindowcreateclient">external documentation</a>.
+-doc """
+Called by `m:wxMDIParentFrame` immediately after creating the client window.
+
+This function may be overridden in the derived class but the base class version must usually be called first to really create the window.
+""".
 -spec createClient(This, Parent, [Option]) -> boolean() when
 	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame(),
 	Option :: {'style', integer()}.
@@ -98,6 +127,7 @@ createClient(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
   wxe_util:rec(?wxMDIClientWindow_CreateClient).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxMDIClientWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIClientWindow),
@@ -471,3 +501,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

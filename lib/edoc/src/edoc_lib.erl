@@ -28,6 +28,11 @@
 %% @doc Utility functions for EDoc.
 
 -module(edoc_lib).
+-moduledoc """
+Utility functions for EDoc.
+
+*See also: *`m:edoc`.
+""".
 
 -export([count/2, lines/1, split_at/2, split_at_stop/1,
 	 split_at_space/1, filename/1, transpose/1, segment/2,
@@ -46,7 +51,9 @@
 -include("edoc.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
+-doc "".
 -type filename() :: file:filename().
+-doc "".
 -type proplist() :: proplists:proplist().
 
 -define(FILE_BASE, "/").
@@ -78,6 +85,11 @@ read_encoding(File, Options) ->
 %% and don't match the  `<app>/ebin/<mod>.beam' path pattern
 %% will NOT have an app name inferred properly.
 %% `no_app' is returned in such cases.
+-doc """
+Infer application containing the given module.
+
+It's expected that modules which are not preloaded and don't match the `<app>/ebin/<mod>.beam` path pattern will NOT have an app name inferred properly. `no_app` is returned in such cases.
+""".
 -spec infer_module_app(module()) -> no_app | {app, atom()}.
 infer_module_app(Mod) ->
     case code:which(Mod) of
@@ -99,6 +111,7 @@ infer_module_app(Mod) ->
 count(X, Xs) ->
     count(X, Xs, 0).
 
+-doc "".
 count(X, [X | Xs], N) ->
     count(X, Xs, N + 1);
 count(X, [_ | Xs], N) ->
@@ -110,6 +123,7 @@ count(_X, [], N) ->
 lines(Cs) ->
     lines(Cs, [], []).
 
+-doc "".
 lines([$\n | Cs], As, Ls) ->
     lines(Cs, [], [lists:reverse(As) | Ls]);
 lines([C | Cs], As, Ls) ->
@@ -121,6 +135,7 @@ lines([], As, Ls) ->
 split_at(Cs, K) ->
     split_at(Cs, K, []).
 
+-doc "".
 split_at([K | Cs], K, As) ->
     {lists:reverse(As), Cs};
 split_at([C | Cs], K, As) ->
@@ -132,6 +147,7 @@ split_at([], _K, As) ->
 split_at_stop(Cs) ->
     split_at_stop(Cs, []).
 
+-doc "".
 split_at_stop([$., $\s | Cs], As) ->
     {lists:reverse(As), Cs};
 split_at_stop([$., $\t | Cs], As) ->
@@ -149,6 +165,7 @@ split_at_stop([], As) ->
 split_at_space(Cs) ->
     split_at_space(Cs, []).
 
+-doc "".
 split_at_space([$\s | Cs], As) ->
     {lists:reverse(As), Cs};
 split_at_space([$\t | Cs], As) ->
@@ -177,6 +194,7 @@ strip_space(Cs) -> Cs.
 segment(Es, N) ->
     segment(Es, [], [], 0, N).
 
+-doc "".
 segment([E | Es], As, Cs, N, M) when N < M ->
     segment(Es, [E | As], Cs, N + 1, M);
 segment([_ | _] = Es, As, Cs, _N, M) ->
@@ -205,6 +223,7 @@ get_first_sentence([#xmlElement{name = p, content = Es} | _]) ->
 get_first_sentence(Es) ->
     get_first_sentence_1(Es).
 
+-doc "".
 get_first_sentence_1([E = #xmlText{value = Txt} | Es]) ->
     Last = case Es of
 	       [#xmlElement{name = p} | _] -> true;
@@ -224,11 +243,13 @@ get_first_sentence_1([E | Es]) ->
 get_first_sentence_1([]) ->
     [].
 
+-doc "".
 end_of_sentence(Cs, Last) ->
     end_of_sentence(Cs, Last, []).
 
 %% We detect '.' and '!' as end-of-sentence markers.
 
+-doc "".
 end_of_sentence([C=$., $\s | _], _, As) ->
     end_of_sentence_1(C, true, As);
 end_of_sentence([C=$., $\t | _], _, As) ->
@@ -250,6 +271,7 @@ end_of_sentence([C | Cs], Last, As) ->
 end_of_sentence([], Last, As) ->
     end_of_sentence_1($., Last, strip_space(As)).  % add a '.'
 
+-doc "".
 end_of_sentence_1(C, true, As) ->
     {value, lists:reverse([C | As])};
 end_of_sentence_1(_, false, _) ->
@@ -285,6 +307,7 @@ is_name([C | Cs]) when C >= $\337, C =< $\377, C =/= $\367 ->
     is_name_1(Cs);
 is_name(_) -> false.
 
+-doc "".
 is_name_1([C | Cs]) when C >= $a, C =< $z ->
     is_name_1(Cs);
 is_name_1([C | Cs]) when C >= $A, C =< $Z ->
@@ -302,6 +325,7 @@ is_name_1(_) -> false.
 unique([X | Xs]) -> [X | unique(Xs, X)];
 unique([]) -> [].
 
+-doc "".
 unique([X | Xs], X) -> unique(Xs, X);
 unique([X | Xs], _) -> [X | unique(Xs, X)];
 unique([], _) -> [].
@@ -353,6 +377,7 @@ parse_contact(S, L) ->
 %% between, or following the e-mail/URI sections. Subsequent text that
 %% is not e/mail or URI is ignored.
 
+-doc "".
 scan_name([$< | Cs], L, I, As) ->
     case I#info.email of
 	"" ->
@@ -376,6 +401,7 @@ scan_name([C | Cs], L, I, As) ->
 scan_name([], _L, I, As) ->
     set_name(I, As).
 
+-doc "".
 scan_uri([$] | Cs], _L, I, As) ->
     {Cs, I#info{uri = strip_and_reverse(As)}};
 scan_uri([$\n | Cs], L, I, As) ->
@@ -385,6 +411,7 @@ scan_uri([C | Cs], L, I, As) ->
 scan_uri([], L, _I, _As) ->
     throw_error({missing, $]}, L).
 
+-doc "".
 scan_email([$> | Cs], _L, I, As) ->
     {Cs, I#info{email = strip_and_reverse(As)}};
 scan_email([$\n | Cs], L, I, As) ->
@@ -394,12 +421,14 @@ scan_email([C | Cs], L, I, As) ->
 scan_email([], L, _I, _As) ->
     throw_error({missing, $>}, L).
 
+-doc "".
 set_name(I, As) ->
     case I#info.name of
 	"" -> I#info{name = strip_and_reverse(As)};
 	_ -> I
     end.
 
+-doc "".
 strip_and_reverse(As) ->
     edoc_lib:strip_space(lists:reverse(edoc_lib:strip_space(As))).
 
@@ -439,9 +468,11 @@ escape_uri([C | Cs]) ->
 escape_uri([]) ->
     [].
 
+-doc "".
 escape_byte(C) when C >= 0, C =< 255 ->
     [$%, hex_digit(C bsr 4), hex_digit(C band 15)].
 
+-doc "".
 hex_digit(N) when N >= 0, N =< 9 ->
     N + $0;
 hex_digit(N) when N > 9, N =< 15 ->
@@ -477,6 +508,7 @@ to_label([]) ->
 to_label(Cs) ->
     to_label_1(Cs).
 
+-doc "".
 to_label_1([$\s | Cs]) ->
     to_label_2([$\s | Cs]);
 to_label_1([$\t | Cs]) ->
@@ -488,6 +520,7 @@ to_label_1([C | Cs]) ->
 to_label_1([]) ->
     [].
 
+-doc "".
 to_label_2(Cs) ->
     case to_label(Cs) of
 	[] -> [];
@@ -521,6 +554,7 @@ copy_file(From, To) ->
 	    exit(error)
     end.
 
+-doc "".
 list_dir(Dir, Error) ->
     case file:list_dir(Dir) of
 	{ok, Fs} ->
@@ -592,6 +626,7 @@ try_subdir(Dir, Subdir) ->
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, [{encoding,latin1}]).
 
+-doc "".
 write_file(Text, Dir, Name, Options) ->
     File = filename:join([Dir, Name]),
     ok = filelib:ensure_dir(File),
@@ -617,6 +652,7 @@ write_info_file(App, Modules, Dir) ->
 
 %% @doc Reads text from the file named by `Name'.
 
+-doc "Reads text from the file named by `Name`.".
 -spec read_file(filename()) -> {ok, string()} | {error, term()}.
 read_file(File) ->
     case file:read_file(File) of
@@ -635,6 +671,7 @@ read_file(File) ->
 %% ---------------------------------------------------------------------
 %% Info files
 
+-doc "".
 info_file_data(Ts) ->
     App = proplists:get_value(application, Ts, no_app),
     Ms = proplists:append_values(modules, Ts),
@@ -659,6 +696,7 @@ read_info_file(Dir) ->
 	    {no_app, []}
     end.
 
+-doc "".
 parse_info_file(Text, Name) ->
     case parse_terms(Text) of
 	{ok, Vs} ->
@@ -671,6 +709,7 @@ parse_info_file(Text, Name) ->
 	    {no_app, []}
     end.
 
+-doc "".
 parse_terms(Text) ->
     case erl_scan:string(Text) of
 	{ok, Ts, _Line} ->
@@ -679,6 +718,7 @@ parse_terms(Text) ->
 	    {error, R}
     end.
 
+-doc "".
 parse_terms_1([T={dot, _L} | Ts], As, Vs) ->
     case erl_parse:parse_term(lists:reverse([T | As])) of
 	{ok, V} ->
@@ -709,9 +749,11 @@ find_sources(Path, Opts) ->
     Ext = proplists:get_value(source_suffix, Opts, ?DEFAULT_SOURCE_SUFFIX),
     find_sources(Path, Rec, Ext, Opts).
 
+-doc "".
 find_sources(Path, Rec, Ext, _Opts) ->
     lists:flatten(find_sources_1(Path, Rec, Ext)).
 
+-doc "".
 find_sources_1([P | Ps], Rec, Ext) ->
     Dir = P,
     Fs1 = find_sources_1(Ps, Rec, Ext),
@@ -724,6 +766,7 @@ find_sources_1([P | Ps], Rec, Ext) ->
 find_sources_1([], _Rec, _Ext) ->
     [].
 
+-doc "".
 find_sources_2(Dir, Rec, Ext) ->
 	Es = list_dir(Dir, false),    % just warn if listing fails
 	Es1 = [{E, Dir} || E <- Es, is_source_file(E, Ext)],
@@ -734,15 +777,18 @@ find_sources_2(Dir, Rec, Ext) ->
 			Es1
 	end.
 
+-doc "".
 find_sources_3(Es, Dir, Rec, Ext) ->
     [find_sources_2(filename:join(Dir, E),
 		    Rec, Ext)
      || E <- Es, is_source_dir(E, Dir)].
 
+-doc "".
 is_source_file(Name, Ext) ->
     (filename:extension(Name) == Ext)
 	andalso is_name(filename:rootname(Name, Ext)).
 
+-doc "".
 is_source_dir(Name, Dir) ->
     filelib:is_dir(filename:join(Dir, Name)).
 
@@ -762,6 +808,7 @@ find_file([], _Name) ->
 find_doc_dirs() ->
     find_doc_dirs(code:get_path()).
 
+-doc "".
 find_doc_dirs([P0 | Ps]) ->
     P = filename:absname(P0),
     P1 = case filename:basename(P) of
@@ -788,6 +835,7 @@ find_doc_dirs([]) ->
 %% NEW-OPTIONS: doc_path
 %% DEFER-OPTIONS: get_doc_env/3
 
+-doc "".
 get_doc_links(App, Modules, Opts) ->
     Path = proplists:append_values(doc_path, Opts) ++ find_doc_dirs(),
     Ds = [{P, read_info_file(P)} || P <- Path],
@@ -795,6 +843,7 @@ get_doc_links(App, Modules, Opts) ->
     D = dict:new(),
     make_links(Ds1, D, D).
 
+-doc "".
 make_links([{Dir, {App, Ms}} | Ds], A, M) ->
     A1 = if App == no_app -> A;
 	    true -> add_new(App, Dir, A)
@@ -813,6 +862,7 @@ make_links([], A,  M) ->
 	end,
     {F(A), F(M)}.
 
+-doc "".
 add_new(K, V, D) ->
     case dict:is_key(K, D) of
 	true ->
@@ -839,6 +889,11 @@ get_doc_env(Opts) ->
 %% INHERIT-OPTIONS: get_doc_links/4
 %% DEFER-OPTIONS: edoc:run/2
 
+-doc """
+Creates an environment data structure used by parts of EDoc for generating references, etc. See `edoc:run/2` for a description of the options `file_suffix`, `app_default` and `doc_path`.
+
+*See also: *`edoc:get_doc/3`, `edoc_extract:source/4`.
+""".
 -spec get_doc_env(App, Modules, Options) -> edoc:env() when
       App :: atom() | no_app,
       Modules :: [module()],
@@ -878,9 +933,11 @@ run_doclet(Fun, Opts) ->
 run_layout(Fun, Opts) ->
     run_plugin(layout, ?DEFAULT_LAYOUT, Fun, Opts).
 
+-doc "".
 run_plugin(Name, Default, Fun, Opts) ->
     run_plugin(Name, Name, Default, Fun, Opts).
 
+-doc "".
 run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
     Module = get_plugin(Key, Default, Opts),
     case catch {ok, Fun(Module)} of
@@ -891,6 +948,7 @@ run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
 	    exit(error)
     end.
 
+-doc "".
 get_plugin(Key, Default, Opts) ->
     case proplists:get_value(Key, Opts, Default) of
 	M when is_atom(M) ->
@@ -904,12 +962,15 @@ get_plugin(Key, Default, Opts) ->
 %% ---------------------------------------------------------------------
 %% Error handling
 
+-doc "".
 -type line() :: erl_anno:line().
+-doc "".
 -type err()  :: 'eof'
 	      | {'missing', char()}
 	      | {line(), atom(), string()}
 	      | string().
 
+-doc "".
 -spec throw_error(err(), line()) -> no_return().
 
 throw_error({missing, C}, L) ->
@@ -920,3 +981,4 @@ throw_error({L, M, D}, _L) ->
     throw({error,L,{format_error,M,D}});
 throw_error(D, L) ->
     throw({error, L, D}).
+

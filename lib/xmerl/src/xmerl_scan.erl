@@ -29,6 +29,7 @@
 %% functions.
 
 -module(xmerl_scan).
+-moduledoc "This module is the interface to the XML parser, it handles XML 1.0. The XML parser is activated through `xmerl_scan:string/[1,2]` or `xmerl_scan:file/[1,2]`. It returns records of the type defined in xmerl.hrl. See also [tutorial](xmerl_examples.html) on customization functions.".
 -vsn('0.20').
 -date('03-09-16').
 
@@ -57,6 +58,7 @@
 %% @type global_state(). <p>
 %% The global state of the scanner, represented by the #xmerl_scanner{} record.
 %% </p>
+-doc "".
 -type global_state() :: #xmerl_scanner{}.
 
 %% @type option_list(). <p>Options allow to customize the behaviour of the
@@ -143,14 +145,17 @@
 %%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
 %%        in the XML document (default 'true').</dd>
 %% </dl>
+-doc "".
 -type option_list() :: [{atom(),term()}].
 
 %% @type xmlElement() = #xmlElement{}.
 %% The record definition is found in xmerl.hrl.
+-doc "".
 -type xmlElement() :: #xmlElement{}.
 
 %% @type xmlDocument() = #xmlDocument{}.
 %% The record definition is found in xmerl.hrl.
+-doc "".
 -type xmlDocument() :: #xmlDocument{}.
 
 %% @type document() = xmlElement() | xmlDocument(). <p>
@@ -158,6 +163,7 @@
 %% <code>xmerl_scan:file/[1,2]</code>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
+-doc "".
 -type document() :: xmlElement() | xmlDocument().
 
 -define(fatal(Reason, S),
@@ -178,27 +184,33 @@
 
 %%% @spec user_state(S::global_state()) -> global_state()
 %%% @equiv user_state(UserState,S)
+-doc "Equivalent to [user_state(UserState, S)](`user_state/2`).".
 -spec user_state(S::global_state()) -> global_state().
 user_state(#xmerl_scanner{user_state = S}) -> S.
 
 %%% @spec event_state(S::global_state()) -> global_state()
 %%% @equiv event_state(EventState,S)
+-doc "Equivalent to [event_state(EventState, S)](`event_state/2`).".
 event_state(#xmerl_scanner{fun_states = #xmerl_fun_states{event = S}}) -> S.
 
 %%% @spec hook_state(S::global_state()) -> global_state()
 %%% @equiv hook_state(HookState,S)
+-doc "Equivalent to [hook_state(HookState, S)](`hook_state/2`).".
 hook_state(#xmerl_scanner{fun_states = #xmerl_fun_states{hook = S}}) -> S.
 
 %%% @spec rules_state(S::global_state()) -> global_state()
 %%% @equiv rules_state(RulesState,S)
+-doc "Equivalent to [rules_state(RulesState, S)](`rules_state/2`).".
 rules_state(#xmerl_scanner{fun_states = #xmerl_fun_states{rules = S}}) -> S.
 
 %%% @spec fetch_state(S::global_state()) -> global_state()
 %%% @equiv fetch_state(FetchState,S)
+-doc "Equivalent to [fetch_state(FetchState, S)](`fetch_state/2`).".
 fetch_state(#xmerl_scanner{fun_states = #xmerl_fun_states{fetch = S}}) -> S.
 
 %%% @spec cont_state(S::global_state()) -> global_state()
 %%% @equiv cont_state(ContinuationState,S)
+-doc "Equivalent to [cont_state(ContinuationState, S)](`cont_state/2`).".
 cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 
 
@@ -207,6 +219,7 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 %%% @spec user_state(UserState, S::global_state()) -> global_state()
 %%% @doc For controlling the UserState, to be used in a user function.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the UserState, to be used in a user function. See [tutorial](xmerl_examples.html) on customization functions.".
 user_state(X, S) ->
     S#xmerl_scanner{user_state = X}.
 
@@ -214,6 +227,7 @@ user_state(X, S) ->
 %%% @doc For controlling the EventState, to be used in an event
 %%% function, and called at the beginning and at the end of a parsed entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the EventState, to be used in an event function, and called at the beginning and at the end of a parsed entity. See [tutorial](xmerl_examples.html) on customization functions.".
 event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{event = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -222,6 +236,7 @@ event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the HookState, to be used in a hook
 %%% function, and called when the parser has parsed a complete entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the HookState, to be used in a hook function, and called when the parser has parsed a complete entity. See [tutorial](xmerl_examples.html) on customization functions.".
 hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{hook = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -231,6 +246,7 @@ hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% function, and called when the parser store scanner information in a rules
 %%% database.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the RulesState, to be used in a rules function, and called when the parser store scanner information in a rules database. See [tutorial](xmerl_examples.html) on customization functions.".
 rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{rules = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -239,6 +255,7 @@ rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the FetchState, to be used in a fetch
 %%% function, and called when the parser fetch an external resource (eg. a DTD).
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the FetchState, to be used in a fetch function, and called when the parser fetch an external resource (eg. a DTD). See [tutorial](xmerl_examples.html) on customization functions.".
 fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{fetch = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -247,6 +264,7 @@ fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the ContinuationState, to be used in a continuation
 %%% function, and called when the parser encounters the end of the byte stream.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc "For controlling the ContinuationState, to be used in a continuation function, and called when the parser encounters the end of the byte stream. See [tutorial](xmerl_examples.html) on customization functions.".
 cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{cont = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -255,12 +273,14 @@ cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %% @spec file(Filename::string()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv file(Filename, [])
+-doc "Equivalent to [file(Filename, [])](`file/2`).".
 file(F) ->
     file(F, []).
 
 %% @spec file(Filename::string(), Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse file containing an XML document
+-doc "Parse file containing an XML document".
 -spec file(Filename :: string(), Options :: option_list()) ->
           {document(), Rest :: list()}.
 file(F, Options) ->
@@ -276,6 +296,7 @@ file(F, Options) ->
 	    {error, Reason}
     end.
 
+-doc "".
 int_file(F, Options,_ExtCharset) ->
      %%?dbg("int_file F=~p~n",[F]),
     case file:read_file(F) of
@@ -285,6 +306,7 @@ int_file(F, Options,_ExtCharset) ->
 	    Error
     end.
 
+-doc "".
 int_file_decl(F, Options,_ExtCharset) ->
 %     ?dbg("int_file_decl F=~p~n",[F]),
     case file:read_file(F) of
@@ -297,22 +319,26 @@ int_file_decl(F, Options,_ExtCharset) ->
 %% @spec string(Text::list()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv string(Text, [])
+-doc "Equivalent to [string(Text, [])](`string/2`).".
 string(Str) ->
     string(Str, []).
 
 %% @spec string(Text::list(),Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse string containing an XML document
+-doc "Parse string containing an XML document".
 string(Str, Options) ->
      {Res, Tail, S=#xmerl_scanner{close_fun = Close}} =
 	int_string(Str, Options,file_name_unknown),
     Close(S),    % for side effects only - final state is dropped
     {Res,Tail}.
 
+-doc "".
 int_string(Str, Options,FileName) ->
     {ok,  XMLBase} = file:get_cwd(),
     int_string(Str, Options, XMLBase, FileName).
 
+-doc "".
 int_string(Str, Options, XMLBase, FileName) ->
     S0=initial_state0(Options,XMLBase),
     S = S0#xmerl_scanner{filename=FileName},
@@ -334,6 +360,7 @@ int_string(Str, Options, XMLBase, FileName) ->
 	    scan_document(Str2, S#xmerl_scanner{encoding=atom_to_list(ExtCharset)})
     end.
 
+-doc "".
 int_string_decl(Str, Options, XMLBase, FileName) ->
     S0=initial_state0(Options,XMLBase),
     S = S0#xmerl_scanner{filename=FileName},
@@ -350,6 +377,7 @@ int_string_decl(Str, Options, XMLBase, FileName) ->
 
 
 
+-doc "".
 initial_state0(Options,XMLBase) ->
     CommonData = common_data(),
     initial_state(Options, #xmerl_scanner{
@@ -366,6 +394,7 @@ initial_state0(Options,XMLBase) ->
                     common_data = CommonData
 		   }).
 
+-doc "".
 initial_state([{event_fun, F}|T], S) ->
     initial_state(T, S#xmerl_scanner{event_fun = F});
 initial_state([{event_fun, F, ES}|T], S) ->
@@ -439,6 +468,7 @@ initial_state([], S=#xmerl_scanner{rules = undefined}) ->
 initial_state([], S) ->
     S.
 
+-doc "".
 validation_value(true) ->
     dtd;
 validation_value(false) ->
@@ -448,11 +478,13 @@ validation_value(F) ->
 
 %% Used for compacting (some) indentations.
 %% See also fast_accumulate_whitespace().
+-doc "".
 common_data() ->
     {comdata(lists:duplicate(60, $\s), []),
      comdata(lists:duplicate(15, $\t), []),
      "\n"}.
 
+-doc "".
 comdata([], CD)->
     list_to_tuple(CD);
 comdata([_ | T]=L, CD) ->
@@ -465,6 +497,7 @@ comdata([_ | T]=L, CD) ->
 %%% - {element, Line, Name, Attrs, Content}
 %%% - {processing_instruction, Line, Data}
 
+-doc "".
 hook(X, State) ->
     {X, State}.
 
@@ -482,6 +515,7 @@ hook(X, State) ->
 %%% #xmlPI		ended
 %%% #xmlComment		ended
 %%% #xmlText		ended
+-doc "".
 event(_X, S) ->
     S.
 
@@ -493,11 +527,13 @@ event(_X, S) ->
 %% into multiple objects (in which case {Acc',Pos',S'} should be returned.)
 %% If {Acc',S'} is returned, Pos will be incremented by 1 by default.
 %% Below is an example of an acceptable operation
+-doc "".
 acc(#xmlText{value = Text}, [X = #xmlText{value = AccText}], S) ->
     {[X#xmlText{value = AccText ++ Text}], S};
 acc(X, Acc, S) ->
     {[X|Acc], S}.
 
+-doc "".
 fetch({system, URI}, S) ->
     fetch_URI(URI, S);
 fetch({public, _PublicID, URI}, S) ->
@@ -508,6 +544,7 @@ fetch({public, _PublicID, URI}, S) ->
 %%% resource is found.  The path to the external resource is given by
 %%% URI directly or the option fetch_path (additional paths) or
 %%% directory (base path to external resource)
+-doc "".
 fetch_URI(URI, S) ->
     %% assume URI is a filename
     Split = filename:split(URI),
@@ -531,6 +568,7 @@ fetch_URI(URI, S) ->
     ?dbg("fetch(~p) -> {file, ~p}.~n", [URI, Path]),
     {ok, Path, S}.
 
+-doc "".
 path_locate(_, _, {http,_}=URI) ->
     URI;
 path_locate(_, _, []) ->
@@ -547,9 +585,11 @@ path_locate([], _FN, FullName) ->
     {file,FullName}.
 
 
+-doc "".
 cont(_F, Exception, US) ->
     Exception(US).
 
+-doc "".
 close(S) ->
     S.
 
@@ -558,6 +598,7 @@ close(S) ->
 %%% Scanner
 
 %%% [1] document ::= prolog element Misc*
+-doc "".
 scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 				     line = L, col = C,
 				     environment=Env,
@@ -651,6 +692,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
     {Res3, Tail, S6}.
 
 
+-doc "".
 scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
 				line = L, col = C,
 				environment=_Env,
@@ -677,8 +719,10 @@ scan_decl(Str, S=#xmerl_scanner{event_fun = Event,
 %%% prolog    ::=    XMLDecl? Misc* (doctypedecl Misc*)?
 %%%
 %% empty text declarations are handled by the first function clause.
+-doc "".
 scan_prolog(T, S, Pos) ->
     scan_prolog(T, S, Pos, []).
+-doc "".
 scan_prolog([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_prolog(MoreBytes, S1, Pos, Acc) end,
@@ -765,6 +809,7 @@ scan_prolog(Str, S0 = #xmerl_scanner{user_state=_US,encoding=_Charset},
 
 
 
+-doc "".
 scan_prolog2([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_prolog2(MoreBytes, S1, Pos, Acc) end,
@@ -805,8 +850,10 @@ scan_prolog2(Str, S0 = #xmerl_scanner{user_state=_US},Pos,Acc) ->
 %% - Neither of Comment and PI are returned in the resulting parsed
 %%   structure.
 %% - scan_misc/3 implements Misc* as that is how the rule is always used
+-doc "".
 scan_misc(T, S, Pos) ->
     scan_misc(T, S, Pos, []).
+-doc "".
 scan_misc([], S=#xmerl_scanner{continuation_fun = F}, Pos, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_misc(MoreBytes, S1, Pos, Acc) end,
@@ -847,6 +894,7 @@ scan_misc(T,S,Pos,Acc) ->
     {Acc,Pos,T,S}.
 
 
+-doc "".
 cleanup(S=#xmerl_scanner{keep_rules = false,
 			 rules = Rules}) ->
     ets:delete(Rules),
@@ -857,6 +905,7 @@ cleanup(S) ->
 %%% Prolog and Document Type Declaration XML 1.0 Section 2.8
 %% [23] XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
 %% [24] VersionInfo ::= S 'version' Eq ("'" VersionNum "'" | '"' VersionNum '"')
+-doc "".
 scan_xml_decl(T, S) ->
     %% VersionInfo [24] is mandatory
     {_,T1,S1} = mandatory_strip(T,S),
@@ -874,6 +923,7 @@ scan_xml_decl(T, S) ->
     scan_xml_decl(T4, S4, #xmlDecl{vsn = Vsn,
 				   attributes = [Attr]}).
 
+-doc "".
 scan_xml_decl([], S=#xmerl_scanner{continuation_fun = F}, Decl) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_xml_decl(MoreBytes, S1, Decl) end,
@@ -888,6 +938,7 @@ scan_xml_decl(T,S=#xmerl_scanner{event_fun = _Event},Decl) when ?whitespace(hd(T
 scan_xml_decl(_T,S=#xmerl_scanner{event_fun = _Event},_Decl) ->
     ?fatal(preformat([expected,one,'of:'],['?>',whitespace_character],","),S).
 
+-doc "".
 scan_xml_decl2("?>" ++ T, S0,Decl) ->
     ?bump_col(2),
     return_xml_decl(T,S,Decl);
@@ -921,6 +972,7 @@ scan_xml_decl2(_BadString,S,_Decl) ->
 %    ?fatal(lists:flatten(io_lib:format("~s ~s ~s: ~s, ~s, ~s",[expected,one,'of','?>',standalone,encoding])),S).
 %    ?fatal({expected_one_of,"?>",standalone,encoding},S).
 
+-doc "".
 scan_xml_decl3("?>" ++ T, S0,Decl) ->
     ?bump_col(2),
     return_xml_decl(T,S,Decl);
@@ -945,6 +997,7 @@ scan_xml_decl3("standalone" ++ T,S0 = #xmerl_scanner{event_fun = Event},
     return_xml_decl(T4, S4#xmerl_scanner{col=S4#xmerl_scanner.col+2}, Decl).
 
 
+-doc "".
 return_xml_decl(T,S=#xmerl_scanner{hook_fun = _Hook,
 				   event_fun = Event},
 		Decl0 = #xmlDecl{attributes = Attrs}) ->
@@ -959,6 +1012,7 @@ return_xml_decl(T,S=#xmerl_scanner{hook_fun = _Hook,
     {Decl, T1, S2}.
 
 
+-doc "".
 scan_standalone_value("'yes'" ++T,S0)->
     ?bump_col(5),
     {'yes',T,S#xmerl_scanner{standalone=yes}};
@@ -975,6 +1029,7 @@ scan_standalone_value("\"no\"" ++T,S0) ->
 %%%
 %%% Text declaration XML 1.0 section 4.3.1
 %%% [77] TextDecl  ::= '<?xml' VersionInfo? EncodingDecl S? '?>'
+-doc "".
 scan_text_decl(T,S=#xmerl_scanner{event_fun = Event}) ->
     {#xmlDecl{attributes=Attrs}=Decl0,T1,S1} = scan_optional_version(T,S),
     T2 =
@@ -999,6 +1054,7 @@ scan_text_decl(T,S=#xmerl_scanner{event_fun = Event}) ->
 					     data = Attr}, S5),
     scan_text_decl(T5,S6,Decl).
 
+-doc "".
 scan_text_decl("?>"++T,S0 = #xmerl_scanner{hook_fun = _Hook,
 					   event_fun = Event},
 	       Decl0 = #xmlDecl{attributes = Attrs}) ->
@@ -1015,6 +1071,7 @@ scan_text_decl("?>"++T,S0 = #xmerl_scanner{hook_fun = _Hook,
 scan_text_decl([H|_T],S,_) ->
     ?fatal({unexpected_character_in_text_declaration,H},S).
 
+-doc "".
 scan_optional_version("version"++T,S0) ->
     ?bump_col(7),
     ?strip1,
@@ -1029,6 +1086,7 @@ scan_optional_version(T,S) ->
 
 
 %%%%%%% [81] EncName
+-doc "".
 scan_enc_name([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_enc_name(MoreBytes, S1) end,
@@ -1039,6 +1097,7 @@ scan_enc_name([H|T], S0) when H >= $"; H =< $' ->
     scan_enc_name(T, S, H, []).
 
 
+-doc "".
 scan_enc_name([], S=#xmerl_scanner{continuation_fun = F}, Delim, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_enc_name(MoreBytes, S1, Delim, Acc) end,
@@ -1053,6 +1112,7 @@ scan_enc_name([H|T], S0, Delim, Acc) when H >= $A, H =< $Z ->
 scan_enc_name([H|_T],S,_Delim,_Acc) ->
     ?fatal({error,{unexpected_character_in_Enc_Name,H}},S).
 
+-doc "".
 scan_enc_name2([], S=#xmerl_scanner{continuation_fun = F}, Delim, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_enc_name2(MoreBytes, S1, Delim, Acc) end,
@@ -1077,6 +1137,7 @@ scan_enc_name2([H|T], S0, Delim, Acc) when H == $.; H == $_; H == $- ->
 
 %%%%%%% [26] VersionNum
 %%% VersionNum    ::=    ([a-zA-Z0-9_.:] | '-')+
+-doc "".
 scan_xml_vsn([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_xml_vsn(MoreBytes, S1) end,
@@ -1085,6 +1146,7 @@ scan_xml_vsn([], S=#xmerl_scanner{continuation_fun = F}) ->
 scan_xml_vsn([H|T], S) when H==$"; H==$'->
     xml_vsn(T, S#xmerl_scanner{col = S#xmerl_scanner.col+1}, H, []).
 
+-doc "".
 xml_vsn([], S=#xmerl_scanner{continuation_fun = F}, Delim, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> xml_vsn(MoreBytes, S1, Delim, Acc) end,
@@ -1108,6 +1170,7 @@ xml_vsn([H|T], S=#xmerl_scanner{col = C}, Delim, Acc) ->
 
 %%%%%%% [16] PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
 
+-doc "".
 scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Pos, Ps) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Pos, Ps) end,
@@ -1133,6 +1196,7 @@ scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos, Ps) ->
 %%% More info on xml-stylesheet can be found at:
 %%%   "Associating Style Sheets with XML documents", Version 1.0,
 %%%   W3C Recommendation 29 June 1999 (http://www.w3.org/TR/xml-stylesheet/)
+-doc "".
 scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos,Ps) ->
     ?dbg("prolog(\"<?xml-stylesheet\")~n", []),
     ?bump_col(16),
@@ -1142,6 +1206,7 @@ scan_wellknown_pi(Str,S,_Pos,_Ps) ->
 
 
 
+-doc "".
 scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Target,
 	L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
@@ -1169,6 +1234,7 @@ scan_pi([H|T], S, Target, L, C, Pos, Ps, Acc) when ?whitespace(H) ->
 scan_pi([H|_T],S,_Target, _L, _C, _Pos, _Ps, _Acc) ->
     ?fatal({expected_whitespace_OR_end_of_PI,{char,H}}, S).
 
+-doc "".
 scan_pi2([], S=#xmerl_scanner{continuation_fun = F}, Target,
 	 L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
@@ -1199,6 +1265,7 @@ scan_pi2(Str, S0, Target, L, C, Pos, Ps, Acc) ->
 
 %% [28] doctypedecl ::=
 %%   '<!DOCTYPE' S Name (S ExternalID)? S? ('[' intSubset ']' S?)? '>'
+-doc "".
 scan_doctype([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_doctype(MoreBytes, S1) end,
@@ -1213,6 +1280,7 @@ scan_doctype(T, S) ->
 
 %% [75] ExternalID ::= 'SYSTEM' S SystemLiteral
 %%		     | 'PUBLIC' S PubidLiteral S SystemLiteral
+-doc "".
 scan_doctype1([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_doctype1(MoreBytes, S1) end,
@@ -1236,6 +1304,7 @@ scan_doctype1(T, S) ->
     scan_doctype2(T, S, undefined).
 
 
+-doc "".
 scan_doctype2([], S=#xmerl_scanner{continuation_fun = F},DTD) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_doctype2(MoreBytes, S1, DTD) end,
@@ -1256,6 +1325,7 @@ scan_doctype2(_T,S,_DTD) ->
 
 %% [28a] DeclSep   ::= PEReference | S
 %% [28b] intSubset ::= (markupdecl | DeclSep)*
+-doc "".
 scan_doctype3([], S=#xmerl_scanner{continuation_fun = F},DTD) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_doctype3(MoreBytes, S1,DTD) end,
@@ -1296,6 +1366,7 @@ scan_doctype3(T, S, DTD) ->
 
 
 
+-doc "".
 fetch_DTD(undefined, S=#xmerl_scanner{doctype_DTD=URI}) when is_list(URI)->
     %% allow to specify DTD name when it isn't available in xml stream
     fetch_DTD({system,URI},S#xmerl_scanner{doctype_DTD=option_provided});
@@ -1312,6 +1383,7 @@ fetch_DTD(DTDSpec, S)->
 	    S
     end.
 
+-doc "".
 fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 					 rules=Rules,
 					 xmlbase = XMLBase},
@@ -1376,6 +1448,7 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
     end.
 
 
+-doc "".
 fetch_not_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch}) ->
     case Fetch(ExtSpec,S) of
 	{ok, not_fetched,_NewS} ->
@@ -1396,6 +1469,7 @@ fetch_not_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch}) ->
 	    ?fatal({error_fetching_external_resource,ExtSpec},S)
     end.
 
+-doc "".
 get_file(F,S) ->
 %     ?dbg("get_file F=~p~n",[F]),
     case file:read_file(F) of
@@ -1408,6 +1482,7 @@ get_file(F,S) ->
 %% Now it is necessary to check that all referenced types is declared,
 %% since it is legal to reference some xml types before they are
 %% declared.
+-doc "".
 check_decl(#xmerl_scanner{validation=V}) when V =/= dtd ->
     ok;
 check_decl(#xmerl_scanner{rules=Tab} = S) ->
@@ -1415,6 +1490,7 @@ check_decl(#xmerl_scanner{rules=Tab} = S) ->
     check_elements(Tab,S), %% check also attribute defs for element
     check_entities(Tab,S).
 
+-doc "".
 check_notations(Tab,S) ->
     case ets:match(Tab,{{notation,'$1'},undeclared}) of
 	[[]] -> ok;
@@ -1425,6 +1501,7 @@ check_notations(Tab,S) ->
 	    ?fatal({error_missing_declaration_in_DTD,Err},S)
     end.
 
+-doc "".
 check_elements(Tab,S) ->
     case catch ets:match(Tab,{{elem_def,'_'},'$2'},10) of
 	{_,_}=M ->
@@ -1446,11 +1523,13 @@ check_elements(Tab,S) ->
 
 % it is not an error to declare attributes for an element that is not
 % declared.
+-doc "".
 check_elements2([#xmlElement{attributes=Attrs}],S) ->
     check_attributes(Attrs,S);
 check_elements2(_,_) ->
     ok.
 
+-doc "".
 check_attributes([{N1,'ID',_,_,_}=Attr|Rest],S) ->
     case lists:keysearch('ID',2,Rest) of
 	{value,Att2} ->
@@ -1472,6 +1551,7 @@ check_attributes([_|T],S) ->
 check_attributes([],_S) ->
     ok.
 
+-doc "".
 check_entities(Tab,S=#xmerl_scanner{validation=dtd}) ->
     case ets:match(Tab,{{entity,'$1'},undeclared}) of
 	[[]] -> ok;
@@ -1486,10 +1566,12 @@ check_entities(_,_) ->
 
 
 %% check_decl2/1: checks that all referenced ID attributes are declared
+-doc "".
 check_decl2(S=#xmerl_scanner{rules=Tab}) ->
     check_referenced_ids(Tab,S).
 
 
+-doc "".
 check_referenced_ids(Tab,S) ->
     case ets:match(Tab,{{id,'$1'},undeclared}) of
 	[[]] -> ok;
@@ -1502,6 +1584,7 @@ check_referenced_ids(Tab,S) ->
 
 %%%%%%% [30] extSubSet ::= TextDecl? extSubsetDecl
 
+-doc "".
 scan_ext_subset([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_ext_subset(MoreBytes, S1) end,
@@ -1528,6 +1611,7 @@ scan_ext_subset(T, S) ->
 
 
 %%%%%%% [28a] DeclSep ::= PEReference | S
+-doc "".
 scan_decl_sep(T,S) ->
     {PERefName, T1, S1} = scan_pe_reference(T, S),
     {ExpandedRef,S2} =
@@ -1568,6 +1652,7 @@ scan_decl_sep(T,S) ->
 
 %%%%%%% [61] ConditionalSect ::= includeSect | ignoreSect
 
+-doc "".
 scan_conditional_sect([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_conditional_sect(MoreBytes, S1) end,
@@ -1598,9 +1683,11 @@ scan_conditional_sect("%"++T,S0) ->
 %%%% [63] ignoreSect	 ::= '<![' S? 'IGNORE' S? '[' ignoreSectContents* ']]>'
 %%%% [64] ignoreSectContents ::= Ignore ('<![' ignoreSectContents ']]>' Ignore)*
 %%%% [65] Ignore ::= Char* - (Char* ('<![' | ']]>') Char*)
+-doc "".
 scan_ignore(Str,S) ->
     scan_ignore(Str,S,0).
 
+-doc "".
 scan_ignore([], S=#xmerl_scanner{continuation_fun = F},Level) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_ignore(MoreBytes, S1,Level) end,
@@ -1622,6 +1709,7 @@ scan_ignore([_H|T],S0,Level) ->
 
 
 %%%%%%% [62] includeSect ::= '<![' S? 'INCLUDE' S? '[' extSubsetDecl ']]>'
+-doc "".
 scan_include([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_include(MoreBytes, S1) end,
@@ -1654,6 +1742,7 @@ scan_include(T, S) ->
 %% Validity constraint: Unique Type Declaration: No element type may be
 %% declared more than once.
 %%
+-doc "".
 scan_markup_decl([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_markup_decl(MoreBytes, S1) end,
@@ -1749,12 +1838,15 @@ scan_markup_decl("<!ATTLIST" ++ T,
 scan_markup_decl(_Str,S) ->
     ?fatal(expected_markup,S).
 
+-doc "".
 scan_element_completion(T,S) ->
     scan_markup_completion_gt(T,S).
 
+-doc "".
 update_attributes(NewAttrs, OldAttrs) ->
     update_attributes1(NewAttrs,lists:reverse(OldAttrs)).
 
+-doc "".
 update_attributes1([A = {Name,_Type,_DefaultV,_DefaultD,_Env}|Attrs],
 		   OldAttrs) ->
     case lists:keymember(Name, 1, OldAttrs) of
@@ -1769,6 +1861,7 @@ update_attributes1([],Acc) ->
 
 %%%%%%% [53] AttDef
 
+-doc "".
 scan_attdef([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_attdef(MoreBytes, S1) end,
@@ -1778,6 +1871,7 @@ scan_attdef(T, S) ->
     scan_attdef(T, S, _AttrAcc = []).
 
 
+-doc "".
 scan_attdef([], S=#xmerl_scanner{continuation_fun = F}, Attrs) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_attdef(MoreBytes, S1, Attrs) end,
@@ -1798,6 +1892,7 @@ scan_attdef(T,S,Attrs) ->
     {_,T1,S1} = mandatory_strip(T,S),
     scan_attdef2(T1,S1,Attrs).
 
+-doc "".
 scan_attdef2(">" ++ T, S0, Attrs) ->
     ?bump_col(1),
     {lists:reverse(Attrs), T, S};
@@ -1822,6 +1917,7 @@ scan_attdef2(T, S, Attrs) ->
 
 
 %%% [54] StringType
+-doc "".
 scan_att_type([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_att_type(MoreBytes, S1) end,
@@ -1880,6 +1976,7 @@ scan_att_type("%" ++ T, S0) ->
 
 %%% [58] NotationType
 
+-doc "".
 scan_notation_type([], S=#xmerl_scanner{continuation_fun = F}, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_notation_type(MoreBytes, S1, Acc) end,
@@ -1899,6 +1996,7 @@ scan_notation_type("|" ++ T, S0, Acc) ->
 %%% Validity constraint for NotationType:
 %%% The used notation names must be declared in the DTD, but they may
 %%% be declared later.
+-doc "".
 notation_exists(Name, #xmerl_scanner{rules_read_fun = Read,
 				     rules_write_fun = Write } = S) ->
     case Read(notation, Name, S) of
@@ -1913,6 +2011,7 @@ notation_exists(Name, #xmerl_scanner{rules_read_fun = Read,
 
 %%% [59] Enumeration
 
+-doc "".
 scan_enumeration([], S=#xmerl_scanner{continuation_fun = F}, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_enumeration(MoreBytes, S1, Acc) end,
@@ -1931,6 +2030,7 @@ scan_enumeration("|" ++ T, S0, Acc) ->
 
 %%%%%%% [60] DefaultDecl
 
+-doc "".
 scan_default_decl([], S=#xmerl_scanner{continuation_fun = F}, Type) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_default_decl(MoreBytes, S1, Type) end,
@@ -1954,12 +2054,14 @@ scan_default_decl(Str, S, Type) ->
 
 %% There is room here to validate against Type, but we don't do it at
 %% the moment.
+-doc "".
 default_value(T, S, Type) ->
     {_Val, _T1, _S1,_} = scan_att_value(T, S, Type).
 
 
 %%%%%%% [71] EntityDef
 
+-doc "".
 scan_entity([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_entity(MoreBytes, S1) end,
@@ -1993,11 +2095,13 @@ scan_entity(T, #xmerl_scanner{rules_write_fun = Write,
     S6 = Write(entity, EName, {S5#xmerl_scanner.environment,EntType,EDef}, S5),
     {T5, S6}.
 
+-doc "".
 scan_entity_completion(T,S) ->
     scan_markup_completion_gt(T,S).
 
 %%%%%%% [73] EntityDef
 
+-doc "".
 scan_entity_def([], S=#xmerl_scanner{continuation_fun = F}, EName) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_entity_def(MoreBytes, S1, EName) end,
@@ -2039,6 +2143,7 @@ scan_entity_def(Str, S, EName) ->
     end.
 
 
+-doc "".
 scan_ndata_decl([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_ndata_decl(MoreBytes, S1) end,
@@ -2049,6 +2154,7 @@ scan_ndata_decl(Str = ">"++_T, S) ->
 scan_ndata_decl(T, S) ->
     {_,T1,S1} = mandatory_strip(T,S),
     scan_ndata_decl2(T1,S1).
+-doc "".
 scan_ndata_decl2(Str = ">"++_T,S) ->
     {[], Str, S};
 scan_ndata_decl2("NDATA" ++ T,S0 = #xmerl_scanner{rules_read_fun = Read,
@@ -2068,10 +2174,12 @@ scan_ndata_decl2("NDATA" ++ T,S0 = #xmerl_scanner{rules_read_fun = Read,
 
 %%%%%%% [39] element
 
+-doc "".
 scan_element(T, S, Pos) ->
     scan_element(T, S, Pos, S#xmerl_scanner.space,
 		 _Lang = [], _Parents = [], #xmlNamespace{}).
 
+-doc "".
 scan_element(T, S=#xmerl_scanner{line=L,col=C},
 	     Pos, SpaceDefault,Lang, Parents, NS) ->
     {Name, NamespaceInfo, T1, S1} = scan_name(T, S),
@@ -2082,6 +2190,7 @@ scan_element(T, S=#xmerl_scanner{line=L,col=C},
 		 SpaceDefault).
 
 
+-doc "".
 scan_element("/", S=#xmerl_scanner{continuation_fun = F},
 	     Pos, Name, StartL, StartC, Attrs, Lang, Parents,
 	     NSI, NS, SpaceDefault) ->
@@ -2209,6 +2318,7 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
     scan_element(T4, S5, Pos, Name, StartL, StartC, [Attr|Attrs],
 		 Lang, Parents, NSI, NewNS, SpaceDefault).
 
+-doc "".
 get_default_attrs(S = #xmerl_scanner{rules_read_fun = Read}, ElemName) ->
     case Read(elem_def, ElemName, S) of
 	#xmlElement{attributes = Attrs} ->
@@ -2217,6 +2327,7 @@ get_default_attrs(S = #xmerl_scanner{rules_read_fun = Read}, ElemName) ->
 	_ -> []
     end.
 
+-doc "".
 get_att_type(S=#xmerl_scanner{rules_read_fun=Read},AttName,ElemName) ->
     case Read(elem_def,ElemName,S) of
 	#xmlElement{attributes = Attrs} ->
@@ -2228,6 +2339,7 @@ get_att_type(S=#xmerl_scanner{rules_read_fun=Read},AttName,ElemName) ->
 	_ -> {'CDATA',no_value}
     end.
 
+-doc "".
 resolve_relative_uri(NewBase="/"++_,CurrentBase) ->
     case xmerl_uri:parse(CurrentBase) of
 	{error,_Reason} ->
@@ -2239,6 +2351,7 @@ resolve_relative_uri(NewBase,CurrentBase) ->
      filename:join(CurrentBase,NewBase).
 
 
+-doc "".
 processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 					 xmlbase = XMLBase,
 					 line = _L, col = _C,
@@ -2301,6 +2414,7 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 		namespace = Namespace}.
 
 
+-doc "".
 check_language([#xmlAttribute{name='xml:lang',value=Lang}|_], _) ->
     Lang;
 check_language([_|T], Lang) ->
@@ -2309,6 +2423,7 @@ check_language([], Lang) ->
     Lang.
 
 
+-doc "".
 check_namespace(xmlns, _, Value, NS) ->
     NS#xmlNamespace{default = list_to_atom(Value)};
 check_namespace(_, {"xmlns", Prefix}, Value,
@@ -2319,6 +2434,7 @@ check_namespace(_, _, _, NS) ->
     NS.
 
 
+-doc "".
 expanded_name(Name, [], #xmlNamespace{default = []}, _S) ->
     Name;
 expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
@@ -2361,6 +2477,7 @@ expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
 	    ?fatal({namespace_prefix_not_declared, Prefix}, S)
     end.
 
+-doc "".
 keyreplaceadd(K, Pos, [H|T], Obj) when K == element(Pos, H) ->
     [Obj|T];
 keyreplaceadd(K, Pos, [H|T], Obj) ->
@@ -2371,6 +2488,7 @@ keyreplaceadd(_K, _Pos, [], Obj) ->
 %%%%%%% [10] AttValue
 %% normalize the attribute value according to XML 1.0 section 3.3.3
 
+-doc "".
 scan_att_value([], S=#xmerl_scanner{continuation_fun = F},AT) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_att_value(MoreBytes, S1, AT) end,
@@ -2410,6 +2528,7 @@ scan_att_value([H|T], S0,AttType) when H == $"; H == $' ->
     {T1,S1,IsNorm} = normalize(T,S,false),
     scan_att_chars(T1, S1, H, [],[], AttType,IsNorm).
 
+-doc "".
 scan_att_chars([],S=#xmerl_scanner{continuation_fun=F},H,Acc,TmpAcc,AT,IsNorm)->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) ->
@@ -2470,6 +2589,7 @@ scan_att_chars(Str, S0, Delim, Acc, TmpAcc,AT,IsNorm) ->
     valid_Char(S#xmerl_scanner.validation,AT,Ch,S),
     scan_att_chars(T, S, Delim, [Ch|Acc], [Ch|TmpAcc],AT,IsNorm).
 
+-doc "".
 markup_delimeter("&")->    true;
 markup_delimeter("\"") ->  true;
 markup_delimeter("\'") ->  true;
@@ -2478,6 +2598,7 @@ markup_delimeter(">") ->   true;
 markup_delimeter("%") ->   true;
 markup_delimeter(_) ->     false.
 
+-doc "".
 check_att_default_val(dtd,[],_Ent,_S) ->
     ok;
 check_att_default_val(dtd,RevName,Ent,S) ->
@@ -2485,6 +2606,7 @@ check_att_default_val(dtd,RevName,Ent,S) ->
 check_att_default_val(_,_,_,_) ->
     ok.
 
+-doc "".
 check_att_default_val(Name,Ent,S=#xmerl_scanner{rules_write_fun=Write})
   when Ent == 'ENTITY'; Ent == 'ENTITIES' ->
     case xmerl_lib:is_letter(hd(Name)) of
@@ -2524,6 +2646,7 @@ check_att_default_val(Name,'ID',S=#xmerl_scanner{rules_write_fun=Write,
 check_att_default_val(_,_,_) ->
     ok.
 
+-doc "".
 valid_Char(dtd,AT,C,S) when AT=='NMTOKEN';AT=='NMTOKENS' ->
     vc_Valid_Char(AT,C,S);
 valid_Char(_,_,[C],S) ->
@@ -2545,10 +2668,12 @@ valid_Char(_,_,C,S) ->
 
 %%%%%%% [43] content
 
+-doc "".
 scan_content(T, S, Name, Attrs, Space, Lang, Parents, NS) ->
     scan_content(T, S, _Pos = 1, Name, Attrs, Space,
                  Lang, Parents, NS, _Acc = [],_MarkupDel=[]).
 
+-doc "".
 scan_content("<", S= #xmerl_scanner{continuation_fun = F},
             Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,_) ->
     ?dbg("trailing < detected~n", []),
@@ -2667,6 +2792,7 @@ scan_content(T, S=#xmerl_scanner{acc_fun = F,
 		 Parents, NS, NewAcc,[]).
 
 
+-doc "".
 scan_content_markup([], S=#xmerl_scanner{continuation_fun = F},
 		    Pos, Name, Attrs, Space, Lang, Parents, NS) ->
     ?dbg("cont()...~n", []),
@@ -2685,11 +2811,13 @@ scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,Parents,_NS) ->
 scan_content_markup(T, S, Pos, _Name, _Attrs, Space, Lang, Parents, NS) ->
     scan_element(T, S, Pos, Space, Lang, Parents, NS).
 
+-doc "".
 scan_char_data(T, S, Space,MUD) ->
     scan_char_data(T, S, Space,MUD, _Acc = []).
 
 %%%%%%% [14] CharData
 
+-doc "".
 scan_char_data([], S=#xmerl_scanner{environment={external,{entity,_}}},
 	       _Space,_MUD, Acc) ->
 
@@ -2746,10 +2874,12 @@ scan_char_data(Str,S0,Space,MUD,Acc) ->
 
 %%%%%%% [18]-[21] CDATA
 
+-doc "".
 scan_cdata(Str, S, Pos, Parents) ->
     scan_cdata(Str, S, Pos, Parents, _Acc = []).
 
 
+-doc "".
 scan_cdata([], S=#xmerl_scanner{continuation_fun = F}, Pos, Parents, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_cdata(MoreBytes, S1, Pos, Parents, Acc) end,
@@ -2775,6 +2905,7 @@ scan_cdata(Str, S0, Pos, Parents, Acc) ->
 %%%%%%% [67] Reference
 %% returns a three tuple {Result,RestBuf,State}
 
+-doc "".
 scan_reference([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_reference(MoreBytes, S1) end,
@@ -2817,6 +2948,7 @@ scan_reference(T, S) ->
 %% At some suitable point, we should flatten these, so that application-level
 %% processors should not have to be aware of this detail.
 
+-doc "".
 scan_entity_ref([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_entity_ref(MoreBytes, S1) end,
@@ -2848,12 +2980,14 @@ scan_entity_ref(T, S) ->
 
 %%%%%%% [69] PEReference
 
+-doc "".
 scan_pe_reference(T, S) ->
     {Name, _NamespaceInfo, T1, S1} = scan_name(T, S),
     T2 = scan_mandatory(";",T1,1,S1,expected_parsed_entity_reference_semicolon),
 %    ";" ++ T2 = T1,
     {Name, T2, S1#xmerl_scanner{col = S1#xmerl_scanner.col+1}}.
 
+-doc "".
 expand_pe_reference(Name, #xmerl_scanner{rules_read_fun = Read} = S,WS) ->
     case Read(parameter_entity, Name, S) of
 	undefined ->
@@ -2882,6 +3016,7 @@ expand_pe_reference(Name, #xmerl_scanner{rules_read_fun = Read} = S,WS) ->
 
 %%%%%%% [68] EntityReference
 
+-doc "".
 expand_reference(Name, #xmerl_scanner{environment={external,{entity,_}}}) ->
     atom_to_list(Name);
 expand_reference(Name, #xmerl_scanner{environment=internal_parsed_entity}) ->
@@ -2902,6 +3037,7 @@ expand_reference(Name, #xmerl_scanner{rules_read_fun = Read} = S) ->
 
 %%%%%%% [66] CharRef
 
+-doc "".
 scan_char_ref_dec([], S=#xmerl_scanner{continuation_fun = F}, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_char_ref_dec(MoreBytes, S1, Acc) end,
@@ -2917,6 +3053,7 @@ scan_char_ref_dec(";" ++ T, S0, Acc) ->
     {[Ch], T, S}. %% changed return value from [[Ref]]
 
 
+-doc "".
 scan_char_ref_hex([], S=#xmerl_scanner{continuation_fun = F}, Acc) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_char_ref_hex(MoreBytes, S1, Acc) end,
@@ -2943,6 +3080,7 @@ scan_char_ref_hex(";" ++ T, S0, Acc) ->
 
 %%%%%%% [25] Eq
 %%% Eq    ::=    S? '=' S?
+-doc "".
 scan_eq(T, S) ->
     ?strip1,
     case T1 of
@@ -2977,6 +3115,7 @@ scan_eq(T, S) ->
 %% the scanner has been told to be namespace conformant. Otherwise, it will
 %% behave exactly like scan_name/2.
 %%
+-doc "".
 scan_name_no_colons(Str, S) ->
     NSC = S#xmerl_scanner.namespace_conformant,
     case NSC of
@@ -2991,6 +3130,7 @@ scan_name_no_colons(Str, S) ->
 
 
 %% [5] Name ::= (Letter | '_' | ':') (NameChar)*
+-doc "".
 scan_name([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_name(MoreBytes, S1) end,
@@ -3036,11 +3176,13 @@ scan_name(Str, S) ->
 
 
 
+-doc "".
 scan_nmtoken(Str, S, Acc, NSC) ->
     scan_nmtoken(Str, S, Acc, _Prefix = [], _Local = Acc, NSC,isLatin1(hd(Acc),true)).
 
 %% scan_nmtoken/2
 %% [7] NmToken ::= (NameChar)+
+-doc "".
 scan_nmtoken([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_nmtoken(MoreBytes, S1) end,
@@ -3064,6 +3206,7 @@ scan_nmtoken(Str, S) ->
     end.
 
 
+-doc "".
 scan_nmtoken([], S=#xmerl_scanner{continuation_fun = F},
 	     Acc, Prefix, Local, NSC,IsLatin1) ->
     ?dbg("cont()...~n", []),
@@ -3104,11 +3247,13 @@ scan_nmtoken(Str, S0, Acc, Prefix, Local, NSC,IsLatin1) ->
 	    {lists:reverse(Acc), namespace_info(Prefix, Local), Str, S}
     end.
 
+-doc "".
 namespace_info([], _) ->
     [];
 namespace_info(Prefix, Local) ->
     {Prefix, lists:reverse(Local)}.
 
+-doc "".
 isLatin1(_Ch,false) ->
     false;
 isLatin1(Ch,_) when Ch > 255 ->
@@ -3118,6 +3263,7 @@ isLatin1(_,_) ->
 
 %%%%%%% [11] SystemLiteral
 
+-doc "".
 scan_system_literal([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_system_literal(MoreBytes, S1) end,
@@ -3129,6 +3275,7 @@ scan_system_literal("'" ++ T, S) ->
     scan_system_literal(T, S, $', []).
 
 
+-doc "".
 scan_system_literal([], S=#xmerl_scanner{continuation_fun = F},
 		    Delimiter, Acc) ->
     ?dbg("cont()...~n", []),
@@ -3148,6 +3295,7 @@ scan_system_literal(Str, S, Delimiter, Acc) ->
 
 %%%%%%% [12] PubidLiteral
 
+-doc "".
 scan_pubid_literal([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_pubid_literal(MoreBytes, S1) end,
@@ -3159,6 +3307,7 @@ scan_pubid_literal([H|_T], S) ->
     ?fatal({invalid_pubid_char, H}, S).
 
 
+-doc "".
 scan_pubid_literal([], S=#xmerl_scanner{continuation_fun = F},
 		   Delimiter, Acc) ->
     ?dbg("cont()...~n", []),
@@ -3186,6 +3335,7 @@ scan_pubid_literal([H|T], S, Delimiter, Acc) ->
 %% identifiers. This is because we normalize this whitespace as we scan
 %% (see above in scan_pubid_literal())
 %%
+-doc "".
 is_pubid_char(X) when X >= $a, X =< $z -> true;
 is_pubid_char(X) when X >= $A, X =< $Z -> true;
 is_pubid_char(X) when X >= $0, X =< $9 -> true;
@@ -3195,6 +3345,7 @@ is_pubid_char(X) ->
 
 %%%%%%% [46] contentspec
 
+-doc "".
 scan_contentspec([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_contentspec(MoreBytes, S1) end,
@@ -3225,9 +3376,11 @@ scan_contentspec(_Str,S) ->
 %%%%%%% [47] children
 %%%%%%% [51] Mixed
 
+-doc "".
 scan_elem_content(T, S) ->
     scan_elem_content(T, S, _Context = children, _Mode = unknown, _Acc = []).
 
+-doc "".
 scan_elem_content([], S=#xmerl_scanner{continuation_fun = F},
 		  Context, Mode, Acc) ->
     ?dbg("cont()...~n", []),
@@ -3280,6 +3433,7 @@ scan_elem_content("|" ++ T, S0, Context, _Mode, Acc) ->
 scan_elem_content(T, S, Context, Mode, Acc) ->
     scan_elem_content2(T, S, Context, Mode, Acc).
 
+-doc "".
 scan_elem_content2("(" ++ _T, S, mixed, _Mode, _Acc) ->
     ?fatal({error,
 	{element_names_must_not_be_parenthesized_in_mixed_content}},S);
@@ -3312,10 +3466,12 @@ scan_elem_content2(T, S, Context, Mode, Acc) ->
     scan_elem_content(T3, S3, Context, Mode, NewAcc).
 
 
+-doc "".
 format_elem_content({once, What}) -> What;
 format_elem_content(Other) -> Other.
 
 
+-doc "".
 scan_occurrence([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_occurrence(MoreBytes, S1) end,
@@ -3337,6 +3493,7 @@ scan_occurrence(T, S) ->
 
 
 %% first part of VC: Name Token
+-doc "".
 vc_Valid_Char(_AT,C,S) ->
     case xmerl_lib:is_namechar(C) of
 	true ->
@@ -3347,6 +3504,7 @@ vc_Valid_Char(_AT,C,S) ->
 
 
 
+-doc "".
 vc_ID_Attribute_Default(_,#xmerl_scanner{validation=Valid})
   when Valid /= dtd ->
     ok;
@@ -3356,6 +3514,7 @@ vc_ID_Attribute_Default({_,'ID',_,Def,_},_S)
 vc_ID_Attribute_Default({_,'ID',_,Def,_},S) ->
     ?fatal({error,{validity_constraint_error_ID_Attribute_Default,Def}},S).
 
+-doc "".
 vc_Enumeration({_Name,{_,NameList},DefaultVal,_,_},S)
   when is_list(DefaultVal) ->
     case lists:member(list_to_atom(DefaultVal),NameList) of
@@ -3367,6 +3526,7 @@ vc_Enumeration({_Name,{_,NameList},DefaultVal,_,_},S)
 vc_Enumeration({_Name,{_,_NameList},_DefaultVal,_,_},_S) ->
     ok.
 
+-doc "".
 vc_Entity_Name({_Name,'ENTITY',DefaultVal,_,_},S) when is_list(DefaultVal) ->
     Read = S#xmerl_scanner.rules_read_fun,
     case Read(entity,list_to_atom(DefaultVal),S) of
@@ -3397,6 +3557,7 @@ vc_Entity_Name({_,'ENTITIES',DefaultVal,_,_},S) when is_list(DefaultVal) ->
 vc_Entity_Name({_,'ENTITIES',_,_,_},_S) ->
     ok.
 
+-doc "".
 vc_No_Duplicate_Types(#xmerl_scanner{validation=dtd} = S,mixed,Acc) ->
     CheckDupl =
 	fun([H|T],F) ->
@@ -3415,6 +3576,7 @@ vc_No_Duplicate_Types(_,_,_) ->
 %%% Tests of Well-Formededness Constraints
 
 
+-doc "".
 mandatory_delimeter_wfc(","++_T,_S) ->
     ok;
 mandatory_delimeter_wfc("|"++_T,_S) ->
@@ -3428,6 +3590,7 @@ mandatory_delimeter_wfc(T,S) ->
     ?fatal({comma_or_vertical_bar_mandatory_between_names_in_content_model,T},S).
 
 
+-doc "".
 wfc_unique_att_spec([],_S) ->
     ok;
 wfc_unique_att_spec([#xmlAttribute{name=N,expanded_name=EN}|Atts],S) ->
@@ -3444,6 +3607,7 @@ wfc_unique_att_spec([#xmlAttribute{name=N,expanded_name=EN}|Atts],S) ->
 	    end
     end.
 
+-doc "".
 wfc_legal_char(Chars,S) when is_list(Chars)->
     {Ch,Rest} = to_ucs(S#xmerl_scanner.encoding,Chars),
     case xmerl_lib:is_char(Ch) of
@@ -3461,6 +3625,7 @@ wfc_legal_char(Ch,S) ->
     end.
 
 
+-doc "".
 wfc_whitespace_betw_attrs([WS |_]=L,S) when ?whitespace(WS) ->
     {L,S};
 wfc_whitespace_betw_attrs([$/ |_]=L,S) ->
@@ -3475,6 +3640,7 @@ wfc_whitespace_betw_attrs([],S=#xmerl_scanner{continuation_fun = F}) ->
 wfc_whitespace_betw_attrs(_,S) ->
     ?fatal({whitespace_required_between_attributes},S).
 
+-doc "".
 wfc_Entity_Declared({external,_},S=#xmerl_scanner{standalone=yes},Name) ->
     ?fatal({reference_to_externally_defed_entity_standalone_doc,Name},S);
 wfc_Entity_Declared({external,_},_S,_) ->
@@ -3482,6 +3648,7 @@ wfc_Entity_Declared({external,_},_S,_) ->
 wfc_Entity_Declared(_Env,_S,_) ->
     ok.
 
+-doc "".
 wfc_Internal_parsed_entity(internal,Value,S) ->
     %% WFC test that replacement text matches production content
     scan_content(Value,S#xmerl_scanner{environment=internal_parsed_entity},
@@ -3490,12 +3657,14 @@ wfc_Internal_parsed_entity(internal,Value,S) ->
 wfc_Internal_parsed_entity(_,_,_) ->
     ok.
 
+-doc "".
 vc_Element_valid(_Name, {"xmlns", _},
 		 S = #xmerl_scanner{namespace_conformant = true}) ->
     ?fatal({error,{illegal_element_prefix,xmlns}},S);
 vc_Element_valid(Name, _, S) ->
     vc_Element_valid(Name, S).
 
+-doc "".
 vc_Element_valid(_Name,#xmerl_scanner{environment=internal_parsed_entity}) ->
     ok;
 vc_Element_valid(Name,S=#xmerl_scanner{rules_read_fun=Read,
@@ -3511,6 +3680,7 @@ vc_Element_valid(_,_) ->
 %%%%%%% [74] PEDef
 
 
+-doc "".
 scan_pe_def([], S=#xmerl_scanner{continuation_fun = F}, PEName) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_pe_def(MoreBytes, S1, PEName) end,
@@ -3528,6 +3698,7 @@ scan_pe_def(Str, S, _PEName) ->
 
 %%%%%%% [82] NotationDecl
 
+-doc "".
 scan_notation_decl(T, #xmerl_scanner{rules_write_fun = Write,
 				     rules_read_fun=Read,
 				     rules_delete_fun=Delete} = S) ->
@@ -3544,6 +3715,7 @@ scan_notation_decl(T, #xmerl_scanner{rules_write_fun = Write,
     S5 = Write(notation, Name, Def, S4),
     {T5, S5}.
 
+-doc "".
 scan_notation_decl1([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_notation_decl1(MoreBytes, S1) end,
@@ -3570,6 +3742,7 @@ scan_notation_decl1("PUBLIC" ++ T, S0) ->
 
 %%%%%%% [75] ExternalID
 
+-doc "".
 scan_external_id([], S=#xmerl_scanner{continuation_fun = F}) ->
     ?dbg("cont()...~n", []),
     F(fun(MoreBytes, S1) -> scan_external_id(MoreBytes, S1) end,
@@ -3595,10 +3768,12 @@ scan_external_id("PUBLIC" ++ T, S0) ->
 %% They differ in that this one checks for recursive calls to the same
 %% parameter entity.
 
+-doc "".
 scan_entity_value(Str, S, Delim, Name, Namespace) ->
     scan_entity_value(Str, S, Delim, _Acc = [], Name, Namespace,[]).
 
 
+-doc "".
 scan_entity_value([], S=#xmerl_scanner{environment={external,{entity,_}}},
 		  _Delim,Acc,_,_,[]) ->
     {lists:flatten(lists:reverse(Acc)), [], S};
@@ -3783,6 +3958,7 @@ scan_entity_value(Str, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 
 
 
+-doc "".
 save_refed_entity_name(Name,PEName,S) ->
     case predefined_entity(Name) of
 	true ->
@@ -3791,6 +3967,7 @@ save_refed_entity_name(Name,PEName,S) ->
 	    save_refed_entity_name1(Name,PEName,S)
     end.
 
+-doc "".
 save_refed_entity_name1(Name,PEName,
 			S=#xmerl_scanner{entity_references=ERefs}) ->
     case lists:keysearch(PEName,1,ERefs) of
@@ -3809,6 +3986,7 @@ save_refed_entity_name1(Name,PEName,
 
 
 
+-doc "".
 pe_push(Tok,Stack,_S) when Tok=="<!";Tok=="<?";Tok=="<!--";Tok=="<![";
 			   Tok=="[";Tok=="<";Tok=="</";Tok=="(" ->
     [Tok|Stack];
@@ -3818,6 +3996,7 @@ pe_push(Tok,Stack,#xmerl_scanner{validation=dtd})
 pe_push(_,Stack,_S) ->
     Stack.
 
+-doc "".
 pe_pop(">",["<!"|Rest],_S) ->        Rest;
 pe_pop("?>",["<?"|Rest],_S) ->       Rest;
 pe_pop("-->",["<!--"|Rest],_S) ->    Rest;
@@ -3831,6 +4010,7 @@ pe_pop(Token,_Stack,S=#xmerl_scanner{validation=dtd}) ->
 pe_pop(_,Rest,_) ->
     Rest.
 
+-doc "".
 pe_nesting_token("<!"++_T,parameter,dtd) ->   "<!";
 pe_nesting_token("<?"++_T,parameter,dtd) ->   "<?";
 pe_nesting_token("<!--"++_T,parameter,dtd) -> "<!--";
@@ -3845,6 +4025,7 @@ pe_nesting_token(")"++_T,parameter,dtd) ->    ")";
 pe_nesting_token("/>"++_T,parameter,dtd) ->   "/>";
 pe_nesting_token(_,_,_) ->                     false.
 
+-doc "".
 predefined_entity(amp) ->  true;
 predefined_entity(lt) ->   true;
 predefined_entity(gt) ->   true;
@@ -3852,6 +4033,7 @@ predefined_entity(apos) -> true;
 predefined_entity(quot) -> true;
 predefined_entity(_) ->    false.
 
+-doc "".
 check_entity_recursion(EName,
 		       S=#xmerl_scanner{entity_references=EntityRefList}) ->
     Set = sofs:family(EntityRefList),
@@ -3867,9 +4049,11 @@ check_entity_recursion(EName,
 
 
 %%%%%%% [15] Comment
+-doc "".
 scan_comment(Str, S) ->
     scan_comment(Str, S, _Pos = undefined, _Parents = [], _Lang = []).
 
+-doc "".
 scan_comment(Str,S=#xmerl_scanner{col=C,event_fun=Event}, Pos, Parents, Lang) ->
     Comment = #xmlComment{pos = Pos,
 			  parents = Parents,
@@ -3883,6 +4067,7 @@ scan_comment(Str,S=#xmerl_scanner{col=C,event_fun=Event}, Pos, Parents, Lang) ->
 
     scan_comment1(Str, S1, Pos, Comment, _Acc = []).
 
+-doc "".
 scan_comment1([], S=#xmerl_scanner{continuation_fun = F},
 	     Pos, Comment, Acc) ->
     ?dbg("cont()...~n", []),
@@ -3918,6 +4103,7 @@ scan_comment1(Str, S=#xmerl_scanner{col = C}, Pos, Cmt, Acc) ->
 
 %%%%%%%
 
+-doc "".
 scan_markup_completion_gt([$>|_R]=T,S) ->
     {T,S};
 scan_markup_completion_gt([$%|T],S0) ->
@@ -3930,6 +4116,7 @@ scan_markup_completion_gt(T,S) ->
     ?fatal({error,{malformed_syntax_entity_completion,T}},S).
 
 
+-doc "".
 scan_mandatory(Pattern,T,N,S,ErrorMsg) ->
     case lists:prefix(Pattern,T) of
 	true ->
@@ -3939,9 +4126,11 @@ scan_mandatory(Pattern,T,N,S,ErrorMsg) ->
     end.
 
 
+-doc "".
 strip(Str,S) ->
     strip(Str,S,all).
 
+-doc "".
 strip([], S=#xmerl_scanner{continuation_fun = F},_) ->
     ?dbg("cont()... stripping whitespace~n", []),
     F(fun(MoreBytes, S1) -> strip(MoreBytes, S1) end,
@@ -3966,6 +4155,7 @@ strip(Str, S,_Lim) ->
 
 %% demands a whitespace, though a parameter entity is ok, it will
 %% expand with a whitespace on each side.
+-doc "".
 mandatory_strip([],S) ->
     ?fatal({error,{whitespace_was_expected}},S);
 mandatory_strip(T,S) when ?whitespace(hd(T)) ->
@@ -3978,10 +4168,12 @@ mandatory_strip(_T,S) ->
     ?fatal({error,{whitespace_was_expected}},S).
 
 %% strip but don't accept tab
+-doc "".
 pub_id_strip(Str, S) ->
     strip(Str,S,no_tab).
 
 
+-doc "".
 normalize("&"++T,S,IsNorm) ->
     case scan_reference(T, S) of
 	{ExpRef, T1, S1} when ?whitespace(hd(ExpRef)) ->
@@ -4004,6 +4196,7 @@ normalize(T,S,IsNorm) ->
 %% - avoid reverse;
 %% - compact two common indentation patterns.
 %% Note: only to be called when a \n was found.
+-doc "".
 fast_accumulate_whitespace(" " ++ T, S, _) ->
     fast_acc_spaces(T, S, 1);
 fast_accumulate_whitespace("\t"++T, S, _) ->
@@ -4014,16 +4207,19 @@ fast_accumulate_whitespace("<"++_=R, S, _T) ->
 fast_accumulate_whitespace(_, S, T) ->
     accumulate_whitespace(T, S, []).
 
+-doc "".
 fast_acc_spaces(" " ++ T, S, N) ->
     fast_acc_spaces(T, S, N + 1);
 fast_acc_spaces(T, S, N) ->
     fast_acc_end(T, S, N, N, $\s, 1).
 
+-doc "".
 fast_acc_tabs("\t" ++ T, S, N) ->
     fast_acc_tabs(T, S, N + 1);
 fast_acc_tabs(T, S, N) ->
     fast_acc_end(T, S, N, N * 8 + 1, $\t, 2).
 
+-doc "".
 fast_acc_end(T, S, N, Col, C, CD_I) ->
     #xmerl_scanner{common_data = CD, line = Line0} = S,
     Line = Line0 + 1,
@@ -4040,16 +4236,19 @@ fast_acc_end(T, S, N, Col, C, CD_I) ->
 %%%                             atom(),Acc::string()) -> {Acc, T1, S1}
 %%%
 %%% @doc Function to accumulate and normalize whitespace.
+-doc "Function to accumulate and normalize whitespace.".
 accumulate_whitespace(T, S, preserve, Acc) ->
     accumulate_whitespace(T, S, Acc);
 accumulate_whitespace(T, S, normalize, Acc) ->
     {_WsAcc, T1, S1} = accumulate_whitespace(T, S, []),
     {[$\s|Acc], T1, S1}.
 
+-doc "".
 accumulate_whitespace(T, S, Acc) ->
     #xmerl_scanner{line = Line, col = Col} = S,
     accumulate_whitespace(T, S, Line, Col, Acc).
 
+-doc "".
 accumulate_whitespace([], S0, Line, Col, Acc) ->
     #xmerl_scanner{continuation_fun = F} = S0,
     S = S0#xmerl_scanner{line = Line, col = Col},
@@ -4072,6 +4271,7 @@ accumulate_whitespace("\r" ++ T, S, Line, _Col, Acc) ->
 accumulate_whitespace(Str, S, Line, Col, Acc) ->
     {Acc, Str, S#xmerl_scanner{line = Line, col = Col}}.
 
+-doc "".
 expand_tab(Col) ->
     Rem = (Col-1) rem 8,
     _NewCol = Col + 8 - Rem.
@@ -4079,6 +4279,7 @@ expand_tab(Col) ->
 %% validation_mode(Validation)
 %% Validation = off | dtd | schema | true | false
 %% true and false are obsolete
+-doc "".
 validation_mode(false) ->
     off;
 validation_mode(true) ->
@@ -4087,6 +4288,7 @@ validation_mode(Other) ->
     Other.
 
 
+-doc "".
 schemaLocations(El,#xmerl_scanner{schemaLocation=[]}) ->
     schemaLocations(El);
 schemaLocations(El,#xmerl_scanner{schemaLocation=SL}) ->
@@ -4097,6 +4299,7 @@ schemaLocations(El,#xmerl_scanner{schemaLocation=SL}) ->
 	    schemaLocations(El)
     end.
 
+-doc "".
 schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) ->
     Pred = fun(#xmlAttribute{name=schemaLocation}) -> false;
 	      (#xmlAttribute{nsinfo={_,"schemaLocation"}}) -> false;
@@ -4126,10 +4329,12 @@ schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) ->
 	    {error,{missing_schemaLocation}}
     end.
 
+-doc "".
 inherit_options(S) ->
     %%?dbg("xsdbase: ~p~n",[S#xmerl_scanner.xmlbase]),
     [{xsdbase,S#xmerl_scanner.xmlbase}].
 
+-doc "".
 handle_schema_result({XSDRes=#xmlElement{},_},S5) ->
     {XSDRes,S5};
 handle_schema_result({error,Reason},S5) ->
@@ -4139,11 +4344,13 @@ handle_schema_result({error,Reason},S5) ->
 
 -compile({inline, [fatal_fun/1]}).
 
+-doc "".
 -spec fatal_fun(_) -> fun((_) -> no_return()).
 
 fatal_fun(Reason) ->
     fun(S) -> ?fatal(Reason, S) end.
 
+-doc "".
 fatal(Reason, S) ->
     exit({fatal, {Reason,
 		  {file,S#xmerl_scanner.filename},
@@ -4152,6 +4359,7 @@ fatal(Reason, S) ->
 
 %% preformat formats tokens in L1 and L2, L2 separated by Sep into a
 %% list
+-doc "".
 preformat(L1,L2,Sep) ->
     Format1= lists:flatten(lists:duplicate(length(L1)-1,"~s ")++"~s"),
     Format2 = lists:flatten(lists:duplicate(length(L2)-1,
@@ -4161,6 +4369,7 @@ preformat(L1,L2,Sep) ->
 
 
 %% BUG when we are many <!ATTLIST ..> balise none attributes has save in rules
+-doc "".
 rules_write(Context, Name, Value, #xmerl_scanner{rules = T} = S) ->
     case ets:lookup(T, {Context, Name}) of
 	[] ->
@@ -4171,6 +4380,7 @@ rules_write(Context, Name, Value, #xmerl_scanner{rules = T} = S) ->
     S.
 
 
+-doc "".
 rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
     case ets:lookup(T, {Context, Name}) of
 	[] ->
@@ -4179,14 +4389,17 @@ rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
 	    V
     end.
 
+-doc "".
 rules_delete(Context,Name,#xmerl_scanner{rules = T}) ->
     ets:delete(T,{Context,Name}).
 
+-doc "".
 to_ucs(Encoding, Chars) when Encoding=="utf-8"; Encoding == undefined ->
     utf8_2_ucs(Chars);
 to_ucs(_,[C|Rest]) ->
     {C,Rest}.
 
+-doc "".
 utf8_2_ucs([A,B,C,D|Rest]) when A band 16#f8 =:= 16#f0,
 			      B band 16#c0 =:= 16#80,
 			      C band 16#c0 =:= 16#80,
@@ -4231,6 +4444,7 @@ utf8_2_ucs([A|Rest]) ->
 %% to_char_set(_,Ch) ->
 %%     [Ch].
 
+-doc "".
 ucs_2_utf8(Ch) when Ch < 128 ->
     %% 0vvvvvvv
     [Ch];
@@ -4262,6 +4476,7 @@ ucs_2_utf8(Ch) when Ch < 16#200000 ->
      (Ch band 16#00003f) bor 16#80].
 
 
+-doc "".
 string_to_char_set(Enc,Str) when Enc =:= "utf-8"; Enc =:= undefined ->
     lists:flatten([ucs_2_utf8(X)||X <- Str]);
 string_to_char_set(_,Str) ->
@@ -4290,3 +4505,4 @@ string_to_char_set(_,Str) ->
 
 %% put_total(M) ->
 %%     put(xmerl_mem,M).
+

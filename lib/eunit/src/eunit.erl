@@ -26,6 +26,7 @@
 %% @doc This module is the main EUnit user interface.
 
 -module(eunit).
+-moduledoc "This module is the main EUnit user interface.".
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -45,6 +46,7 @@
 
 %% @doc Starts the EUnit server. Normally, you don't need to call this
 %% function; it is started automatically.
+-doc "Starts the EUnit server. Normally, you don't need to call this function; it is started automatically.".
 start() ->
     start(?SERVER).
 
@@ -55,6 +57,7 @@ start(Server) ->
 
 %% @doc Stops the EUnit server. Normally, you don't need to call this
 %% function.
+-doc "Stops the EUnit server. Normally, you don't need to call this function.".
 stop() ->
     stop(?SERVER).
 
@@ -117,6 +120,7 @@ watch_app(Server, Name, Options) ->
     end.
 
 %% @equiv test(Tests, [])
+-doc "Equivalent to [test(Tests, [])](`test/2`).".
 test(Tests) ->
     test(Tests, []).
 
@@ -150,6 +154,30 @@ test(Tests) ->
 %% Options in the environment variable EUNIT are also included last in
 %% the option list, i.e., have lower precedence than those in `Options'.
 %% @see test/1
+-doc """
+Runs a set of tests. The format of `Tests` is described in the section [EUnit test representation](chapter.md#eunit_test_representation) of the overview.
+
+Example:
+
+```text
+  eunit:test(fred)
+```
+
+runs all tests in the module `fred` and also any tests in the module `fred_tests`, if that module exists.
+
+Options:
+* __`verbose`__ - Displays more details about the running tests.
+
+* __`print_depth`__ - Maximum depth to which terms are printed in case of error.
+
+* __`exact_execution`__ - If this boolean flag is set to `true` framework will not automatically execute tests found in related module suffixed with "_tests". This behaviour might be unwanted if execution of modules found in a folder is ordered while it contains both source and test modules.
+
+* __`scale_timeouts`__ - If this numeric value is set, timeouts will get scaled accordingly. It may be useful when running a set of tests on a slower host. Examples: `{scale_timeouts,10}` make the timeouts 10 times longer, while `{scale_timeouts,0.1}` would shorten them by a factor of 10.
+
+Options in the environment variable EUNIT are also included last in the option list, i.e., have lower precedence than those in `Options`.
+
+*See also: *`test/1`.
+""".
 test(Tests, Options) ->
     test(?SERVER, Tests, all_options(Options)).
 
@@ -163,6 +191,7 @@ test(Server, Tests, Options) ->
 	{error, R} -> {error, R}
     end.
 
+-doc "".
 test_run(Reference, Listeners) ->
     receive
 	{start, Reference} ->
@@ -178,12 +207,14 @@ test_run(Reference, Listeners) ->
 	    end
     end.
 
+-doc "".
 cast([P | Ps], Msg) ->
     P ! Msg,
     cast(Ps, Msg);
 cast([], _Msg) ->
     ok.
 
+-doc "".
 wait_until_listeners_have_terminated([P | Ps]) ->
     MRef = erlang:monitor(process, P),
     receive
@@ -210,6 +241,7 @@ submit(Server, T, Options) ->
     Dummy = spawn(fun devnull/0),
     eunit_server:start_test(Server, Dummy, T, Options).
 
+-doc "".
 listeners(Options) ->
     %% note that eunit_tty must always run, because it sends the final
     %% {result,...} message that the test_run() function is waiting for
@@ -226,6 +258,7 @@ listeners(Options) ->
 	    [spawn_link(fun () -> event_logger(LogFile) end) | Ps]
     end.
 
+-doc "".
 start_listeners([P | Ps]) when is_pid(P) ; is_atom(P) ->
     [P | start_listeners(Ps)];
 start_listeners([{Mod, Opts} | Ps]) when is_atom(Mod) ->
@@ -234,6 +267,7 @@ start_listeners([]) ->
     [].
 
 %% TODO: make this report file errors
+-doc "".
 event_logger(LogFile) ->
     case file:open(LogFile, [write]) of
 	{ok, FD} ->
@@ -245,6 +279,7 @@ event_logger(LogFile) ->
 	    exit(Error)
     end.
 
+-doc "".
 event_logger_loop(Reference, FD) ->
     receive
 	{status, _Id, _Info}=Msg ->
@@ -258,11 +293,13 @@ event_logger_loop(Reference, FD) ->
 
 %% TODO: make a proper logger for asynchronous execution with submit/3
 
+-doc "".
 devnull() ->
     receive _ -> devnull() end.
 
 %% including options from EUNIT environment variable
 
+-doc "".
 all_options(Opts) ->
     try os:getenv("EUNIT") of
 	false -> Opts;
@@ -275,3 +312,4 @@ all_options(Opts) ->
     catch
 	_:_ -> Opts
     end.
+

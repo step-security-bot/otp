@@ -19,6 +19,19 @@
 %% This file is generated DO NOT EDIT
 
 -module(wxPasswordEntryDialog).
+-moduledoc """
+Functions for wxPasswordEntryDialog class
+
+This class represents a dialog that requests a one-line password string from the user.
+
+It is implemented as a generic wxWidgets dialog.
+
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_password)
+
+This class is derived (and can use functions) from: `m:wxTextEntryDialog` `m:wxDialog` `m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+
+wxWidgets docs: [wxPasswordEntryDialog](https://docs.wxwidgets.org/3.1/classwx_password_entry_dialog.html)
+""".
 -include("wxe.hrl").
 -export([destroy/1,new/2,new/3]).
 
@@ -68,6 +81,7 @@
   showModal/1,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-doc "".
 -type wxPasswordEntryDialog() :: wx:wx_object().
 -export_type([wxPasswordEntryDialog/0]).
 %% @hidden
@@ -79,6 +93,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 %% @equiv new(Parent,Message, [])
+-doc "".
 -spec new(Parent, Message) -> wxPasswordEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
@@ -87,6 +102,11 @@ new(Parent,Message)
   new(Parent,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpasswordentrydialog.html#wxpasswordentrydialogwxpasswordentrydialog">external documentation</a>.
+-doc """
+Constructor.
+
+Use `wxDialog:showModal/1` to show the dialog.
+""".
 -spec new(Parent, Message, [Option]) -> wxPasswordEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
 	Option :: {'caption', unicode:chardata()}
@@ -107,6 +127,7 @@ new(#wx_ref{type=ParentT}=Parent,Message, Options)
   wxe_util:rec(?wxPasswordEntryDialog_new).
 
 %% @doc Destroys this object, do not use object again
+-doc "Destroys the object.".
 -spec destroy(This::wxPasswordEntryDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPasswordEntryDialog),
@@ -551,3 +572,4 @@ disconnect(This) -> wxEvtHandler:disconnect(This).
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
 %% @hidden
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).
+

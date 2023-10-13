@@ -19,6 +19,11 @@
 %%
 
 -module(ct_ftp).
+-moduledoc """
+FTP client module (based on the FTP application).
+
+FTP client module (based on the `ftp` application).
+""".
 
 %% API
 -export([get/3,put/3, open/1,close/1, send/2,send/3, 
@@ -33,21 +38,83 @@
 
 -define(DEFAULT_PORT,21).
 
+-doc "For `target_name`, see module `m:ct`.".
 -type connection() :: handle() | ct:target_name().
+-doc "Handle for a specific FTP connection, see module `m:ct`.".
 -type handle() :: ct:handle().
 -export_type([connection/0, handle/0]).
 
 %%%=================================================================
 %%% API
 
+-doc """
+KeyOrName = Key | Name  
+Key = atom()  
+Name = target_name()  
+LocalFile = string()  
+RemoteFile = string()  
+
+Opens an FTP connection and sends a file to the remote host.
+
+`LocalFile` and `RemoteFile` must be absolute paths.
+
+For `target_name`, see module `m:ct`.
+
+If the target host is a "special" node, the FTP address must be specified in the configuration file as follows:
+
+```text
+ {node,[{ftp,IpAddr}]}.
+```
+
+If the target host is something else, for example, a UNIX host, the configuration file must also include the username and password (both strings):
+
+```text
+ {unix,[{ftp,IpAddr},
+        {username,Username},
+        {password,Password}]}.
+```
+
+See also `ct:require/2`.
+""".
 put(KeyOrName,LocalFile,RemoteFile) ->
     Fun = fun(Ftp) -> send(Ftp,LocalFile,RemoteFile) end,
     open_and_do(KeyOrName,Fun).
 
+-doc """
+KeyOrName = Key | Name  
+Key = atom()  
+Name = target_name()  
+RemoteFile = string()  
+LocalFile = string()  
+
+Opens an FTP connection and fetches a file from the remote host.
+
+`RemoteFile` and `LocalFile` must be absolute paths.
+
+The configuration file must be as for [`ct_ftp:put/3`](`put/3`).
+
+For `target_name`, see module `m:ct`.
+
+See also `ct:require/2`.
+""".
 get(KeyOrName,RemoteFile,LocalFile) ->
     Fun = fun(Ftp) -> recv(Ftp,RemoteFile,LocalFile) end,
     open_and_do(KeyOrName,Fun).
 
+-doc """
+KeyOrName = Key | Name  
+Key = atom()  
+Name = target_name()  
+Handle = handle()  
+
+Opens an FTP connection to the specified node.
+
+You can open a connection for a particular `Name` and use the same name as reference for all following subsequent operations. If you want the connection to be associated with `Handle` instead (if you, for example, need to open multiple connections to a host), use `Key`, the configuration variable name, to specify the target. A connection without an associated target name can only be closed with the handle value.
+
+For information on how to create a new `Name`, see `ct:require/2`.
+
+For `target_name`, see module `m:ct`.
+""".
 open(KeyOrName) ->
     case ct_util:get_key_from_name(KeyOrName) of
 	{ok,node} ->
@@ -88,9 +155,25 @@ open(KeyOrName,Username,Password) ->
 	    ct_gen_conn:start(KeyOrName,full_addr(Addr),{Username,Password},?MODULE)
     end.
 
+-doc """
+Sends a file over FTP.
+
+The file gets the same name on the remote host.
+
+See also [`ct_ftp:send/3`](`send/3`).
+""".
 send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
+-doc """
+Connection = connection()  
+LocalFile = string()  
+RemoteFile = string()  
+
+Sends a file over FTP.
+
+The file is named `RemoteFile` on the remote host.
+""".
 send(Connection,LocalFile,RemoteFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -99,9 +182,25 @@ send(Connection,LocalFile,RemoteFile) ->
 	    Error
     end.
 
+-doc """
+Fetches a file over FTP.
+
+The file gets the same name on the local host.
+
+See also [`ct_ftp:recv/3`](`recv/3`).
+""".
 recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
+-doc """
+Connection = connection()  
+RemoteFile = string()  
+LocalFile = string()  
+
+Fetches a file over FTP.
+
+The file is named `LocalFile` on the local host.
+""".
 recv(Connection,RemoteFile,LocalFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -110,6 +209,12 @@ recv(Connection,RemoteFile,LocalFile) ->
 	    Error
     end.
 
+-doc """
+Connection = connection()  
+Dir = string()  
+
+Changes directory on remote host.
+""".
 cd(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -118,6 +223,13 @@ cd(Connection,Dir) ->
 	    Error
     end.
 
+-doc """
+Connection = connection()  
+Dir = string()  
+Listing = string()  
+
+Lists directory `Dir`.
+""".
 ls(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -126,6 +238,12 @@ ls(Connection,Dir) ->
 	    Error
     end.
 
+-doc """
+Connection = connection()  
+Type = ascii | binary  
+
+Changes the file transfer type.
+""".
 type(Connection,Type) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -134,6 +252,12 @@ type(Connection,Type) ->
 	    Error
     end.
     
+-doc """
+Connection = connection()  
+File = string()  
+
+Deletes a file on remote host.
+""".
 delete(Connection,File) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -142,6 +266,11 @@ delete(Connection,File) ->
 	    Error
     end.
 
+-doc """
+Connection = connection()  
+
+Closes the FTP connection.
+""".
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -256,3 +385,4 @@ open_and_do(Name,Fun) ->
     end.
     
     
+

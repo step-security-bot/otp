@@ -18,6 +18,15 @@
 %% %CopyrightEnd%
 %% 
 -module(snmp_view_based_acm_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-VIEW-BASED-ACM-MIB
+
+The module `snmp_view_based_acm_mib` implements the instrumentation functions for the SNMP-VIEW-BASED-ACM-MIB, and functions for configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+
+[](){: id=configure }
+""".
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -84,6 +93,23 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all old rows with StorageType `volatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function `config_err/2` of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `vacm.conf`.
+
+[](){: id=reconfigure }
+""".
 configure(Dir) ->
     set_sname(),
     case db(vacmSecurityToGroupTable) of
@@ -115,6 +141,23 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+-doc """
+ConfDir = string()  
+
+Inserts all data in the configuration files into the database and destroys all old data, including the rows with StorageType `nonVolatile`. The rows created from the configuration file will have StorageType `nonVolatile`.
+
+Thus, the data in the SNMP-VIEW-BASED-ACM-MIB, after this function has been called, is the data from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the function [config_err/2](`m:snmpa_error#config_err`) of the error report module, and the function fails with the reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration files are found.
+
+The configuration file read is: `vacm.conf`.
+
+[](){: id=add_sec2group }
+""".
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -256,6 +299,18 @@ table_del_row(Tab, Key) ->
 %% Result -> {ok, Key} | {error, Reason}
 %% Key -> term()
 %% Reason -> term()
+-doc """
+SecModel = v1 | v2c | usm  
+SecName = string()  
+GroupName = string()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a security to group definition to the agent config. Equivalent to one vacmSecurityToGroup-line in the `vacm.conf` file.
+
+[](){: id=delete_sec2group }
+""".
 add_sec2group(SecModel, SecName, GroupName) ->
     Sec2Grp = {vacmSecurityToGroup, SecModel, SecName, GroupName},
     case (catch check_vacm(Sec2Grp)) of
@@ -276,6 +331,15 @@ add_sec2group(SecModel, SecName, GroupName) ->
             {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a security to group definition from the agent config.
+
+[](){: id=add_access }
+""".
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of
 	true ->
@@ -289,6 +353,23 @@ delete_sec2group(Key) ->
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
 %%       snmpa_vacm:dump_table/0
+-doc """
+GroupName = string()  
+Prefix = string()  
+SecModel = v1 | v2c | usm  
+SecLevel = string()  
+Match = prefix | exact  
+RV = string()  
+WV = string()  
+NV = string()  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a access definition to the agent config. Equivalent to one vacmAccess-line in the `vacm.conf` file.
+
+[](){: id=delete_access }
+""".
 add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     Access = {vacmAccess, GroupName, Prefix, SecModel, SecLevel, 
 	      Match, RV, WV, NV},
@@ -304,11 +385,33 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
             {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a access definition from the agent config.
+
+[](){: id=add_view_tree_fam }
+""".
 delete_access(Key) ->
     snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).
 
 
+-doc """
+ViewIndex = integer()  
+SubTree = oid()  
+Status = included | excluded  
+Mask = null | \[integer()], where all values are either 0 or 1  
+Ret = \{ok, Key\} | \{error, Reason\}  
+Key = term()  
+Reason = term()  
+
+Adds a view tree family definition to the agent config. Equivalent to one vacmViewTreeFamily-line in the `vacm.conf` file.
+
+[](){: id=delete_view_tree_fam }
+""".
 add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
     VTF = {vacmViewTreeFamily, ViewIndex, SubTree, Status, Mask},
     case (catch check_vacm(VTF)) of
@@ -329,6 +432,13 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
             {error, Error}
     end.
 
+-doc """
+Key = term()  
+Ret = ok | \{error, Reason\}  
+Reason = term()  
+
+Delete a view tree family definition from the agent config.
+""".
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
 	true ->
@@ -1148,3 +1258,4 @@ error(Reason) ->
 
 config_err(F, A) ->
     snmpa_error:config_err("[VIEW-BASED-ACM-MIB]: " ++ F, A).
+
