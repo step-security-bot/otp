@@ -125,16 +125,21 @@ update_meta(#docs{meta = Meta0}=State, Meta1) ->
     State#docs{meta = maps:merge(Meta0, Meta1)}.
 
 -spec update_doc(State :: internal_docs(), Doc :: unicode:chardata()) -> internal_docs().
-update_doc(#docs{}=State, Doc) ->
-    State#docs{doc = string:trim(Doc)}.
+update_doc(#docs{doc = Doc0}=State, Doc) ->
+    case Doc0 of
+        undefined ->
+            State#docs{doc = string:trim(Doc)};
+        Docs ->
+            State#docs{doc = Docs ++ "\n" ++ string:trim(Doc)}
+    end.
 
 -spec update_module(State :: internal_docs(), ModuleName :: unicode:chardata()) -> internal_docs().
 update_module(#docs{}=State, ModuleName) ->
     State#docs{module_name = ModuleName}.
 
-extract_documentation(hidden, _AST, _Dirname) -> [];
-extract_documentation(_, AST, Dirname) ->
-    extract_documentation(AST, new_state(Dirname)).
+extract_documentation(hidden, _AST, _State) -> [];
+extract_documentation(_, AST, State) ->
+    extract_documentation(AST, State).
 
 
 -doc "
@@ -142,26 +147,26 @@ Creates EEP-48 documentation format from an Erlang abstract form.
 ".
 extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) ->
     extract_documentation(T, update_module(State, ModuleName));
-extract_documentation([{attribute, _Anno, doc, Meta0} | T], State) when is_map(Meta0) ->
-    extract_documentation(T, update_meta(State, Meta0));
-extract_documentation([{attribute, _Anno, doc, Doc} | T], State) ->
-    extract_documentation(T, update_doc(State, Doc));
-extract_documentation([{Kind, _Anno, _F, _A, _Body} | _T]=AST,
+extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
+                      #docs{meta = #{ equiv := {call,_,{atom,_,EquivF},Args} = Call} = Meta}=State) ->
+    Doc = io_lib:format("Equivalent to `~ts~ts`",[prefix(Kind),erl_pp:exprs([Call])]),
+    Meta1 = Meta#{ equiv := {EquivF, length(Args)}},
+    State1 = update_doc(State, Doc),
+    extract_documentation(AST, update_meta(State1, Meta1));
+extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
                       #docs{ doc = undefined,
                              meta = #{ equiv := {EquivF,EquivA}}}=State) ->
     Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
     extract_documentation(AST, update_doc(State, Doc));
-extract_documentation([{Kind, _Anno, _F, _A, _Body} | _T]=AST,
-                      #docs{ doc = undefined,
-                             meta = #{ equiv := {call,_,{atom,_,EquivF},Args} = Call} = Meta}=State) ->
-    Doc = io_lib:format("Equivalent to `~ts~ts`",[prefix(Kind),erl_pp:exprs([Call])]),
-    Meta1 = Meta#{ equiv := {EquivF, length(Args)}},
-    extract_documentation(AST, State#docs{doc = Doc, meta = Meta1});
-extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]} | T],
+extract_documentation([{attribute, _Anno, doc, Meta0}=_AST | T], State) when is_map(Meta0) ->
+    extract_documentation(T, update_meta(State, Meta0));
+extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) ->
+    extract_documentation(T, update_doc(State, Doc));
+extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
                       #docs{doc = Doc}=State) when Doc =/= undefined ->
     FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{function, Anno, F, A, _Body} | T],
+extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
                       #docs{doc = Doc}=State) when Doc =/= undefined ->
     {Slogan, DocsWithoutSlogan} =
         %% First we check if there is a doc prototype
@@ -172,12 +177,12 @@ extract_documentation([{function, Anno, F, A, _Body} | T],
     AttrBody = {function, F, A},
     FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}} | T], #docs{doc = Doc}=State)
+extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T], #docs{doc = Doc}=State)
   when Doc =/= undefined, TypeOrOpaque =:= type orelse TypeOrOpaque =:= opaque ->
     Args = fun_to_varargs(TypeArgs),
     FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}} | T],#docs{doc = Doc}=State)
+extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T],#docs{doc = Doc}=State)
   when Doc =/= undefined ->
     Args = fun_to_varargs(Fun),
     FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State),

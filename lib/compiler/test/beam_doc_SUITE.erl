@@ -79,14 +79,13 @@ singleton_meta(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = compile_file(Conf, ModuleName),
     Meta = #{ authors => [<<"Beep Bop">>], equiv => {main,3} },
-    Meta1 = #{equiv => {main,3}},
+    Meta1 = #{equiv => {main,1}},
     DocMain = #{<<"en">> => <<"Equivalent to `main/3`">>},
-    DocMain1 = #{<<"en">> => <<"Equivalent to `main(_)`">>},
+    DocMain1 = #{<<"en">> => <<"Returns always ok.\nEquivalent to `main(_)`">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main,0},_, _, DocMain, Meta},
-           {{function, main1,0},_, _, DocMain1, Meta1}]}} = code:get_doc(ModName),
+          [{{function, main,0},_, [<<"main()">>], DocMain, Meta},
+           {{function, main1,0},_, [<<"main1()">>], DocMain1, Meta1}]}} = code:get_doc(ModName),
     ok.
-
 
 slogan(Conf) ->
     ModuleName = ?get_name(),
