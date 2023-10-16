@@ -2,7 +2,7 @@
 -module(beam_doc_SUITE).
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
-         singleton_docformat/1, singleton_meta/1, slogan/1]).
+         singleton_docformat/1, singleton_meta/1, slogan/1, types_and_opaques/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -14,7 +14,8 @@ all() ->
      docformat,
      singleton_docformat,
      singleton_meta,
-     slogan].
+     slogan,
+     types_and_opaques].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -96,6 +97,21 @@ slogan(Conf) ->
           [{{function, main,0},_,Slogan, Doc, #{}}]}} = code:get_doc(ModName),
     ok.
 
+types_and_opaques(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    TypeDoc = #{<<"en">> => <<"Represents the name of a person.">>},
+    OpaqueDoc = #{<<"en">> => <<"Represents the name of a person that cannot be named.">>},
+    MaybeOpaqueDoc = #{<<"en">> => <<"mmaybe(X) ::= nothing | X.\n\nRepresents a maybe type.">>},
+    MaybeMeta = #{ authors => "Someone else" },
+    NaturalNumberMeta = #{since => "1.0", equiv => {non_neg_integer, 0}},
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{type, name,1},_,[<<"name(_)">>], TypeDoc, #{}},
+           {{type, natural_number,0},_,[<<"natural_number/0">>], #{}, NaturalNumberMeta},
+           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{}},
+           {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta}
+          ]}} = code:get_doc(ModName),
+    ok.
 
 compile_file(Conf, ModuleName) ->
     ErlModName = ModuleName ++ ".erl",

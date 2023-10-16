@@ -11,4 +11,12 @@ Moduledoc test module
 Doc test module
 ".
 main() ->
+    ok().
+
+
+-doc #{authors => "Someone"}.
+ok() ->
+     no_docs().
+
+no_docs() ->
     ok.

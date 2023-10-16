@@ -43,7 +43,7 @@ documentation format.
 ".
 -record(docs, {cwd                 :: unicode:chardata(),             % Cwd
                module_name = undefined  :: unicode:chardata() | undefined,
-               doc    = undefined  :: unicode:chardata(), % Function/type/callback local doc
+               doc    = none  :: unicode:chardata(), % Function/type/callback local doc
                meta   = maps:new() :: map()}).      % Function/type/callback local meta
 
 -type internal_docs() :: #docs{}.
@@ -118,7 +118,7 @@ new_state(Dirname) ->
 
 -spec reset_state(State :: internal_docs()) -> internal_docs().
 reset_state(State) ->
-    State#docs{doc = undefined, meta = maps:new()}.
+    State#docs{doc = none, meta = maps:new()}.
 
 -spec update_meta(State :: internal_docs(), Meta :: map()) -> internal_docs().
 update_meta(#docs{meta = Meta0}=State, Meta1) ->
@@ -127,7 +127,7 @@ update_meta(#docs{meta = Meta0}=State, Meta1) ->
 -spec update_doc(State :: internal_docs(), Doc :: unicode:chardata()) -> internal_docs().
 update_doc(#docs{doc = Doc0}=State, Doc) ->
     case Doc0 of
-        undefined ->
+        none ->
             State#docs{doc = string:trim(Doc)};
         Docs ->
             State#docs{doc = Docs ++ "\n" ++ string:trim(Doc)}
@@ -154,7 +154,7 @@ extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
     State1 = update_doc(State, Doc),
     extract_documentation(AST, update_meta(State1, Meta1));
 extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
-                      #docs{ doc = undefined,
+                      #docs{ doc = none,
                              meta = #{ equiv := {EquivF,EquivA}}}=State) ->
     Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
     extract_documentation(AST, update_doc(State, Doc));
@@ -163,11 +163,11 @@ extract_documentation([{attribute, _Anno, doc, Meta0}=_AST | T], State) when is_
 extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) ->
     extract_documentation(T, update_doc(State, Doc));
 extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
-                      #docs{doc = Doc}=State) when Doc =/= undefined ->
+                      #docs{doc = Doc}=State) when Doc =/= none ->
     FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
 extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
-                      #docs{doc = Doc}=State) when Doc =/= undefined ->
+                      #docs{doc = Doc}=State) when Doc =/= none ->
     {Slogan, DocsWithoutSlogan} =
         %% First we check if there is a doc prototype
         case extract_slogan(Doc, F, A) of
@@ -177,19 +177,18 @@ extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
     AttrBody = {function, F, A},
     FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T], #docs{doc = Doc}=State)
-  when Doc =/= undefined, TypeOrOpaque =:= type orelse TypeOrOpaque =:= opaque ->
+extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T], State)
+  when TypeOrOpaque =:= type orelse TypeOrOpaque =:= opaque ->
     Args = fun_to_varargs(TypeArgs),
     FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T],#docs{doc = Doc}=State)
-  when Doc =/= undefined ->
+extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T], State) ->
     Args = fun_to_varargs(Fun),
     FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
 extract_documentation([_H|T], State) ->
     extract_documentation(T, State);
-extract_documentation([], #docs{doc = undefined}) ->
+extract_documentation([], #docs{doc = none}) ->
     [].
 
 
@@ -203,11 +202,18 @@ extract_documentation([], #docs{doc = undefined}) ->
       D         :: map() | none | hidden,
       Meta      :: map(),
       Response  :: {AttrBody, Anno, Signature, D, Meta}.
+gen_doc(Anno0, AttrBody, Slogan, none, #docs{meta = Meta, module_name = Module}) ->
+    Anno1 = erl_anno:set_file(Module, Anno0),
+    {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)], #{}, Meta};
 gen_doc(Anno0, AttrBody, Slogan, Docs, #docs{meta = Meta, module_name = Module}) ->
     Anno1 = erl_anno:set_file(Module, Anno0),
     {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)],
       #{ <<"en">> => unicode:characters_to_binary(string:trim(Docs)) }, Meta}.
 
+template_gen_doc({Attr, Anno, F, A, _Args}, #docs{doc = Doc}=State) when Doc =:= none ->
+    {Slogan, DocsWithoutSlogan} = {io_lib:format("~p/~p",[F,A]), Doc},
+    AttrBody = {Attr, F, A},
+    gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State);
 template_gen_doc({Attr, Anno, F, A, Args}, #docs{doc = Doc}=State) ->
     {Slogan, DocsWithoutSlogan} =
         case extract_slogan(Doc, F, A) of
@@ -242,6 +248,7 @@ fun_to_varargs({var,_,_} = Name) ->
 fun_to_varargs(Else) ->
     Else.
 
+extract_slogan(undefined, _F, _A) -> undefined;
 extract_slogan(Doc, F, A) ->
     maybe
         [MaybeSlogan | Rest] = string:split(Doc, "\n"),
