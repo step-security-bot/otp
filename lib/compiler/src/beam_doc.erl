@@ -168,8 +168,7 @@ extract_documentation([{function, _Anno, _F, _A, _}=AST0 | _]=AST,
     Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
     State1 = State#docs{ meta = maps:remove(equiv, Meta) },
     extract_documentation(AST, update_doc(State1, Doc));
-extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
-                      #docs{doc = Doc}=State) when Doc =/= none ->
+extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T], State) ->
     FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
 extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
@@ -208,9 +207,10 @@ extract_documentation([], #docs{doc = none}) ->
       D         :: map() | none | hidden,
       Meta      :: map(),
       Response  :: {AttrBody, Anno, Signature, D, Meta}.
-gen_doc(Anno0, AttrBody, Slogan, none, #docs{meta = Meta, module_name = Module}) ->
+gen_doc(Anno0, AttrBody, Slogan, Doc, #docs{meta = Meta, module_name = Module})
+    when Doc =:= none orelse Doc =:= hidden ->
     Anno1 = erl_anno:set_file(Module, Anno0),
-    {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)], #{}, Meta};
+    {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)], Doc, Meta};
 gen_doc(Anno0, AttrBody, Slogan, Docs, #docs{meta = Meta, module_name = Module}) ->
     Anno1 = erl_anno:set_file(Module, Anno0),
     {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)],
@@ -255,7 +255,7 @@ fun_to_varargs({var,_,_} = Name) ->
 fun_to_varargs(Else) ->
     Else.
 
-extract_slogan(undefined, _F, _A) -> undefined;
+extract_slogan(none, _F, _A) -> undefined;
 extract_slogan(Doc, F, A) ->
     maybe
         [MaybeSlogan | Rest] = string:split(Doc, "\n"),
