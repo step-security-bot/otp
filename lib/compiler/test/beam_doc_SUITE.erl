@@ -2,7 +2,8 @@
 -module(beam_doc_SUITE).
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
-         singleton_docformat/1, singleton_meta/1, slogan/1, types_and_opaques/1, callback/1]).
+         singleton_docformat/1, singleton_meta/1, slogan/1,
+         types_and_opaques/1, callback/1, ignore_entries/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -16,7 +17,8 @@ all() ->
      singleton_meta,
      slogan,
      types_and_opaques,
-     callback].
+     callback,
+     ignore_entries].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -138,6 +140,14 @@ callback(Conf) ->
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}}
           ]}} = code:get_doc(ModName),
     ok.
+
+ignore_entries(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{function, main,0},_, [<<"main/0">>],none, #{}}]}} = code:get_doc(ModName),
+    ok.
+
 
 
 compile_file(Conf, ModuleName) ->
