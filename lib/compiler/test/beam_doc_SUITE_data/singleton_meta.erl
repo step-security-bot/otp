@@ -1,6 +1,6 @@
 -module(singleton_meta).
 
--export([main1/0]).
+-export([main/0]).
 
 -doc #{ authors => [<<"Beep Bop">>] }.
 -doc #{ equiv => main/3 }.

@@ -16,6 +16,7 @@ Represents the name of a person.
 -type natural_number() :: non_neg_integer().
 
 
+-doc #{equiv => non_neg_integer()}.
 -doc "
 unnamed()
 

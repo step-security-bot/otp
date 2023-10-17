@@ -78,7 +78,7 @@ extract_meta(AST, MetaData) ->
           end, MetaData, AST).
 
 -spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary()} | false.
-extract_moduledoc([_]) ->
+extract_moduledoc([]) ->
     {?DEFAULT_MODULE_DOC_LOC, none};
 extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, false}| _AST]) ->
     {ModuleDocAnno, hidden};
@@ -110,7 +110,6 @@ create_module_doc(ModuleDoc) when not is_atom(ModuleDoc) ->
 -spec create_module_doc(Lang :: binary(), ModuleDoc :: binary()) -> map().
 create_module_doc(Lang, ModuleDoc) ->
     #{Lang => ModuleDoc}.
-
 
 -spec new_state(Dirname :: unicode:chardata()) -> internal_docs().
 new_state(Dirname) ->
@@ -147,21 +146,28 @@ Creates EEP-48 documentation format from an Erlang abstract form.
 ".
 extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) ->
     extract_documentation(T, update_module(State, ModuleName));
-extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
-                      #docs{meta = #{ equiv := {call,_,{atom,_,EquivF},Args} = Call} = Meta}=State) ->
-    Doc = io_lib:format("Equivalent to `~ts~ts`",[prefix(Kind),erl_pp:exprs([Call])]),
-    Meta1 = Meta#{ equiv := {EquivF, length(Args)}},
-    State1 = update_doc(State, Doc),
-    extract_documentation(AST, update_meta(State1, Meta1));
-extract_documentation([{Kind, _Anno, _F, _A, _Body}=_N | _T]=AST,
-                      #docs{ doc = none,
-                             meta = #{ equiv := {EquivF,EquivA}}}=State) ->
-    Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
-    extract_documentation(AST, update_doc(State, Doc));
 extract_documentation([{attribute, _Anno, doc, Meta0}=_AST | T], State) when is_map(Meta0) ->
     extract_documentation(T, update_meta(State, Meta0));
 extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) ->
     extract_documentation(T, update_doc(State, Doc));
+extract_documentation([AST0 | _T]=AST,
+                      #docs{meta = #{ equiv := {call,_,{atom,_,EquivF},Args}} = Meta}=State)
+    when is_tuple(AST0) andalso (tuple_size(AST0) > 2 orelse tuple_size(AST0) < 6) ->
+    Meta1 = Meta#{ equiv := {EquivF, length(Args)}},
+    extract_documentation(AST, update_meta(State, Meta1));
+extract_documentation([AST0 | _T]=AST,
+                      #docs{ meta = #{ equiv := {EquivF,EquivA}}=Meta}=State)
+  when is_tuple(AST0) andalso (tuple_size(AST0) > 2 andalso tuple_size(AST0) < 5) ->
+    Kind = element(3, AST0),
+    Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
+    State1 = State#docs{ meta = maps:remove(equiv, Meta) },
+    extract_documentation(AST, update_doc(State1, Doc));
+extract_documentation([{function, _Anno, _F, _A, _}=AST0 | _]=AST,
+                      #docs{ meta = #{ equiv := {EquivF,EquivA}}=Meta}=State) ->
+    Kind = element(1, AST0),
+    Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
+    State1 = State#docs{ meta = maps:remove(equiv, Meta) },
+    extract_documentation(AST, update_doc(State1, Doc));
 extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
                       #docs{doc = Doc}=State) when Doc =/= none ->
     FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
@@ -231,8 +237,9 @@ template_gen_doc({Attr, Anno, F, A, Args}, #docs{doc = Doc}=State) ->
     AttrBody = {Attr, F, A},
     gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State).
 
--spec prefix(function | type | callback) -> unicode:chardata().
+-spec prefix(function | opaque | type | callback) -> unicode:chardata().
 prefix(function) -> "";
+prefix(opaque) -> "";
 prefix(type) -> "t:";
 prefix(callback) -> "c:".
 
