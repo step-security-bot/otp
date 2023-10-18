@@ -29,8 +29,6 @@ Represents the name of a person that cannot be named.
 ".
 -opaque unnamed() :: name(integer()).
 
-
-
 -doc #{ authors => "Someone else" }.
 -doc "
 mmaybe(X) ::= nothing | X.

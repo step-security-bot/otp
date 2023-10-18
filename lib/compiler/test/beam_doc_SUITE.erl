@@ -140,6 +140,8 @@ callback(Conf) ->
     {ok, {docs_v1, _,_, _, none, _,
           [{{callback, all_ok,0},_,[<<"all_ok()">>], Doc, #{}},
            {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder, #{}},
+           {{callback,param,1},_,[<<"param/1">>],none,#{}},
+           {{callback,ann,1},_,[<<"ann/1">>],none,#{}},
            {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{}},
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}}
           ]}} = code:get_doc(ModName),

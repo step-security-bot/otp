@@ -16,7 +16,11 @@ Callback fn that always returns ok.
 Test changing order
 ".
 -doc #{equiv => ok()}.
--callback change_order() -> ok.
+-callback change_order() -> Order :: boolean().
+
+-callback param(X) -> X.
+
+-callback ann(X :: integer) -> X :: integer().
 
 
 -doc #{equiv => ok/0}.
