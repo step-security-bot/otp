@@ -15,6 +15,11 @@ Represents the name of a person.
 -doc #{equiv => non_neg_integer/0}.
 -type natural_number() :: non_neg_integer().
 
+-doc "
+Tests generics
+".
+-doc #{equiv => madeup()}.
+-type param(X) :: {X, integer(), Y :: string()}.
 
 -doc #{equiv => non_neg_integer()}.
 -doc "

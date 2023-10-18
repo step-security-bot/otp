@@ -157,7 +157,11 @@ extract_documentation([AST0 | _T]=AST,
     extract_documentation(AST, update_meta(State, Meta1));
 extract_documentation([AST0 | _T]=AST,
                       #docs{ meta = #{ equiv := {EquivF,EquivA}}=Meta}=State)
-  when is_tuple(AST0) andalso (tuple_size(AST0) > 2 andalso tuple_size(AST0) < 5) ->
+  when is_tuple(AST0) andalso (tuple_size(AST0) > 2 andalso tuple_size(AST0) < 5) andalso
+       (element(3, AST0) =:= function orelse
+        element(3, AST0) =:= type     orelse
+        element(3, AST0) =:= opaque   orelse
+        element(3, AST0) =:= callback) ->
     Kind = element(3, AST0),
     Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
     State1 = State#docs{ meta = maps:remove(equiv, Meta) },

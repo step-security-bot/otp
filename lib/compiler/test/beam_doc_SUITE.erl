@@ -115,6 +115,7 @@ types_and_opaques(Conf) ->
     {ok, ModName} = compile_file(Conf, ModuleName),
     TypeDoc = #{<<"en">> => <<"Represents the name of a person.">>},
     TypeWithMetaDoc = #{<<"en">> => <<"Equivalent to `t:non_neg_integer/0`">>},
+    GenericsDoc = #{<<"en">> => <<"Tests generics\nEquivalent to `t:madeup/0`">>},
     OpaqueDoc = #{<<"en">> =>
                       <<"Represents the name of a person that cannot be named.\nEquivalent to `non_neg_integer/0`">>},
     MaybeOpaqueDoc = #{<<"en">> => <<"mmaybe(X) ::= nothing | X.\n\nRepresents a maybe type.">>},
@@ -123,6 +124,7 @@ types_and_opaques(Conf) ->
     {ok, {docs_v1, _,_, _, none, _,
           [{{type, name,1},_,[<<"name(_)">>], TypeDoc, #{}},
            {{type, natural_number,0},_,[<<"natural_number()">>], TypeWithMetaDoc, NaturalNumberMeta},
+           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{}},
            {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{}},
            {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta}
           ]}} = code:get_doc(ModName),
@@ -134,8 +136,10 @@ callback(Conf) ->
     Doc = #{<<"en">> => <<"Callback fn that always returns ok.">>},
     ImpCallback = #{<<"en">> => <<"This is a test\nEquivalent to `ok/0`">>},
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
+    ChangeOrder = #{<<"en">> => <<"Test changing order\nEquivalent to `c:ok/0`">>},
     {ok, {docs_v1, _,_, _, none, _,
           [{{callback, all_ok,0},_,[<<"all_ok()">>], Doc, #{}},
+           {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder, #{}},
            {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{}},
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}}
           ]}} = code:get_doc(ModName),
