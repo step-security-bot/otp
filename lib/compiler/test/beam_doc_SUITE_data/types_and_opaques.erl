@@ -1,6 +1,6 @@
 -module(types_and_opaques).
 
--export_type([name/1,unnamed/0, mmaybe/1, natural_number/0]).
+-export_type([name/1,unnamed/0, mmaybe/1, natural_number/0, param/1]).
 
 -doc "
 name(_)
@@ -36,3 +36,7 @@ mmaybe(X) ::= nothing | X.
 Represents a maybe type.
 ".
 -opaque mmaybe(X) :: nothing | X.
+
+-opaque non_exported() :: atom().
+
+-type not_exported_either() :: atom().

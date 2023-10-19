@@ -57,7 +57,9 @@ docmodule_with_doc_attributes(Conf) ->
 
 hide_moduledoc(Conf) ->
     {ok, ModName} = compile_file(Conf, "hide_moduledoc"),
-    {ok, {docs_v1, _,_, _Mime, hidden, _, []}} = code:get_doc(ModName),
+    {ok, {docs_v1, _,_, _Mime, hidden, _,
+          [{{function, main, 0}, _, [<<"main()">>],
+            #{ <<"en">> := <<"Doc test module">> }, #{}}]}} = code:get_doc(ModName),
     ok.
 
 docformat(Conf) ->
@@ -79,8 +81,8 @@ singleton_docformat(Conf) ->
              deprecated => "Use something else",
              otp_doc_vsn => {1,0,0},
              since => "1.0"},
-    Doc = #{<<"en">> => <<"Doc test module\n\nMore info here\nEquivalent to `main/3`">>},
-    FunMeta = #{ authors => [<<"Beep Bop">>] },
+    Doc = #{<<"en">> => <<"Doc test module\n\nMore info here">>},
+    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => {main, 3} },
     {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,_},_, _, Doc, FunMeta}]}} = code:get_doc(ModName),
     ok.
@@ -88,12 +90,12 @@ singleton_docformat(Conf) ->
 singleton_meta(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = compile_file(Conf, ModuleName),
-    Meta = #{ authors => [<<"Beep Bop">>]},
-    DocMain = #{<<"en">> => <<"Equivalent to `main/3`">>},
-    DocMain1 = #{<<"en">> => <<"Returns always ok.\nEquivalent to `main/1`">>},
+    Meta = #{ authors => [<<"Beep Bop">>], equiv => {main,3}},
+    DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main,0},_, [<<"main()">>], DocMain, Meta},
-           {{function, main1,0},_, [<<"main1()">>], DocMain1, #{}}]}} = code:get_doc(ModName),
+          [{{function, main,0},_, [<<"main/0">>], none, Meta},
+           {{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := {main,1}}}]}}
+        = code:get_doc(ModName),
     ok.
 
 slogan(Conf) ->
@@ -114,18 +116,17 @@ types_and_opaques(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = compile_file(Conf, ModuleName),
     TypeDoc = #{<<"en">> => <<"Represents the name of a person.">>},
-    TypeWithMetaDoc = #{<<"en">> => <<"Equivalent to `t:non_neg_integer/0`">>},
-    GenericsDoc = #{<<"en">> => <<"Tests generics\nEquivalent to `t:madeup/0`">>},
+    GenericsDoc = #{<<"en">> => <<"Tests generics">>},
     OpaqueDoc = #{<<"en">> =>
-                      <<"Represents the name of a person that cannot be named.\nEquivalent to `non_neg_integer/0`">>},
+                      <<"Represents the name of a person that cannot be named.">>},
     MaybeOpaqueDoc = #{<<"en">> => <<"mmaybe(X) ::= nothing | X.\n\nRepresents a maybe type.">>},
     MaybeMeta = #{ authors => "Someone else" },
-    NaturalNumberMeta = #{since => "1.0"},
+    NaturalNumberMeta = #{since => "1.0", equiv => {non_neg_integer,0}},
     {ok, {docs_v1, _,_, _, none, _,
           [{{type, name,1},_,[<<"name(_)">>], TypeDoc, #{}},
-           {{type, natural_number,0},_,[<<"natural_number()">>], TypeWithMetaDoc, NaturalNumberMeta},
-           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{}},
-           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{}},
+           {{type, natural_number,0},_,[<<"natural_number/0">>], none, NaturalNumberMeta},
+           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{equiv := {madeup, 0}}},
+           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{equiv := {non_neg_integer,0}}},
            {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta}
           ]}} = code:get_doc(ModName),
     ok.

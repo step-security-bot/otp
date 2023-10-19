@@ -40,9 +40,15 @@
 -doc "
 Internal record used when transforming Erlang abstract syntax into EEP-48
 documentation format.
+
+- exported_functions are a filter to document only the exported functions
+- exported_types are a filter to document only the exported types
+- callbacks are always implicitly exported
 ".
 -record(docs, {cwd                 :: unicode:chardata(),             % Cwd
                module_name = undefined  :: unicode:chardata() | undefined,
+               exported_functions = sets:new() :: sets:set({atom(), non_neg_integer()}),
+               exported_types     = sets:new() :: sets:set({atom(), non_neg_integer()}),
                doc    = none  :: unicode:chardata(), % Function/type/callback local doc
                meta   = maps:new() :: map()}).      % Function/type/callback local meta
 
@@ -59,7 +65,7 @@ main(Dirname, AST) ->
     try
         {ModuleDocAnno, ModuleDoc} = extract_moduledoc(AST),
         DocFormat = extract_docformat(AST),
-        Docs = extract_documentation( AST, new_state(Dirname)),
+        Docs = extract_documentation(AST, new_state(Dirname)),
         DocV1 = #docs_v1{},
         Meta = extract_meta(AST, DocV1#docs_v1.metadata),
         DocV1#docs_v1{ format = DocFormat,
@@ -124,22 +130,28 @@ update_meta(#docs{meta = Meta0}=State, Meta1) ->
     State#docs{meta = maps:merge(Meta0, Meta1)}.
 
 -spec update_doc(State :: internal_docs(), Doc :: unicode:chardata()) -> internal_docs().
-update_doc(#docs{doc = Doc0}=State, Doc) ->
-    case Doc0 of
-        none ->
-            State#docs{doc = string:trim(Doc)};
-        Docs ->
-            State#docs{doc = Docs ++ "\n" ++ string:trim(Doc)}
-    end.
+update_doc(State, Doc) ->
+State#docs{doc = string:trim(Doc)}.
 
 -spec update_module(State :: internal_docs(), ModuleName :: unicode:chardata()) -> internal_docs().
 update_module(#docs{}=State, ModuleName) ->
     State#docs{module_name = ModuleName}.
 
+-spec update_export_funs(State :: internal_docs(), proplists:proplist()) -> internal_docs().
+update_export_funs(State, ExportedFuns) ->
+    State#docs{exported_functions = sets:from_list(ExportedFuns)}.
+
+-spec update_export_types(State :: internal_docs(), proplists:proplist()) -> internal_docs().
+update_export_types(State, ExportedTypes) ->
+    State#docs{exported_types = sets:from_list(ExportedTypes)}.
 
 -doc "
 Creates EEP-48 documentation format from an Erlang abstract form.
 ".
+extract_documentation([{attribute,_ANNO,export,ExportedFuns} | T]=_AST, State) ->
+    extract_documentation(T, update_export_funs(State, ExportedFuns));
+extract_documentation([{attribute,_ANNO,export_type,ExportedTypes} | T]=_AST, State) ->
+    extract_documentation(T, update_export_types(State, ExportedTypes));
 extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) ->
     extract_documentation(T, update_module(State, ModuleName));
 extract_documentation([{attribute, _Anno, doc, Meta0}=_AST | T], State) when is_map(Meta0) ->
@@ -151,42 +163,43 @@ extract_documentation([AST0 | _T]=AST,
     when is_tuple(AST0) andalso (tuple_size(AST0) > 2 orelse tuple_size(AST0) < 6) ->
     Meta1 = Meta#{ equiv := {EquivF, length(Args)}},
     extract_documentation(AST, update_meta(State, Meta1));
-extract_documentation([AST0 | _T]=AST,
-                      #docs{ meta = #{ equiv := {EquivF,EquivA}}=Meta}=State)
-  when is_tuple(AST0) andalso (tuple_size(AST0) > 2 andalso tuple_size(AST0) < 5) andalso
-       (element(3, AST0) =:= function orelse
-        element(3, AST0) =:= type     orelse
-        element(3, AST0) =:= opaque   orelse
-        element(3, AST0) =:= callback) ->
-    Kind = element(3, AST0),
-    Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
-    State1 = State#docs{ meta = maps:remove(equiv, Meta) },
-    extract_documentation(AST, update_doc(State1, Doc));
-extract_documentation([{function, _Anno, _F, _A, _}=AST0 | _]=AST,
-                      #docs{ meta = #{ equiv := {EquivF,EquivA}}=Meta}=State) ->
-    Kind = element(1, AST0),
-    Doc = io_lib:format("Equivalent to `~ts~p/~p`",[prefix(Kind), EquivF,EquivA]),
-    State1 = State#docs{ meta = maps:remove(equiv, Meta) },
-    extract_documentation(AST, update_doc(State1, Doc));
-extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T], State) ->
-    FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
-    [FunDoc | extract_documentation(T, reset_state(State))];
+extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
+                      #docs{exported_functions = ExpFuns}=State) ->
+    maybe
+        true ?= sets:is_element({F, A}, ExpFuns),
+        FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
+        [FunDoc | extract_documentation(T, reset_state(State))]
+    else
+      _ ->
+            extract_documentation(T, reset_state(State))
+    end;
 extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
-                      #docs{doc = Doc}=State) when Doc =/= none ->
-    {Slogan, DocsWithoutSlogan} =
-        %% First we check if there is a doc prototype
-        case extract_slogan(Doc, F, A) of
-            undefined -> {io_lib:format("~p/~p",[F,A]), Doc};
-            SloganDocs -> SloganDocs
-        end,
-    AttrBody = {function, F, A},
-    FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State),
-    [FunDoc | extract_documentation(T, reset_state(State))];
-extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T], State)
+                      #docs{doc = Doc, exported_functions=ExpFuns}=State) when Doc =/= none ->
+    maybe
+        true ?= sets:is_element({F, A}, ExpFuns),
+        {Slogan, DocsWithoutSlogan} =
+            %% First we check if there is a doc prototype
+            case extract_slogan(Doc, F, A) of
+                undefined -> {io_lib:format("~p/~p",[F,A]), Doc};
+                SloganDocs -> SloganDocs
+            end,
+        AttrBody = {function, F, A},
+        FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State),
+        [FunDoc | extract_documentation(T, reset_state(State))]
+    else
+        _ -> extract_documentation(T, reset_state(State))
+    end;
+extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T],
+                      #docs{exported_types=ExpTypes}=State)
   when TypeOrOpaque =:= type orelse TypeOrOpaque =:= opaque ->
-    Args = fun_to_varargs(TypeArgs),
-    FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State),
-    [FunDoc | extract_documentation(T, reset_state(State))];
+    maybe
+        Args = fun_to_varargs(TypeArgs),
+        true ?= sets:is_element({Type, length(Args)}, ExpTypes),
+        FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State),
+        [FunDoc | extract_documentation(T, reset_state(State))]
+    else
+        _ -> extract_documentation(T, reset_state(State))
+    end;
 extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T], State) ->
     Args = fun_to_varargs(Fun),
     FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State),
@@ -236,12 +249,6 @@ template_gen_doc({Attr, Anno, F, A, Args}, #docs{doc = Doc}=State) ->
         end,
     AttrBody = {Attr, F, A},
     gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State).
-
--spec prefix(function | opaque | type | callback) -> unicode:chardata().
-prefix(function) -> "";
-prefix(opaque) -> "";
-prefix(type) -> "t:";
-prefix(callback) -> "c:".
 
 -spec fun_to_varargs(tuple() | term()) -> list(term()).
 fun_to_varargs({type, _, bounded_fun, [T|_]}) ->

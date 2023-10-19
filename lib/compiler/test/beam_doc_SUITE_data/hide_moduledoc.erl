@@ -8,4 +8,8 @@
 Doc test module
 ".
 main() ->
+    ok().
+
+-doc #{since => "1.0"}.
+ok() ->
     ok.
