@@ -59,7 +59,7 @@ main(Dirname, AST) ->
     try
         {ModuleDocAnno, ModuleDoc} = extract_moduledoc(AST),
         DocFormat = extract_docformat(AST),
-        Docs = extract_documentation(ModuleDoc, AST, new_state(Dirname)),
+        Docs = extract_documentation( AST, new_state(Dirname)),
         DocV1 = #docs_v1{},
         Meta = extract_meta(AST, DocV1#docs_v1.metadata),
         DocV1#docs_v1{ format = DocFormat,
@@ -135,10 +135,6 @@ update_doc(#docs{doc = Doc0}=State, Doc) ->
 -spec update_module(State :: internal_docs(), ModuleName :: unicode:chardata()) -> internal_docs().
 update_module(#docs{}=State, ModuleName) ->
     State#docs{module_name = ModuleName}.
-
-extract_documentation(hidden, _AST, _State) -> [];
-extract_documentation(_, AST, State) ->
-    extract_documentation(AST, State).
 
 
 -doc "

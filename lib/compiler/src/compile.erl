@@ -282,8 +282,6 @@ expand_opt(no_module_opt=O, Os) ->
     [O,no_recv_opt | Os];
 expand_opt({check_ssa,Tag}, Os) ->
     [check_ssa, Tag | Os];
-expand_opt(beam_docs, Os) ->
-    [beam_docs, Os];
 expand_opt(O, Os) -> [O|Os].
 
 -spec format_error(ErrorDescription :: error_description()) -> string().
