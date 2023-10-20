@@ -205,7 +205,7 @@ extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T], 
     FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State),
     [FunDoc | extract_documentation(T, reset_state(State))];
 extract_documentation([_H|T], State) ->
-    extract_documentation(T, reset_state(State));
+    extract_documentation(T, State);
 extract_documentation([], #docs{doc = none}) ->
     [].
 

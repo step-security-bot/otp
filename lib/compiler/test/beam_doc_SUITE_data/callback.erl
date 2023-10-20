@@ -40,3 +40,12 @@ Calls all_ok/0
 main() ->
     all_ok().
 
+-doc #{equiv => main()}.
+-doc "
+main2()
+
+Second main
+".
+-spec main2() -> ok.
+main2() ->
+    ok.
