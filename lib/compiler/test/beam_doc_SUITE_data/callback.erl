@@ -1,61 +1,51 @@
 -module(callback).
 
--export([main/0]).
-
 %% -doc "
 %% This should be ignored
 %% ".
 %% -behaviour(gen_server).
 
-%% -export([all_ok/0, main/0]).
-
--callback all_ok() -> ok.
+-export([all_ok/0, main/0, main2/0]).
 
 -doc "
 Callback fn that always returns ok.
 ".
+-callback all_ok() -> ok.
+
 -doc "
-Second callback
+Test changing order
+".
+-doc #{equiv => ok()}.
+-callback change_order() -> Order :: boolean().
+
+-callback param(X) -> X.
+
+-callback ann(X :: integer) -> X :: integer().
+
+
+-doc #{equiv => ok/0}.
+-doc "
+This is a test
+".
+all_ok() ->
+    all_ok().
+
+-doc #{equiv => main()}.
+-spec main() -> ok.
+-doc "
+all_ok()
+
+Calls all_ok/0
 ".
 main() ->
-     ok.
+    all_ok().
 
+-doc #{equiv => main()}.
+-doc "
+main2()
 
-
-%% -doc "
-%% Test changing order
-%% ".
-%% -doc #{equiv => ok()}.
-%% -callback change_order() -> Order :: boolean().
-
-%% -callback param(X) -> X.
-
-%% -callback ann(X :: integer) -> X :: integer().
-
-
-%% -doc #{equiv => ok/0}.
-%% -doc "
-%% This is a test
-%% ".
-%% all_ok() ->
-%%     all_ok().
-
-%% -doc #{equiv => main()}.
-%% -spec main() -> ok.
-%% -doc "
-%% all_ok()
-
-%% Calls all_ok/0
-%% ".
-%% main() ->
-%%     all_ok().
-
-%% -doc #{equiv => main()}.
-%% -doc "
-%% main2()
-
-%% Second main
-%% ".
-%% -spec main2() -> ok.
-%% main2() ->
-%%     ok.
+Second main
+".
+-spec main2() -> ok.
+main2() ->
+    ok.

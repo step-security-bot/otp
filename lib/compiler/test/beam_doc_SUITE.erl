@@ -3,7 +3,7 @@
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
          singleton_docformat/1, singleton_meta/1, slogan/1,
-         types_and_opaques/1, callback/1, ignore_entries/1]).
+         types_and_opaques/1, callback/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -17,8 +17,7 @@ all() ->
      singleton_meta,
      slogan,
      types_and_opaques,
-     callback,
-     ignore_entries].
+     callback].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -144,17 +143,10 @@ callback(Conf) ->
            {{callback,param,1},_,[<<"param/1">>],none,#{}},
            {{callback,ann,1},_,[<<"ann/1">>],none,#{}},
            {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}},
-           {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}}
+           {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
+           {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}}
           ]}} = code:get_doc(ModName),
     ok.
-
-ignore_entries(Conf) ->
-    ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
-    {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main,0},_, [<<"main/0">>],none, #{}}]}} = code:get_doc(ModName),
-    ok.
-
 
 
 compile_file(Conf, ModuleName) ->
