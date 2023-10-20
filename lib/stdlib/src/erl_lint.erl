@@ -175,7 +175,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context(),
                load_nif=false :: boolean(),      %true if calls erlang:load_nif/2
-               doc_defined = false :: boolean()
+               doc_defined = {false, 0} :: {boolean(), erl_anno:location()},
+               moduledoc_defined = {false, 0} :: {boolean(), erl_anno:location()}
               }).
 
 -type lint_state() :: #lint{}.
@@ -251,8 +252,8 @@ format_error(multiple_on_loads) ->
     "more than one on_load attribute";
 format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
-format_error({doc, duplicate}) ->
-    "cannot redefine documentation";
+format_error({Tag, duplicate_doc_attribute, FirstAnn}) ->
+    io_lib:format("redefining documentation attribute (~p) previously set at line ~p", [Tag, FirstAnn]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error(nif_inline) ->
@@ -892,32 +893,72 @@ attribute_state({attribute,Aa,behaviour,Behaviour}, St) ->
     St#lint{behaviour=St#lint.behaviour ++ [{Aa,Behaviour}]};
 attribute_state({attribute,Aa,behavior,Behaviour}, St) ->
     St#lint{behaviour=St#lint.behaviour ++ [{Aa,Behaviour}]};
-attribute_state({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
-    type_def(type, A, TypeName, TypeDef, Args, St);
-attribute_state({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
-    type_def(opaque, A, TypeName, TypeDef, Args, St);
+attribute_state({attribute,A,type,{TypeName,TypeDef,Args}}=AST, St) ->
+    St1 = untrack_doc(AST, St),
+    type_def(type, A, TypeName, TypeDef, Args, St1);
+attribute_state({attribute,A,opaque,{TypeName,TypeDef,Args}}=AST, St) ->
+    St1 = untrack_doc(AST, St),
+    type_def(opaque, A, TypeName, TypeDef, Args, St1);
 attribute_state({attribute,A,spec,{Fun,Types}}, St) ->
     spec_decl(A, Fun, Types, St);
-attribute_state({attribute,A,callback,{Fun,Types}}, St) ->
-    callback_decl(A, Fun, Types, St);
+attribute_state({attribute,A,callback,{Fun,Types}}=AST, St) ->
+    St1  =untrack_doc(AST, St),
+    callback_decl(A, Fun, Types, St1);
 attribute_state({attribute,A,optional_callbacks,Es}, St) ->
     optional_callbacks(A, Es, St);
 attribute_state({attribute,A,on_load,Val}, St) ->
     on_load(A, Val, St);
-attribute_state({attribute, _A, doc, Doc}=AST, St) when is_list(Doc) ->
+attribute_state({attribute, _A, DocAttr, Doc}=AST, St)
+  when is_list(Doc) andalso (DocAttr =:= moduledoc orelse DocAttr =:= doc) ->
     track_doc(AST, St);
 attribute_state({attribute,_A,_Other,_Val}, St) -> % Ignore others
     St;
 attribute_state(Form, St) ->
     function_state(Form, St#lint{state=function}).
 
-track_doc({attribute, A, doc, _Doc}=_AST, #lint{doc_defined=Doc}=St) ->
-    io:format("(~p:~p) ~p\t~p~n", [?MODULE, ?LINE, _AST, Doc]),
-    case Doc of
-        true -> add_error(A, {doc, duplicate}, St);
-        false -> St#lint{doc_defined = true}
-    end.
 
+-doc "
+Tracks whether we have read a documentation attribute string multiple times.
+Terminal elements that reset the state of the documentation attribute tracking
+are:
+
+- function,
+- opaque,
+- type
+- callback
+
+These terminal elements are also the only ones where one should place
+documentation attributes.
+".
+track_doc({attribute, A, Tag, Doc}=_AST, #lint{}=St)
+  when is_list(Doc) andalso (Tag =:= moduledoc orelse Tag =:= doc) ->
+    case get_doc_attr(Tag, St) of
+        {true, Ann} -> add_error(A, {Tag, duplicate_doc_attribute, erl_anno:line(Ann)}, St);
+        {false, _} -> update_doc_attr(Tag, A, St)
+    end;
+track_doc(_AST, St) ->
+    St.
+
+%%
+%% Helper functions to track documentation attributes
+%%
+get_doc_attr(moduledoc, #lint{moduledoc_defined = Moduledoc}) -> Moduledoc;
+get_doc_attr(doc, #lint{doc_defined = Doc}) -> Doc.
+
+update_doc_attr(moduledoc, A, #lint{}=St) ->
+    St#lint{moduledoc_defined = {true, erl_anno:line(A)}};
+update_doc_attr(doc, A, #lint{}=St) ->
+    St#lint{doc_defined = {true, erl_anno:line(A)}}.
+
+-doc "
+Reset the tracking of a documentation attribute.
+
+That is, assume that a terminal object was reached, thus we need to reset
+the state so that the linter understands that we have not seen any other
+documentation attribute.
+".
+untrack_doc(_AST, St) ->
+    St#lint{doc_defined = {false, 0}}.
 
 %% function_state(Form, State) ->
 %%      State'
@@ -927,22 +968,25 @@ track_doc({attribute, A, doc, _Doc}=_AST, #lint{doc_defined=Doc}=St) ->
 
 function_state({attribute,A,record,{Name,Fields}}, St) ->
     record_def(A, Name, Fields, St);
-function_state({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
-    type_def(type, A, TypeName, TypeDef, Args, St);
-function_state({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
-    type_def(opaque, A, TypeName, TypeDef, Args, St);
+function_state({attribute,A,type,{TypeName,TypeDef,Args}}=AST, St) ->
+    St1 = untrack_doc(AST, St),
+    type_def(type, A, TypeName, TypeDef, Args, St1);
+function_state({attribute,A,opaque,{TypeName,TypeDef,Args}}=AST, St) ->
+    St1 = untrack_doc(AST, St),
+    type_def(opaque, A, TypeName, TypeDef, Args, St1);
 function_state({attribute,A,spec,{Fun,Types}}, St) ->
     spec_decl(A, Fun, Types, St);
-function_state({attribute,_A,doc,_Val}, St) ->
-    St;
-function_state({attribute,_A,moduledoc,_Val}, St) ->
-    St;
+function_state({attribute,_A,doc,_Val}=AST, St) ->
+    track_doc(AST, St);
+function_state({attribute,_A,moduledoc,_Val}=AST, St) ->
+    track_doc(AST, St);
 function_state({attribute,_A,dialyzer,_Val}, St) ->
     St;
 function_state({attribute,Aa,Attr,_Val}, St) ->
     add_error(Aa, {attribute,Attr}, St);
-function_state({function,Anno,N,A,Cs}, St) ->
-    function(Anno, N, A, Cs, St);
+function_state({function,Anno,N,A,Cs}=AST, St) ->
+    St1 = untrack_doc(AST, St),
+    function(Anno, N, A, Cs, St1);
 function_state({eof,Location}, St) -> eof(Location, St).
 
 %% eof(LastLocation, State) ->
