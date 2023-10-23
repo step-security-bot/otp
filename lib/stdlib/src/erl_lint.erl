@@ -174,7 +174,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                bvt = none :: 'none' | [any()],  %Variables in binary pattern
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context(),
-               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
+               load_nif=false :: boolean(),      %true if calls erlang:load_nif/2
+               doc_defined = false :: boolean()
               }).
 
 -type lint_state() :: #lint{}.
@@ -250,6 +251,8 @@ format_error(multiple_on_loads) ->
     "more than one on_load attribute";
 format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
+format_error({doc, duplicate}) ->
+    "cannot redefine documentation";
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error(nif_inline) ->
@@ -901,10 +904,20 @@ attribute_state({attribute,A,optional_callbacks,Es}, St) ->
     optional_callbacks(A, Es, St);
 attribute_state({attribute,A,on_load,Val}, St) ->
     on_load(A, Val, St);
+attribute_state({attribute, _A, doc, Doc}=AST, St) when is_list(Doc) ->
+    track_doc(AST, St);
 attribute_state({attribute,_A,_Other,_Val}, St) -> % Ignore others
     St;
 attribute_state(Form, St) ->
     function_state(Form, St#lint{state=function}).
+
+track_doc({attribute, A, doc, _Doc}=_AST, #lint{doc_defined=Doc}=St) ->
+    io:format("(~p:~p) ~p\t~p~n", [?MODULE, ?LINE, _AST, Doc]),
+    case Doc of
+        true -> add_error(A, {doc, duplicate}, St);
+        false -> St#lint{doc_defined = true}
+    end.
+
 
 %% function_state(Form, State) ->
 %%      State'
