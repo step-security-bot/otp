@@ -2101,6 +2101,7 @@ atom_literal(Node) ->
 %% @see atom_literal/1
 %% @see string/1
 
+-spec atom_literal(Node :: term(), _) -> term().
 atom_literal(Node, utf8) ->
     io_lib:write_atom(atom_value(Node));
 atom_literal(Node, unicode) ->
@@ -5241,6 +5242,7 @@ constrained_function_type_argument(Node) ->
 %% =====================================================================
 %% @equiv function_type(any_arity, Type)
 
+-spec function_type(Type :: term()) -> term().
 function_type(Type) ->
     function_type(any_arity, Type).
 
@@ -5525,6 +5527,7 @@ map_type_exact_value(Node) ->
 %% =====================================================================
 %% @equiv map_type(any_size)
 
+-spec map_type() -> term().
 map_type() ->
     map_type(any_size).
 
@@ -5788,6 +5791,7 @@ record_type_field_type(Node) ->
 %% =====================================================================
 %% @equiv tuple_type(any_size)
 
+-spec tuple_type() -> term().
 tuple_type() ->
     tuple_type(any_size).
 
@@ -6599,6 +6603,7 @@ case_expr_clauses(Node) ->
 %% @see else_expr_clauses/1
 %% @see clause/3
 
+-spec else_expr(Clauses :: term()) -> term().
 else_expr(Clauses) ->
     tree(else_expr, Clauses).
 
@@ -8691,6 +8696,7 @@ is_wrapper(_) ->
 %% General utility functions for internal use
 %% =====================================================================
 
+-spec is_printable(S :: term()) -> term().
 is_printable(S) ->
     io_lib:printable_list(S).
 

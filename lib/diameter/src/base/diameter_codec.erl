@@ -78,6 +78,11 @@
 %% the options that affect encode (eg. ordered_encode), it's no longer
 %% *the* encode.
 
+%% -spec encode(Mod, Msg) -> Pkt
+%%                 when
+%%                     Mod :: dictionary(),
+%%                     Msg :: message() | packet(),
+%%                     Pkt :: packet().
 encode(Mod, Msg) ->
     encode(Mod, #{ordered_encode => true}, Msg).
 
@@ -255,6 +260,11 @@ rec2msg(Mod, Rec) ->
 %% As of the options that affect decode (eg. string_decode), it's no
 %% longer *the* decode.
 
+%% -spec decode(Mod, Bin) -> Pkt
+%%                 when
+%%                     Mod :: dictionary(),
+%%                     Bin :: binary(),
+%%                     Pkt :: packet().
 decode(Mod, Pkt) ->
     Opts = #{decode_format => record,
              string_decode => true,

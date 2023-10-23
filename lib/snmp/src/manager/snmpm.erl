@@ -194,18 +194,23 @@ stop(Timeout) when (Timeout =:= infinity) orelse
 
 
 
+-spec monitor() -> Ref when Ref :: reference().
 monitor() ->
     erlang:monitor(process, snmpm_supervisor).
 
+%% -spec demonitor(Ref) -> void() when Ref :: reference().
 demonitor(Ref) ->
     erlang:demonitor(Ref).
 	
 
 -define(NOTIFY_START_TICK_TIME, 500).
 
+-spec notify_started(Timeout) -> Pid when Timeout :: integer(),
+   Pid :: pid().
 notify_started(To) when is_integer(To) andalso (To > 0) ->
     spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
 
+%% -spec cancel_notify_started(Pid) -> void() when Pid :: pid().
 cancel_notify_started(Pid) ->
     Pid ! {cancel, self()},
     ok.
@@ -251,6 +256,8 @@ sleep(To) -> snmp_misc:sleep(To).
 
 %% -- Misc --
 
+-spec backup(BackupDir) -> ok | {error, Reason :: term()}
+                when BackupDir :: string().
 backup(BackupDir) ->
     snmpm_config:backup(BackupDir).
 
@@ -258,32 +265,49 @@ backup(BackupDir) ->
 %% -- Mibs --
 
 %% Load a mib into the manager
+-spec load_mib(Mib) -> ok | {error, Reason} when Mib :: MibName,
+   MibName :: string(),
+   Reason :: term().
 load_mib(MibFile) ->
     snmpm_server:load_mib(MibFile).
 
 %% Unload a mib from the manager
+-spec unload_mib(Mib) -> ok | {error, Reason} when Mib :: MibName,
+   MibName :: string(),
+   Reason :: term().
 unload_mib(Mib) ->
     snmpm_server:unload_mib(Mib).
 
 %% Which mib's are loaded
+-spec which_mibs() -> Mibs when Mibs :: [{MibName, MibFile}],
+   MibName :: atom(),
+   MibFile :: string().
 which_mibs() ->
     snmpm_config:which_mibs().
 
 %% Get all the possible oid's for the aliasname
+%% -spec name_to_oid(Name) -> {ok, Oids} | {error, Reason :: term()}
+%%                      when Name :: atom(), Oids :: [oid()].
 name_to_oid(Name) ->
     snmpm_config:name_to_oid(Name).
 
 %% Get the aliasname for an oid
+%% -spec oid_to_name(Oid) -> {ok, Name} | {error, Reason}
+%%                      when Oid :: oid(), Name :: atom(), Reason :: term().
 oid_to_name(Oid) ->
     snmpm_config:oid_to_name(Oid).
 
 %% Get the type for an oid
+%% -spec oid_to_type(Oid) -> {ok, Type} | {error, Reason}
+%%                      when Oid :: oid(), Type :: atom(), Reason :: term().
 oid_to_type(Oid) ->
     snmpm_config:oid_to_type(Oid).
 
 
 %% -- Info -- 
 
+-spec info() -> [{Key, Value}] when Key :: atom(),
+   Value :: term().
 info() ->
     snmpm_server:info().
 
@@ -294,6 +318,9 @@ info(Key) ->
 %% -- Verbosity -- 
 
 %% Change the verbosity of a process in the manager
+%% -spec verbosity(Ref, Verbosity) -> void() when Ref :: server | config | net_if | note_store | all,
+%%    Verbosity :: verbosity(),
+%%    verbosity() :: silence | info | log | debug | trace.
 verbosity(config, V) ->
     snmpm_config:verbosity(V);
 verbosity(server, V) ->
@@ -315,6 +342,7 @@ verbosity(all, V) ->
 %% Note that the effects of this is diffiult to
 %% predict, so it should be use with *caution*!
 
+%% -spec restart(Ref) -> void() when Ref :: net_if.
 restart(net_if = What) ->
     snmpm_server:restart(What).
 
@@ -328,22 +356,62 @@ restart(net_if = What) ->
 %% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
+%% -spec register_user(Id, Module, Data) -> ok | {error, Reason} when Id :: term(),
+%%    Module :: snmpm_user(),
+%%    Data :: term(),
+%%    DefaultAgentConfig :: [default_agent_config()],
+%%    default_agent_config() :: {Item, Val},
+%%    Item :: community | timeout | max_message_size | version | sec_model | sec_name | sec_level,
+%%    Val :: term(),
+%%    Reason :: term(),
+%%    snmpm_user() :: Module implementing the snmpm_user behaviour.
 register_user(Id, Module, Data) ->
     register_user(Id, Module, Data, []).
 
 %% Default config for agents registered by this user
+%% -spec register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason} when Id :: term(),
+%%    Module :: snmpm_user(),
+%%    Data :: term(),
+%%    DefaultAgentConfig :: [default_agent_config()],
+%%    default_agent_config() :: {Item, Val},
+%%    Item :: community | timeout | max_message_size | version | sec_model | sec_name | sec_level,
+%%    Val :: term(),
+%%    Reason :: term(),
+%%    snmpm_user() :: Module implementing the snmpm_user behaviour.
 register_user(Id, Module, Data, DefaultAgentConfig) ->
     snmpm_server:register_user(Id, Module, Data, DefaultAgentConfig).
 
+%% -spec register_user_monitor(Id, Module, Data) -> ok | {error, Reason} when Id :: term(),
+%%    Module :: snmpm_user(),
+%%    DefaultAgentConfig :: [default_agent_config()],
+%%    default_agent_config() :: {Item, Val},
+%%    Item :: community | timeout | max_message_size | version | sec_model | sec_name | sec_level,
+%%    Val :: term(),
+%%    Data :: term(),
+%%    Reason :: term(),
+%%    snmpm_user() :: Module implementing the snmpm_user behaviour.
 register_user_monitor(Id, Module, Data) ->
     register_user_monitor(Id, Module, Data, []).
 
+%% -spec register_user_monitor(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason} when Id :: term(),
+%%    Module :: snmpm_user(),
+%%    DefaultAgentConfig :: [default_agent_config()],
+%%    default_agent_config() :: {Item, Val},
+%%    Item :: community | timeout | max_message_size | version | sec_model | sec_name | sec_level,
+%%    Val :: term(),
+%%    Data :: term(),
+%%    Reason :: term(),
+%%    snmpm_user() :: Module implementing the snmpm_user behaviour.
 register_user_monitor(Id, Module, Data, DefaultAgentConfig) ->
     snmpm_server:register_user_monitor(Id, Module, Data, DefaultAgentConfig).
 
+-spec unregister_user(Id) -> ok | {error, Reason :: term()}
+                         when Id :: term().
 unregister_user(Id) ->
     snmpm_server:unregister_user(Id).
 
+-spec which_users() -> Users when Users :: [UserId],
+   UserId :: term().
 which_users() ->
     snmpm_config:which_users().
 
@@ -365,6 +433,13 @@ which_users() ->
 do_register_agent(UserId, TargetName, Config) ->
     snmpm_config:register_agent(UserId, TargetName, Config).
 
+%% -spec register_agent(UserId, TargetName, Config) -> ok | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Config :: [agent_config()],
+%%    agent_config() :: {Item, Val},
+%%    Item :: engine_id | address | port | community | timeout | max_message_size | version | sec_model | sec_name | sec_level | tdomain,
+%%    Val :: term(),
+%%    Reason :: term().
 register_agent(UserId, TargetName, Config) 
   when (is_list(TargetName) andalso 
 	(length(TargetName) > 0) andalso 
@@ -416,6 +491,11 @@ register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
 	end,
     register_agent(UserId, Domain, Addr, Config).
 
+-spec unregister_agent(UserId, TargetName) ->
+                          ok | {error, Reason :: term()}
+                          when
+                              UserId :: term(),
+                              TargetName :: target_name().
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
 
@@ -432,44 +512,100 @@ unregister_agent(UserId, DomainIp, AddressPort) ->
     end.
 
 
+-spec agent_info(TargetName, Item) ->
+                    {ok, Val :: term()} | {error, Reason}
+                    when
+                        TargetName :: target_name(),
+                        Item :: atom(),
+                        Reason :: term().
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).
 
+%% -spec update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Info :: [{item(), item_value()}],
+%%    Item :: item(),
+%%    item() :: atom(),
+%%    Val :: item_value(),
+%%    item_value() :: term(),
+%%    Reason :: term().
 update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
     snmpm_config:update_agent_info(UserId, TargetName, Info).
 
+%% -spec update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Info :: [{item(), item_value()}],
+%%    Item :: item(),
+%%    item() :: atom(),
+%%    Val :: item_value(),
+%%    item_value() :: term(),
+%%    Reason :: term().
 update_agent_info(UserId, TargetName, Item, Val) ->
     update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 
+%% -spec which_agents() -> Agents when UserId :: term(),
+%%    Agents :: [TargetName],
+%%    TargetName :: target_name().
 which_agents() ->
     snmpm_config:which_agents().
 
+-spec which_agents(UserId) -> Agents
+                      when
+                          UserId :: term(),
+                          Agents :: [TargetName],
+                          TargetName :: target_name().
 which_agents(UserId) ->
     snmpm_config:which_agents(UserId).
 
 
 %% -- USM users --
 
+%% -spec register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason} when EngineID :: string(),
+%%    UserName :: string(),
+%%    Conf :: [usm_config()],
+%%    usm_config() :: {Item, Val},
+%%    Item :: sec_name | auth | auth_key | priv | priv_key,
+%%    Val :: term(),
+%%    Reason :: term().
 register_usm_user(EngineID, UserName, Conf) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_list(Conf) ->
     snmpm_config:register_usm_user(EngineID, UserName, Conf).
 
+-spec unregister_usm_user(EngineID, UserName) -> ok | {error, Reason} when EngineID :: string(),
+   UserName :: string(),
+   Reason :: term().
 unregister_usm_user(EngineID, UserName) 
   when is_list(EngineID) andalso is_list(UserName) ->
     snmpm_config:unregister_usm_user(EngineID, UserName).
 
+%% -spec usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason} when EngineID :: string(),
+%%    UsmName :: string(),
+%%    Item :: sec_name | auth | auth_key | priv | priv_key,
+%%    Reason :: term().
 usm_user_info(EngineID, UserName, Item) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:usm_user_info(EngineID, UserName, Item).
 
+%% -spec update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason} when EngineID :: string(),
+%%    UsmName :: string(),
+%%    Item :: sec_name | auth | auth_key | priv | priv_key,
+%%    Val :: term(),
+%%    Reason :: term().
 update_usm_user_info(EngineID, UserName, Item, Val) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:update_usm_user_info(EngineID, UserName, Item, Val).
 
+%% -spec which_usm_users() -> UsmUsers when UsmUsers :: [{EngineID,UserName}],
+%%    EngineID :: string(),
+%%    UsmName :: string().
 which_usm_users() ->
     snmpm_config:which_usm_users().
 
+-spec which_usm_users(EngineID :: term()) -> UsmUsers
+                         when
+                             UsmUsers :: [UserName],
+                             UserName :: string().
 which_usm_users(EngineID) when is_list(EngineID) ->
     snmpm_config:which_usm_users(EngineID).
 
@@ -498,9 +634,43 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 %% --- synchronous get-request ---
 %% 
 
+%% -spec sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get2(UserId, TargetName, Oids) ->
     sync_get2(UserId, TargetName, Oids, []).
 
+%% -spec sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:sync_get(UserId, TargetName, Oids, SendOpts).
@@ -512,9 +682,25 @@ sync_get2(UserId, TargetName, Oids, SendOpts)
 %% through a call to handle_pdu/5
 %% 
 
+%% -spec async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: term(),
+%%    Reason :: term().
 async_get2(UserId, TargetName, Oids) ->
     async_get2(UserId, TargetName, Oids, []).
 
+%% -spec async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: term(),
+%%    Reason :: term().
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:async_get(UserId, TargetName, Oids, SendOpts).
@@ -523,9 +709,43 @@ async_get2(UserId, TargetName, Oids, SendOpts)
 %% --- synchronous get_next-request ---
 %% 
 
+%% -spec sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get_next2(UserId, TargetName, Oids) ->
     sync_get_next2(UserId, TargetName, Oids, []).
 
+%% -spec sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:sync_get_next(UserId, TargetName, Oids, SendOpts).
@@ -534,9 +754,21 @@ sync_get_next2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get_next-request ---
 %% 
 
+%% -spec async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: integer(),
+%%    Reason :: term().
 async_get_next2(UserId, TargetName, Oids) ->
     async_get_next2(UserId, TargetName, Oids, []).
 
+%% -spec async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    Oids :: [oid()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: integer(),
+%%    Reason :: term().
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:async_get_next(UserId, TargetName, Oids, SendOpts).
@@ -545,9 +777,43 @@ async_get_next2(UserId, TargetName, Oids, SendOpts)
 %% --- synchronous set-request ---
 %% 
 
+%% -spec sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    VarsAndVals :: vars_and_vals(),
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_set2(UserId, TargetName, VarsAndVals) ->
     sync_set2(UserId, TargetName, VarsAndVals, []).
 
+%% -spec sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    VarsAndVals :: vars_and_vals(),
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
     snmpm_server:sync_set(UserId, TargetName, VarsAndVals, SendOpts).
@@ -556,9 +822,25 @@ sync_set2(UserId, TargetName, VarsAndVals, SendOpts)
 %% --- asynchronous set-request ---
 %% 
 
+%% -spec async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    VarsAndVals :: vars_and_vals(),
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: term(),
+%%    Reason :: term().
 async_set2(UserId, TargetName, VarsAndVals) ->
     async_set2(UserId, TargetName, VarsAndVals, []).
 
+%% -spec async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    VarsAndVals :: vars_and_vals(),
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: term(),
+%%    Reason :: term().
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
     snmpm_server:async_set(UserId, TargetName, VarsAndVals, SendOpts).
@@ -567,9 +849,47 @@ async_set2(UserId, TargetName, VarsAndVals, SendOpts)
 %% --- synchronous get-bulk ---
 %% 
 
+%% -spec sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    NonRep :: integer(),
+%%    MaxRep :: integer(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 
+%% -spec sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    NonRep :: integer(),
+%%    MaxRep :: integer(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    SnmpReply :: snmp_reply(),
+%%    Remaining :: integer(),
+%%    Reason :: {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term(),
+%%    ReqId :: term(),
+%%    ActualReason :: term(),
+%%    SecInfo :: [sec_info()],
+%%    sec_info() :: {sec_tag(), ExpectedValue, ReceivedValue},
+%%    sec_tag() :: atom(),
+%%    ExpectedValue :: term(),
+%%    ReceivedValue :: term(),
+%%    SnmpInfo :: term().
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
@@ -582,9 +902,29 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
 %% --- asynchronous get-bulk ---
 %% 
 
+%% -spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    NonRep :: integer(),
+%%    MaxRep :: integer(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: integer(),
+%%    Reason :: term().
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 
+%% -spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason} when UserId :: term(),
+%%    TargetName :: target_name(),
+%%    NonRep :: integer(),
+%%    MaxRep :: integer(),
+%%    Oids :: [oid()],
+%%    SendOpts :: send_opts(),
+%%    send_opts() :: [send_opt()],
+%%    send_opt() :: {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()},
+%%    ReqId :: integer(),
+%%    Reason :: term().
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
@@ -595,6 +935,9 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
 
 
 
+-spec cancel_async_request(UserId, ReqId) -> ok | {error, Reason} when UserId :: term(),
+   ReqId :: term(),
+   Reason :: term().
 cancel_async_request(UserId, ReqId) ->
     snmpm_server:cancel_async_request(UserId, ReqId).
 
@@ -753,9 +1096,24 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+%% -spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir) ->
     log_to_io(LogDir, []).
 
+%% -spec log_to_io(LogDir, Mibs) -> ok | {error, Reason}log_to_io(LogDir, Block | Mibs) -> ok | {ok, Cnt} | {error, Reason}
 log_to_io(LogDir, Block) 
   when ((Block =:= true) orelse (Block =:= false)) ->
     Mibs    = [], 
@@ -767,6 +1125,20 @@ log_to_io(LogDir, Mibs) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
 
+%% -spec log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, Block) 
   when ((Block =:= true) orelse (Block =:= false)) ->
     LogName = ?audit_trail_log_name, 
@@ -777,6 +1149,20 @@ log_to_io(LogDir, Mibs, LogName) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     LogFile = ?audit_trail_log_file, 
@@ -785,6 +1171,20 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
@@ -792,6 +1192,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
@@ -799,10 +1200,28 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
 
+-spec change_log_size(NewSize) -> ok | {error, Reason} when NewSize :: {MaxBytes, MaxFiles},
+   MaxBytes :: integer(),
+   MaxFiles :: integer(),
+   Reason :: term().
 change_log_size(NewSize) ->
     LogName = ?audit_trail_log_name, 
     snmp:change_log_size(LogName, NewSize).
@@ -812,6 +1231,11 @@ get_log_type() ->
     snmpm_server:get_log_type().
 
 %% NewType -> atl_type()
+%% -spec set_log_type(NewType) -> {ok, OldType} | {error, Reason}
+%%                       when
+%%                           NewType :: atl_type(),
+%%                           OldType :: atl_type(),
+%%                           Reason :: term().
 set_log_type(NewType) ->
     snmpm_server:set_log_type(NewType).
 
@@ -843,9 +1267,13 @@ sys_up_time() ->
 %%% 
 %%%-----------------------------------------------------------------
 
+%% -spec format_reason(Reason) -> string() when Reason :: term(),
+%%    Prefix :: integer() | string().
 format_reason(Reason) ->
     format_reason("", Reason).
 
+-spec format_reason(Prefix, Reason) -> string() when Reason :: term(),
+   Prefix :: integer() | string().
 format_reason(Prefix, Reason) when is_integer(Prefix) andalso (Prefix >= 0) ->
     format_reason(lists:duplicate(Prefix, $ ), Reason);
 format_reason(Prefix, Reason) when is_list(Prefix) ->

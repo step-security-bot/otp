@@ -52,6 +52,7 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case db(snmpNotifyTable) of
@@ -80,6 +81,7 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -154,6 +156,12 @@ table_del_row(Tab, Key) ->
 
 
 %% FIXME: does not work with mnesia
+-spec add_notify(Name, Tag, Type) -> Ret when Name :: string(),
+   Tag :: string(),
+   Type :: trap | inform,
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_notify(Name, Tag, Type) ->
     Notif = {Name, Tag, Type},
     case (catch check_notify(Notif)) of
@@ -172,6 +180,9 @@ add_notify(Name, Tag, Type) ->
     end.
 
 %% FIXME: does not work with mnesia
+-spec delete_notify(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_notify(Key) ->
     case table_del_row(snmpNotifyTable, Key) of
 	true ->

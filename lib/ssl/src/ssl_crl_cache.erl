@@ -72,9 +72,15 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 %% API 
 %%====================================================================
 
+%% -spec insert(CRLSrc) -> ok | {error, Reason} when CRLSrc :: crl_src()]},
+%%    URI :: uri(),
+%%    Reason :: term().
 insert(CRLs) ->
     insert(?NO_DIST_POINT, CRLs).
 
+%% -spec insert(URI, CRLSrc) -> ok | {error, Reason} when CRLSrc :: crl_src()]},
+%%    URI :: uri(),
+%%    Reason :: term().
 insert(URI, {file, File}) when is_list(URI) ->				     
     case file:read_file(File) of
 	{ok, PemBin} ->
@@ -88,6 +94,8 @@ insert(URI, {file, File}) when is_list(URI) ->
 insert(URI, {der, CRLs}) ->	
     do_insert(URI, CRLs).
 
+%% -spec delete(Entries) -> ok |  {error, Reason}  when Entries :: crl_src()]},
+%%    Reason :: crl_reason().
 delete({file, File}) ->
     case file:read_file(File) of
 	{ok, PemBin} ->

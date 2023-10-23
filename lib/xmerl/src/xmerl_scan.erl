@@ -174,22 +174,27 @@ user_state(#xmerl_scanner{user_state = S}) -> S.
 
 %%% @spec event_state(S::global_state()) -> global_state()
 %%% @equiv event_state(EventState,S)
+-spec event_state(Xmerl_scanner :: term()) -> term().
 event_state(#xmerl_scanner{fun_states = #xmerl_fun_states{event = S}}) -> S.
 
 %%% @spec hook_state(S::global_state()) -> global_state()
 %%% @equiv hook_state(HookState,S)
+-spec hook_state(Xmerl_scanner :: term()) -> term().
 hook_state(#xmerl_scanner{fun_states = #xmerl_fun_states{hook = S}}) -> S.
 
 %%% @spec rules_state(S::global_state()) -> global_state()
 %%% @equiv rules_state(RulesState,S)
+-spec rules_state(Xmerl_scanner :: term()) -> term().
 rules_state(#xmerl_scanner{fun_states = #xmerl_fun_states{rules = S}}) -> S.
 
 %%% @spec fetch_state(S::global_state()) -> global_state()
 %%% @equiv fetch_state(FetchState,S)
+-spec fetch_state(Xmerl_scanner :: term()) -> term().
 fetch_state(#xmerl_scanner{fun_states = #xmerl_fun_states{fetch = S}}) -> S.
 
 %%% @spec cont_state(S::global_state()) -> global_state()
 %%% @equiv cont_state(ContinuationState,S)
+-spec cont_state(Xmerl_scanner :: term()) -> term().
 cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 
 
@@ -198,6 +203,7 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 %%% @spec user_state(UserState, S::global_state()) -> global_state()
 %%% @doc For controlling the UserState, to be used in a user function.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec user_state(X :: term(), S :: term()) -> term().
 user_state(X, S) ->
     S#xmerl_scanner{user_state = X}.
 
@@ -205,6 +211,7 @@ user_state(X, S) ->
 %%% @doc For controlling the EventState, to be used in an event
 %%% function, and called at the beginning and at the end of a parsed entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec event_state(X :: term(), S :: term()) -> term().
 event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{event = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -213,6 +220,7 @@ event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the HookState, to be used in a hook
 %%% function, and called when the parser has parsed a complete entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec hook_state(X :: term(), S :: term()) -> term().
 hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{hook = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -222,6 +230,7 @@ hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% function, and called when the parser store scanner information in a rules
 %%% database.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec rules_state(X :: term(), S :: term()) -> term().
 rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{rules = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -230,6 +239,7 @@ rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the FetchState, to be used in a fetch
 %%% function, and called when the parser fetch an external resource (eg. a DTD).
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec fetch_state(X :: term(), S :: term()) -> term().
 fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{fetch = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -238,6 +248,7 @@ fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the ContinuationState, to be used in a continuation
 %%% function, and called when the parser encounters the end of the byte stream.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-spec cont_state(X :: term(), S :: term()) -> term().
 cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{cont = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -246,6 +257,7 @@ cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %% @spec file(Filename::string()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv file(Filename, [])
+-spec file(F :: term()) -> term().
 file(F) ->
     file(F, []).
 
@@ -286,12 +298,14 @@ int_file_decl(F, Options,_ExtCharset) ->
 %% @spec string(Text::list()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv string(Text, [])
+-spec string(Str :: term()) -> term().
 string(Str) ->
     string(Str, []).
 
 %% @spec string(Text::list(),Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse string containing an XML document
+-spec string(Str :: term(), Options :: term()) -> term().
 string(Str, Options) ->
      {Res, Tail, S=#xmerl_scanner{close_fun = Close}} =
 	int_string(Str, Options,file_name_unknown),
@@ -4029,6 +4043,8 @@ fast_acc_end(T, S, N, Col, C, CD_I) ->
 %%%                             atom(),Acc::string()) -> {Acc, T1, S1}
 %%%
 %%% @doc Function to accumulate and normalize whitespace.
+-spec accumulate_whitespace(T :: term(), S :: term(), _, Acc :: term()) ->
+                               term().
 accumulate_whitespace(T, S, preserve, Acc) ->
     accumulate_whitespace(T, S, Acc);
 accumulate_whitespace(T, S, normalize, Acc) ->

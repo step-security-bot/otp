@@ -45,6 +45,7 @@
 
 %% @doc Starts the EUnit server. Normally, you don't need to call this
 %% function; it is started automatically.
+-spec start() -> term().
 start() ->
     start(?SERVER).
 
@@ -55,6 +56,7 @@ start(Server) ->
 
 %% @doc Stops the EUnit server. Normally, you don't need to call this
 %% function.
+-spec stop() -> term().
 stop() ->
     stop(?SERVER).
 
@@ -117,6 +119,7 @@ watch_app(Server, Name, Options) ->
     end.
 
 %% @equiv test(Tests, [])
+-spec test(Tests :: term()) -> term().
 test(Tests) ->
     test(Tests, []).
 
@@ -150,6 +153,7 @@ test(Tests) ->
 %% Options in the environment variable EUNIT are also included last in
 %% the option list, i.e., have lower precedence than those in `Options'.
 %% @see test/1
+-spec test(Tests :: term(), Options :: term()) -> term().
 test(Tests, Options) ->
     test(?SERVER, Tests, all_options(Options)).
 

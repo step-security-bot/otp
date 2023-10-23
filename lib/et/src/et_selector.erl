@@ -47,6 +47,9 @@
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
 
+%% -spec make_pattern(RawPattern) -> TracePattern when RawPattern :: detail_level(),
+%%    TracePattern :: erlang_trace_pattern_match_spec(),
+%%    detail_level() :: min | max | integer(X) when X >= 0, X =< 100.
 make_pattern(undefined) ->
     {undefined, undefined};
 make_pattern({Mod, Pattern}) when is_atom(Mod) ->
@@ -94,6 +97,9 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 
+%% -spec change_pattern(Pattern) -> ok when Pattern :: detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec(),
+%%    detail_level() :: min | max | integer(X) when X >= 0, X =< 100,
+%%    empty_match_spec() :: [].
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->
     MFA = {Mod, trace_me, 5},
     case Pattern of
@@ -177,6 +183,10 @@ error_to_exit({ok, Res}) ->
 %%                   should be dropped
 %%----------------------------------------------------------------------
 
+%% -spec parse_event(Mod, ValidTraceData) -> false | true | {true, Event} when Mod :: module_name() | undefined,
+%%    module_name() :: atom(),
+%%    ValidTraceData :: erlang_trace_data() | record(event),
+%%    erlang_trace_data() :: {trace, Pid, Label, Info} | {trace, Pid, Label, Info, Extra} | {trace_ts, Pid, Label, Info, ReportedTS} | {trace_ts, Pid, Label, Info, Extra, ReportedTS} | {seq_trace, Label, Info} | {seq_trace, Label, Info, ReportedTS} | {drop, NumberOfDroppedItems}.
 parse_event(_Mod, E) when is_record(E, event) ->
     true;
 parse_event(Mod, Trace) ->

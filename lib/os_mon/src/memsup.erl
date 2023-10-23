@@ -68,17 +68,32 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+-spec get_os_wordsize() -> Wordsize when Wordsize :: 32 | 64 | unsupported_os.
 get_os_wordsize() ->
     os_mon:call(memsup, get_os_wordsize, infinity).
 
+%% -spec get_memory_data() -> {Total, Allocated, Worst}
+%%                          when
+%%                              Total :: int(),
+%%                              Allocated :: int(),
+%%                              Worst :: {Pid, PidAllocated} | undefined,
+%%                              Pid :: pid(),
+%%                              PidAllocated :: int().
 get_memory_data() ->
     os_mon:call(memsup, get_memory_data, infinity).
 
+%% -spec get_system_memory_data() -> MemDataList
+%%                                 when
+%%                                     MemDataList :: [{Tag, Size}],
+%%                                     Tag :: atom(),
+%%                                     Size :: int().
 get_system_memory_data() ->
     os_mon:call(memsup, get_system_memory_data, infinity).
 
+%% -spec get_check_interval() -> MS when MS :: int().
 get_check_interval() ->
     os_mon:call(memsup, get_check_interval, infinity).
+%% -spec set_check_interval(Minutes) -> ok when Minutes :: int()>0.
 set_check_interval(Minutes) ->
     case param_type(memory_check_interval, Minutes) of
 	true ->
@@ -88,8 +103,10 @@ set_check_interval(Minutes) ->
 	    erlang:error(badarg)
     end.
 
+%% -spec get_procmem_high_watermark() -> int().
 get_procmem_high_watermark() ->
     os_mon:call(memsup, get_procmem_high_watermark, infinity).
+-spec set_procmem_high_watermark(Float :: term()) -> ok.
 set_procmem_high_watermark(Float) ->
     case param_type(process_memory_high_watermark, Float) of
 	true ->
@@ -99,8 +116,10 @@ set_procmem_high_watermark(Float) ->
 	    erlang:error(badarg)
     end.
 
+%% -spec get_sysmem_high_watermark() -> int().
 get_sysmem_high_watermark() ->
     os_mon:call(memsup, get_sysmem_high_watermark, infinity).
+-spec set_sysmem_high_watermark(Float :: term()) -> ok.
 set_sysmem_high_watermark(Float) ->
     case param_type(system_memory_high_watermark, Float) of
 	true ->
@@ -110,8 +129,10 @@ set_sysmem_high_watermark(Float) ->
 	    erlang:error(badarg)
     end.
 
+%% -spec get_helper_timeout() -> Seconds when Seconds :: int().
 get_helper_timeout() ->
     os_mon:call(memsup, get_helper_timeout, infinity).
+%% -spec set_helper_timeout(Seconds) -> ok when Seconds :: int() (>= 1).
 set_helper_timeout(Seconds) ->
     case param_type(memsup_helper_timeout, Seconds) of
 	true ->

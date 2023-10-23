@@ -79,6 +79,7 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     case (catch do_configure(Dir)) of
 	ok ->
@@ -118,6 +119,7 @@ do_configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -217,6 +219,7 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
+%% -spec reset() -> void().
 reset() ->
     snmpa_mpd:reset().
 
@@ -241,7 +244,10 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+%% -spec inc(Name) -> void() when Name :: atom(),
+%%    N :: integer().
 inc(Name) -> inc(Name, 1).
+%% -spec inc(Name, N) -> void() when Name :: atom(), N :: integer().
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
@@ -470,6 +476,7 @@ sysUpTime(print) ->
 sysUpTime(get) ->
     sys_up_time(get).
 
+%% -spec sys_up_time() -> Time when Time :: int().
 sys_up_time() ->
     snmpa:sys_up_time().
 

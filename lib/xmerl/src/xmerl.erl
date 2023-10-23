@@ -47,6 +47,7 @@
 %% @spec export(Content, Callback) -> ExportedFormat
 %% @equiv export(Data, Callback, [])
 
+-spec export(Content :: term(), Callback :: term()) -> term().
 export(Content, Callback) ->
     export(Content, Callback, []).
 
@@ -101,6 +102,10 @@ export(Content, Callback) ->
 %% @see export/2
 %% @see export_simple/3
 
+-spec export(Content :: term(),
+             Callback :: term(),
+             RootAttributes :: term()) ->
+                term().
 export(Content, Callback, RootAttributes) when is_atom(Callback) ->
     export1(Content, callbacks(Callback), RootAttributes);
 export(Content, Callbacks, RootAttrs) when is_list(Callbacks) ->
@@ -109,6 +114,7 @@ export(Content, Callbacks, RootAttrs) when is_list(Callbacks) ->
 %% @spec export_simple(Content, Callback) -> ExportedFormat
 %% @equiv export_simple(Content, Callback, [])
 
+-spec export_simple(Content :: term(), Callback :: term()) -> term().
 export_simple(Content, Callback) ->
     export_simple(Content, Callback, []).
 
@@ -154,6 +160,10 @@ export_simple(Content, Callback) ->
 %% @see export/3
 %% @see export_simple/2
 
+-spec export_simple(Content :: term(),
+                    Callback :: term(),
+                    RootAttrs :: term()) ->
+                       term().
 export_simple(Content, Callback, RootAttrs) when is_atom(Callback) ->
     export_simple1(Content, callbacks(Callback), RootAttrs);
 export_simple(Content, Callbacks, RootAttrs) when is_list(Callbacks) ->
@@ -176,6 +186,8 @@ export1(Content, Callbacks, RootAttrs) when is_list(Content) ->
 
 %% @doc Exports simple XML content directly, without further context.
 
+-spec export_simple_content(Content :: term(), Callback :: term()) ->
+                               term().
 export_simple_content(Content, Callback) when is_atom(Callback) ->
     export_content(xmerl_lib:expand_content(Content),
 		   callbacks(Callback));
@@ -187,6 +199,7 @@ export_simple_content(Content, Callbacks) when is_list(Callbacks) ->
 %%	Content = [Element]
 %%	Callback = [atom()]
 %% @doc Exports normal XML content directly, without further context.
+-spec export_content(Es :: term(), Callbacks :: term()) -> term().
 export_content([#xmlText{value = Text} | Es], Callbacks) ->
     [apply_text_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlPI{} | Es], Callbacks) ->
@@ -202,6 +215,8 @@ export_content([], _Callbacks) ->
 
 %% @doc Exports a simple XML element directly, without further context.
 
+-spec export_simple_element(Content :: term(), Callback :: term()) ->
+                               term().
 export_simple_element(Content, Callback) when is_atom(Callback) ->
     export_element(xmerl_lib:expand_element(Content),
 		   callbacks(Callback));
@@ -212,6 +227,7 @@ export_simple_element(Content, Callbacks) when is_list(Callbacks) ->
 
 %% This is the usual DOM style parsing.
 
+-spec export_element(E :: term(), CB :: term()) -> term().
 export_element(E, CB) when is_atom(CB) ->
     export_element(E, callbacks(CB));
 export_element(#xmlText{value = Text}, CBs) ->
@@ -235,6 +251,10 @@ export_element(#xmlDecl{}, _CBs) ->
 %% @spec export_element(E,CallbackModule,CallbackState) -> ExportedFormat
 %% @doc For on-the-fly exporting during parsing (SAX style) of the XML
 %% document. 
+-spec export_element(E :: term(),
+                     CallbackModule :: term(),
+                     CallbackState :: term()) ->
+                        term().
 export_element(E, CallbackModule, CallbackState) when is_atom(CallbackModule) ->
     export_element(E, callbacks(CallbackModule), CallbackState);
 export_element(#xmlText{value = Text},CallbackModule,_CallbackState) ->
@@ -273,6 +293,7 @@ tagdef(Tag,Pos,Parents,Args,CBs) ->
 %%	Result = [atom()]
 %% @doc Find the list of inherited callback modules for a given module.
 
+-spec callbacks(Module :: term()) -> term().
 callbacks(Module) ->
     Result = check_inheritance(Module, []),
 %%%     ?dbg("callbacks = ~p~n", [lists:reverse(Result)]),

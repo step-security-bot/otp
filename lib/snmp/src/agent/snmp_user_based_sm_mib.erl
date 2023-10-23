@@ -80,6 +80,7 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case db(usmUserTable) of
@@ -111,6 +112,7 @@ configure(Dir) ->
 %% Fails: exit(configuration_error) |
 %%        exit({unsupported_crypto, Function})
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -296,6 +298,22 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret when EngineID :: string(),
+   Name :: string(),
+   SecName :: string(),
+   Clone :: zeroDotZero | [integer()],
+   AuthP :: usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol,
+   AuthKeyC :: string(),
+   OwnAuthKeyC :: string(),
+   PrivP :: usmNoPrivProtocol | usmDESPrivProtocol,
+   PrivKeyC :: string(),
+   OwnPrivKeyC :: string(),
+   Public :: string(),
+   AuthKey :: string(),
+   PrivKey :: string(),
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	 PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
     User = {EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
@@ -323,6 +341,9 @@ add_user(User) ->
 	    {error, Error}
     end.
 
+-spec delete_user(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_user(Key) ->
     case table_del_row(usmUserTable, Key) of
 	true ->

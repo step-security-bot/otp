@@ -56,6 +56,9 @@
 %% Reason = term()
 %%----------------------------------------------------------------------
 
+%% -spec file(FileName) -> {ok, ViewerPid} | {error, Reason} when FileName() :: string(),
+%%    ViewerPid :: pid(),
+%%    Reason :: term().
 file(FileName) ->
     start_link([{trace_client, {file, FileName}}], default).
 
@@ -70,6 +73,7 @@ file(FileName) ->
 %% processes are unlinked from the calling process.
 %%----------------------------------------------------------------------
 
+-spec start() -> ok.
 start() ->
     start([{trace_global, true}], default).
 
@@ -77,6 +81,7 @@ start() ->
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
 
+-spec start(Options :: term()) -> ok.
 start(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start(Options) ->
@@ -140,6 +145,22 @@ start(Options, GUI) ->
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
 
+%% -spec start_link(Options) -> {ok, ViewerPid} | {error, Reason} when Options :: [option() | collector_option()],
+%%    option() :: {parent_pid, extended_pid()} | {title, term()} | {detail_level, detail_level()} | {is_suspended, boolean()} | {scale, integer()} | {width, integer()} | {height, integer()} | {collector_pid, extended_pid()} | {event_order, event_order()} | {active_filter, atom()} | {max_actors, extended_integer()} | {trace_pattern, et_collector_trace_pattern()} | {trace_port, et_collector_trace_port()} | {trace_global, et_collector_trace_global()} | {trace_client, et_collector_trace_client()} | {dict_insert, {filter, filter_name()}, event_filter_fun()} | {dict_insert, et_collector_dict_key(), et_collector_dict_val()} | {dict_delete, {filter, filter_name()}} | {dict_delete, et_collector_dict_key()} | {actors, actors()} | {first_event, first_key()} | {hide_unknown, boolean()} | {hide_actions, boolean()} | {display_mode, display_mode()},
+%%    extended_pid() :: pid() | undefined,
+%%    detail_level() :: min | max | integer(X) when X >=0, X =< 100,
+%%    event_order() :: trace_ts | event_ts,
+%%    extended_integer() :: integer() | infinity,
+%%    display_mode() :: all | {search_actors, direction(), first_key(), actors()},
+%%    direction() :: forward | reverse,
+%%    first_key() :: event_key(),
+%%    actors() :: [term()],
+%%    filter_name() :: atom(),
+%%    filter_fun() :: fun(Event) -> false | true | {true, NewEvent},
+%%    Event :: record(event),
+%%    NewEvent :: record(event),
+%%    ViewerPid :: pid(),
+%%    Reason :: term().
 start_link(GUI) when GUI =:= wx; GUI =:= default ->
     start_link([{trace_global, true}], GUI);
 start_link(Options) ->
@@ -155,6 +176,8 @@ start_link(Options, GUI) ->
 
 which_gui() -> wx.
 
+-spec get_collector_pid(ViewerPid) -> CollectorPid when ViewerPid :: pid(),
+   CollectorPid :: pid().
 get_collector_pid(ViewerPid) ->
     call(ViewerPid, get_collector_pid).
 
@@ -166,6 +189,7 @@ get_collector_pid(ViewerPid) ->
 %% ViewerPid = pid()
 %%----------------------------------------------------------------------
 
+-spec stop(ViewerPid) -> ok when ViewerPid :: pid().
 stop(ViewerPid) ->
     call(ViewerPid, stop).
 

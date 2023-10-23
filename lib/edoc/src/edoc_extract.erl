@@ -698,6 +698,8 @@ check_tags_1(Ts, Tags, Where) ->
 %% `Specs', that is `-spec' attributes, take precedence before any `@spec' tags.
 %% @see selected_specs/2
 -define(function(_F, _A), {_F, _A}).
+-spec select_spec(Ts :: term(), Where :: term(), Specs :: term()) ->
+                     term().
 select_spec(Ts, {_, ?function(_F, _A)}, Specs) ->
     case Specs of
 	[] ->
@@ -739,6 +741,11 @@ file_macros(_Context, Env) ->
 %% The same thing using -type:
 %%```-type t() :: t1(). % Some docs of t/0;
 %%   Further docs of t/0.'''
+-spec find_type_docs(Forms0 :: term(),
+                     Comments :: term(),
+                     Env :: term(),
+                     File :: term()) ->
+                        term().
 find_type_docs(Forms0, Comments, Env, File) ->
     Tree = erl_recomment:recomment_forms(Forms0, Comments),
     Forms = preprocess_forms(Tree),

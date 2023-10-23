@@ -75,6 +75,7 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
@@ -106,6 +107,7 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -379,6 +381,19 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+%% -spec add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret when Name :: string(),
+%%    Domain :: transportDomain(),
+%%    Addr :: transportAddress() % Default port is 162,
+%%    Timeout :: integer(),
+%%    Retry :: integer(),
+%%    TagList :: string(),
+%%    ParamsName :: string(),
+%%    EngineId :: string(),
+%%    TMask :: transportAddressMask() % Depends on Domain,
+%%    MMS :: integer(),
+%%    Ret :: {ok, Key} | {error, Reason},
+%%    Key :: term(),
+%%    Reason :: term().
 add_addr(
   Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -409,6 +424,9 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
+-spec delete_addr(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->
@@ -418,6 +436,14 @@ delete_addr(Key) ->
     end.
 
 
+-spec add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret when Name :: string(),
+   MPModel :: v1 | v2c | v3,
+   SecModel :: v1 | v2c | usm,
+   SecName :: string(),
+   SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
     case (catch check_target_params(Params)) of
@@ -435,6 +461,9 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	    {error, Error}
     end.
 
+-spec delete_params(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
 	true ->
@@ -660,6 +689,8 @@ get_target_engine_id(TargetAddrName) ->
 	    end
     end.
 				    
+-spec set_target_engine_id(TargetAddrName, EngineId) -> boolean() when TargetAddrName :: string(),
+   EngineId :: string().
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,

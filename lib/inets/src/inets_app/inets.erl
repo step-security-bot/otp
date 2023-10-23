@@ -47,9 +47,12 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
+%% -spec start() -> 
 start() ->
     application:start(inets, temporary).
 
+-spec start(Type) -> ok | {error, Reason :: term()}
+               when Type :: permanent | transient | temporary.
 start(Type) ->
     application:ensure_all_started(ssl),
     application:start(inets, Type).
@@ -80,9 +83,19 @@ start(Type) ->
 %% in place and in some sense the calling process has now become the
 %% top supervisor.
 %% --------------------------------------------------------------------
+%% -spec start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason} when Service :: service(),
+%%    ServiceConfig :: [{Option, Value}],
+%%    Option :: property(),
+%%    Value :: term(),
+%%    How :: inets | stand_alone - default is inets..
 start(Service, ServiceConfig) ->
     start_service(Service, ServiceConfig, inets).
 
+%% -spec start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason} when Service :: service(),
+%%    ServiceConfig :: [{Option, Value}],
+%%    Option :: property(),
+%%    Value :: term(),
+%%    How :: inets | stand_alone - default is inets..
 start(Service, ServiceConfig, How) ->
     start_service(Service, ServiceConfig, How).
 
@@ -92,6 +105,7 @@ start(Service, ServiceConfig, How) ->
 %%
 %% Description: Stops the inets application.
 %%--------------------------------------------------------------------
+-spec stop() -> ok .
 stop() ->
     application:stop(inets).
 
@@ -104,6 +118,9 @@ stop() ->
 %% Description: Stops a started service of the inets application or takes
 %% down a stand alone "service" gracefully.
 %%--------------------------------------------------------------------
+%% -spec stop(Service, Reference) -> ok | {error, Reason}  when Service :: service() | stand_alone,
+%%    Reference :: pid() | term() - service-specified reference,
+%%    Reason :: term().
 stop(stand_alone, Pid) ->
     true = exit(Pid, shutdown),
     ok;
@@ -118,6 +135,8 @@ stop(Service, Pid) ->
 %% Description: Returns a list of currently running services. 
 %% Note: Services started with the stand alone option will not be listed
 %%--------------------------------------------------------------------
+%% -spec services() -> [{Service, Pid}]
+%%                   when Service :: service(), Pid :: pid().
 services() ->
     try lists:flatten(lists:map(fun(Module) ->
 					Module:services()
@@ -136,6 +155,14 @@ services() ->
 %% Description: Returns a list of currently running services where
 %% each service is described by a [{Property, Value}] list. 
 %%--------------------------------------------------------------------
+%% -spec services_info() -> [{Service, Pid, Info}]
+%%                        when
+%%                            Service :: service(),
+%%                            Pid :: pid(),
+%%                            Info ::
+%%                                [{Option, Value}] | (Reason :: term()),
+%%                            Option :: property(),
+%%                            Value :: term().
 services_info() ->
     case services() of
 	{error, inets_not_started} ->
@@ -359,6 +386,7 @@ key1search(Key, Vals, Def) ->
 %%
 %% Description: Returns a list of supported services
 %%-------------------------------------------------------------------
+%% -spec service_names() -> [Service] when Service :: service().
 service_names() ->
     [httpc, httpd].
 

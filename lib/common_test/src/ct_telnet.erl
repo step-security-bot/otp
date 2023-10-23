@@ -67,9 +67,17 @@
 	       reconn_int=?RECONN_TIMEOUT,
 	       tcp_nodelay=false}).
 
+-spec open(Name :: term()) ->
+              {ok, Handle :: term()} | {error, Reason :: term()}.
 open(Name) ->
     open(Name,telnet).
 
+%% -spec open(Name, ConnType) -> {ok, Handle} | {error, Reason}
+%%               when
+%%                   Name :: target_name(),
+%%                   ConnType :: connection_type(),
+%%                   Handle :: handle(),
+%%                   Reason :: term().
 open(Name,ConnType) ->
     case ct_util:get_key_from_name(Name) of
 	{ok, unix} -> % unix host
@@ -80,9 +88,22 @@ open(Name,ConnType) ->
 	    Error
     end.
 
+-spec open(KeyOrName :: term(), ConnType :: term(), TargetMod :: term()) ->
+              {ok, Handle :: term()} | {error, Reason :: term()}.
 open(KeyOrName,ConnType,TargetMod) ->
     open(KeyOrName,ConnType,TargetMod,KeyOrName).
 
+%% -spec open(KeyOrName, ConnType, TargetMod, Extra) ->
+%%               {ok, Handle} | {error, Reason}
+%%               when
+%%                   KeyOrName :: Key | Name,
+%%                   Key :: atom(),
+%%                   Name :: target_name(),
+%%                   ConnType :: connection_type(),
+%%                   TargetMod :: atom(),
+%%                   Extra :: term(),
+%%                   Handle :: handle(),
+%%                   Reason :: term().
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->
@@ -122,6 +143,8 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 					{old,true}])
     end.
 
+-spec close(Connection) -> ok | {error, Reason}
+               when Connection :: connection(), Reason :: term().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -140,9 +163,21 @@ close(Connection) ->
 %%% Test suite interface
 %%%-----------------------------------------------------------------
 
+-spec cmd(Connection :: term(), Cmd :: term()) ->
+             {ok, Data :: term()} | {error, Reason :: term()}.
 cmd(Connection,Cmd) ->
     cmd(Connection,Cmd,[]).
 
+-spec cmd(Connection, Cmd, Opts) -> {ok, Data} | {error, Reason}
+             when
+                 Connection :: connection(),
+                 Cmd :: string(),
+                 Opts :: [Opt],
+                 Opt ::
+                     {timeout, timeout()} |
+                     {newline, boolean() | string()},
+                 Data :: [string()],
+                 Reason :: term().
 cmd(Connection,Cmd,Opts) when is_list(Opts) ->
     case check_cmd_opts(Opts) of
 	ok ->
@@ -167,13 +202,32 @@ check_cmd_opts([]) ->
 check_cmd_opts(Opts) ->
     check_send_opts(Opts).
 
+-spec cmdf(Connection :: term(), CmdFormat :: term(), Args :: term()) ->
+              {ok, Data :: term()} | {error, Reason :: term()}.
 cmdf(Connection,CmdFormat,Args) ->
     cmdf(Connection,CmdFormat,Args,[]).
 
+-spec cmdf(Connection, CmdFormat, Args, Opts) ->
+              {ok, Data} | {error, Reason}
+              when
+                  Connection :: connection(),
+                  CmdFormat :: string(),
+                  Args :: list(),
+                  Opts :: [Opt],
+                  Opt ::
+                      {timeout, timeout()} |
+                      {newline, boolean() | string()},
+                  Data :: [string()],
+                  Reason :: term().
 cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     cmd(Connection,Cmd,Opts).
 
+-spec get_data(Connection) -> {ok, Data} | {error, Reason}
+                  when
+                      Connection :: connection(),
+                      Data :: [string()],
+                      Reason :: term().
 get_data(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -182,9 +236,18 @@ get_data(Connection) ->
 	    Error
     end.
 
+-spec send(Connection :: term(), Cmd :: term()) ->
+              ok | {error, Reason :: term()}.
 send(Connection,Cmd) ->
     send(Connection,Cmd,[]).
 
+-spec send(Connection, Cmd, Opts) -> ok | {error, Reason}
+              when
+                  Connection :: connection(),
+                  Cmd :: string(),
+                  Opts :: [Opt],
+                  Opt :: {newline, boolean() | string()},
+                  Reason :: term().
 send(Connection,Cmd,Opts) ->
     case check_send_opts(Opts) of
 	ok ->
@@ -214,16 +277,61 @@ check_send_opts([Invalid|_]) ->
 check_send_opts([]) ->
     ok.
 
+-spec sendf(Connection :: term(), CmdFormat :: term(), Args :: term()) ->
+               ok | {error, Reason :: term()}.
 sendf(Connection,CmdFormat,Args) when is_list(Args) ->
     sendf(Connection,CmdFormat,Args,[]).
 
+-spec sendf(Connection, CmdFormat, Args, Opts) -> ok | {error, Reason}
+               when
+                   Connection :: connection(),
+                   CmdFormat :: string(),
+                   Args :: list(),
+                   Opts :: [Opt],
+                   Opt :: {newline, boolean() | string()},
+                   Reason :: term().
 sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     send(Connection,Cmd,Opts).
 
+-spec expect(Connection :: term(), Patterns :: term()) -> term().
 expect(Connection,Patterns) ->
     expect(Connection,Patterns,[]).
 
+-spec expect(Connection, Patterns, Opts) ->
+                {ok, Match} |
+                {ok, MatchList, HaltReason} |
+                {error, Reason}
+                when
+                    Connection :: connection(),
+                    Patterns :: Pattern | [Pattern],
+                    Pattern ::
+                        string() |
+                        {Tag, string()} |
+                        prompt |
+                        {prompt, Prompt},
+                    Prompt :: string(),
+                    Tag :: term(),
+                    Opts :: [Opt],
+                    Opt ::
+                        {idle_timeout, IdleTimeout} |
+                        {total_timeout, TotalTimeout} |
+                        repeat |
+                        {repeat, N} |
+                        sequence |
+                        {halt, HaltPatterns} |
+                        ignore_prompt | no_prompt_check |
+                        wait_for_prompt |
+                        {wait_for_prompt, Prompt},
+                    IdleTimeout :: infinity | integer(),
+                    TotalTimeout :: infinity | integer(),
+                    N :: integer(),
+                    HaltPatterns :: Patterns,
+                    MatchList :: [Match],
+                    Match :: RxMatch | {Tag, RxMatch} | {prompt, Prompt},
+                    RxMatch :: [string()],
+                    HaltReason :: done | Match,
+                    Reason :: timeout | {prompt, Prompt}.
 expect(Connection,Patterns,Opts) ->
     case get_handle(Connection) of
         {ok,Pid} ->

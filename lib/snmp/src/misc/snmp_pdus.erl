@@ -48,6 +48,7 @@
 get_encoded_length(Length) ->
     length(elength(Length)).
 
+%% -spec dec_message([byte()]) -> Message when Message :: #message.
 dec_message([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
     case dec_snmp_version(Bytes2) of
@@ -57,6 +58,7 @@ dec_message([48 | Bytes]) ->
 	    dec_rest_v1_v2_msg(Vsn, Rest)
     end.
 
+%% -spec dec_message_only([byte()]) -> Message when Message :: #message.
 dec_message_only([48 | Bytes]) ->
     Bytes2 = get_data_bytes(Bytes),
     case dec_snmp_version(Bytes2) of
@@ -133,6 +135,8 @@ dec_rest_v3_msg(Bytes) ->
     Data = Message#message.data,
     Message#message{data = dec_scoped_pdu_data(Data)}.
 
+%% -spec dec_scoped_pdu_data([byte()]) -> ScopedPduData when ScopedPduData :: #scoped_pdu | EncryptedPDU,
+%%    EncryptedPDU :: [byte()].
 dec_scoped_pdu_data([48 | Bytes]) -> % plaintext
     {ScopedPdu, []} = dec_scoped_pdu_notag(Bytes),
     ScopedPdu;
@@ -141,6 +145,7 @@ dec_scoped_pdu_data([4 | Bytes]) -> % encryptedPDU
     EncryptedPDU.
 
     
+%% -spec dec_scoped_pdu([byte()]) -> ScopedPdu when ScopedPdu :: #scoped_pdu.
 dec_scoped_pdu([48 | Bytes]) ->
     element(1, dec_scoped_pdu_notag(Bytes)).
 
@@ -172,6 +177,7 @@ dec_pdu_tag(168) ->
     report.
 
 
+%% -spec dec_pdu([byte()]) -> Pdu when Pdu :: #pdu.
 dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
     {Enterprise, Rest1} = dec_oid_tag(Bytes2),
@@ -228,6 +234,7 @@ dec_individual_VBs([48 | Bytes], OrgIndex, AccVBs) ->
 						      org_index = OrgIndex}
 					     | AccVBs]).
 
+%% -spec dec_usm_security_parameters([byte()]) -> UsmSecParams when UsmSecParams :: #usmSecurityParameters.
 dec_usm_security_parameters([48 | Bytes1]) ->
     {_Len, Bytes2} = dec_len(Bytes1),
     {MsgAuthEngineID, Bytes3} = dec_oct_str_tag(Bytes2),
@@ -509,6 +516,7 @@ head(Int, [], _Res) ->
 %%% ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING ENCODING 
 %%%----------------------------------------------------------------------
 
+%% -spec enc_message(Message) -> [byte()] when Message :: #message.
 enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     VerBytes = enc_version(Ver),
     Bytes = 
@@ -526,6 +534,7 @@ enc_message(#message{version = Ver, vsn_hdr = VsnHdr, data = Data}) ->
     Len = elength(length(Bytes2)),
     [48 | Len] ++ Bytes2.
 
+%% -spec enc_message_only(Message) -> [byte()] when Message :: #message.
 enc_message_only(#message{version = Ver, vsn_hdr = VsnHdr, data = DataBytes}) ->
     VerBytes = enc_version(Ver),
     Bytes = 
@@ -563,6 +572,7 @@ enc_v3_header(#v3_hdr{msgID = MsgID,
     Len = elength(length(Bytes)),
     lists:append([[48 | Len], Bytes, enc_oct_str_tag(MsgSecurityParameters)]).
     
+%% -spec enc_scoped_pdu(ScopedPdu) -> [byte()] when ScopedPdu :: #scoped_pdu.
 enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
 			  contextName = ContextName,
 			  data = Data}) ->
@@ -573,6 +583,7 @@ enc_scoped_pdu(#scopedPdu{contextEngineID = ContextEngineID,
     [48 | Len] ++ Bytes.
 
 
+%% -spec enc_pdu(Pd) -> [byte()] when Pdu :: #pdu.
 enc_pdu(PDU) when PDU#pdu.type =:= 'get-request' ->
     enc_pdu(160, PDU);
 enc_pdu(PDU) when PDU#pdu.type =:= 'get-next-request' ->
@@ -607,6 +618,7 @@ enc_pdu2(#pdu{type = Type, request_id = ReqId, error_index = ErrIndex,
     VBsBytes = enc_VarBindList(VBs),
     lists:append([ReqBytes, ErrStatBytes, ErrIndexBytes, VBsBytes]).
 
+%% -spec enc_usm_security_parameters(UsmSecParams) -> [byte()] when UsmSecParams :: #usmSecurityParameters.
 enc_usm_security_parameters(
   #usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
 			 msgAuthoritativeEngineBoots = MsgAuthEngineBoots,

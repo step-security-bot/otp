@@ -84,6 +84,7 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+%% -spec init(Vsns) -> mpd_state() when Vsns :: [Vsn], Vsn :: v1 | v2 | v3.
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
@@ -147,6 +148,22 @@ empty_msg_size() ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
+%% -spec process_packet(Packet, From, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket} when Packet :: binary(),
+%%    From :: {TDomain, TAddr},
+%%    TDomain :: transportDomainUdpIpv4 | transportDomainUdpIpv6,
+%%    TAddr :: {IpAddr, IpPort},
+%%    LocalEngineID :: string(),
+%%    IpAddr :: inet:ip_address(),
+%%    IpPort :: inet:port_number(),
+%%    State :: mpd_state(),
+%%    NoteStore :: pid(),
+%%    Log :: snmp_log(),
+%%    Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    Pdu :: #pdu,
+%%    PduMs :: integer(),
+%%    ACMData :: acm_data(),
+%%    Reason :: term(),
+%%    DiscoPacket :: binary().
 process_packet(Packet, From, State, NoteStore, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
@@ -156,6 +173,22 @@ process_packet(
     From = {Domain, Address},
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
+%% -spec process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket} when Packet :: binary(),
+%%    From :: {TDomain, TAddr},
+%%    TDomain :: transportDomainUdpIpv4 | transportDomainUdpIpv6,
+%%    TAddr :: {IpAddr, IpPort},
+%%    LocalEngineID :: string(),
+%%    IpAddr :: inet:ip_address(),
+%%    IpPort :: inet:port_number(),
+%%    State :: mpd_state(),
+%%    NoteStore :: pid(),
+%%    Log :: snmp_log(),
+%%    Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    Pdu :: #pdu,
+%%    PduMs :: integer(),
+%%    ACMData :: acm_data(),
+%%    Reason :: term(),
+%%    DiscoPacket :: binary().
 process_packet(Packet, Domain, Address, State, NoteStore, Log)
   when is_atom(Domain) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
@@ -224,6 +257,7 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    {discarded, snmpInBadVersions}
     end.
 
+%% -spec discarded_pdu(Variable) -> void() when Variable :: atom().
 discarded_pdu(false) -> ok;
 discarded_pdu(Variable) -> inc(Variable).
 
@@ -641,9 +675,21 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Executed when a response or report message is generated.
 %%-----------------------------------------------------------------
+%% -spec generate_response_msg(Vsn, RePdu, Type, ACMData, Log) -> {ok, Packet} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    RePdu :: #pdu,
+%%    Type :: atom(),
+%%    ACMData :: acm_data(),
+%%    LocalEngineID :: string(),
+%%    Packet :: binary().
 generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
     generate_response_msg(Vsn, RePdu, Type, ACMData, Log, 1).
 
+%% -spec generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) -> {ok, Packet} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    RePdu :: #pdu,
+%%    Type :: atom(),
+%%    ACMData :: acm_data(),
+%%    LocalEngineID :: string(),
+%%    Packet :: binary().
 generate_response_msg(Vsn, RePdu, Type, ACMData, Log, N) when is_integer(N) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, N);
@@ -918,10 +964,34 @@ set_vb_null([]) ->
 %% Executed when a message that isn't a response is generated, i.e.
 %% a trap or an inform.
 %%-----------------------------------------------------------------
+%% -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    NoteStore :: pid(),
+%%    Pdu :: #pdu,
+%%    MsgData :: msg_data(),
+%%    LocalEngineID :: string(),
+%%    To :: [dest_addrs()],
+%%    PacketsAndAddresses :: [{TDomain, TAddress, Packet}],
+%%    TDomain :: snmpUDPDomain,
+%%    TAddress :: {Ip, Udp},
+%%    Ip :: {integer(), integer(), integer(), integer()},
+%%    Udp :: integer(),
+%%    Packet :: binary().
 generate_msg(Vsn, NoteStore, Pdu, ACMData, To) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     generate_msg(Vsn, NoteStore, Pdu, ACMData, LocalEngineID, To).
 
+%% -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) -> {ok, PacketsAndAddresses} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    NoteStore :: pid(),
+%%    Pdu :: #pdu,
+%%    MsgData :: msg_data(),
+%%    LocalEngineID :: string(),
+%%    To :: [dest_addrs()],
+%%    PacketsAndAddresses :: [{TDomain, TAddress, Packet}],
+%%    TDomain :: snmpUDPDomain,
+%%    TAddress :: {Ip, Udp},
+%%    Ip :: {integer(), integer(), integer(), integer()},
+%%    Udp :: integer(),
+%%    Packet :: binary().
 generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
     Message = #message{version = Vsn, vsn_hdr = Community, data = Pdu},
     case catch list_to_binary(snmp_pdus:enc_message(Message)) of
@@ -1161,6 +1231,15 @@ transform_taddr(BadTDomain, TAddress) ->
     end.
 
 
+%% -spec process_taddrs(TDests) -> Dests when TDests :: [TDest],
+%%    TDest :: {{TDomain, TAddr}, SecData} | {TDomain, TAddr},
+%%    TDomain :: term() % Not at tuple,
+%%    TAddr :: term(),
+%%    SecData :: term(),
+%%    Dests :: [Dest],
+%%    Dest :: {{Domain, Addr}, SecData} | {Domain, Addr},
+%%    Domain :: transportDomain(),
+%%    Addr :: transportAddress() % Depends on Domain.
 process_taddrs(Dests) ->
     ?vtrace("process_taddrs -> entry with"
 	    "~n   Dests: ~p", [Dests]),

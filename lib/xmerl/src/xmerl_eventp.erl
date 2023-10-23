@@ -159,6 +159,11 @@ stream(Fname, Options) ->
 %% <code>fetch_fun</code>, <code>rules</code>, <code>hook_fun</code>,
 %% <code>close_fun</code> and <code>user_state</code> options cannot be user
 %% defined using this parser.
+-spec stream_sax(Fname :: term(),
+                 CallBack :: term(),
+                 UserState :: term(),
+                 Options :: term()) ->
+                    term().
 stream_sax(Fname, CallBack, UserState,Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
@@ -205,6 +210,11 @@ stream_sax(Fname, CallBack, UserState,Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-spec file_sax(Fname :: term(),
+               CallBack :: term(),
+               UserState :: term(),
+               Options :: term()) ->
+                  term().
 file_sax(Fname,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -238,6 +248,11 @@ file_sax(Fname,CallBack, UserState, Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-spec string_sax(String :: term(),
+                 CallBack :: term(),
+                 UserState :: term(),
+                 Options :: term()) ->
+                    term().
 string_sax(String,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,

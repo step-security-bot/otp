@@ -293,6 +293,14 @@
 %% LastCallbackState.
 %%-------------------------------------------------------------------
 
+%% -spec read_file(RemoteFilename, LocalFilename, Options) ->
+%%                    {ok, LastCallbackState} | {error, Reason}
+%%                    when
+%%                        RemoteFilename :: string(),
+%%                        LocalFilename :: binary | string(),
+%%                        Options :: [option()],
+%%                        LastCallbackState :: term(),
+%%                        Reason :: term().
 read_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(read, RemoteFilename, LocalFilename, Options).
     
@@ -319,6 +327,14 @@ read_file(RemoteFilename, LocalFilename, Options) ->
 %% of transferred bytes will be returned as LastCallbackState.
 %%-------------------------------------------------------------------
 
+%% -spec write_file(RemoteFilename, LocalFilename, Options) ->
+%%                     {ok, LastCallbackState} | {error, Reason}
+%%                     when
+%%                         RemoteFilename :: string(),
+%%                         LocalFilename :: binary() | string(),
+%%                         Options :: [option()],
+%%                         LastCallbackState :: term(),
+%%                         Reason :: term().
 write_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(write, RemoteFilename, LocalFilename, Options).
 
@@ -335,6 +351,9 @@ write_file(RemoteFilename, LocalFilename, Options) ->
 %% of the (virtual) file.
 %%-------------------------------------------------------------------
 
+%% -spec start(Options) -> {ok, Pid} | {error, Reason}
+%%                when
+%%                    Options :: [option()], Pid :: pid(), Reason :: term().
 start(Options) ->
     tftp_engine:daemon_start(Options).
 
@@ -347,6 +366,8 @@ start(Options) ->
 %% Returns info about a tftp daemon, server or client process
 %%-------------------------------------------------------------------
 
+%% -spec info(Pid :: term()) -> {ok, Options} | {error, Reason}
+%%               when Options :: [option()], Reason :: term().
 info(Pid) ->
     tftp_engine:info(Pid).
 
@@ -360,6 +381,12 @@ info(Pid) ->
 %% Must be used with care.
 %%-------------------------------------------------------------------
 
+%% -spec change_config(Pid, Options) -> Result
+%%                        when
+%%                            Pid :: pid(),
+%%                            Options :: [option()],
+%%                            Result :: ok | {error, Reason},
+%%                            Reason :: term().
 change_config(Pid, Options) ->
     tftp_engine:change_config(Pid, Options).
 

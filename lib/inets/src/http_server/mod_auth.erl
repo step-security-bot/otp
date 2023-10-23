@@ -152,6 +152,15 @@ remove(ConfigDB) ->
     mod_auth_server:stop(Addr, Port, Profile),
     ok.
 
+%% -spec add_user(UserName, Options) -> true| {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {password,Password} | {userData,UserData} | {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Password :: string(),
+%%    UserData :: term(),
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Reason :: term().
 add_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -167,14 +176,33 @@ add_user(UserName, Opt) ->
     end.
 
 
+%% -spec add_user(UserName, Password, UserData, Port, Dir) -> true | {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {password,Password} | {userData,UserData} | {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Password :: string(),
+%%    UserData :: term(),
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Reason :: term().
 add_user(UserName, Password, UserData, Port, Dir) ->
     add_user(UserName, Password, UserData, undefined, Port, Dir).
+%% -spec add_user(UserName, Password, UserData, Address, Port, Dir) -> true | {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {password,Password} | {userData,UserData} | {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Password :: string(),
+%%    UserData :: term(),
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Reason :: term().
 add_user(UserName, Password, UserData, Addr, Port, Dir) ->
     User = [#httpd_user{username  = UserName, 
 			password  = Password,
 			user_data = UserData}],
     mod_auth_server:add_user(Addr, Port, Dir, User, ?NOPASSWORD).
 
+%% -spec get_user(UserName,Options) -> {ok, #httpd_user} |{error, Reason}
 get_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -183,11 +211,22 @@ get_user(UserName, Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec get_user(UserName, Port, Dir) -> {ok, #httpd_user} | {error, Reason}
 get_user(UserName, Port, Dir) ->
     get_user(UserName, undefined, Port, Dir).
+%% -spec get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}
 get_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:get_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
+%% -spec add_group_member(GroupName, UserName, Options) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 add_group_member(GroupName, UserName, Opt)->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -197,13 +236,40 @@ add_group_member(GroupName, UserName, Opt)->
 	    {error, Reason}
     end.
 
+%% -spec add_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 add_group_member(GroupName, UserName, Port, Dir) ->
     add_group_member(GroupName, UserName, undefined, Port, Dir).
 
+%% -spec add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 add_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:add_group_member(Addr, Port, Dir, 
 				     GroupName, UserName, ?NOPASSWORD).
 
+%% -spec delete_group_member(GroupName, UserName, Options) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_group_member(GroupName, UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -213,12 +279,38 @@ delete_group_member(GroupName, UserName, Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec delete_group_member(GroupName, UserName, Port, Dir) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_group_member(GroupName, UserName, Port, Dir) ->
     delete_group_member(GroupName, UserName, undefined, Port, Dir).
+%% -spec delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error, Reason} when GroupName :: string(),
+%%    UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_group_member(Addr, Port, Dir, 
 					GroupName, UserName, ?NOPASSWORD).
 
+%% -spec list_users(Options) -> {ok, Users} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: atom().
 list_users(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -227,11 +319,35 @@ list_users(Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec list_users(Port, Dir) -> {ok, Users} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: atom().
 list_users(Port, Dir) ->
     list_users(undefined, Port, Dir).
+%% -spec list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: atom().
 list_users(Addr, Port, Dir) ->
     mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
 
+%% -spec delete_user(UserName,Options) -> true | {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -240,11 +356,28 @@ delete_user(UserName, Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec delete_user(UserName, Port, Dir) -> true | {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_user(UserName, Port, Dir) ->
     delete_user(UserName, undefined, Port, Dir).
+%% -spec delete_user(UserName, Address, Port, Dir) -> true | {error, Reason} when UserName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
+%% -spec delete_group(GroupName, Options) -> true | {error,Reason} <name>delete_group(GroupName, Port, Dir) -> true | {error, Reason}
 delete_group(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -255,9 +388,25 @@ delete_group(GroupName, Opt) ->
 
 delete_group(GroupName, Port, Dir) ->
     delete_group(GroupName, undefined, Port, Dir).
+%% -spec delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    GroupName :: string(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 delete_group(GroupName, Addr, Port, Dir) ->
     mod_auth_server:delete_group(Addr, Port, Dir, GroupName, ?NOPASSWORD).
 
+%% -spec list_groups(Options) -> {ok, Groups} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Groups :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_groups(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -266,11 +415,36 @@ list_groups(Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec list_groups(Port, Dir) -> {ok, Groups} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Groups :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_groups(Port, Dir) ->
     list_groups(undefined, Port, Dir).
+%% -spec list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason} when Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Groups :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_groups(Addr, Port, Dir) ->
     mod_auth_server:list_groups(Addr, Port, Dir, ?NOPASSWORD).
 
+%% -spec list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason} when GroupName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_group_members(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -280,15 +454,47 @@ list_group_members(GroupName, Opt) ->
 	    {error, Reason}
     end.
 
+%% -spec list_group_members(GroupName, Port, Dir) -> {ok, Users} | {error, Reason} when GroupName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_group_members(GroupName, Port, Dir) ->
     list_group_members(GroupName, undefined, Port, Dir).
+%% -spec list_group_members(GroupName, Address, Port, Dir) -> {ok, Users} | {error, Reason} when GroupName :: string(),
+%%    Options :: [Option],
+%%    Option :: {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword},
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: list(),
+%%    AuthPassword :: string(),
+%%    Reason :: term().
 list_group_members(GroupName, Addr, Port, Dir) ->
     mod_auth_server:list_group_members(Addr, Port, Dir, 
 				       GroupName, ?NOPASSWORD).
 
+%% -spec update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason} when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    GroupName :: string(),
+%%    OldPassword :: string(),
+%%    NewPassword :: string(),
+%%    Reason :: term().
 update_password(Port, Dir, Old, New, New)->
     update_password(undefined, Port, Dir, Old, New, New).
 
+%% -spec update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason} when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    GroupName :: string(),
+%%    OldPassword :: string(),
+%%    NewPassword :: string(),
+%%    Reason :: term().
 update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
     mod_auth_server:update_password(Addr, Port, Dir, Old, New);
 

@@ -87,9 +87,22 @@
 %%%    {timeout, milliSec} - Server request timeout
 %%%
 %%% --------------------------------------------------------------------
+%% -spec open([Host :: term()]) -> {ok, Handle} | {error, Reason :: term()}
+%%               when Handle :: handle().
 open(Hosts) ->
     open(Hosts, []).
 
+%% -spec open([Host :: term()], [Option]) ->
+%%               {ok, Handle} | {error, Reason :: term()}
+%%               when
+%%                   Handle :: handle(),
+%%                   Option ::
+%%                       {port, integer()} |
+%%                       {log, function()} |
+%%                       {timeout, integer()} |
+%%                       {ssl, boolean()} |
+%%                       {sslopts, list()} |
+%%                       {tcpopts, list()}.
 open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
     Self = self(),
     Pid = spawn_link(fun() -> init(Hosts, Opts, Self) end),
@@ -98,9 +111,15 @@ open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
 %%% --------------------------------------------------------------------
 %%% Upgrade an existing connection to tls
 %%% --------------------------------------------------------------------
+%% -spec start_tls(Handle :: term(), Options :: term()) -> return_value().
 start_tls(Handle, TlsOptions) ->
     start_tls(Handle, TlsOptions, infinity).
 
+%% -spec start_tls(Handle, Options, Timeout) -> return_value()
+%%                    when
+%%                        Handle :: handle(),
+%%                        Options :: ssl:ssl_options(),
+%%                        Timeout :: infinity | positive_integer().
 start_tls(Handle, TlsOptions, Timeout) ->
     start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
 
@@ -117,9 +136,19 @@ start_tls(Handle, TlsOptions, Timeout, Controls) ->
 %%%
 %%% Returns: ok | {ok, GenPasswd} | {error, term()}
 %%% --------------------------------------------------------------------
+%% -spec modify_password(Handle :: term(), Dn, NewPasswd) ->
+%%                          return_value() | {ok, GenPasswd :: term()}
+%%                          when Dn :: string(), NewPasswd :: string().
 modify_password(Handle, Dn, NewPasswd) ->
     modify_password(Handle, Dn, NewPasswd, []).
 
+%% -spec modify_password(Handle :: term(), Dn, NewPasswd, OldPasswd) ->
+%%                          return_value() | {ok, GenPasswd}
+%%                          when
+%%                              Dn :: string(),
+%%                              NewPasswd :: string(),
+%%                              OldPasswd :: string(),
+%%                              GenPasswd :: string().
 modify_password(Handle, Dn, NewPasswd, OldPasswd)
   when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
     modify_password(Handle, Dn, NewPasswd, OldPasswd, asn1_NOVALUE).
@@ -142,6 +171,7 @@ getopts(Handle, OptNames) when is_pid(Handle), is_list(OptNames) ->
 %%% Shutdown connection (and process) asynchronous.
 %%% --------------------------------------------------------------------
 
+%% -spec close(Handle) -> ok when Handle :: handle().
 close(Handle) when is_pid(Handle) ->
     send(Handle, close),
     ok.
@@ -158,6 +188,8 @@ controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
 %%% --------------------------------------------------------------------
 %%% Return LDAP socket information
 %%% --------------------------------------------------------------------
+%% -spec info(Handle) -> connection_info() when connection_info() :: #{socket := Socket, socket_type := tcp | ssl},
+%%    Socket :: ssl:sslsocket() | gen_tcp:socket().
 info(Handle) when is_pid(Handle) ->
     send(Handle, info),
     recv(Handle).
@@ -171,6 +203,11 @@ info(Handle) when is_pid(Handle) ->
 %%%
 %%%  Returns: ok | {error, Error}
 %%% --------------------------------------------------------------------
+%% -spec simple_bind(Handle, Dn, Password) -> return_value()
+%%                      when
+%%                          Handle :: handle(),
+%%                          Dn :: string(),
+%%                          Password :: string().
 simple_bind(Handle, Dn, Passwd) when is_pid(Handle)  ->
     simple_bind(Handle, Dn, Passwd, asn1_NOVALUE).
 
@@ -191,6 +228,11 @@ simple_bind(Handle, Dn, Passwd, Controls) when is_pid(Handle)  ->
 %%%          {"telephoneNumber", ["545 555 00"]}]
 %%%     )
 %%% --------------------------------------------------------------------
+%% -spec add(Handle, Dn, [Attribute]) -> return_value()
+%%              when
+%%                  Handle :: handle(),
+%%                  Dn :: string(),
+%%                  Attribute :: attribute().
 add(Handle, Entry, Attributes) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
     add(Handle, Entry, Attributes, asn1_NOVALUE).
 
@@ -218,6 +260,7 @@ add_attrs(Attrs) ->
 %%%         "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com"
 %%%        )
 %%% --------------------------------------------------------------------
+%% -spec delete(Handle :: term(), Dn) -> return_value() when Dn :: string().
 delete(Handle, Entry) when is_pid(Handle), is_list(Entry) ->
     delete(Handle, Entry, asn1_NOVALUE).
 
@@ -236,6 +279,8 @@ delete(Handle, Entry, Controls)  when is_pid(Handle), is_list(Entry) ->
 %%%          mod_add("description", ["LDAP hacker"])]
 %%%        )
 %%% --------------------------------------------------------------------
+%% -spec modify(Handle :: term(), Dn, [ModifyOp]) -> return_value()
+%%                 when Dn :: string(), ModifyOp :: modify_op().
 modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods) ->
     modify(Handle, Object, Mods, asn1_NOVALUE).
 
@@ -248,8 +293,14 @@ modify(Handle, Object, Mods, Controls) when is_pid(Handle), is_list(Object), is_
 %%% Example:
 %%%            mod_replace("telephoneNumber", ["555 555 00"])
 %%%
+%% -spec mod_add(Type, [Value]) -> modify_op()
+%%                  when Type :: string(), Value :: string().
 mod_add(Type, Values) when is_list(Type), is_list(Values)     -> m(add, Type, Values).
+%% -spec mod_delete(Type, [Value]) -> modify_op()
+%%                     when Type :: string(), Value :: string().
 mod_delete(Type, Values) when is_list(Type), is_list(Values)  -> m(delete, Type, Values).
+%% -spec mod_replace(Type, [Value]) -> modify_op()
+%%                      when Type :: string(), Value :: string().
 mod_replace(Type, Values) when is_list(Type), is_list(Values) -> m(replace, Type, Values).
 
 m(Operation, Type, Values) ->
@@ -271,6 +322,13 @@ m(Operation, Type, Values) ->
 %%%    ""
 %%%        )
 %%% --------------------------------------------------------------------
+%% -spec modify_dn(Handle :: term(), Dn, NewRDN, DeleteOldRDN, NewSupDN) ->
+%%                    return_value()
+%%                    when
+%%                        Dn :: string(),
+%%                        NewRDN :: string(),
+%%                        DeleteOldRDN :: boolean(),
+%%                        NewSupDN :: string().
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup)
   when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
     modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, asn1_NOVALUE).
@@ -313,6 +371,8 @@ optional(Value) -> Value.
 %%%        []}}
 %%%
 %%% --------------------------------------------------------------------
+%% -spec search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason} when SearchOptions :: #eldap_search{} | [SearchOption],
+%%    SearchOption :: {base, string()} | {filter, filter()} | {scope, scope()} | {attributes, [string()]} | {deref, dereference()} | | {types_only, boolean()} | {timeout, integer()}.
 search(Handle, X) when is_pid(Handle), is_record(X,eldap_search) ; is_list(X) ->
     search(Handle, X, asn1_NOVALUE).
     
@@ -357,32 +417,50 @@ parse_search_args([],A) ->
 %%%
 %%% The Scope parameter
 %%%
+%% -spec baseObject() -> scope().
 baseObject()   -> baseObject.
+%% -spec singleLevel() -> scope().
 singleLevel()  -> singleLevel.
+%% -spec wholeSubtree() -> scope().
 wholeSubtree() -> wholeSubtree.
 
 %%
 %% The derefAliases parameter
 %%
+%% -spec neverDerefAliases() -> dereference().
 neverDerefAliases()   -> neverDerefAliases.
+%% -spec derefInSearching() -> dereference().
 derefInSearching()    -> derefInSearching.
+%% -spec derefFindingBaseObj() -> dereference().
 derefFindingBaseObj() -> derefFindingBaseObj.
+%% -spec derefAlways() -> dereference().
 derefAlways()         -> derefAlways.
 
 %%%
 %%% Boolean filter operations
 %%%
+%% -spec 'and'([Filter]) -> filter() when Filter :: filter().
 'and'(ListOfFilters) when is_list(ListOfFilters) -> {'and',ListOfFilters}.
+%% -spec 'or'([Filter]) -> filter() when Filter :: filter().
 'or'(ListOfFilters)  when is_list(ListOfFilters) -> {'or', ListOfFilters}.
+%% -spec 'not'(Filter) -> filter() when Filter :: filter().
 'not'(Filter)        when is_tuple(Filter)       -> {'not',Filter}.
 
 %%%
 %%% The following Filter parameters consist of an attribute
 %%% and an attribute value. Example: F("uid","tobbe")
 %%%
+%% -spec equalityMatch(Type, Value) -> filter()
+%%                        when Type :: string(), Value :: string().
 equalityMatch(Desc, Value)   -> {equalityMatch, av_assert(Desc, Value)}.
+%% -spec greaterOrEqual(Type, Value) -> filter()
+%%                         when Type :: string(), Value :: string().
 greaterOrEqual(Desc, Value)  -> {greaterOrEqual, av_assert(Desc, Value)}.
+%% -spec lessOrEqual(Type, Value) -> filter()
+%%                      when Type :: string(), Value :: string().
 lessOrEqual(Desc, Value)     -> {lessOrEqual, av_assert(Desc, Value)}.
+%% -spec approxMatch(Type, Value) -> filter()
+%%                      when Type :: string(), Value :: string().
 approxMatch(Desc, Value)     -> {approxMatch, av_assert(Desc, Value)}.
 
 av_assert(Desc, Value) ->
@@ -392,6 +470,7 @@ av_assert(Desc, Value) ->
 %%%
 %%% Filter to check for the presence of an attribute
 %%%
+%% -spec present(Type) -> filter() when Type :: string().
 present(Attribute) when is_list(Attribute) ->
     {present, Attribute}.
 
@@ -411,6 +490,11 @@ present(Attribute) when is_list(Attribute) ->
 %%% Example: substrings("sn",[{initial,"To"},{any,"kv"},{final,"st"}])
 %%% will match entries containing:  'sn: Tornkvist'
 %%%
+%% -spec substrings(Type, [SubString]) -> filter()
+%%                     when
+%%                         Type :: string(),
+%%                         SubString :: {StringPart, string()},
+%%                         StringPart :: initial | any | final.
 substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
     Ss = v_substr(SubStr),
     {substrings,#'SubstringFilter'{type = Type,
@@ -419,6 +503,14 @@ substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
 %%%
 %%% Filter for extensibleMatch
 %%%
+%% -spec extensibleMatch(MatchValue, OptionalAttrs) -> filter()
+%%                          when
+%%                              MatchValue :: string(),
+%%                              OptionalAttrs :: [Attr],
+%%                              Attr ::
+%%                                  {matchingRule, string()} |
+%%                                  {type, string()} |
+%%                                  {dnAttributes, boolean()}.
 extensibleMatch(MatchValue, OptArgs) ->
     MatchingRuleAssertion =  
 	mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
@@ -1460,9 +1552,14 @@ get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
 %%% https://www.rfc-editor.org/rfc/rfc2696.txt
 %%% --------------------------------------------------------------------
 
+%% -spec paged_result_control(PageSize) ->
+%%       {control, "1.2.840.113556.1.4.319", true, binary()}
 paged_result_control(PageSize) when is_integer(PageSize) ->
     paged_result_control(PageSize, "").
 
+%% -spec paged_result_control(PageSize, Cookie)
+%%       -> {control, "1.2.840.113556.1.4.319", true,
+%%       binary()}
 paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
     RSCV = #'RealSearchControlValue'{size=PageSize, cookie=Cookie},
     {ok, ControlValue} = 'ELDAPv3':encode('RealSearchControlValue', RSCV),
@@ -1478,6 +1575,8 @@ paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
 %%% https://www.rfc-editor.org/rfc/rfc2696.txt
 %%% --------------------------------------------------------------------
 
+-spec paged_result_cookie(SearchResult) -> binary()
+                             when SearchResult :: #eldap_search_result{}.
 paged_result_cookie(#eldap_search_result{controls=Controls}) ->
     find_paged_result_cookie(Controls).
 

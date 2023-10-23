@@ -113,12 +113,14 @@
 
 %% @spec string(Str, Doc) -> [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [])
+-spec string(Str :: term(), Doc :: term()) -> term().
 string(Str, Doc) ->
     string(Str, Doc, []).
 
 %% @spec string(Str,Doc,Options) -> 
 %%      [docEntity()] | Scalar
 %% @equiv string(Str,Doc, [],Doc,Options)
+-spec string(Str :: term(), Doc :: term(), Options :: term()) -> term().
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 

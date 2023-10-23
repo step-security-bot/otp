@@ -44,6 +44,8 @@ reserved() ->
             $#, $[, $], $<, $>, $\", ${, $}, $|, %"
 			       $\\, $', $^, $%, $ ]).
 
+%% -spec encode(DecodedPart) -> EncodedPart when DecodePart :: uri_part(),
+%%    EncodedPart :: uri_part() - Percent encoded URI part.
 encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
@@ -51,6 +53,8 @@ encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
     << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
+%% -spec decode(EncodedPart) -> DecodePart when EncodedPart :: uri_part() - A possibly percent encoded URI part,
+%%    DecodePart :: uri_part().
 decode(String) when is_list(String) ->
     do_decode(String);
 decode(String) when is_binary(String) ->

@@ -164,9 +164,15 @@ remove(ConfigDB) ->
     mod_security_server:stop(Addr, Port, Profile).
     
 
+%% -spec list_blocked_users(Port) -> Users | [] when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: [string()],
+%%    list() :: [string()].
 list_blocked_users(Port) ->
     list_blocked_users(undefined, Port).
 
+%% -spec list_blocked_users(Port, Dir) -> Users | []list_blocked_users(Address, Port) -> Users | []
 list_blocked_users(Port, Dir) when is_integer(Port) ->
     list_blocked_users(undefined,Port,Dir);
 list_blocked_users(Addr, Port) when is_integer(Port) ->
@@ -175,36 +181,92 @@ list_blocked_users(Addr, Port) when is_integer(Port) ->
 	      end,
 	      mod_security_server:list_blocked_users(Addr, Port)).
 
+%% -spec list_blocked_users(Address, Port, Dir) -> Users | [] when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: [string()],
+%%    list() :: [string()].
 list_blocked_users(Addr, Port, Dir) ->
     lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
 		      {User, Addr0, Port0, Dir0,Time}
 	      end,
 	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
 
+%% -spec block_user(User, Port, Dir, Seconds) -> true | {error, Reason} when User :: string(),
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Seconds :: integer() | infinity,
+%%    Reason :: no_such_directory.
 block_user(User, Port, Dir, Time) ->
     block_user(User, undefined, Port, Dir, Time).
+-spec block_user(User, Address, Port, Dir, Seconds) ->
+                    true | {error, Reason}
+                    when
+                        User :: string(),
+                        Port :: integer(),
+                        Address ::
+                            {A :: term(),
+                             B :: term(),
+                             C :: term(),
+                             D :: term()} |
+                            string() |
+                            undefined,
+                        Dir :: string(),
+                        Seconds :: integer() | infinity,
+                        Reason :: no_such_directory.
 block_user(User, Addr, Port, Dir, Time) ->
     mod_security_server:block_user(User, Addr, Port, Dir, Time).
 
+%% -spec unblock_user(User, Port) -> true | {error, Reason} when User :: string(),
+%%    Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Reason :: term().
 unblock_user(User, Port) ->
     unblock_user(User, undefined, Port).
 
+%% -spec unblock_user(User, Port, Dir) -> true | {error, Reason}unblock_user(User, Address, Port) -> true | {error, Reason}
 unblock_user(User, Port, Dir) when is_integer(Port) ->
     unblock_user(User, undefined, Port, Dir);
 unblock_user(User, Addr, Port) when is_integer(Port) ->
     mod_security_server:unblock_user(User, Addr, Port).
 
+-spec unblock_user(User, Address, Port, Dir) -> true | {error, Reason}
+                      when
+                          User :: string(),
+                          Port :: integer(),
+                          Address ::
+                              {A :: term(),
+                               B :: term(),
+                               C :: term(),
+                               D :: term()} |
+                              string() |
+                              undefined,
+                          Dir :: string(),
+                          Reason :: term().
 unblock_user(User, Addr, Port, Dir) ->
     mod_security_server:unblock_user(User, Addr, Port, Dir).
 
+%% -spec list_auth_users(Port) -> Users | [] when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: [string()],
+%%    list() :: [string()].
 list_auth_users(Port) ->
     list_auth_users(undefined,Port).
 
+%% -spec list_auth_users(Port, Dir) -> Users | []list_auth_users(Address, Port) -> Users | []
 list_auth_users(Port, Dir) when is_integer(Port) ->
     list_auth_users(undefined, Port, Dir);
 list_auth_users(Addr, Port) when is_integer(Port) ->
     mod_security_server:list_auth_users(Addr, Port).
 
+%% -spec list_auth_users(Address, Port, Dir) -> Users | [] when Port :: integer(),
+%%    Address :: {A,B,C,D} | string() | undefined,
+%%    Dir :: string(),
+%%    Users :: [string()],
+%%    list() :: [string()].
 list_auth_users(Addr, Port, Dir) ->
     mod_security_server:list_auth_users(Addr, Port, Dir).
 

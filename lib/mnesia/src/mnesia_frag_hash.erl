@@ -48,6 +48,12 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% -spec init_state(Tab, State) -> NewState | abort(Reason)
+%%                     when
+%%                         Tab :: atom(),
+%%                         State :: term(),
+%%                         NewState :: term(),
+%%                         Reason :: term().
 init_state(_Tab, State) when State == undefined ->
     #hash_state{n_fragments     = 1,
 		next_n_to_split = 1,
@@ -62,6 +68,15 @@ convert_old_state({hash_state, N, P, L}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% -spec add_frag(State) ->
+%%                   {NewState, IterFrags, AdditionalLockFrags} |
+%%                   abort(Reason)
+%%                   when
+%%                       State :: term(),
+%%                       NewState :: term(),
+%%                       IterFrags :: [integer()],
+%%                       AdditionalLockFrags :: [integer()],
+%%                       Reason :: term().
 add_frag(#hash_state{next_n_to_split = SplitN, n_doubles = L, n_fragments = N} = State) ->
     P = SplitN + 1,
     NewN = N + 1,
@@ -81,6 +96,15 @@ add_frag(OldState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% -spec del_frag(State) ->
+%%                   {NewState, IterFrags, AdditionalLockFrags} |
+%%                   abort(Reason)
+%%                   when
+%%                       State :: term(),
+%%                       NewState :: term(),
+%%                       IterFrags :: [integer()],
+%%                       AdditionalLockFrags :: [integer()],
+%%                       Reason :: term().
 del_frag(#hash_state{next_n_to_split = SplitN, n_doubles = L, n_fragments = N} = State) ->
     P = SplitN - 1,
     if
@@ -103,6 +127,9 @@ del_frag(OldState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% -spec key_to_frag_number(State :: term(), Key :: term()) ->
+%%                             FragNum | abort(Reason)
+%%                             when FragNum :: integer(), Reason :: term().
 key_to_frag_number(#hash_state{function = phash, n_fragments = N, n_doubles = L}, Key) ->
     A = erlang:phash(Key, power2(L + 1)),
     if
@@ -125,6 +152,10 @@ key_to_frag_number(OldState, Key) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% -spec match_spec_to_frag_numbers(State, MatchSpec) -> FragNums | abort(Reason) when MatcSpec :: ets_select_match_spec(),
+%%    FragNums :: [FragNum],
+%%    FragNum :: integer(),
+%%    Reason :: term().
 match_spec_to_frag_numbers(#hash_state{n_fragments = N} = State, MatchSpec) ->
     case MatchSpec of
 	[{HeadPat, _, _}] when is_tuple(HeadPat), tuple_size(HeadPat) > 2 ->

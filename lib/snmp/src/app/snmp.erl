@@ -170,12 +170,15 @@
 %% Application
 %%-----------------------------------------------------------------
 
+%% -spec start() -> ok | {error, Reason} when Type :: start_type().
 start() ->
     application:start(?APPLICATION).
 
 stop() ->
     application:stop(?APPLICATION).
 
+%% -spec start(Type) -> ok | {error, Reason :: term()}
+%%                when Type :: start_type().
 start(p) ->
     start(permanent);
 start(tr) ->
@@ -186,42 +189,75 @@ start(Type) ->
     application:start(?APPLICATION, Type).
 
 
+%% -spec start_agent() -> ok | {error, Reason} when Type :: start_type().
 start_agent() ->
     snmp_app:start_agent().
 
+%% -spec start_agent(Type) -> ok | {error, Reason :: term()}
+%%                      when Type :: start_type().
 start_agent(Type) ->
     snmp_app:start_agent(Type).
 
+%% -spec start_manager() -> ok | {error, Reason} when Type :: start_type().
 start_manager() ->
     snmp_app:start_manager().
 
+%% -spec start_manager(Type) -> ok | {error, Reason :: term()}
+%%                        when Type :: start_type().
 start_manager(Type) ->
     snmp_app:start_manager(Type).
 
 
+-spec config() -> ok | {error, Reason :: term()}.
 config() -> snmp_config:config().
 
 
 %%-----------------------------------------------------------------
 
+-spec enable_trace() -> void().
 enable_trace() ->
     HandleSpec = {fun handle_trace_event/2, dummy},
     dbg:tracer(process, HandleSpec).
 
+-spec disable_trace() -> void().
 disable_trace() ->    
     dbg:stop().
 
+%% -spec set_trace(Targets) -> void() when Targets :: target() | targets(),
+%%    target() :: module(),
+%%    module() :: atom(),
+%%    targets() :: [target() | {target(), target_options()}],
+%%    target_options() :: [target_option()],
+%%    target_option() :: {return_trace, boolean()} | {scope, scope()},
+%%    scope() :: all_functions | exported_functions | function_name() | {function_name(), function_arity()},
+%%    function_name() :: atom(),
+%%    function_arity() :: integer() >= 0.
 set_trace(Module) when is_atom(Module) ->
     set_trace([Module]);
 set_trace(Modules) when is_list(Modules) ->
     Opts = [], % Use default values for all options
     set_trace(Modules, Opts).
 
+%% -spec reset_trace(Targets) -> void() when Targets :: module() | modules(),
+%%    modules() :: [module()],
+%%    module() :: atom().
 reset_trace(Module) when is_atom(Module) ->
     set_trace(Module, disable);
 reset_trace(Modules) when is_list(Modules) ->
     set_trace(Modules, disable).
 
+%% -spec set_trace(Targets, Opts) -> void() when Targets :: target() | targets(),
+%%    target() :: module(),
+%%    module() :: atom(),
+%%    targets() :: [target() | {target(), target_options()}],
+%%    target_options() :: [target_option()],
+%%    target_option() :: {return_trace, boolean()} | {scope, scope()},
+%%    scope() :: all_functions | exported_functions | function_name() | {function_name(), function_arity()},
+%%    function_name() :: atom(),
+%%    function_arity() :: integer() >= 0,
+%%    Opts :: disable | trace_options(),
+%%    trace_options() :: [trace_option()],
+%%    trace_option() :: {timestamp, boolean()} | target_option().
 set_trace(Module, disable) when is_atom(Module) ->
     dbg:ctp(Module);
 set_trace(Module, Opts) when is_atom(Module) andalso is_list(Opts) ->
@@ -391,17 +427,26 @@ format_timestamp({_N1, _N2, N3} = Now) ->
 %%-----------------------------------------------------------------
 %% {ok, Vs} = snmp:versions1(), snmp:print_versions(Vs).
 
+%% -spec print_version_info() -> void() when Prefix :: string() | integer().
 print_version_info() ->
     {ok, Vs} = versions1(),
     print_versions(Vs).
 
+-spec print_version_info(Prefix) -> void()
+                            when Prefix :: string() | integer().
 print_version_info(Prefix) ->
     {ok, Vs} = versions1(),
     print_versions(Prefix, Vs).
 
+%% -spec print_versions(VersionInfo) -> void() when VersionInfo :: [version_info()],
+%%    version_info() :: term(),
+%%    Prefix :: string() | integer().
 print_versions(Versions) ->
     print_versions("", Versions).
 
+%% -spec print_versions(Prefix, VersionInfo) -> void() when VersionInfo :: [version_info()],
+%%    version_info() :: term(),
+%%    Prefix :: string() | integer().
 print_versions(Prefix, Versions) 
   when is_list(Prefix) andalso is_list(Versions) ->
     do_print_versions(Prefix, Versions);
@@ -563,6 +608,9 @@ key1search(Key, Vals, Def) ->
 
 %%-----------------------------------------------------------------
 
+%% -spec versions1() -> {ok, Info} | {error, Reason} when Info :: [info()],
+%%    info() :: term(),
+%%    Reason :: term().
 versions1() ->
     case ms1() of
         {ok, Mods} ->
@@ -571,6 +619,9 @@ versions1() ->
             Error
     end.
 
+%% -spec versions2() -> {ok, Info} | {error, Reason} when Info :: [info()],
+%%    info() :: term(),
+%%    Reason :: term().
 versions2() ->
     case ms2() of
         {ok, Mods} ->
@@ -655,6 +706,7 @@ ms2() ->
 %%-----------------------------------------------------------------
 %% Returns: current time as a DateAndTime type (defined in rfc1903)
 %%-----------------------------------------------------------------
+%% -spec date_and_time() -> DateAndTime when DateAndTime :: [int()].
 date_and_time() ->
     UTC   = calendar:universal_time(),
     Local = calendar:universal_time_to_local_time(UTC),
@@ -691,13 +743,19 @@ check_kiribati_diff(_) ->
     false.
 
 
+%% -spec date_and_time_to_string2(DateAndTime) -> string()
+%%                                   when DateAndTime :: [int()].
 date_and_time_to_string2(DAT) ->
     Validate = fun(What, Data) -> kiribati_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
 
+%% -spec date_and_time_to_string(DateAndTime) -> string() when DateAndTime :: [int()],
+%%    Validate :: fun(Kind, Data) -> boolean().
 date_and_time_to_string(DAT) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     date_and_time_to_string(DAT, Validate).
+%% -spec date_and_time_to_string(DateAndTime, Validate) -> string() when DateAndTime :: [int()],
+%%    Validate :: fun(Kind, Data) -> boolean().
 date_and_time_to_string(DAT, Validate) when is_function(Validate) ->
     case validate_date_and_time(DAT, Validate) of
 	true ->
@@ -731,9 +789,29 @@ diff(Secs) ->
 	        [$-, H, M]
     end.
 
+%% -spec universal_time_to_date_and_time(UTC) -> DateAndTime
+%%                                          when
+%%                                              UTC ::
+%%                                                  {{Y :: term(),
+%%                                                    Mo :: term(),
+%%                                                    D :: term()},
+%%                                                   {H :: term(),
+%%                                                    M :: term(),
+%%                                                    S :: term()}},
+%%                                              DateAndTime :: [int()].
 universal_time_to_date_and_time(UTC) ->
     short_time(UTC) ++ [$+, 0, 0].
 
+%% -spec local_time_to_date_and_time_dst(Local) -> [DateAndTime]
+%%                                          when
+%%                                              Local ::
+%%                                                  {{Y :: term(),
+%%                                                    Mo :: term(),
+%%                                                    D :: term()},
+%%                                                   {H :: term(),
+%%                                                    M :: term(),
+%%                                                    S :: term()}},
+%%                                              DateAndTime :: [int()].
 local_time_to_date_and_time_dst(Local) ->
     case calendar:local_time_to_universal_time_dst(Local) of
 	[] ->
@@ -744,6 +822,8 @@ local_time_to_date_and_time_dst(Local) ->
 	    [date_and_time(Local, UTC1), date_and_time(Local, UTC2)]
     end.
 
+%% -spec date_and_time_to_universal_time_dst(DateAndTime) -> [utc()] when DateAndTime :: [int()],
+%%    utc() :: {{Y,Mo,D},{H,M,S}}.
 date_and_time_to_universal_time_dst([Y1, Y2, Mo, D, H, M, S, _Ds]) ->
     %% Local time specified, convert to UTC
     Local = {{y(Y1,Y2), Mo, D}, {H, M, S}},
@@ -759,10 +839,14 @@ date_and_time_to_universal_time_dst([Y1, Y2, Mo, D, H, M, S, _Ds, Sign, Hd, Md])
     [calendar:gregorian_seconds_to_datetime(UTCSecs)].
 
 
+%% -spec validate_date_and_time(DateAndTime) -> bool() when DateAndTime :: term(),
+%%    Validate :: fun(Kind, Data) -> boolean().
 validate_date_and_time(DateAndTime) ->
     Validate = fun(What, Data) -> strict_validation(What, Data) end,
     validate_date_and_time(DateAndTime, Validate).
 
+%% -spec validate_date_and_time(DateAndTime, Validate) -> bool() when DateAndTime :: term(),
+%%    Validate :: fun(Kind, Data) -> boolean().
 validate_date_and_time(DateAndTime, Validate) when is_function(Validate) ->
     do_validate_date_and_time(DateAndTime, Validate).
 
@@ -848,9 +932,12 @@ sys_up_time(manager) ->
 %% Utility functions for OCTET-STRING / BITS conversion.
 %%-----------------------------------------------------------------
 
+%% -spec octet_string_to_bits(S :: term()) -> Val when Val :: bits().
 octet_string_to_bits(S) ->
     snmp_pdus:octet_str_to_bits(S).
 
+%% -spec bits_to_octet_string(B :: term()) -> Val
+%%                               when Val :: octet_string().
 bits_to_octet_string(B) ->
     snmp_pdus:bits_to_str(B).
 
@@ -859,6 +946,11 @@ bits_to_octet_string(B) ->
 %%% USM functions
 %%%-----------------------------------------------------------------
 
+%% -spec passwd2localized_key(Alg, Passwd, EngineID) -> Key when Alg :: algorithm(),
+%%    algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512,
+%%    Passwd :: string(),
+%%    EngineID :: string(),
+%%    Key :: list().
 passwd2localized_key(Alg, Passwd, EngineID) ->
     snmp_usm:passwd2localized_key(Alg, Passwd, EngineID).
 
@@ -870,6 +962,9 @@ localize_key(Alg, Key, EngineID) ->
 %%% Read a mib
 %%%-----------------------------------------------------------------
 
+%% -spec read_mib(FileName) -> {ok, mib()} | {error, Reason} when FileName :: string(),
+%%    mib() :: #mib{},
+%%    Reason :: term().
 read_mib(FileName) ->
     snmp_misc:read_mib(FileName).
 
@@ -878,12 +973,38 @@ read_mib(FileName) ->
 %%% Audit Trail Log functions
 %%%-----------------------------------------------------------------
 
+%% -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    OutFile :: string(),
+%%    MibName :: string(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Stop :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Block :: boolean(),
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: term().
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    OutFile :: string(),
+%%    MibName :: string(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Stop :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Block :: boolean(),
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: term().
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Start = null, 
@@ -894,6 +1015,31 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     Stop  = null, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start,
+%%                  Block | Stop) ->
+%%                     ok | {ok, Cnt} | {error, Reason}
+%%                     when
+%%                         LogDir :: string(),
+%%                         Mibs :: [MibName],
+%%                         OutFile :: string(),
+%%                         MibName :: string(),
+%%                         LogName :: string(),
+%%                         LogFile :: string(),
+%%                         Start ::
+%%                             null |
+%%                             datetime() |
+%%                             {local_time, datetime()} |
+%%                             {universal_time, datetime()},
+%%                         Stop ::
+%%                             null |
+%%                             datetime() |
+%%                             {local_time, datetime()} |
+%%                             {universal_time, datetime()},
+%%                         Block :: boolean(),
+%%                         Cnt :: {NumOK, NumERR},
+%%                         NumOK :: non_neg_integer(),
+%%                         NumERR :: pos_integer(),
+%%                         Reason :: term().
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Stop  = null, 
@@ -902,17 +1048,64 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop,
+%%                  Block) ->
+%%                     ok | {ok, Cnt} | {error, Reason}
+%%                     when
+%%                         LogDir :: string(),
+%%                         Mibs :: [MibName],
+%%                         OutFile :: string(),
+%%                         MibName :: string(),
+%%                         LogName :: string(),
+%%                         LogFile :: string(),
+%%                         Start ::
+%%                             null |
+%%                             datetime() |
+%%                             {local_time, datetime()} |
+%%                             {universal_time, datetime()},
+%%                         Stop ::
+%%                             null |
+%%                             datetime() |
+%%                             {local_time, datetime()} |
+%%                             {universal_time, datetime()},
+%%                         Block :: boolean(),
+%%                         Cnt :: {NumOK, NumERR},
+%%                         NumOK :: non_neg_integer(),
+%%                         NumERR :: pos_integer(),
+%%                         Reason :: term().
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
     snmp_log:log_to_txt(LogName, Block, LogFile, LogDir, Mibs, OutFile, 
 			Start, Stop).
 
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Stop :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: term().
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     Start = null, 
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Stop :: null | datetime() | {local_time,datetime()} | {universal_time,datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: term().
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Start = null, 
@@ -923,6 +1116,29 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Stop  = null, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Start,
+%%                 Block :: term() | Stop) ->
+%%                    ok | {ok, Cnt} | {error, Reason}
+%%                    when
+%%                        LogDir :: string(),
+%%                        Mibs :: [MibName],
+%%                        MibName :: string(),
+%%                        LogName :: string(),
+%%                        LogFile :: string(),
+%%                        Start ::
+%%                            null |
+%%                            datetime() |
+%%                            {local_time, datetime()} |
+%%                            {universal_time, datetime()},
+%%                        Stop ::
+%%                            null |
+%%                            datetime() |
+%%                            {local_time, datetime()} |
+%%                            {universal_time, datetime()},
+%%                        Cnt :: {NumOK, NumERR},
+%%                        NumOK :: non_neg_integer(),
+%%                        NumERR :: pos_integer(),
+%%                        Reason :: term().
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Stop  = null, 
@@ -931,9 +1147,37 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop,
+%%                 Block :: term()) ->
+%%                    ok | {ok, Cnt} | {error, Reason}
+%%                    when
+%%                        LogDir :: string(),
+%%                        Mibs :: [MibName],
+%%                        MibName :: string(),
+%%                        LogName :: string(),
+%%                        LogFile :: string(),
+%%                        Start ::
+%%                            null |
+%%                            datetime() |
+%%                            {local_time, datetime()} |
+%%                            {universal_time, datetime()},
+%%                        Stop ::
+%%                            null |
+%%                            datetime() |
+%%                            {local_time, datetime()} |
+%%                            {universal_time, datetime()},
+%%                        Cnt :: {NumOK, NumERR},
+%%                        NumOK :: non_neg_integer(),
+%%                        NumERR :: pos_integer(),
+%%                        Reason :: term().
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp_log:log_to_io(LogName, Block, LogFile, LogDir, Mibs, Start, Stop).
 
+-spec change_log_size(LogName, NewSize) -> ok | {error, Reason} when LogName :: string(),
+   NewSize :: {MaxBytes, MaxFiles},
+   MaxBytes :: integer(),
+   MaxFiles :: integer(),
+   Reason :: term().
 change_log_size(LogName, NewSize) -> 
     snmp_log:change_size(LogName, NewSize).
 

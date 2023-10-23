@@ -88,9 +88,15 @@
 %% API
 %%====================================================================
 
+%% -spec call(ChannelRef, Msg) ->
 call(ChannelPid, Msg) ->
     call(ChannelPid, Msg, infinity).
 
+-spec call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason} when ChannelRef :: pid(),
+   Msg :: term(),
+   Timeout :: timeout(),
+   Reply :: term(),
+   Reason :: closed | timeout.
 call(ChannelPid, Msg, TimeOute) ->
     try gen_server:call(ChannelPid, Msg, TimeOute) of
 	Result ->
@@ -108,10 +114,13 @@ call(ChannelPid, Msg, TimeOute) ->
  	    {error, timeout}
     end.
 
+-spec cast(ChannelRef, Msg) -> ok  when ChannelRef :: pid(),
+   Msg :: term().
 cast(ChannelPid, Msg) ->
     gen_server:cast(ChannelPid, Msg).
 
 
+%% -spec reply(Client, Reply) -> _ when Client :: opaque(), Reply :: term().
 reply(From, Msg) ->
     gen_server:reply(From, Msg).
 
@@ -123,6 +132,7 @@ reply(From, Msg) ->
 %% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
+%% -spec start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> 
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
@@ -134,6 +144,14 @@ start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {exec, Exec}],	  
     gen_server:start(?MODULE, [Options], []).
 
+-spec start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
+                    {ok, ChannelRef} | {error, Reason :: term()}
+                    when
+                        SshConnection :: ssh:connection_ref(),
+                        ChannelId :: ssh:channel_id(),
+                        ChannelCb :: atom(),
+                        CbInitArgs :: [term()],
+                        ChannelRef :: pid().
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
@@ -145,6 +163,7 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {exec, Exec}],	  
     gen_server:start_link(?MODULE, [Options], []).
 
+-spec enter_loop(State) -> _  when State :: term().
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 
@@ -159,6 +178,13 @@ enter_loop(State) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
+-spec init(Options) ->
+              {ok, State} | {ok, State, Timeout} | {stop, Reason}
+              when
+                  Options :: [{Option :: term(), Value :: term()}],
+                  State :: term(),
+                  Timeout :: timeout(),
+                  Reason :: term().
 init([Options]) ->    
     Cb = proplists:get_value(channel_cb, Options),
     ConnectionManager =  proplists:get_value(cm, Options),

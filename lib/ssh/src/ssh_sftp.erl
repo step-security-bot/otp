@@ -111,6 +111,7 @@
 %%%----------------------------------------------------------------
 %%% start_channel/1
 
+%% -spec start_channel(TcpSocket) ->start_channel(Host) ->start_channel(ConnectionRef) ->
 start_channel(Dest) ->
     start_channel(Dest, []).
  

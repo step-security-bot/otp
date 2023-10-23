@@ -57,10 +57,14 @@
 %%------------------------------------------------------------------
 %% Access functions to the database.
 %%------------------------------------------------------------------
+%% -spec variable_get(NameDb) -> {value, Value} | undefined
+%%                       when NameDb :: name_db(), Value :: value().
 variable_get({Name, mnesia}) ->
     snmp_generic_mnesia:variable_get(Name);
 variable_get(NameDb) ->                   % ret {value, Val} | undefined
     snmpa_local_db:variable_get(NameDb).
+%% -spec variable_set(NameDb, NewVal) -> true | false
+%%                       when NameDb :: name_db(), NewVal :: value().
 variable_set({Name, mnesia}, Val) ->
     snmp_generic_mnesia:variable_set(Name, Val);
 variable_set(NameDb, Val) ->              % ret true
@@ -88,6 +92,12 @@ table_get_element(NameDb, RowIndex, Col) ->
 	_ -> undefined
     end.
 
+%% -spec table_get_elements(NameDb, RowIndex, Cols) -> Values
+%%                             when
+%%                                 NameDb :: name_db(),
+%%                                 RowIndex :: row_index(),
+%%                                 Cols :: columns(),
+%%                                 Values :: [value() | noinit].
 table_get_elements(NameDb, RowIndex, Cols) ->
     TableInfo = snmp_generic:table_info(NameDb),
     table_get_elements(NameDb, RowIndex, Cols,
@@ -119,11 +129,21 @@ table_set_element({Name,mnesia}, RowIndex, Col, NewVal) ->
 table_set_element(NameDb, RowIndex, Col, NewVal) ->
     snmpa_local_db:table_set_elements(NameDb, RowIndex, [{Col, NewVal}]).
 
+%% -spec table_set_elements(NameDb, RowIndex, Cols) -> bool()
+%%                             when
+%%                                 NameDb :: name_db(),
+%%                                 RowIndex :: row_index(),
+%%                                 Cols :: columns().
 table_set_elements({Name, mnesia}, RowIndex, Cols) ->
     snmp_generic_mnesia:table_set_elements(Name, RowIndex, Cols);
 table_set_elements(NameDb, RowIndex, Cols) -> % ret true
     snmpa_local_db:table_set_elements(NameDb, RowIndex, Cols).
 
+%% -spec table_next(NameDb, RestOid) -> RowIndex | endOfTable
+%%                     when
+%%                         NameDb :: name_db(),
+%%                         RestOid :: [int()],
+%%                         RowIndex :: row_index().
 table_next({Name, mnesia}, RestOid) ->
     snmp_generic_mnesia:table_next(Name, RestOid);
 table_next(NameDb, RestOid) ->              % ret RRestOid | endOfTable
@@ -151,6 +171,11 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 %% This is the default function for variables.
 %%------------------------------------------------------------------
  
+%% -spec variable_func(Op1, NameDb) -> term() when Op1 :: new | delete | get,
+%%    Op2 :: is_set_ok | set | undo,
+%%    NameDb :: name_db(),
+%%    Val :: value(),
+%%    Ret :: term().
 variable_func(new, NameDb) ->
     case variable_get(NameDb) of
 	{value, _} -> ok;
@@ -168,6 +193,11 @@ variable_func(get, NameDb) ->
 	_ -> genErr
     end.
 
+%% -spec variable_func(Op2, Val, NameDb) -> Ret when Op1 :: new | delete | get,
+%%    Op2 :: is_set_ok | set | undo,
+%%    NameDb :: name_db(),
+%%    Val :: value(),
+%%    Ret :: term().
 variable_func(is_set_ok, _Val, _NameDb) ->
     noError;
 variable_func(set, Val, NameDb) ->
@@ -192,12 +222,24 @@ variable_func(undo, _Val, _NameDb) ->
 %%------------------------------------------------------------------
 %% Each database implements its own table_func
 %%------------------------------------------------------------------
+%% -spec table_func(Op1, NameDb) -> term() when Op1 :: new | delete,
+%%    Op2 :: get | next | is_set_ok | set | undo,
+%%    NameDb :: name_db(),
+%%    RowIndex :: row_index(),
+%%    Cols :: columns(),
+%%    Ret :: term().
 table_func(Op, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, Name);
 
 table_func(Op, NameDb) ->
     snmpa_local_db:table_func(Op, NameDb).
 
+%% -spec table_func(Op2, RowIndex, Cols, NameDb) -> Ret when Op1 :: new | delete,
+%%    Op2 :: get | next | is_set_ok | set | undo,
+%%    NameDb :: name_db(),
+%%    RowIndex :: row_index(),
+%%    Cols :: columns(),
+%%    Ret :: term().
 table_func(Op, RowIndex, Cols, {Name, mnesia}) ->
     snmp_generic_mnesia:table_func(Op, RowIndex, Cols, Name);
 
@@ -674,6 +716,10 @@ collect_length(N, [El | Rest], Rts) ->
 %% Checks if a certain row exists.
 %% Returns true or false.
 %%------------------------------------------------------------------
+%% -spec table_row_exists(NameDb, RowIndex) -> bool()
+%%                           when
+%%                               NameDb :: name_db(),
+%%                               RowIndex :: row_index().
 table_row_exists(NameDb, RowIndex) ->
     case table_get_element(NameDb, RowIndex, 1) of
 	undefined -> false;
@@ -837,6 +883,14 @@ table_get_row(NameDb, RowIndex, _FOI) ->
 %% Used by user's instrum func to check if mstatus column is 
 %% modified.
 %%-----------------------------------------------------------------
+%% -spec get_status_col(NameDb, Cols) ->
+%%                         {ok, StatusVal} |
+%%                         falseget_status_col(Name, Cols)
+%%                         when
+%%                             Name :: name(),
+%%                             NameDb :: name_db(),
+%%                             Cols :: columns(),
+%%                             StatusVal :: term().
 get_status_col(Name, Cols) ->
     #table_info{status_col = StatusCol} = table_info(Name),
     case lists:keysearch(StatusCol, 1, Cols) of
@@ -851,6 +905,11 @@ get_status_col(Name, Cols) ->
 %% or all of it. If all is selected then the result will be a tagged
 %% list of values.
 %%-----------------------------------------------------------------
+%% -spec get_table_info(Name, Item) -> table_info_result() when Name :: name(),
+%%    Item :: table_item() | all,
+%%    table_item() :: nbr_of_cols | defvals | status_col | not_accessible | index_types | first_accessible | first_own_index,
+%%    table_info_result() :: Value | [{table_item(), Value}],
+%%    Value :: term().
 get_table_info(Name, nbr_of_cols) ->
     get_nbr_of_cols(Name);
 get_table_info(Name, defvals) ->
@@ -880,6 +939,7 @@ get_table_info(Name, all) ->
 %% Description:
 %% Used by user's instrum func to get the index types.
 %%-----------------------------------------------------------------
+%% -spec get_index_types(Name) -> term() when Name :: name().
 get_index_types(Name) ->
     #table_info{index_types = IndexTypes} = table_info(Name),
     IndexTypes.

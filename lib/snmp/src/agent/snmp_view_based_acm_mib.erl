@@ -84,6 +84,7 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case db(vacmSecurityToGroupTable) of
@@ -115,6 +116,7 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -256,6 +258,12 @@ table_del_row(Tab, Key) ->
 %% Result -> {ok, Key} | {error, Reason}
 %% Key -> term()
 %% Reason -> term()
+-spec add_sec2group(SecModel, SecName, GroupName) -> Ret when SecModel :: v1 | v2c | usm,
+   SecName :: string(),
+   GroupName :: string(),
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_sec2group(SecModel, SecName, GroupName) ->
     Sec2Grp = {vacmSecurityToGroup, SecModel, SecName, GroupName},
     case (catch check_vacm(Sec2Grp)) of
@@ -276,6 +284,9 @@ add_sec2group(SecModel, SecName, GroupName) ->
             {error, Error}
     end.
 
+-spec delete_sec2group(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of
 	true ->
@@ -289,6 +300,17 @@ delete_sec2group(Key) ->
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
 %%       snmpa_vacm:dump_table/0
+-spec add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret when GroupName :: string(),
+   Prefix :: string(),
+   SecModel :: v1 | v2c | usm,
+   SecLevel :: string(),
+   Match :: prefix | exact,
+   RV :: string(),
+   WV :: string(),
+   NV :: string(),
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     Access = {vacmAccess, GroupName, Prefix, SecModel, SecLevel, 
 	      Match, RV, WV, NV},
@@ -304,11 +326,21 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
             {error, Error}
     end.
 
+-spec delete_access(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_access(Key) ->
     snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).
 
 
+%% -spec add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret when ViewIndex :: integer(),
+%%    SubTree :: oid(),
+%%    Status :: included | excluded,
+%%    Mask :: null | [integer()], where all values are either 0 or 1,
+%%    Ret :: {ok, Key} | {error, Reason},
+%%    Key :: term(),
+%%    Reason :: term().
 add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
     VTF = {vacmViewTreeFamily, ViewIndex, SubTree, Status, Mask},
     case (catch check_vacm(VTF)) of
@@ -329,6 +361,9 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
             {error, Error}
     end.
 
+-spec delete_view_tree_fam(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
 	true ->

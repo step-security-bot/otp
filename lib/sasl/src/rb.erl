@@ -44,7 +44,21 @@
 %% Interface functions.
 %% For available options; see print_options().
 %%-----------------------------------------------------------------
+%% -spec start() -> term() when Options :: [opt()],
+%%    opt() :: {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool},
+%%    FileName :: string() | atom() | pid(),
+%%    MaxNoOfReports :: integer() | all,
+%%    DirString :: string(),
+%%    ReportType :: type() | [type()] | all,
+%%    Bool :: boolean().
 start() -> start([]).
+%% -spec start(Options) -> term() when Options :: [opt()],
+%%    opt() :: {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool},
+%%    FileName :: string() | atom() | pid(),
+%%    MaxNoOfReports :: integer() | all,
+%%    DirString :: string(),
+%%    ReportType :: type() | [type()] | all,
+%%    Bool :: boolean().
 start(Options) ->
     supervisor:start_child(sasl_sup, 
 			   {rb_server, {rb, start_link, [Options]},
@@ -53,40 +67,80 @@ start(Options) ->
 start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
+-spec stop() -> term().
 stop() -> 
     supervisor:terminate_child(sasl_sup, rb_server).
 
+%% -spec rescan() -> term() when Options :: [opt()].
 rescan() -> rescan([]).
+%% -spec rescan(Options) -> term() when Options :: [opt()].
 rescan(Options) ->
     call({rescan, Options}).
 
+%% -spec list() -> term() when Type :: type(),
+%%    type() :: error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress.
 list() -> list(all).
+%% -spec list(Type) -> term() when Type :: type(),
+%%    type() :: error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress.
 list(Type) -> call({list, Type}).
 
+%% -spec log_list() -> term() when Type :: type(),
+%%    type() :: error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress.
 log_list() -> log_list(all).
+%% -spec log_list(Type) -> term() when Type :: type(),
+%%    type() :: error | error_report | info_msg | info_report | warning_msg | warning_report | crash_report | supervisor_report | progress.
 log_list(Type) -> call({log_list, Type}).
 
+%% -spec show() -> term() when Report :: integer() | type().
 show() -> 
     call(show).
 
+%% -spec show(Report) -> term() when Report :: integer() | type().
 show(Number) when is_integer(Number) -> 
     call({show_number, Number});
 show(Type) when is_atom(Type) ->
     call({show_type, Type}).
 
+%% -spec grep(RegExp) -> term()
+%%               when
+%%                   RegExp ::
+%%                       string() |
+%%                       {string(), Options} |
+%%                       re:mp() |
+%%                       {re:mp(), Options}.
 grep(RegExp) -> call({grep, RegExp}).
 
+%% -spec filter(Filters) -> term() when Filters :: [filter()],
+%%    filter() :: {Key, Value} | {Key, Value, no} | {Key, RegExp, re} | {Key, RegExp, re, no},
+%%    Key :: term(),
+%%    Value :: term(),
+%%    RegExp :: string() | {string(), Options} | re:mp() | {re:mp(), Options},
+%%    Dates :: {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to},
+%%    DateFrom :: calendar:datetime(),
+%%    DateTo :: calendar:datetime().
 filter(Filters) when is_list(Filters) ->
     call({filter, Filters}).
 
+%% -spec filter(Filters, Dates) -> term() when Filters :: [filter()],
+%%    filter() :: {Key, Value} | {Key, Value, no} | {Key, RegExp, re} | {Key, RegExp, re, no},
+%%    Key :: term(),
+%%    Value :: term(),
+%%    RegExp :: string() | {string(), Options} | re:mp() | {re:mp(), Options},
+%%    Dates :: {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to},
+%%    DateFrom :: calendar:datetime(),
+%%    DateTo :: calendar:datetime().
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
     call({filter, {Filters, FDates}}).
 
+-spec start_log(FileName) -> term() when FileName :: string() | atom() | pid().
 start_log(FileName) -> call({start_log, FileName}).
 
+-spec stop_log() -> term().
 stop_log() -> call(stop_log).
 
+-spec h() -> term().
 h() -> help().
+-spec help() -> term().
 help() ->
     io:format("~nReport Browser Tool - usage~n"),
     io:format("===========================~n"),

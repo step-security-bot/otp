@@ -119,6 +119,7 @@ flatten([?VERSION = V | Dict]) ->
 
 %% format_error/1
 
+-spec format_error(Reason :: term()) -> string().
 format_error(T) ->
     diameter_dict_util:format_error(T).
 

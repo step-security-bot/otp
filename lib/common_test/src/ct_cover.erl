@@ -26,6 +26,9 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-spec add_nodes(Nodes) -> {ok, StartedNodes} | {error, Reason} when Nodes :: [atom()],
+   StartedNodes :: [atom()],
+   Reason :: cover_not_running | not_main_node.
 add_nodes([]) ->
     {ok,[]};
 add_nodes(Nodes) ->
@@ -52,6 +55,8 @@ add_nodes(Nodes) ->
 	    end
     end.
 
+-spec remove_nodes(Nodes) -> ok | {error, Reason} when Nodes :: [atom()],
+   Reason :: cover_not_running | not_main_node.
 remove_nodes([]) ->
     ok;
 remove_nodes(Nodes) ->
@@ -77,6 +82,10 @@ remove_nodes(Nodes) ->
 	    end
     end.
     
+-spec cross_cover_analyse(Level, Tests) -> ok when Level :: overview | details,
+   Tests :: [{Tag, Dir}],
+   Tag :: atom(),
+   Dir :: string().
 cross_cover_analyse(Level,Tests) ->
     test_server_ctrl:cross_cover_analyse(Level,Tests).
 

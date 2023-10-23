@@ -46,9 +46,13 @@ look_at(Mib) ->
 %% Misc compiler stuff
 %%-----------------------------------------------------------------
 
+-spec is_consistent(Mibs) -> ok | {error, Reason :: term()}
+                       when Mibs :: [MibName], MibName :: string().
 is_consistent(Filenames) ->
     snmpc_lib:is_consistent(Filenames).
 
+-spec mib_to_hrl(MibName) -> ok | {error, Reason :: term()}
+                    when MibName :: string().
 mib_to_hrl(MibName) ->
     snmpc_mib_to_hrl:convert(MibName).
 
@@ -95,6 +99,29 @@ make_options(#options{includes = Incs,
     [WarningOpt, OutdirOpt, IncludeOpt | Spec].
 
 %% Returns: {ok, File}|{error, Reason}
+%% -spec compile(File) -> term() when File :: string(),
+%%    Options :: [opt()],
+%%    opt() :: db() | relaxed_row_name_assign_check() | deprecated() | description() | reference() | group_check() | i() | il() | imports() | module() | module_identity() | module_compliance() | agent_capabilities() | outdir() | no_defs() | verbosity() | warnings() | warnings_as_errors(),
+%%    db() :: {db, volatile|persistent|mnesia},
+%%    deprecated() :: {deprecated, bool()},
+%%    relaxed_row_name_assign_check() :: relaxed_row_name_assign_check,
+%%    description() :: description,
+%%    reference() :: reference,
+%%    group_check() :: {group_check, bool()},
+%%    i() :: {i, [dir()]},
+%%    il() :: {il, [dir()]},
+%%    imports() :: imports,
+%%    module() :: {module, atom()},
+%%    module_identity() :: module_identity,
+%%    module_compliance() :: module_compliance,
+%%    agent_capabilities() :: agent_capabilities,
+%%    no_defs() :: no_defs,
+%%    outdir() :: {outdir, dir()},
+%%    verbosity() :: {verbosity, silence|warning|info|log|debug|trace},
+%%    warnings() :: {warnings, bool()},
+%%    warnings_as_errors() :: warnings_as_errors,
+%%    dir() :: string(),
+%%    BinFileName :: string().
 compile([AtomFilename]) when is_atom(AtomFilename) ->
     compile(atom_to_list(AtomFilename), []), % from cmd line
     halt();
@@ -126,6 +153,29 @@ compile(FileName) ->
 %% (hidden) options 
 %%----------------------------------------------------------------------
 
+%% -spec compile(File, Options) -> {ok, BinFileName} | {error, Reason} when File :: string(),
+%%    Options :: [opt()],
+%%    opt() :: db() | relaxed_row_name_assign_check() | deprecated() | description() | reference() | group_check() | i() | il() | imports() | module() | module_identity() | module_compliance() | agent_capabilities() | outdir() | no_defs() | verbosity() | warnings() | warnings_as_errors(),
+%%    db() :: {db, volatile|persistent|mnesia},
+%%    deprecated() :: {deprecated, bool()},
+%%    relaxed_row_name_assign_check() :: relaxed_row_name_assign_check,
+%%    description() :: description,
+%%    reference() :: reference,
+%%    group_check() :: {group_check, bool()},
+%%    i() :: {i, [dir()]},
+%%    il() :: {il, [dir()]},
+%%    imports() :: imports,
+%%    module() :: {module, atom()},
+%%    module_identity() :: module_identity,
+%%    module_compliance() :: module_compliance,
+%%    agent_capabilities() :: agent_capabilities,
+%%    no_defs() :: no_defs,
+%%    outdir() :: {outdir, dir()},
+%%    verbosity() :: {verbosity, silence|warning|info|log|debug|trace},
+%%    warnings() :: {warnings, bool()},
+%%    warnings_as_errors() :: warnings_as_errors,
+%%    dir() :: string(),
+%%    BinFileName :: string().
 compile(FileName, Options) when is_list(FileName) ->
     case snmpc_misc:check_file(FileName) of
 	true ->

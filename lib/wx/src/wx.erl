@@ -94,6 +94,7 @@
 -type wx_enum() :: integer().      %% Constant defined in wx.hrl
 -type wx_wxHtmlLinkInfo() :: #wxHtmlLinkInfo{}.
 
+-spec parent_class(X1 :: term()) -> term().
 parent_class(_) -> true. %% Let the null pointers be sent down.
 
 %% @doc Starts a wx server.

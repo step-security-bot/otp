@@ -146,10 +146,13 @@ start_restore(Tab, LinkTo) ->
 
 %% Optionally creates the Mnesia table Tab with suitable default values.
 %% Returns ok or EXIT's
+%% -spec create_table(Tab :: term()) -> ok | exit(Reason :: term()).
 create_table(Tab) ->
     Storage = mnesia:table_info(schema, storage_type),
     create_table(Tab, [{Storage, [node()]}]).
 
+%% -spec create_table(Tab :: term(), TabDef :: term()) ->
+%%                       ok | exit(Reason :: term()).
 create_table(Tab, TabDef) ->
     Attrs = record_info(fields, registry_entry),
     case mnesia:create_table(Tab, [{attributes, Attrs} | TabDef]) of

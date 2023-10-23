@@ -70,6 +70,7 @@
 %%    xslapply(fun template/1, E),
 %%    "&lt;/h1>"];
 %% </pre>
+-spec xslapply(Fun :: term(), EList :: term()) -> term().
 xslapply(Fun, EList) when is_list(EList) ->
     lists:map(Fun, EList);
 xslapply(Fun, E = #xmlElement{})->
@@ -93,6 +94,7 @@ xslapply(Fun, E = #xmlElement{})->
 %%    ["&lt;div align="center">&lt;h1>", 
 %%      value_of(select(".", E)), "&lt;/h1>&lt;/div>"]
 %% </pre>
+-spec value_of(E :: term()) -> term().
 value_of(E)->
     lists:reverse(xmerl_lib:foldxml(fun value_of1/2, [], E)).
 
@@ -105,6 +107,7 @@ value_of1(_, Accu) ->
 %%
 %% @doc Extracts the nodes from the xml tree according to XPath.
 %% @see value_of/1
+-spec select(Str :: term(), E :: term()) -> term().
 select(Str,E)->
     xmerl_xpath:string(Str,E).
 
@@ -112,6 +115,7 @@ select(Str,E)->
 %%
 %% @doc The default fallback behaviour. Template funs should end with:
 %% <br/><code>template(E) -> built_in_rules(fun template/1, E)</code>.
+-spec built_in_rules(Fun :: term(), E :: term()) -> term().
 built_in_rules(Fun, E = #xmlElement{})->
     lists:map(Fun, E#xmlElement.content);
 built_in_rules(_Fun, E = #xmlText{}) ->

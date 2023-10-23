@@ -30,6 +30,7 @@
 
 -define(change_at_runtime_config,[lines,interval,sort,accumulate]).
 
+-spec help() -> ok.
 help() ->
     io:format(
       "Usage of the Erlang top program~n~n"
@@ -57,12 +58,18 @@ help() ->
       "                         This is not an etop parameter~n"
      ).
 
+-spec stop() -> stop.
 stop() ->
     case whereis(etop_server) of
 	undefined -> not_started;
 	Pid when is_pid(Pid) -> etop_server ! stop
     end.
 
+-spec config(Key, Value) -> Result
+                when
+                    Result :: ok | {error, Reason :: term()},
+                    Key :: lines | interval | accumulate | sort,
+                    Value :: term().
 config(Key,Value) ->
     case check_runtime_config(Key,Value) of
 	ok ->
@@ -80,15 +87,24 @@ check_runtime_config(sort,S) when S=:=runtime;
 check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
+-spec dump(File) -> Result
+              when
+                  Result :: ok | {error, Reason :: term()},
+                  File :: string().
 dump(File) ->
     case file:open(File,[write,{encoding,utf8}]) of
 	{ok,Fd} -> etop_server ! {dump,Fd};
 	Error -> Error
     end.
 
+-spec start() -> ok.
 start() ->
     start([]).
     
+-spec start(Options) -> ok when Options :: [Option],
+   Option :: {Key, Value},
+   Key :: atom(),
+   Value :: term().
 start(Opts) ->
     process_flag(trap_exit, true),
     Config1 = handle_args(init:get_arguments() ++ Opts, #opts{}),

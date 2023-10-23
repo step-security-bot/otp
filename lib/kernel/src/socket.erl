@@ -2925,12 +2925,24 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
 %% sendfile - send a file on a socket
 %%
 
+-spec sendfile(Socket, FileHandle) -> Result :: term()
+                  when Socket :: socket(), FileHandle :: file:fd().
 sendfile(Socket, FileHandle) ->
     sendfile(Socket, FileHandle, 0, 0, infinity).
 
+-spec sendfile(Socket, FileHandle, Timeout) -> Result :: term()
+                  when
+                      Socket :: socket(),
+                      FileHandle :: file:fd(),
+                      Timeout :: timeout() | nowait | select_handle().
 sendfile(Socket, FileHandle, Timeout) ->
     sendfile(Socket, FileHandle, 0, 0, Timeout).
 
+%% -spec sendfile(Socket, FileHandle, Offset, Count)
+%%       -> Result when Socket :: socket(),
+%%    FileHandle :: file:fd(),
+%%    Offset :: integer(),
+%%    Count :: integer() >= 0.
 sendfile(Socket, FileHandle_Cont, Offset, Count) ->
     sendfile(Socket, FileHandle_Cont, Offset, Count, infinity).
 
@@ -4279,6 +4291,12 @@ setopt(Socket, SocketOption, Value) ->
 
 
 %% Backwards compatibility
+-spec setopt(Socket, Level :: term(), Opt :: term(), Value) ->
+                ok | {error, Reason}
+                when
+                    Socket :: socket(),
+                    Value :: term(),
+                    Reason :: inet:posix() | invalid() | closed.
 setopt(Socket, Level, Opt, Value)
   when is_integer(Opt), is_binary(Value) ->
     setopt_native(Socket, {Level,Opt}, Value);
@@ -4332,6 +4350,11 @@ getopt(?socket(SockRef), SocketOption)
     prim_socket:getopt(SockRef, SocketOption).
 
 %% Backwards compatibility
+-spec getopt(Socket, Level :: term(), Opt :: term()) ->
+                ok | {error, Reason}
+                when
+                    Socket :: socket(),
+                    Reason :: inet:posix() | invalid() | closed.
 getopt(Socket, Level, {NativeOpt, ValueSpec})
   when is_integer(NativeOpt) ->
     getopt_native(Socket, {Level,NativeOpt}, ValueSpec);

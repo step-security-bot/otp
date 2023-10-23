@@ -42,6 +42,36 @@
 		blocked=[]
 		}).
 
+%% -spec run_test(Node, Opts) -> ok
+%%                   when
+%%                       Node :: atom(),
+%%                       Opts :: [OptTuples],
+%%                       OptTuples ::
+%%                           {config, CfgFiles} |
+%%                           {dir, TestDirs} |
+%%                           {suite, Suites} |
+%%                           {testcase, Cases} |
+%%                           {spec, TestSpecs} |
+%%                           {allow_user_terms, Bool} |
+%%                           {logdir, LogDir} |
+%%                           {event_handler, EventHandlers} |
+%%                           {silent_connections, Conns} |
+%%                           {cover, CoverSpecFile :: term()} |
+%%                           {cover_stop, Bool} |
+%%                           {userconfig, UserCfgFiles :: term()},
+%%                       CfgFiles :: string() | [string()],
+%%                       TestDirs :: string() | [string()],
+%%                       Suites :: atom() | [atom()],
+%%                       Cases :: atom() | [atom()],
+%%                       TestSpecs :: string() | [string()],
+%%                       LogDir :: string(),
+%%                       EventHandlers :: EH | [EH],
+%%                       EH ::
+%%                           atom() |
+%%                           {atom(), InitArgs} |
+%%                           {[atom()], InitArgs},
+%%                       InitArgs :: [term()],
+%%                       Conns :: all | [atom()].
 run_test(Node,Opts) ->
     run_test([{Node,Opts}]).
 
@@ -50,6 +80,13 @@ run_test({Node,Opts}) ->
 run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
+%% -spec run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> ok
+%%              when
+%%                  TestSpecs :: string() | [SeparateOrMerged],
+%%                  SeparateOrMerged :: string() | [string()],
+%%                  AllowUserTerms :: bool(),
+%%                  InclNodes :: [atom()],
+%%                  ExclNodes :: [atom()].
 run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 							    is_list(InclNodes),
 							    is_list(ExclNodes) ->
@@ -89,9 +126,15 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
 						is_list(ExclNodes) ->
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
+-spec run(TestSpecs, InclNodes, ExclNodes) -> ok when TestSpecs :: string() | [SeparateOrMerged],
+   SeparateOrMerged :: string() | [string()],
+   InclNodes :: [atom()],
+   ExclNodes :: [atom()].
 run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
+-spec run(TestSpecs) -> ok
+             when TestSpecs :: string() | [SeparateOrMerged :: term()].
 run(TestSpecs=[TS|_]) when is_list(TS) ->
     run(TestSpecs,false,[],[]);
 run(TS) ->
@@ -104,6 +147,12 @@ exclude_nodes([],RunSkipPerNode) ->
     RunSkipPerNode.
 
 
+%% -spec run_on_node(TestSpecs, AllowUserTerms, Node) -> ok
+%%                      when
+%%                          TestSpecs :: string() | [SeparateOrMerged],
+%%                          SeparateOrMerged :: string() | [string()],
+%%                          AllowUserTerms :: bool(),
+%%                          Node :: atom().
 run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) ->
     case catch ct_testspec:collect_tests_from_file([TS],[Node],
 						   AllowUserTerms) of
@@ -133,6 +182,9 @@ run_on_node([],_,_) ->
 run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
+-spec run_on_node(TestSpecs, Node) -> ok when TestSpecs :: string() | [SeparateOrMerged],
+   SeparateOrMerged :: string() | [string()],
+   Node :: atom().
 run_on_node(TestSpecs,Node) ->
     run_on_node(TestSpecs,false,Node).
 
@@ -196,21 +248,28 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
     ok.
     
 
+-spec abort() -> ok.
 abort() ->
     call(abort).
 
+-spec abort(Nodes) -> ok when Nodes :: atom() | [atom()].
 abort(Nodes) when is_list(Nodes) ->
     call({abort,Nodes});
 
 abort(Node) when is_atom(Node) ->
     abort([Node]).
     
+-spec progress() -> [{Node, Status}] when Node :: atom(),
+   Status :: finished_ok | ongoing | aborted | {error, Reason},
+   Reason :: term().
 progress() ->
     call(progress).
 
+-spec get_event_mgr_ref() -> MasterEvMgrRef when MasterEvMgrRef :: atom().
 get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
+-spec basic_html(Bool) -> ok when Bool :: true | false.
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
     ok.

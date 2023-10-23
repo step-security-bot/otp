@@ -61,10 +61,16 @@
 %% ------ manager.conf ------
 %% 
 
+%% -spec manager_entry(Tag, Val) -> manager_entry() when Tag :: address | port | engine_id | max_message_size,
+%%    Val :: term(),
+%%    manager_entry() :: term().
 manager_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+%% -spec write_manager_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [manager_entry()].
 write_manager_config(Dir, Conf) -> 
     Comment = 
 "%% This file defines the Manager local configuration info\n"
@@ -79,6 +85,11 @@ write_manager_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_manager_config(Dir, Hdr, Conf).
 
+%% -spec write_manager_config(Dir, Hdr, Conf) -> ok
+%%                               when
+%%                                   Dir :: string(),
+%%                                   Hdr :: string(),
+%%                                   Conf :: [manager_entry()].
 write_manager_config(Dir, Hdr, Conf)
   when is_list(Dir), is_list(Hdr), is_list(Conf) ->
     Order = fun snmpm_config:order_manager_config/2,
@@ -86,6 +97,10 @@ write_manager_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_manager_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec append_manager_config(Dir, Conf) -> ok
+%%                                when
+%%                                    Dir :: string(),
+%%                                    Conf :: [manager_entry()].
 append_manager_config(Dir, Conf) 
   when is_list(Dir), is_list(Conf) ->
     Order = fun snmpm_config:order_manager_config/2,
@@ -93,6 +108,10 @@ append_manager_config(Dir, Conf)
     Write = fun write_manager_conf/2,
     append_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec read_manager_config(Dir) -> Conf
+%%                              when
+%%                                  Dir :: string(),
+%%                                  Conf :: [manager_entry()].
 read_manager_config(Dir) when is_list(Dir) ->
     Order = fun snmpm_config:order_manager_config/2,
     Check = fun snmpm_config:check_manager_config/2,
@@ -129,12 +148,24 @@ do_write_manager_conf(_Fd, Crap) ->
 %% ------ users.conf ------
 %% 
 
+%% -spec users_entry(UserId) -> users_entry() when UserId :: term(),
+%%    UserMod :: atom(),
+%%    UserData :: term(),
+%%    standard_entry() :: term().
 users_entry(UserId) ->
     users_entry(UserId, snmpm_user_default).
 
+%% -spec users_entry(UserId, UserMod) -> users_entry() when UserId :: term(),
+%%    UserMod :: atom(),
+%%    UserData :: term(),
+%%    standard_entry() :: term().
 users_entry(UserId, UserMod) ->
     users_entry(UserId, UserMod, undefined).
 
+%% -spec users_entry(UserId, UserMod, UserData) -> users_entry() when UserId :: term(),
+%%    UserMod :: atom(),
+%%    UserData :: term(),
+%%    standard_entry() :: term().
 users_entry(UserId, UserMod, UserData) ->
     users_entry(UserId, UserMod, UserData, []).
 
@@ -142,6 +173,9 @@ users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
     {UserId, UserMod, UserData, DefaultAgentConfig}.
 
 
+%% -spec write_users_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [users_entry()].
 write_users_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the users the manager handles\n"
@@ -153,6 +187,11 @@ write_users_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_users_config(Dir, Hdr, Conf).
 
+%% -spec write_users_config(Dir, Hdr, Conf) -> ok
+%%                             when
+%%                                 Dir :: string(),
+%%                                 Hdr :: string(),
+%%                                 Conf :: [users_entry()].
 write_users_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -160,6 +199,10 @@ write_users_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_users_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec append_users_config(Dir, Conf) -> ok
+%%                              when
+%%                                  Dir :: string(),
+%%                                  Conf :: [users_entry()].
 append_users_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -167,6 +210,8 @@ append_users_config(Dir, Conf)
     Write = fun write_users_conf/2,
     append_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec read_users_config(Dir) -> Conf
+%%                            when Dir :: string(), Conf :: [users_entry()].
 read_users_config(Dir) when is_list(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_user_config/2,
@@ -201,6 +246,19 @@ do_write_users_conf(_Fd, Crap) ->
 %% ------ agents.conf ------
 %% 
 
+%% -spec agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry() when UserId :: term(),
+%%    TargetName :: string(),
+%%    Comm :: string(),
+%%    Domain :: transportDomain(),
+%%    Addr :: transportAddress(),
+%%    EngineID :: string(),
+%%    Timeout :: integer(),
+%%    MaxMessageSize :: integer(),
+%%    Version :: v1 | v2 | v3,
+%%    SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    agents_entry() :: term().
 agents_entry(
   UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
   MaxMessageSize, Version, SecModel, SecName, SecLevel) ->
@@ -208,6 +266,9 @@ agents_entry(
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
 
+%% -spec write_agents_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [_entry()].
 write_agents_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the agents the manager handles\n"
@@ -219,6 +280,9 @@ write_agents_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agents_config(Dir, Hdr, Conf).
 
+%% -spec write_agents_config(Dir, Hdr, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [_entry()].
 write_agents_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -226,6 +290,10 @@ write_agents_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agents_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec append_agents_config(Dir, Conf) -> ok
+%%                               when
+%%                                   Dir :: string(),
+%%                                   Conf :: [agents_entry()].
 append_agents_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -233,6 +301,10 @@ append_agents_config(Dir, Conf)
     Write = fun write_agents_conf/2,
     append_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec read_agents_config(Dir) -> Conf
+%%                             when
+%%                                 Dir :: string(),
+%%                                 Conf :: [agents_entry()].
 read_agents_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_agent_config/2,
@@ -272,13 +344,32 @@ do_write_agents_conf(_Fd, Crap) ->
 %% ------ usm.conf -----
 %% 
 
+%% -spec usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry() when EngineID :: string(),
+%%    UserName :: string(),
+%%    SecName :: string(),
+%%    AuthP :: usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol,
+%%    AuthKey :: [integer()],
+%%    PrivP :: usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol,
+%%    PrivKey :: [integer()],
+%%    usm_entry() :: term().
 usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.
 
+%% -spec usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry() when EngineID :: string(),
+%%    UserName :: string(),
+%%    SecName :: string(),
+%%    AuthP :: usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol,
+%%    AuthKey :: [integer()],
+%%    PrivP :: usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol,
+%%    PrivKey :: [integer()],
+%%    usm_entry() :: term().
 usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.
 
 
+%% -spec write_usm_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [usm_entry()].
 write_usm_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the usm users the manager handles\n"
@@ -289,6 +380,11 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+%% -spec write_usm_config(Dir, Hdr, Conf) -> ok
+%%                           when
+%%                               Dir :: string(),
+%%                               Hdr :: string(),
+%%                               Conf :: [usm_entry()].
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -296,6 +392,8 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec append_usm_config(Dir, Conf) -> ok
+%%                            when Dir :: string(), Conf :: [usm_entry()].
 append_usm_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -303,6 +401,8 @@ append_usm_config(Dir, Conf)
     Write = fun write_usm_conf/2,
     append_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+%% -spec read_usm_config(Dir) -> Conf
+%%                          when Dir :: string(), Conf :: [usm_entry()].
 read_usm_config(Dir) 
   when is_list(Dir) ->
     Order = fun snmp_conf:no_order/2,

@@ -180,10 +180,16 @@
 %% ------ agent.conf ------
 %%
 
+%% -spec agent_entry(Tag, Val) -> agent_entry() when Tag :: intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID,
+%%    Val :: term(),
+%%    agent_entry() :: term().
 agent_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+%% -spec write_agent_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [agent_entry()].
 write_agent_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the Agent local configuration info\n"
@@ -202,6 +208,11 @@ write_agent_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agent_config(Dir, Hdr, Conf).
 
+%% -spec write_agent_config(Dir, Hdr, Conf) -> ok
+%%                             when
+%%                                 Dir :: string(),
+%%                                 Hdr :: string(),
+%%                                 Conf :: [agent_entry()].
 write_agent_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_framework_mib:order_agent/2,
@@ -209,6 +220,10 @@ write_agent_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agent_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
+%% -spec append_agent_config(Dir, Conf) -> ok
+%%                              when
+%%                                  Dir :: string(),
+%%                                  Conf :: [agent_entry()].
 append_agent_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_framework_mib:order_agent/2,
@@ -216,6 +231,8 @@ append_agent_config(Dir, Conf)
     Write = fun write_agent_conf/2,
     append_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
+%% -spec read_agent_config(Dir) -> Conf
+%%                            when Dir :: string(), Conf :: [agent_entry()].
 read_agent_config(Dir) ->
     Order = fun snmp_framework_mib:order_agent/2,
     Check = fun snmp_framework_mib:check_agent/2,
@@ -256,10 +273,15 @@ do_write_agent_conf(_Fd, Crap) ->
 %% ------ context.conf ------
 %%
 
+%% -spec context_entry(Context) -> context_entry() when Context :: string(),
+%%    context_entry() :: term().
 context_entry(Ctx) ->
     Ctx.
 
 
+%% -spec write_context_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [context_entry()].
 write_context_config(Dir, Conf) ->
     Comment =
 "%% This file defines the contexts known to the agent.\n"
@@ -276,6 +298,11 @@ write_context_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_context_config(Dir, Hdr, Conf).
 
+%% -spec write_context_config(Dir, Hdr, Conf) -> ok
+%%                               when
+%%                                   Dir :: string(),
+%%                                   Hdr :: string(),
+%%                                   Conf :: [context_entry()].
 write_context_config(Dir, Hdr, Conf) 
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -283,6 +310,10 @@ write_context_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_context_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "context.conf", Order, Check, Write, Conf).
 
+%% -spec append_context_config(Dir, Conf) -> ok
+%%                                when
+%%                                    Dir :: string(),
+%%                                    Conf :: [context_entry()].
 append_context_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -290,6 +321,10 @@ append_context_config(Dir, Conf)
     Write = fun write_context_conf/2,
     append_config_file(Dir, "context.conf", Order, Check, Write, Conf).
 
+%% -spec read_context_config(Dir) -> Conf
+%%                              when
+%%                                  Dir :: string(),
+%%                                  Conf :: [context_entry()].
 read_context_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_context/2,
@@ -319,6 +354,12 @@ write_context_conf(_Fd, X) ->
 %% ------ community.conf ------
 %%
 
+%% -spec community_entry(CommunityIndex) -> community_entry() when CommunityIndex :: string(),
+%%    CommunityName :: string(),
+%%    SecName :: string(),
+%%    CtxName :: string(),
+%%    TransportTag :: string(),
+%%    community_entry() :: term().
 community_entry(CommIndex) when CommIndex == "public" ->
     CommName     = CommIndex,
     SecName      = "initial",
@@ -332,10 +373,19 @@ community_entry(CommIndex) when CommIndex == "all-rights" ->
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag).
 
+%% -spec community_entry(CommunityIndex, CommunityName, SecName, ContextName, TransportTag) -> community_entry() when CommunityIndex :: string(),
+%%    CommunityName :: string(),
+%%    SecName :: string(),
+%%    CtxName :: string(),
+%%    TransportTag :: string(),
+%%    community_entry() :: term().
 community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
     {CommIndex, CommName, SecName, CtxName, TransportTag}.
 
 
+%% -spec write_community_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [community_entry()].
 write_community_config(Dir, Conf) ->
     Comment =
 "%% This file defines the community info which maps to VACM parameters.\n"
@@ -351,6 +401,11 @@ write_community_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_community_config(Dir, Hdr, Conf).
 
+%% -spec write_community_config(Dir, Hdr, Conf) -> ok
+%%                                 when
+%%                                     Dir :: string(),
+%%                                     Hdr :: string(),
+%%                                     Conf :: [community_entry()].
 write_community_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -358,6 +413,10 @@ write_community_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_community_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
+%% -spec append_community_config(Dir, Conf) -> ok
+%%                                  when
+%%                                      Dir :: string(),
+%%                                      Conf :: [community_entry()].
 append_community_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -365,6 +424,10 @@ append_community_config(Dir, Conf)
     Write = fun write_community_conf/2,
     append_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
+%% -spec read_community_config(Dir) -> Conf
+%%                                when
+%%                                    Dir :: string(),
+%%                                    Conf :: [community_entry()].
 read_community_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_community/2,
@@ -398,10 +461,16 @@ write_community_conf(Fd, Conf) ->
 %% ------ standard.conf ------
 %%
 
+%% -spec standard_entry(Tag, Val) -> standard_entry() when Tag :: sysDescr | sysObjectID | sysContact | sysName | sysLocation | sysServices | snmpEnableAuthenTraps,
+%%    Val :: term(),
+%%    standard_entry() :: term().
 standard_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+%% -spec write_standard_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [standard_entry()].
 write_standard_config(Dir, Conf) ->
     Comment =
 "%% This file defines the STANDARD-MIB info.\n"
@@ -419,6 +488,11 @@ write_standard_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_standard_config(Dir, Hdr, Conf).
 
+%% -spec write_standard_config(Dir, Hdr, Conf) -> ok
+%%                                when
+%%                                    Dir :: string(),
+%%                                    Hdr :: string(),
+%%                                    Conf :: [standard_entry()].
 write_standard_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -426,6 +500,10 @@ write_standard_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_standard_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
 
+%% -spec append_standard_config(Dir, Conf) -> ok
+%%                                 when
+%%                                     Dir :: string(),
+%%                                     Conf :: [standard_entry()].
 append_standard_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -433,6 +511,10 @@ append_standard_config(Dir, Conf)
     Write = fun write_standard_conf/2,
     append_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
 
+%% -spec read_standard_config(Dir) -> Conf
+%%                               when
+%%                                   Dir :: string(),
+%%                                   Conf :: [standard_entry()].
 read_standard_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_standard/2,
@@ -479,6 +561,17 @@ target_addr_entry(
   Name, Ip, TagList, ParamsName, EngineId) ->
     target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, []).
 
+%% -spec target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry() when Name :: string(),
+%%    Domain :: transportDomain(),
+%%    Ip :: transportAddress() (depends on Domain),
+%%    Timeout :: integer(),
+%%    RetryCount :: integer(),
+%%    TagList :: string(),
+%%    ParamsName :: string(),
+%%    EngineId :: string(),
+%%    TMask :: transportAddressMask() (depends on Domain),
+%%    MaxMessageSize :: integer(),
+%%    target_addr_entry() :: term().
 target_addr_entry(
   Name, Domain, Addr, TagList,
   ParamsName, EngineId) when is_atom(Domain) ->
@@ -492,6 +585,17 @@ target_addr_entry(
       Name, Ip, 162, TagList, ParamsName,
       EngineId, TMask, 2048).
 
+%% -spec target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry() when Name :: string(),
+%%    Domain :: transportDomain(),
+%%    Ip :: transportAddress() (depends on Domain),
+%%    Timeout :: integer(),
+%%    RetryCount :: integer(),
+%%    TagList :: string(),
+%%    ParamsName :: string(),
+%%    EngineId :: string(),
+%%    TMask :: transportAddressMask() (depends on Domain),
+%%    MaxMessageSize :: integer(),
+%%    target_addr_entry() :: term().
 target_addr_entry(
   Name, Domain_or_Ip, Addr_or_Port, TagList,
   ParamsName, EngineId, TMask) ->
@@ -499,6 +603,17 @@ target_addr_entry(
       Name, Domain_or_Ip, Addr_or_Port, TagList,
       ParamsName, EngineId, TMask, 2048).
 
+%% -spec target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry() when Name :: string(),
+%%    Domain :: transportDomain(),
+%%    Ip :: transportAddress() (depends on Domain),
+%%    Timeout :: integer(),
+%%    RetryCount :: integer(),
+%%    TagList :: string(),
+%%    ParamsName :: string(),
+%%    EngineId :: string(),
+%%    TMask :: transportAddressMask() (depends on Domain),
+%%    MaxMessageSize :: integer(),
+%%    target_addr_entry() :: term().
 target_addr_entry(
   Name, Domain_or_Ip, Addr_or_Port, TagList,
   ParamsName, EngineId, TMask, MaxMessageSize) ->
@@ -506,6 +621,17 @@ target_addr_entry(
       Name, Domain_or_Ip, Addr_or_Port, 1500, 3, TagList,
       ParamsName, EngineId, TMask, MaxMessageSize).
 
+%% -spec target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry() when Name :: string(),
+%%    Domain :: transportDomain(),
+%%    Ip :: transportAddress() (depends on Domain),
+%%    Timeout :: integer(),
+%%    RetryCount :: integer(),
+%%    TagList :: string(),
+%%    ParamsName :: string(),
+%%    EngineId :: string(),
+%%    TMask :: transportAddressMask() (depends on Domain),
+%%    MaxMessageSize :: integer(),
+%%    target_addr_entry() :: term().
 target_addr_entry(
   Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
   ParamsName, EngineId, TMask, MaxMessageSize) ->
@@ -519,6 +645,9 @@ target_addr_entry(
      ParamsName, EngineId, TMask, MaxMessageSize}.
 
 
+%% -spec write_target_addr_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [target_addr_entry()].
 write_target_addr_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the target address parameters.\n"
@@ -545,6 +674,11 @@ write_target_addr_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_addr_config(Dir, Hdr, Conf).
 
+%% -spec write_target_addr_config(Dir, Hdr, Conf) -> ok
+%%                                   when
+%%                                       Dir :: string(),
+%%                                       Hdr :: string(),
+%%                                       Conf :: [target_addr_entry()].
 write_target_addr_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -552,6 +686,10 @@ write_target_addr_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_target_addr_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
+%% -spec append_target_addr_config(Dir, Conf) -> ok
+%%                                    when
+%%                                        Dir :: string(),
+%%                                        Conf :: [target_addr_entry()].
 append_target_addr_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -559,6 +697,10 @@ append_target_addr_config(Dir, Conf)
     Write = fun write_target_addr_conf/2,
     append_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
+%% -spec read_target_addr_config(Dir) -> Conf
+%%                                  when
+%%                                      Dir :: string(),
+%%                                      Conf :: [target_addr_entry()].
 read_target_addr_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_addr/2,
@@ -623,11 +765,25 @@ do_write_target_addr_conf(_Fd, Crap) ->
 %% ------ target_params.conf ------
 %%
 
+%% -spec target_params_entry(Name, Vsn) -> target_params_entry() when Name :: string(),
+%%    Vsn :: v1 | v2 | v3,
+%%    MPModel :: v1 | v2c | v3,
+%%    SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    target_params_entry() :: term().
 target_params_entry(Name, Vsn) ->
     SecName  = "initial",
     SecLevel = noAuthNoPriv,
     target_params_entry(Name, Vsn, SecName, SecLevel).
 
+%% -spec target_params_entry(Name, Vsn, SecName, SecLevel) -> target_params_entry() when Name :: string(),
+%%    Vsn :: v1 | v2 | v3,
+%%    MPModel :: v1 | v2c | v3,
+%%    SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    target_params_entry() :: term().
 target_params_entry(Name, Vsn, SecName, SecLevel) ->
     MPModel = if Vsn =:= v1 -> v1;
 		 Vsn =:= v2 -> v2c;
@@ -639,10 +795,20 @@ target_params_entry(Name, Vsn, SecName, SecLevel) ->
 	       end,
     target_params_entry(Name, MPModel, SecModel, SecName, SecLevel).
 
+%% -spec target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) -> target_params_entry() when Name :: string(),
+%%    Vsn :: v1 | v2 | v3,
+%%    MPModel :: v1 | v2c | v3,
+%%    SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    target_params_entry() :: term().
 target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
     {Name, MPModel, SecModel, SecName, SecLevel}.
     
 
+%% -spec write_target_params_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [target_params_entry()].
 write_target_params_config(Dir, Conf) ->
     Comment =
 "%% This file defines the target parameters.\n"
@@ -656,6 +822,11 @@ write_target_params_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_params_config(Dir, Hdr, Conf).
 
+%% -spec write_target_params_config(Dir, Hdr, Conf) -> ok
+%%                                     when
+%%                                         Dir :: string(),
+%%                                         Hdr :: string(),
+%%                                         Conf :: [target_params_entry()].
 write_target_params_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -663,6 +834,10 @@ write_target_params_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_target_params_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
+%% -spec append_target_params_config(Dir, Conf) -> ok
+%%                                      when
+%%                                          Dir :: string(),
+%%                                          Conf :: [target_params_entry()].
 append_target_params_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -670,6 +845,10 @@ append_target_params_config(Dir, Conf)
     Write = fun write_target_params_conf/2,
     append_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
+%% -spec read_target_params_config(Dir) -> Conf
+%%                                    when
+%%                                        Dir :: string(),
+%%                                        Conf :: [target_params_entry()].
 read_target_params_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_params/2,
@@ -702,10 +881,17 @@ do_write_target_params_conf(_Fd, Crap) ->
 %% ------ notify.conf ------
 %%
 
+%% -spec notify_entry(Name, Tag, Type) -> notify_entry() when Name :: string(),
+%%    Tag :: string(),
+%%    Type :: trap | inform,
+%%    community_entry() :: term().
 notify_entry(Name, Tag, Type) ->
     {Name, Tag, Type}.
 
 
+%% -spec write_notify_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [notify_entry()].
 write_notify_config(Dir, Conf) ->
     Comment =
 "%% This file defines the notification parameters.\n"
@@ -721,6 +907,11 @@ write_notify_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_notify_config(Dir, Hdr, Conf).
 
+%% -spec write_notify_config(Dir, Hdr, Conf) -> ok
+%%                              when
+%%                                  Dir :: string(),
+%%                                  Hdr :: string(),
+%%                                  Conf :: [notify_entry()].
 write_notify_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -728,6 +919,10 @@ write_notify_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_notify_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
+%% -spec append_notify_config(Dir, Conf) -> ok
+%%                               when
+%%                                   Dir :: string(),
+%%                                   Conf :: [notify_entry()].
 append_notify_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -735,6 +930,10 @@ append_notify_config(Dir, Conf)
     Write = fun write_notify_conf/2,
     append_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
+%% -spec read_notify_config(Dir) -> Conf
+%%                             when
+%%                                 Dir :: string(),
+%%                                 Conf :: [community_entry()].
 read_notify_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_notify/2,
@@ -765,6 +964,20 @@ do_write_notify_conf(_Fd, Crap) ->
 %% ------ usm.conf ------
 %%
 
+%% -spec usm_entry(EngineId) -> usm_entry() when EngineId :: string(),
+%%    UserName :: string(),
+%%    SecName :: string(),
+%%    Clone :: zeroDotZero | [integer()],
+%%    AuthP :: usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol,
+%%    AuthKeyC :: string(),
+%%    OwnAuthKeyC :: string(),
+%%    PrivP :: usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol,
+%%    PrivKeyC :: string(),
+%%    OwnPrivKeyC :: string(),
+%%    Public :: string(),
+%%    AuthKey :: [integer()],
+%%    PrivKey :: [integer()],
+%%    usm_entry() :: term().
 usm_entry(EngineID) ->
     UserName    = "initial", 
     SecName     = "initial", 
@@ -783,6 +996,20 @@ usm_entry(EngineID) ->
               PrivP, PrivKeyC, OwnPrivKeyC,
               Public, AuthKey, PrivKey).
 
+%% -spec usm_entry(EngineID, UserName, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> usm_entry() when EngineId :: string(),
+%%    UserName :: string(),
+%%    SecName :: string(),
+%%    Clone :: zeroDotZero | [integer()],
+%%    AuthP :: usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol,
+%%    AuthKeyC :: string(),
+%%    OwnAuthKeyC :: string(),
+%%    PrivP :: usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol,
+%%    PrivKeyC :: string(),
+%%    OwnPrivKeyC :: string(),
+%%    Public :: string(),
+%%    AuthKey :: [integer()],
+%%    PrivKey :: [integer()],
+%%    usm_entry() :: term().
 usm_entry(EngineID, UserName, SecName, Clone, 
 	  AuthP, AuthKeyC, OwnAuthKeyC,
 	  PrivP, PrivKeyC, OwnPrivKeyC,
@@ -793,6 +1020,9 @@ usm_entry(EngineID, UserName, SecName, Clone,
      Public, AuthKey, PrivKey}.
     
 
+%% -spec write_usm_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [usm_entry()].
 write_usm_config(Dir, Conf) ->
     Comment =
 "%% This file defines the security parameters for the user-based\n"
@@ -810,6 +1040,11 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+-spec write_usm_config(Dir, Hdr, Conf) -> ok
+                          when
+                              Dir :: string(),
+                              Hdr :: string(),
+                              Conf :: [usm_entry()].
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -817,6 +1052,8 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
+-spec append_usm_config(Dir, Conf) -> ok
+                           when Dir :: string(), Conf :: [usm_entry()].
 append_usm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -824,6 +1061,8 @@ append_usm_config(Dir, Conf)
     Write = fun write_usm_conf/2,
     append_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
+-spec read_usm_config(Dir) -> Conf
+                         when Dir :: string(), Conf :: [usm_entry()].
 read_usm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_usm/2,
@@ -878,18 +1117,90 @@ do_write_usm2(Fd, X, P) ->
 %% ------ vacm.conf ------
 %%
 
+%% -spec vacm_s2g_entry(SecModel, SecName, GroupName) -> vacm_s2g_entry() when SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    GroupName :: string(),
+%%    Prefix :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    Match :: prefix | exact,
+%%    ReadView :: string(),
+%%    WriteView :: string(),
+%%    NotifyView :: string(),
+%%    ViewIndex :: integer(),
+%%    ViewSubtree :: [integer()],
+%%    ViewStatus :: included | excluded,
+%%    ViewMask :: null | [zero_or_one()],
+%%    zero_or_one() :: 0 | 1,
+%%    vacm_s2g_entry() :: term(),
+%%    vacm_acc_entry() :: term(),
+%%    vacm_vtf_entry() :: term().
 vacm_s2g_entry(SecModel, SecName, GroupName) ->
     {vacmSecurityToGroup, SecModel, SecName, GroupName}.
 
+%% -spec vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, ReadView, WriteView, NotifyView) -> vacm_acc_entry() when SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    GroupName :: string(),
+%%    Prefix :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    Match :: prefix | exact,
+%%    ReadView :: string(),
+%%    WriteView :: string(),
+%%    NotifyView :: string(),
+%%    ViewIndex :: integer(),
+%%    ViewSubtree :: [integer()],
+%%    ViewStatus :: included | excluded,
+%%    ViewMask :: null | [zero_or_one()],
+%%    zero_or_one() :: 0 | 1,
+%%    vacm_s2g_entry() :: term(),
+%%    vacm_acc_entry() :: term(),
+%%    vacm_vtf_entry() :: term().
 vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     {vacmAccess, GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV}.
 
+%% -spec vacm_vtf_entry(ViewIndex, ViewSubtree) -> vacm_vtf_entry() when SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    GroupName :: string(),
+%%    Prefix :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    Match :: prefix | exact,
+%%    ReadView :: string(),
+%%    WriteView :: string(),
+%%    NotifyView :: string(),
+%%    ViewIndex :: integer(),
+%%    ViewSubtree :: [integer()],
+%%    ViewStatus :: included | excluded,
+%%    ViewMask :: null | [zero_or_one()],
+%%    zero_or_one() :: 0 | 1,
+%%    vacm_s2g_entry() :: term(),
+%%    vacm_acc_entry() :: term(),
+%%    vacm_vtf_entry() :: term().
 vacm_vtf_entry(ViewIndex, ViewSubtree) ->
     vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+%% -spec vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) -> vacm_vtf_entry() when SecModel :: v1 | v2c | usm,
+%%    SecName :: string(),
+%%    GroupName :: string(),
+%%    Prefix :: string(),
+%%    SecLevel :: noAuthNoPriv | authNoPriv | authPriv,
+%%    Match :: prefix | exact,
+%%    ReadView :: string(),
+%%    WriteView :: string(),
+%%    NotifyView :: string(),
+%%    ViewIndex :: integer(),
+%%    ViewSubtree :: [integer()],
+%%    ViewStatus :: included | excluded,
+%%    ViewMask :: null | [zero_or_one()],
+%%    zero_or_one() :: 0 | 1,
+%%    vacm_s2g_entry() :: term(),
+%%    vacm_acc_entry() :: term(),
+%%    vacm_vtf_entry() :: term().
 vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
     {vacmViewTreeFamily, ViewIndex, ViewSubtree, ViewStatus, ViewMask}.
 
 
+%% -spec write_vacm_config(Dir, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [vacm_entry()],
+%%    vacm_entry() :: vacm_sg2_entry() | vacm_acc_entry() | vacm_vtf_entry().
 write_vacm_config(Dir, Conf) ->
     Comment =
 "%% This file defines the Mib Views.\n"
@@ -913,6 +1224,10 @@ write_vacm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_vacm_config(Dir, Hdr, Conf).
 
+%% -spec write_vacm_config(Dir, Hdr, Conf) -> ok when Dir :: string(),
+%%    Hdr :: string(),
+%%    Conf :: [vacm_entry()],
+%%    vacm_entry() :: vacm_sg2_entry() | vacm_acc_entry() | vacm_vtf_entry().
 write_vacm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -920,6 +1235,8 @@ write_vacm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_vacm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
+%% -spec append_vacm_config(Dir, Conf) -> ok
+%%                             when Dir :: string(), Conf :: [vacm_entry()].
 append_vacm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -927,6 +1244,8 @@ append_vacm_config(Dir, Conf)
     Write = fun write_vacm_conf/2,
     append_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
+%% -spec read_vacm_config(Dir) -> Conf
+%%                           when Dir :: string(), Conf :: [vacm_entry()].
 read_vacm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_vacm/2,

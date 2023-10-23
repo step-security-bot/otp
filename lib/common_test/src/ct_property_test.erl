@@ -46,6 +46,7 @@
 %%% Search for a property tester in the lib path, and if found, compile
 %%% the property tests
 %%%
+-spec init_per_suite(Config) -> Config | {skip, Reason :: term()}.
 init_per_suite(Config) ->
     case init_tool(Config) of
         {skip, _}=Skip ->
@@ -95,6 +96,8 @@ init_tool_extensions(_) ->
 %%%
 %%% Call the found property tester (if any)
 %%%
+-spec quickcheck(Property :: term(), Config :: term()) ->
+                    true | {fail, Reason :: term()}.
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
     F = function_name(quickcheck, Tool),
@@ -105,9 +108,18 @@ quickcheck(Property, Config) ->
 %%%
 %%% Present a nice table of the statem result
 %%%
+-spec present_result(Module :: term(),
+                     Cmds :: term(),
+                     Triple :: term(),
+                     Config :: term()) ->
+                        Result :: term().
 present_result(Module, Cmds, Triple, Config) ->
     present_result(Module, Cmds, Triple, Config, []).
 
+%% -spec present_result(Module, Cmds, Triple, Config, Options) -> Result when Module :: module(),
+%%    Options :: [present_option()],
+%%    present_option() :: {print_fun, fun(Format,Args)},
+%%    Result :: boolean().
 present_result(Module, Cmds, {H,Sf,Result}, Config, Options0) ->
     DefSpec = 
         if

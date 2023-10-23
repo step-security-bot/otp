@@ -64,6 +64,7 @@
 %%          Note that this function won't destroy any old values.
 %%          This function should be called only once.
 %%-----------------------------------------------------------------
+%% -spec init() -> void().
 init() ->
     maybe_create_table(intContextTable),
     init_engine().
@@ -82,6 +83,7 @@ init() ->
 %% Fails: exit(configuration_error)
 %% PRE: init/1 has been successfully called
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case snmpa_agent:get_agent_mib_storage() of
@@ -445,6 +447,10 @@ table_del_row(Tab, Key) ->
 
 
 %% FIXME: does not work with mnesia
+-spec add_context(Ctx) -> Ret when Ctx :: string(),
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_context(Ctx) ->
     case (catch check_context(Ctx)) of
 	{ok, Row} ->
@@ -463,6 +469,9 @@ add_context(Ctx) ->
     end.
 
 %% FIXME: does not work with mnesia
+-spec delete_context(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_context(Key) ->
     case table_del_row(intContextTable, Key) of
         true ->

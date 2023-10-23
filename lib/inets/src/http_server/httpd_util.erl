@@ -77,9 +77,21 @@ ip_address(Host, IpFamily)
 
 %% lookup
 
+%% -spec lookup(ETSTable, Key) -> Result
+%%                 when
+%%                     ETSTable :: ets_table(),
+%%                     Key :: term(),
+%%                     Result :: term() | undefined | Undefined,
+%%                     Undefined :: term().
 lookup(Table,Key) ->
     lookup(Table,Key,undefined).
 
+%% -spec lookup(ETSTable, Key, Undefined) -> Result
+%%                 when
+%%                     ETSTable :: ets_table(),
+%%                     Key :: term(),
+%%                     Result :: term() | undefined | Undefined,
+%%                     Undefined :: term().
 lookup(Table,Key,Undefined) ->
     case catch ets:lookup(Table,Key) of
 	[{Key,Value}|_] ->
@@ -90,6 +102,11 @@ lookup(Table,Key,Undefined) ->
 
 %% multi_lookup
 
+%% -spec multi_lookup(ETSTable, Key) -> Result
+%%                       when
+%%                           ETSTable :: ets_table(),
+%%                           Key :: term(),
+%%                           Result :: [term()].
 multi_lookup(Table,Key) ->
     remove_key(ets:lookup(Table,Key)).
 
@@ -100,9 +117,19 @@ remove_key([{_Key, Value}| Rest]) ->
 
 %% lookup_mime
 
+%% -spec lookup_mime(ConfigDB,Suffix) -> term() when ConfigDB :: ets_table(),
+%%    Suffix :: string(),
+%%    MimeType :: string() | undefined | Undefined,
+%%    Undefined :: term().
 lookup_mime(ConfigDB,Suffix) ->
     lookup_mime(ConfigDB,Suffix,undefined).
 
+%% -spec lookup_mime(ConfigDB, Suffix, Undefined) -> MimeType
+%%                      when
+%%                          ConfigDB :: ets_table(),
+%%                          Suffix :: string(),
+%%                          MimeType :: string() | undefined | Undefined,
+%%                          Undefined :: term().
 lookup_mime(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -114,9 +141,20 @@ lookup_mime(ConfigDB,Suffix,Undefined) ->
 
 %% lookup_mime_default
 
+%% -spec lookup_mime_default(ConfigDB,Suffix) -> term() when ConfigDB :: ets_table(),
+%%    Suffix :: string(),
+%%    MimeType :: string() | undefined | Undefined,
+%%    Undefined :: term().
 lookup_mime_default(ConfigDB,Suffix) ->
     lookup_mime_default(ConfigDB,Suffix,undefined).
 
+%% -spec lookup_mime_default(ConfigDB, Suffix, Undefined) -> MimeType
+%%                              when
+%%                                  ConfigDB :: ets_table(),
+%%                                  Suffix :: string(),
+%%                                  MimeType ::
+%%                                      string() | undefined | Undefined,
+%%                                  Undefined :: term().
 lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -132,6 +170,8 @@ lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     end.
 
 %%% RFC 2616, HTTP 1.1 Status codes
+-spec reason_phrase(StatusCode) -> Description when StatusCode :: 100 | 200 | 201 | 202 | 204 | 205 | 206 | 300 | 301 | 302 | 303 | 304 | 308 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 500 | 501 | 502 | 503 | 504 | 505,
+   Description :: string().
 reason_phrase(100) ->   "Continue";
 reason_phrase(101) ->   "Switching Protocols" ;
 reason_phrase(200) ->   "OK" ;
@@ -197,6 +237,10 @@ reason_phrase(_) -> "Internal Server Error".
 
 %% message
 
+-spec message(StatusCode,PhraseArgs,ConfigDB) -> Message when StatusCode :: 301 | 400 | 403 | 404 | 500 | 501 | 504,
+   PhraseArgs :: term(),
+   ConfigDB :: ets_table,
+   Message :: string().
 message(301,URL,_) ->
     "The document has moved <A HREF=\""++ html_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
@@ -262,6 +306,8 @@ html_encode(String) ->
 
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
+-spec convert_request_date(DateString) -> ErlDate|bad_date when DateString :: string(),
+   ErlDate :: calendar:datetime().
 convert_request_date([D,A,Y,DateType| Rest])->
     Func=case DateType of
 	     $\, ->
@@ -338,6 +384,8 @@ convert_netscapecookie_date(Date)->
 
 %% rfc1123_date
 
+%% -spec rfc1123_date() -> RFC1123Date when Date :: calendar:datetime(),
+%%    RFC1123Date :: string().
 rfc1123_date() ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = calendar:universal_time(),
     DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
@@ -345,6 +393,8 @@ rfc1123_date() ->
       io_lib:format("~s, ~2.2.0w ~3.s ~4.4.0w ~2.2.0w:~2.2.0w:~2.2.0w GMT",
 		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
 
+-spec rfc1123_date(Date) -> RFC1123Date when Date :: calendar:datetime(),
+   RFC1123Date :: string().
 rfc1123_date(undefined) ->
     undefined;
 rfc1123_date(LocalTime) ->
@@ -393,6 +443,8 @@ uniq([First|Rest]) ->
 
 %% day
 
+-spec day(NthDayOfWeek) -> DayOfWeek when NthDayOfWeek :: 1-7,
+   DayOfWeek :: string().
 day(1) -> "Mon";
 day(2) -> "Tue";
 day(3) -> "Wed";
@@ -403,6 +455,8 @@ day(7) -> "Sun".
 
 %% month
 
+-spec month(NthMonth) -> Month when NthMonth :: 1-12,
+   Month :: string().
 month(1) -> "Jan";
 month(2) -> "Feb";
 month(3) -> "Mar";
@@ -419,6 +473,9 @@ month(12) -> "Dec".
 %% split_path, URI has been decoded once when validate
 %% and should only be decoded once(RFC3986, 2.4).
 
+-spec split_path(RequestLine) -> {Path,QueryStringOrPathInfo} when RequestLine :: string(),
+   Path :: string(),
+   QueryStringOrPathInfo :: string().
 split_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := Fragment,
@@ -439,6 +496,11 @@ add_hashmark(Query, Fragment) ->
 %% and should only be decoded once(RFC3986, 2.4).
 
 
+-spec split_script_path(RequestLine) -> Split when RequestLine :: string(),
+   Split :: not_a_script | {Path, PathInfo, QueryString},
+   Path :: string(),
+   QueryString :: string(),
+   PathInfo :: string().
 split_script_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := _Fragment,
@@ -463,6 +525,11 @@ strip_extension_dot(Path) ->
 
 %% split
 
+%% -spec split(String,RegExp,N) -> SplitRes when String :: string(),
+%%    RegExp :: string(),
+%%    SplitRes :: {ok, FieldList} | {error, errordesc()},
+%%    Fieldlist :: [string()],
+%%    N :: integer.
 split(String,RegExp,N) ->
     {ok, re:split(String, RegExp, [{parts, N}, {return, list}])}.
 
@@ -526,6 +593,8 @@ search_and_replace(S,A,B) ->
           end,
     lists:map(Fun,S).
 
+%% -spec create_etag(FileInfo) -> Etag
+%%                      when FileInfo :: file_info(), Etag :: string().
 create_etag(FileInfo) ->
     create_etag(FileInfo#file_info.mtime,FileInfo#file_info.size).
 

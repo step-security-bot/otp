@@ -452,6 +452,13 @@ which_handlers(M) -> rpc(M, which_handlers).
 stop(M) ->
     gen:stop(M).
 
+%% -spec stop(EventMgrRef, Reason, Timeout) -> ok when EventMgrRef :: Name | {Name,Node} | {global,GlobalName} | {via,Module,ViaName} | pid(),
+%%    Name :: atom(),
+%%    Node :: atom(),
+%%    GlobalName :: term(),
+%%    ViaName :: term(),
+%%    Reason :: term(),
+%%    Timeout :: int()>0 | infinity.
 stop(M, Reason, Timeout) ->
     gen:stop(M, Reason, Timeout).
 

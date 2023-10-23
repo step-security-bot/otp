@@ -61,6 +61,7 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec configure(ConfDir) -> void() when ConfDir :: string().
 configure(Dir) ->
     set_sname(),
     case db(snmpCommunityTable) of
@@ -89,6 +90,7 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
+%% -spec reconfigure(ConfDir) -> void() when ConfDir :: string().
 reconfigure(Dir) ->
     set_sname(),
     case (catch do_reconfigure(Dir)) of
@@ -186,10 +188,28 @@ table_del_row(Tab, Key) ->
 
 
 %% FIXME: does not work with mnesia
+%% -spec add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret when Idx :: string(),
+%%    CommName :: string(),
+%%    SecName :: string(),
+%%    EngineId :: string(),
+%%    CtxName :: string(),
+%%    TransportTag :: string(),
+%%    Ret :: {ok, Key} | {error, Reason},
+%%    Key :: term(),
+%%    Reason :: term().
 add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, CtxName, TransportTag},
     do_add_community(Community).
 
+-spec add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret when Idx :: string(),
+   CommName :: string(),
+   SecName :: string(),
+   EngineId :: string(),
+   CtxName :: string(),
+   TransportTag :: string(),
+   Ret :: {ok, Key} | {error, Reason},
+   Key :: term(),
+   Reason :: term().
 add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
     Community = {Idx, CommName, SecName, EngineId, CtxName, TransportTag},
     do_add_community(Community).
@@ -213,6 +233,9 @@ do_add_community(Community) ->
     end.
 
 %% FIXME: does not work with mnesia
+-spec delete_community(Key) -> Ret when Key :: term(),
+   Ret :: ok | {error, Reason},
+   Reason :: term().
 delete_community(Key) ->
     invalidate_cache(Key),
     case table_del_row(snmpCommunityTable, Key) of

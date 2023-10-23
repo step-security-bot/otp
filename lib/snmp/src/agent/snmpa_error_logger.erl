@@ -32,6 +32,8 @@
 %% This function is called when there is an error in a user
 %% supplied item, e.g. instrumentation function.
 %%-----------------------------------------------------------------
+%% -spec user_err(Format, Args) -> void()
+%%                   when Format :: string(), Args :: list().
 user_err(F, A) -> 
     error_msg("** User error: ", F, A).
 
@@ -41,6 +43,8 @@ user_err(F, A) ->
 %% either at startup (in a conf-file) or at run-time (e.g. when 
 %% information in the configuration tables are inconsistent.)
 %%-----------------------------------------------------------------
+%% -spec config_err(Format, Args) -> void()
+%%                     when Format :: string(), Args :: list().
 config_err(F, A) ->
     error_msg("** Configuration error: ", F, A).
 

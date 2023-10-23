@@ -100,6 +100,16 @@ get_protocol({ssl, _}) ->
 
 %% real_name
 
+%% -spec real_name(ConfigDB, RequestURI, Aliases) -> Ret
+%%                    when
+%%                        ConfigDB :: config_db(),
+%%                        RequestURI :: string(),
+%%                        Aliases ::
+%%                            [{FakeName :: term(), RealName :: term()}],
+%%                        Ret :: {ShortPath, Path, AfterPath},
+%%                        ShortPath :: string(),
+%%                        Path :: string(),
+%%                        AfterPath :: string().
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
@@ -154,6 +164,17 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 
 %% real_script_name
 
+%% -spec real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret
+%%                           when
+%%                               ConfigDB :: config_db(),
+%%                               RequestURI :: string(),
+%%                               ScriptAliases ::
+%%                                   [{FakeName :: term(),
+%%                                     RealName :: term()}],
+%%                               Ret ::
+%%                                   {ShortPath, AfterPath} | not_a_script,
+%%                               ShortPath :: string(),
+%%                               AfterPath :: string().
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
@@ -176,6 +197,11 @@ abs_script_path(_, RelPath) ->
 
 %% default_index
 
+%% -spec default_index(ConfigDB, Path) -> NewPath
+%%                        when
+%%                            ConfigDB :: config_db(),
+%%                            Path :: string(),
+%%                            NewPath :: string().
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
@@ -197,6 +223,12 @@ append_index(RealName, [Index | Rest]) ->
 
 %% path
 
+%% -spec path(PathData, ConfigDB, RequestURI) -> Path
+%%               when
+%%                   PathData :: interaction_data(),
+%%                   ConfigDB :: config_db(),
+%%                   RequestURI :: string(),
+%%                   Path :: string().
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->

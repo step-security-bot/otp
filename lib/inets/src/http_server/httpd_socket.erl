@@ -28,6 +28,12 @@
 -define(VMODULE,"SOCKET").
 -include_lib("kernel/include/inet.hrl").
 
+%% -spec deliver(SocketType, Socket, Data) -> Result
+%%                  when
+%%                      SocketType :: socket_type(),
+%%                      Socket :: socket(),
+%%                      Data :: io_list() | binary(),
+%%                      Result :: socket_closed | void().
 deliver(SocketType, Socket, IOListOrBinary)  ->
     case http_transport:send(SocketType, Socket, IOListOrBinary) of
 	{error, _Reason} ->
@@ -37,9 +43,16 @@ deliver(SocketType, Socket, IOListOrBinary)  ->
 	    ok
     end.
 
+%% -spec peername(SocketType, Socket) -> {Port, IPAddress}
+%%                   when
+%%                       SocketType :: socket_type(),
+%%                       Socket :: socket(),
+%%                       Port :: integer(),
+%%                       IPAddress :: string().
 peername(SocketType, Socket) ->
     http_transport:peername(SocketType, Socket).
 
+-spec resolve() -> HostName when HostName :: string().
 resolve() ->
    http_transport:resolve().
 

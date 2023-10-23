@@ -66,6 +66,7 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+%% -spec init(Vsns) -> mpd_state() when Vsns :: [Vsn], Vsn :: v1 | v2 | v3.
 init(Vsns) ->
     ?vdebug("init -> entry with ~p", [Vsns]),
     ?SNMP_RAND_SEED(),
@@ -99,6 +100,16 @@ reset(#state{v3 = V3}) ->
 process_msg(Msg, Domain, Ip, Port, State, NoteStore, Logger) ->
     process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Logger).
 
+%% -spec process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason} when Msg :: binary(),
+%%    Domain :: transportDomainUdpIpv4 | transportDomainUdpIpv6,
+%%    Addr :: {inet:ip_address(), inet:port_number()},
+%%    State :: mpd_state(),
+%%    NoteStore :: pid(),
+%%    Logger :: function(),
+%%    Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    Pdu :: #pdu,
+%%    PduMs :: integer(),
+%%    MsgData :: term().
 process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
     inc(snmpInPkts),
 
@@ -494,6 +505,13 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Generate a message
 %%-----------------------------------------------------------------
+%% -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    NoteStore :: pid(),
+%%    Pdu :: #pdu,
+%%    MsgData :: term(),
+%%    Logger :: function(),
+%%    Packet :: binary(),
+%%    Reason :: term().
 generate_msg('version-3', NoteStore, Pdu, 
 	     {SecModel, SecName, SecLevel, CtxEngineID, CtxName, 
 	      TargetName}, Log) ->
@@ -639,6 +657,12 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 
 %% -----------------------------------------------------------------------
 
+%% -spec generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason} when Vsn :: 'version-1' | 'version-2' | 'version-3',
+%%    Pdu :: #pdu,
+%%    MsgData :: term(),
+%%    Logger :: function(),
+%%    Packet :: binary(),
+%%    Reason :: term().
 generate_response_msg('version-3', Pdu,
 		      {MsgID, SecModel, SecName, SecLevel, 
 		       CtxEngineID, CtxName, SecData}, Log) ->

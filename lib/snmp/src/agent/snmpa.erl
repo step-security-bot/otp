@@ -169,6 +169,8 @@
 %%                       {manager, manager_config()}
 %%-----------------------------------------------------------------
 
+-spec convert_config(OldConfig) -> AgentConfig when OldConfig :: list(),
+   AgentConfig :: list().
 convert_config(Opts) ->
     snmpa_app:convert_config(Opts).
 
@@ -178,6 +180,9 @@ convert_config(Opts) ->
 %% (properly) for the master agent.
 %%-----------------------------------------------------------------
 
+%% -spec verbosity(Ref,Verbosity) -> void() when Ref :: pid() | sub_agents | master_agent | net_if | mib_server | symbolic_store | note_store | local_db,
+%%    Verbosity :: verbosity() | {subagents, verbosity()},
+%%    verbosity() :: silence | info | log | debug | trace.
 verbosity(all,Verbosity) -> 
     catch snmpa_agent:verbosity(sub_agents,Verbosity),
     catch snmpa_agent:verbosity(master_agent,Verbosity),
@@ -214,15 +219,22 @@ get_symbolic_store_db() ->
     snmpa_symbolic_store:get_db().
 
 
+-spec which_aliasnames() -> Result when Result :: [atom()].
 which_aliasnames() ->
     snmpa_symbolic_store:which_aliasnames().
 
+-spec which_tables() -> Result when Result :: [atom()].
 which_tables() ->
     snmpa_symbolic_store:which_tables().
 
+-spec which_variables() -> Result when Result :: [atom()].
 which_variables() ->
     snmpa_symbolic_store:which_variables().
 
+-spec which_notifications() -> Result when Result :: [{Name, MibName, Info}],
+   Name :: atom(),
+   MibName :: atom(),
+   Info :: term().
 which_notifications() ->
     snmpa_symbolic_store:which_notifications().
 
@@ -230,27 +242,56 @@ which_notifications() ->
 %%-----------------------------------------------------------------
 %% These 8 functions returns {value, Val} | false
 %%-----------------------------------------------------------------
+%% -spec name_to_oid(Name) -> {value, oid()} | false when Db :: term(),
+%%    Name :: atom().
 name_to_oid(Name) ->
     snmpa_symbolic_store:aliasname_to_oid(Name).
 
+%% -spec name_to_oid(Db, Name) -> {value, oid()} | false
+%%                      when Db :: term(), Name :: atom().
 name_to_oid(Db, Name) ->
     snmpa_symbolic_store:aliasname_to_oid(Db, Name).
 
+%% -spec oid_to_name(OID) -> {value, Name} | false when Db :: term(),
+%%    OID :: oid(),
+%%    Name :: atom().
 oid_to_name(OID) ->
     snmpa_symbolic_store:oid_to_aliasname(OID).
 
+%% -spec oid_to_name(Db, OID) -> {value, Name} | false
+%%                      when Db :: term(), OID :: oid(), Name :: atom().
 oid_to_name(Db, OID) ->
     snmpa_symbolic_store:oid_to_aliasname(Db, OID).
 
+%% -spec enum_to_int(Name, Enum) -> {value, Int} | false when Db :: term(),
+%%    Name :: atom(),
+%%    Enum :: atom(),
+%%    Int :: int().
 enum_to_int(Name, Enum) ->
     snmpa_symbolic_store:enum_to_int(Name, Enum).
 
+%% -spec enum_to_int(Db, Name, Enum) -> {value, Int} | false
+%%                      when
+%%                          Db :: term(),
+%%                          Name :: atom(),
+%%                          Enum :: atom(),
+%%                          Int :: int().
 enum_to_int(Db, Name, Enum) ->
     snmpa_symbolic_store:enum_to_int(Db, Name, Enum).
 
+%% -spec int_to_enum(Name, Int) -> {value, Enum} | false when Db :: term(),
+%%    Name :: atom(),
+%%    Int :: int(),
+%%    Enum :: atom().
 int_to_enum(Name, Int) ->
     snmpa_symbolic_store:int_to_enum(Name, Int).
 
+%% -spec int_to_enum(Db, Name, Int) -> {value, Enum} | false
+%%                      when
+%%                          Db :: term(),
+%%                          Name :: atom(),
+%%                          Int :: int(),
+%%                          Enum :: atom().
 int_to_enum(Db, Name, Int) ->
     snmpa_symbolic_store:int_to_enum(Db, Name, Int).
 
@@ -259,9 +300,25 @@ int_to_enum(Db, Name, Int) ->
 %% These functions must only be called in the process context
 %% where the instrumentation functions are called!
 %%-----------------------------------------------------------------
+%% -spec current_request_id() -> {value, RequestId} | false when RequestId :: integer(),
+%%    Context :: string(),
+%%    Community :: string(),
+%%    Address :: term().
 current_request_id()  -> current_get(snmp_request_id).
+%% -spec current_context() -> {value, Context} | false when RequestId :: integer(),
+%%    Context :: string(),
+%%    Community :: string(),
+%%    Address :: term().
 current_context()     -> current_get(snmp_context).
+%% -spec current_community() -> {value, Community} | false when RequestId :: integer(),
+%%    Context :: string(),
+%%    Community :: string(),
+%%    Address :: term().
 current_community()   -> current_get(snmp_community).
+%% -spec current_address() -> {value, Address} | false when RequestId :: integer(),
+%%    Context :: string(),
+%%    Community :: string(),
+%%    Address :: term().
 current_address()     -> current_get(snmp_address).
 current_net_if_data() -> current_get(net_if_data).
 
@@ -274,22 +331,55 @@ current_get(Tag) ->
 
 %% -
 
+%% -spec get(Agent, Vars) -> Values | {error, Reason} when Agent :: pid() | atom(),
+%%    Vars :: [oid()],
+%%    Context :: string(),
+%%    Values :: [term()],
+%%    Reason :: {atom(), oid()}.
 get(Agent, Vars) -> snmpa_agent:get(Agent, Vars).
+%% -spec get(Agent, Vars, Context) -> Values | {error, Reason}
+%%              when
+%%                  Agent :: pid() | atom(),
+%%                  Vars :: [oid()],
+%%                  Context :: string(),
+%%                  Values :: [term()],
+%%                  Reason :: {atom(), oid()}.
 get(Agent, Vars, Context) -> snmpa_agent:get(Agent, Vars, Context).
 
+%% -spec get_next(Agent, Vars) -> Values | {error, Reason} when Agent :: pid() | atom(),
+%%    Vars :: [oid()],
+%%    Context :: string(),
+%%    Values :: [{oid(), term()}],
+%%    Reason :: {atom(), oid()}.
 get_next(Agent, Vars) -> snmpa_agent:get_next(Agent, Vars).
+%% -spec get_next(Agent, Vars, Context) -> Values | {error, Reason}
+%%                   when
+%%                       Agent :: pid() | atom(),
+%%                       Vars :: [oid()],
+%%                       Context :: string(),
+%%                       Values :: [{oid(), term()}],
+%%                       Reason :: {atom(), oid()}.
 get_next(Agent, Vars, Context) -> snmpa_agent:get_next(Agent, Vars, Context).
 
 
+%% -spec info() -> [{Key, Value}] when Agent :: pid() | atom().
 info()      -> info(snmp_master_agent).
+-spec info(Agent) -> [{Key :: term(), Value :: term()}]
+              when Agent :: pid() | atom().
 info(Agent) -> snmpa_agent:info(Agent).
 
 
 %% -
 
+%% -spec backup(BackupDir) -> ok | {error, Reason} when BackupDir :: string(),
+%%    Agent :: pid() | atom(),
+%%    Reason :: backup_in_progress | term().
 backup(BackupDir) ->
     backup(snmp_master_agent, BackupDir).
 
+-spec backup(Agent, BackupDir) -> ok | {error, Reason} when BackupDir :: string(),
+   Agent :: pid() | atom(),
+   Reason :: backup_in_progress | term().
 backup(Agent, BackupDir) ->
     snmpa_agent:backup(Agent, BackupDir).
 
@@ -300,6 +390,9 @@ dump_mibs()     -> snmpa_agent:dump_mibs(snmp_master_agent).
 dump_mibs(File) -> snmpa_agent:dump_mibs(snmp_master_agent, File).
 
 
+%% -spec load_mib(Mib) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    MibName :: string(),
+%%    Reason :: already_loaded | term().
 load_mib(Mib) ->
     load_mib(snmp_master_agent, Mib).
 
@@ -314,8 +407,15 @@ load_mib(Agent, Mib) ->
 	    Else
     end.
 
+%% -spec load_mibs(Mibs) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Mibs :: [MibName],
+%%    Force :: boolean(),
+%%    MibName :: string(),
+%%    Reason :: {'load aborted at', MibName, InternalReason},
+%%    InternalReason :: already_loaded | term().
 load_mibs(Mibs) ->
     load_mibs(snmp_master_agent, Mibs, false).
+%% -spec load_mibs(Agent, Mibs) -> ok | {error, Reason}load_mibs(Mibs, Force) -> ok | {error, Reason}
 load_mibs(Agent, Mibs) when is_list(Mibs) -> 
     snmpa_agent:load_mibs(Agent, Mibs, false);
 load_mibs(Mibs, Force) 
@@ -332,6 +432,9 @@ load_mibs(Agent, Mibs, Force)
     snmpa_agent:load_mibs(Agent, Mibs, Force).
 
 
+%% -spec unload_mib(Mib) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    MibName :: string(),
+%%    Reason :: not_loaded | term().
 unload_mib(Mib) ->
     unload_mib(snmp_master_agent, Mib).
 
@@ -346,8 +449,15 @@ unload_mib(Agent, Mib) ->
 	    Else
     end.
 
+%% -spec unload_mibs(Mibs) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Mibs :: [MibName],
+%%    Force :: boolean(),
+%%    MibName :: string(),
+%%    Reason :: {'unload aborted at', MibName, InternalReason},
+%%    InternalReason :: not_loaded | term().
 unload_mibs(Mibs) ->
     unload_mibs(snmp_master_agent, Mibs).
+%% -spec unload_mibs(Agent, Mibs) -> ok | {error, Reason}unload_mibs(Mibs, Force) -> ok | {error, Reason}
 unload_mibs(Agent, Mibs) when is_list(Mibs) -> 
     unload_mibs(Agent, Mibs, false);
 unload_mibs(Mibs, Force) 
@@ -364,12 +474,28 @@ unload_mibs(Agent, Mibs, Force)
     snmpa_agent:unload_mibs(Agent, Mibs, Force).
 
 
+%% -spec which_mibs() -> Mibs when Agent :: pid() | atom(),
+%%    Mibs :: [{MibName, MibFile}],
+%%    MibName :: atom(),
+%%    MibFile :: string().
 which_mibs()      -> which_mibs(snmp_master_agent).
+-spec which_mibs(Agent) -> Mibs when Agent :: pid() | atom(),
+   Mibs :: [{MibName, MibFile}],
+   MibName :: atom(),
+   MibFile :: string().
 which_mibs(Agent) -> snmpa_agent:which_mibs(Agent).
 
 
+%% -spec whereis_mib(MibName) -> {ok, MibFile} | {error, Reason} when Agent :: pid() | atom(),
+%%    MibName :: atom(),
+%%    MibFile :: string(),
+%%    Reason :: term().
 whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
+-spec whereis_mib(Agent, MibName) -> {ok, MibFile} | {error, Reason} when Agent :: pid() | atom(),
+   MibName :: atom(),
+   MibFile :: string(),
+   Reason :: term().
 whereis_mib(Agent, Mib) when is_atom(Mib) ->
     snmpa_agent:whereis_mib(Agent, Mib).
 
@@ -476,6 +602,7 @@ mibs_info() ->
      }
     ].
 
+%% -spec print_mib_info() -> void().
 print_mib_info() ->
     MibsInfo = mibs_info(),
     print_mib_info(MibsInfo).
@@ -491,6 +618,7 @@ print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
     print_mib_info(MibsInfo).
 
 
+%% -spec print_mib_tables() -> void().
 print_mib_tables() ->
     Tables = [{Mod, Tabs} || {Mod, Tabs, _Vars} <- mibs_info()],
     print_mib_tables(Tables).
@@ -515,6 +643,7 @@ print_mib_tables2(Mod, Tables) ->
     [(catch Mod:Table(print)) || Table <- Tables].
 
 
+%% -spec print_mib_variables() -> void().
 print_mib_variables() ->
     Variables = [{Mod, Vars} || {Mod, _Tabs, Vars} <- mibs_info()],
     print_mib_variables(Variables).
@@ -558,88 +687,148 @@ make_pretty_mib(Mod) ->
 
 %% -
 
+%% -spec mib_of(Oid) -> {ok, MibName} | {error, Reason} when Agent :: pid() | atom(),
+%%    Oid :: oid(),
+%%    MibName :: atom(),
+%%    Reason :: term().
 mib_of(Oid) ->
     snmpa_agent:mib_of(Oid).
 
+%% -spec mib_of(Agent, Oid) -> {ok, MibName} | {error, Reason}
+%%                 when
+%%                     Agent :: pid() | atom(),
+%%                     Oid :: oid(),
+%%                     MibName :: atom(),
+%%                     Reason :: term().
 mib_of(Agent, Oid) ->
     snmpa_agent:mib_of(Agent, Oid).
 
+%% -spec me_of(Oid) -> {ok, Me} | {error, Reason} when Agent :: pid() | atom(),
+%%    Oid :: oid(),
+%%    Me :: #me{},
+%%    Reason :: term().
 me_of(Oid) ->
     snmpa_agent:me_of(Oid).
 
+%% -spec me_of(Agent, Oid) -> {ok, Me} | {error, Reason}
+%%                when
+%%                    Agent :: pid() | atom(),
+%%                    Oid :: oid(),
+%%                    Me :: #me{},
+%%                    Reason :: term().
 me_of(Agent, Oid) ->
     snmpa_agent:me_of(Agent, Oid).
 
 
+%% -spec invalidate_mibs_cache() -> void() when Agent :: pid() | atom().
 invalidate_mibs_cache() ->
     invalidate_mibs_cache(snmp_master_agent).
 
+%% -spec invalidate_mibs_cache(Agent) -> void()
+%%                                when Agent :: pid() | atom().
 invalidate_mibs_cache(Agent) ->
     snmpa_agent:invalidate_mibs_cache(Agent).
 
 
+%% -spec which_mibs_cache_size() -> void() when Agent :: pid() | atom().
 which_mibs_cache_size() ->
     which_mibs_cache_size(snmp_master_agent).
 
+%% -spec which_mibs_cache_size(Agent) -> void()
+%%                                when Agent :: pid() | atom().
 which_mibs_cache_size(Agent) ->
     snmpa_agent:which_mibs_cache_size(Agent).
 
 
+%% -spec enable_mibs_cache() -> void() when Agent :: pid() | atom().
 enable_mibs_cache() ->
     enable_mibs_cache(snmp_master_agent).
 
+%% -spec enable_mibs_cache(Agent) -> void() when Agent :: pid() | atom().
 enable_mibs_cache(Agent) ->
     snmpa_agent:enable_mibs_cache(Agent).
 
 
+%% -spec disable_mibs_cache() -> void() when Agent :: pid() | atom().
 disable_mibs_cache() ->
     disable_mibs_cache(snmp_master_agent).
 
+%% -spec disable_mibs_cache(Agent) -> void() when Agent :: pid() | atom().
 disable_mibs_cache(Agent) ->
     snmpa_agent:disable_mibs_cache(Agent).
 
 
+%% -spec gc_mibs_cache() -> {ok, NumElementsGCed} | {error, Reason} when Agent :: pid() | atom(),
+%%    Age :: integer() > 0,
+%%    GcLimit :: integer() > 0 | infinity,
+%%    NumElementsGCed :: integer() >= 0,
+%%    Reason :: term().
 gc_mibs_cache() ->
     gc_mibs_cache(snmp_master_agent).
 
+%% -spec gc_mibs_cache(Age) -> {ok, NumElementsGCed} | {error, Reason}gc_mibs_cache(Agent) -> {ok, NumElementsGCed} | {error, Reason}
 gc_mibs_cache(Agent) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent);
 gc_mibs_cache(Age) ->
     gc_mibs_cache(snmp_master_agent, Age).
 
+%% -spec gc_mibs_cache(Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason}gc_mibs_cache(Agent, Age) -> {ok, NumElementsGCed} | {error, Reason}
 gc_mibs_cache(Agent, Age) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent, Age);
 gc_mibs_cache(Age, GcLimit) ->
     gc_mibs_cache(snmp_master_agent, Age, GcLimit).
 
+%% -spec gc_mibs_cache(Agent, Age, GcLimit) -> {ok, NumElementsGCed} | {error, Reason} when Agent :: pid() | atom(),
+%%    Age :: integer() > 0,
+%%    GcLimit :: integer() > 0 | infinity,
+%%    NumElementsGCed :: integer() >= 0,
+%%    Reason :: term().
 gc_mibs_cache(Agent, Age, GcLimit) when is_atom(Agent) orelse is_pid(Agent) ->
     snmpa_agent:gc_mibs_cache(Agent, Age, GcLimit).
 
 
+%% -spec enable_mibs_cache_autogc() -> void() when Agent :: pid() | atom().
 enable_mibs_cache_autogc() ->
     enable_mibs_cache_autogc(snmp_master_agent).
 
+%% -spec enable_mibs_cache_autogc(Agent) -> void()
+%%                                   when Agent :: pid() | atom().
 enable_mibs_cache_autogc(Agent) ->
     snmpa_agent:enable_mibs_cache_autogc(Agent).
 
 
+%% -spec disable_mibs_cache_autogc() -> void() when Agent :: pid() | atom().
 disable_mibs_cache_autogc() ->
     disable_mibs_cache_autogc(snmp_master_agent).
 
+%% -spec disable_mibs_cache_autogc(Agent) -> void()
+%%                                    when Agent :: pid() | atom().
 disable_mibs_cache_autogc(Agent) ->
     snmpa_agent:disable_mibs_cache_autogc(Agent).
 
 
+%% -spec update_mibs_cache_age(NewAge) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    NewAge :: integer() > 0,
+%%    Reason :: term().
 update_mibs_cache_age(Age) ->
     update_mibs_cache_age(snmp_master_agent, Age).
 
+%% -spec update_mibs_cache_age(Agent, NewAge) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    NewAge :: integer() > 0,
+%%    Reason :: term().
 update_mibs_cache_age(Agent, Age) ->
     snmpa_agent:update_mibs_cache_age(Agent, Age).
 
 
+%% -spec update_mibs_cache_gclimit(NewGcLimit) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    NewGcLimit :: integer() > 0 | infinity,
+%%    Reason :: term().
 update_mibs_cache_gclimit(GcLimit) ->
     update_mibs_cache_gclimit(snmp_master_agent, GcLimit).
 
+%% -spec update_mibs_cache_gclimit(Agent, NewGCLimit) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    NewGcLimit :: integer() > 0 | infinity,
+%%    Reason :: term().
 update_mibs_cache_gclimit(Agent, GcLimit) ->
     snmpa_agent:update_mibs_cache_gclimit(Agent, GcLimit).
 
@@ -648,9 +837,18 @@ update_mibs_cache_gclimit(Agent, GcLimit) ->
 
 %% - message filter / load regulation
 
+%% -spec register_notification_filter(Id, Mod, Data) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Id :: filter_id(),
+%%    filter_id() :: term(),
+%%    Mod :: atom(),
+%%    Data :: term(),
+%%    Where :: filter_position(),
+%%    Reason :: term(),
+%%    filter_position() :: first | last | {insert_before, filter_id()} | {insert_after, filter_id()}.
 register_notification_filter(Id, Mod, Data) when is_atom(Mod) ->
     register_notification_filter(snmp_master_agent, Id, Mod, Data, last).
  
+%% -spec register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}
 register_notification_filter(Agent, Id, Mod, Data)
   when is_atom(Agent) andalso is_atom(Mod) ->
     register_notification_filter(Agent, Id, Mod, Data, last);
@@ -660,18 +858,38 @@ register_notification_filter(Agent, Id, Mod, Data)
 register_notification_filter(Id, Mod, Data, Where) when is_atom(Mod) ->
     register_notification_filter(snmp_master_agent, Id, Mod, Data, Where).
  
+%% -spec register_notification_filter(Agent, Id, Mod, Data, Where) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Id :: filter_id(),
+%%    filter_id() :: term(),
+%%    Mod :: atom(),
+%%    Data :: term(),
+%%    Where :: filter_position(),
+%%    Reason :: term(),
+%%    filter_position() :: first | last | {insert_before, filter_id()} | {insert_after, filter_id()}.
 register_notification_filter(Agent, Id, Mod, Data, Where) ->
     snmpa_agent:register_notification_filter(Agent, Id, Mod, Data, Where).
  
+%% -spec unregister_notification_filter(Id) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Id :: filter_id(),
+%%    filter_id() :: term().
 unregister_notification_filter(Id) ->
     unregister_notification_filter(snmp_master_agent, Id).
  
+%% -spec unregister_notification_filter(Agent, Id) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    Id :: filter_id(),
+%%    filter_id() :: term().
 unregister_notification_filter(Agent, Id) ->
     snmpa_agent:unregister_notification_filter(Agent, Id).
  
+%% -spec which_notification_filter() -> Filters when Agent :: pid() | atom(),
+%%    Filters :: [filter_id()],
+%%    filter_id() :: term().
 which_notification_filter() ->
     which_notification_filter(snmp_master_agent).
  
+%% -spec which_notification_filter(Agent) -> Filters when Agent :: pid() | atom(),
+%%    Filters :: [filter_id()],
+%%    filter_id() :: term().
 which_notification_filter(Agent) ->
     snmpa_agent:which_notification_filter(Agent).
  
@@ -681,17 +899,67 @@ get_request_limit() ->
 get_request_limit(Agent) -> 
     snmpa_agent:get_request_limit(Agent).
 
+%% -spec set_request_limit(NewLimit) -> {ok, OldLimit} | {error, Reason} when NewLimit :: infinity | integer() >= 0,
+%%    OldLimit :: infinity | integer() >= 0,
+%%    Agent :: pid() | atom(),
+%%    Reason :: term().
 set_request_limit(NewLimit) -> 
     set_request_limit(snmp_master_agent, NewLimit).
+%% -spec set_request_limit(Agent, NewLimit) -> {ok, OldLimit} | {error, Reason} when NewLimit :: infinity | integer() >= 0,
+%%    OldLimit :: infinity | integer() >= 0,
+%%    Agent :: pid() | atom(),
+%%    Reason :: term().
 set_request_limit(Agent, NewLimit) -> 
     snmpa_agent:set_request_limit(Agent, NewLimit).
 
 
 %% -
 
+%% -spec send_notification2(Agent, Notification, SendOpts) -> void() when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    SendOpts :: [send_option()],
+%%    send_option() :: {receiver, receiver()} | {name, notify_name()} | {context, context_name()} | {varbinds, varbinds()} | {local_engine_id, string()} | {extra, extra_info()},
+%%    receiver() :: no_receiver | {tag(), tag_receiver()} | notification_delivery_info(),
+%%    tag() :: term((),
+%%    tag_receiver() :: pid() | registered_name() | {Mod, Func, Args},
+%%    registered_name() :: atom(),
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    notify_name() :: string(),
+%%    context_name() :: string(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {variable(), value()} | {{process_oid(), variable()}, value()} | {column(), row_index(), value()} |,
+%%    variable() :: aliasname() | oid(),
+%%    aliasname() :: atom(),
+%%    process_oid() :: keep (default) | truncate,
+%%    value() :: term(),
+%%    column() :: atom(),
+%%    row_index() :: [int()],
+%%    extra_info() :: term().
 send_notification2(Agent, Notification, SendOpts) ->
     snmpa_agent:send_notification(Agent, Notification, SendOpts).
 
+%% -spec send_notification(Agent, Notification, Receiver) -> term() when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    Receiver :: no_receiver | {Tag, Recv} | notification_delivery_info(),
+%%    Tag :: term(),
+%%    Recv :: receiver(),
+%%    receiver() :: pid() | atom() | {Mod, Func, Args},
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    NotifyName :: string(),
+%%    ContextName :: string(),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    LocalEngineID :: string().
 send_notification(Agent, Notification, Recv) ->
     SendOpts = 
 	[
@@ -703,6 +971,26 @@ send_notification(Agent, Notification, Recv) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
+%% -spec send_notification(Agent, Notification, Receiver, Varbinds) -> term() when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    Receiver :: no_receiver | {Tag, Recv} | notification_delivery_info(),
+%%    Tag :: term(),
+%%    Recv :: receiver(),
+%%    receiver() :: pid() | atom() | {Mod, Func, Args},
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    NotifyName :: string(),
+%%    ContextName :: string(),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    LocalEngineID :: string().
 send_notification(Agent, Notification, Recv, Varbinds) ->
     SendOpts = 
 	[
@@ -714,6 +1002,26 @@ send_notification(Agent, Notification, Recv, Varbinds) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
+%% -spec send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) -> term() when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    Receiver :: no_receiver | {Tag, Recv} | notification_delivery_info(),
+%%    Tag :: term(),
+%%    Recv :: receiver(),
+%%    receiver() :: pid() | atom() | {Mod, Func, Args},
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    NotifyName :: string(),
+%%    ContextName :: string(),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    LocalEngineID :: string().
 send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
     SendOpts = 
 	[
@@ -725,6 +1033,26 @@ send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
+%% -spec send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void()  when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    Receiver :: no_receiver | {Tag, Recv} | notification_delivery_info(),
+%%    Tag :: term(),
+%%    Recv :: receiver(),
+%%    receiver() :: pid() | atom() | {Mod, Func, Args},
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    NotifyName :: string(),
+%%    ContextName :: string(),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    LocalEngineID :: string().
 send_notification(Agent, Notification, Recv, NotifyName, 
 		  ContextName, Varbinds) 
   when (is_list(NotifyName)  andalso 
@@ -740,6 +1068,26 @@ send_notification(Agent, Notification, Recv, NotifyName,
 	], 
     send_notification2(Agent, Notification, SendOpts).
 
+%% -spec send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void()  when Agent :: pid() | atom(),
+%%    Notification :: atom(),
+%%    Receiver :: no_receiver | {Tag, Recv} | notification_delivery_info(),
+%%    Tag :: term(),
+%%    Recv :: receiver(),
+%%    receiver() :: pid() | atom() | {Mod, Func, Args},
+%%    Mod :: atom(),
+%%    Func :: atom(),
+%%    Args :: list(),
+%%    NotifyName :: string(),
+%%    ContextName :: string(),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    LocalEngineID :: string().
 send_notification(Agent, Notification, Recv, 
 		  NotifyName, ContextName, Varbinds, LocalEngineID) 
   when (is_list(NotifyName)  andalso 
@@ -767,10 +1115,27 @@ send_trap(Agent, Trap, Community, Varbinds) ->
 
 %%%-----------------------------------------------------------------
 
+%% -spec discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason} when TargetName :: string(),
+%%    Notification :: atom(),
+%%    ContextName :: string() (defaults to ""),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    DiscoHandler :: snmpa_discovery_handler(),
+%%    ExtraInfo :: term(),
+%%    snmpa_discovery_handler() :: Module implementing the snmpa_discovery_handler behaviour,
+%%    ManagerEngineID :: string(),
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    Reason :: term().
 discovery(TargetName, Notification) ->
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds).
 
+%% -spec discovery(TargetName, Notification, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}discovery(TargetName, Notification, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}
 discovery(TargetName, Notification, Varbinds) when is_list(Varbinds) ->
     ContextName = "",
     discovery(TargetName, Notification, ContextName, Varbinds);
@@ -779,6 +1144,7 @@ discovery(TargetName, Notification, DiscoHandler)
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds, DiscoHandler).
 
+%% -spec discovery(TargetName, Notification, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason}discovery(TargetName, Notification, ContextName, Varbinds) -> {ok, ManagerEngineID} | {error, Reason}
 discovery(TargetName, Notification, ContextName, Varbinds) 
   when is_list(Varbinds) ->
     DiscoHandler = snmpa_discovery_handler_default, 
@@ -789,11 +1155,43 @@ discovery(TargetName, Notification, Varbinds, DiscoHandler)
     ContextName = "",
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler).
 
+%% -spec discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) -> {ok, ManagerEngineID} | {error, Reason} when TargetName :: string(),
+%%    Notification :: atom(),
+%%    ContextName :: string() (defaults to ""),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    DiscoHandler :: snmpa_discovery_handler(),
+%%    ExtraInfo :: term(),
+%%    snmpa_discovery_handler() :: Module implementing the snmpa_discovery_handler behaviour,
+%%    ManagerEngineID :: string(),
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    Reason :: term().
 discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) ->
     ExtraInfo = ?DISCO_EXTRA_INFO,
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, 
 	      ExtraInfo).
 
+%% -spec discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, ExtraInfo) -> {ok, ManagerEngineID} | {error, Reason} when TargetName :: string(),
+%%    Notification :: atom(),
+%%    ContextName :: string() (defaults to ""),
+%%    Varbinds :: varbinds(),
+%%    varbinds() :: [varbind()],
+%%    DiscoHandler :: snmpa_discovery_handler(),
+%%    ExtraInfo :: term(),
+%%    snmpa_discovery_handler() :: Module implementing the snmpa_discovery_handler behaviour,
+%%    ManagerEngineID :: string(),
+%%    varbind() :: {Variable, Value} | {Column, RowIndex, Value} | {OID, Value},
+%%    Variable :: atom(),
+%%    Column :: atom(),
+%%    OID :: oid(),
+%%    Value :: term(),
+%%    RowIndex :: [int()],
+%%    Reason :: term().
 discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, 
 	  ExtraInfo) 
   when (is_list(TargetName) andalso (length(TargetName) > 0) andalso 
@@ -812,9 +1210,14 @@ discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler,
 
 %%%-----------------------------------------------------------------
 
+%% -spec register_subagent(Agent, SubTreeOid, Subagent) -> ok | {error, Reason} when Agent :: pid() | atom(),
+%%    SubTreeOid :: oid(),
+%%    SubAgent :: pid().
 register_subagent(Agent, SubTree, SubAgent) ->
     snmpa_agent:register_subagent(Agent, SubTree, SubAgent).
 
+%% -spec unregister_subagent(Agent, SubagentOidOrPid) -> ok | {ok, SubAgentPid} | {error, Reason} when Agent :: pid() | atom(),
+%%    SubTreeOidorPid :: oid() | pid().
 unregister_subagent(Agent, SubOidOrPid) ->
     snmpa_agent:unregister_subagent(Agent, SubOidOrPid).
 
@@ -830,6 +1233,12 @@ sys_up_time() ->
 
 %%%-----------------------------------------------------------------
 
+-spec which_transports() -> Result when Result :: [{TDomain, TAddress} | {TDomain, TAddress, Kind}],
+   TDomain :: transportDomainUdpIpv4 | transportDomainUdpIpv6,
+   TAddress :: {IpAddr, IpPort},
+   IpAddr :: inet:ip_address(),
+   IpPort :: pos_integer(),
+   Kind :: req_responder | trap_sender.
 which_transports() ->
     {value, Transports} = snmp_framework_mib:intAgentTransports(get),
     [case Kind of
@@ -842,16 +1251,20 @@ which_transports() ->
 
 %%%-----------------------------------------------------------------
 
+%% -spec restart_worker() -> void() when Agent :: pid() | atom().
 restart_worker() ->
     restart_worker(snmp_master_agent).
 
+%% -spec restart_worker(Agent) -> void() when Agent :: pid() | atom().
 restart_worker(Agent) ->
     snmpa_agent:restart_worker(Agent).
 
 
+%% -spec restart_set_worker() -> void() when Agent :: pid() | atom().
 restart_set_worker() ->
     restart_set_worker(snmp_master_agent).
 
+%% -spec restart_set_worker(Agent) -> void() when Agent :: pid() | atom().
 restart_set_worker(Agent) ->
     snmpa_agent:restart_set_worker(Agent).
 
@@ -869,12 +1282,19 @@ localize_key(Alg, Key, EngineID) ->
 %%%-----------------------------------------------------------------
 %%% Agent Capabilities functions
 %%%-----------------------------------------------------------------
+%% -spec add_agent_caps(SysORID, SysORDescr) -> SysORIndex
+%%                         when
+%%                             SysORID :: oid(),
+%%                             SysORDescr :: string(),
+%%                             SysORIndex :: integer().
 add_agent_caps(Oid, Descr) ->
     snmp_standard_mib:add_agent_caps(Oid, Descr).
 
+%% -spec del_agent_caps(SysORIndex) -> void() when SysORIndex :: integer().
 del_agent_caps(Index) ->
     snmp_standard_mib:del_agent_caps(Index).
 
+%% -spec get_agent_caps() -> [[SysORIndex, SysORID, SysORDescr, SysORUpTime]]
 get_agent_caps() ->
     snmp_standard_mib:get_agent_caps().
 
@@ -1035,9 +1455,37 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+%% -spec log_to_io(LogDir) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir) -> 
     log_to_io(LogDir, []).
 
+%% -spec log_to_io(LogDir, Block | Mibs) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     Mibs    = [], 
@@ -1050,6 +1498,20 @@ log_to_io(LogDir, Mibs) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+%% -spec log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     LogName = ?audit_trail_log_name, 
@@ -1060,6 +1522,20 @@ log_to_io(LogDir, Mibs, LogName) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     LogFile = ?audit_trail_log_file, 
@@ -1068,6 +1544,20 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
@@ -1075,6 +1565,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {ok, Cnt} | {error, Reason}
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start);
@@ -1082,6 +1573,20 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+%% -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt} | {error, Reason} when LogDir :: string(),
+%%    Mibs :: [MibName],
+%%    MibName :: string(),
+%%    Block :: boolean(),
+%%    LogName :: string(),
+%%    LogFile :: string(),
+%%    Start :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Stop :: null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()},
+%%    Cnt :: {NumOK, NumERR},
+%%    NumOK :: non_neg_integer(),
+%%    NumERR :: pos_integer(),
+%%    Reason :: disk_log_open_error() | file_open_error() | term(),
+%%    disk_log_open_error() :: {LogName, term()},
+%%    file_open_error() :: {OutFile, term()}.
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
@@ -1091,6 +1596,10 @@ log_info() ->
     snmp_log:info(LogName).
 
 
+-spec change_log_size(NewSize) -> ok | {error, Reason} when NewSize :: {MaxBytes, MaxFiles},
+   MaxBytes :: integer(),
+   MaxFiles :: integer(),
+   Reason :: term().
 change_log_size(NewSize) -> 
     LogName = ?audit_trail_log_name, % The old (agent) default
     snmp:change_log_size(LogName, NewSize).
@@ -1109,8 +1618,18 @@ change_log_type(NewType) ->
 change_log_type(Agent, NewType) ->
     set_log_type(Agent, NewType).
 
+%% -spec set_log_type(NewType) -> {ok, OldType} | {error, Reason} when NewType :: atl_type(),
+%%    OldType :: atl_type(),
+%%    Agent :: pid() | atom(),
+%%    Reason :: term().
 set_log_type(NewType) ->
     set_log_type(snmp_master_agent, NewType).
 
+%% -spec set_log_type(Agent, NewType) -> {ok, OldType} | {error, Reason}
+%%                       when
+%%                           NewType :: atl_type(),
+%%                           OldType :: atl_type(),
+%%                           Agent :: pid() | atom(),
+%%                           Reason :: term().
 set_log_type(Agent, NewType) ->
     snmpa_agent:set_log_type(Agent, NewType).

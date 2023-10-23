@@ -1111,6 +1111,9 @@ get_uptime() ->
 %% Cross Reference Check
 %% 
 %%-spec xm(module() | file:filename()) -> xref:m/1 return
+-spec xm(ModSpec) -> term() when ModSpec :: Module | Filename,
+    Module :: atom(),
+    Filename :: string().
 xm(M) ->
     appcall(tools, xref, m, [M]).
 
@@ -1118,9 +1121,12 @@ xm(M) ->
 %% Call yecc 
 %% 
 %%-spec y(file:name()) -> yecc:file/2 return
+-spec y(File) -> YeccRet :: term() when File :: filename:name().
 y(File) -> y(File, []).
 
 %%-spec y(file:name(), [yecc:option()]) -> yecc:file/2 return
+-spec y(File, Options :: term()) -> YeccRet :: term()
+           when File :: filename:name().
 y(File, Opts) ->
     appcall(parsetools, yecc, file, [File, Opts]).
 

@@ -149,6 +149,11 @@ run(#doclet_toc{}=Cmd, Ctxt) ->
 %% `Modules' are sorted lists of atoms without duplicates. (They
 %% usually include the data from the edoc-info file in the target
 %% directory, if it exists.)
+-spec gen(Sources :: term(),
+          App :: term(),
+          Modules :: term(),
+          Ctxt :: term()) ->
+             term().
 gen(Sources, App, Modules, Ctxt) ->
     Dir = Ctxt#doclet_context.dir,
     Env = Ctxt#doclet_context.env,

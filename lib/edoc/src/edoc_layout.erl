@@ -95,6 +95,7 @@
 
 %% NEW-OPTIONS: xml_export, index_columns, stylesheet
 
+%% -spec module(Element :: term(), Options :: term()) -> term().
 module(Element, Options) ->
     XML = layout_module(Element, init_opts(Element, Options)),
     Export = proplists:get_value(xml_export, Options,

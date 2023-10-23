@@ -28,9 +28,27 @@
 -define(password,"Password: ").
 -define(prx,"login: |Password: |\\\$ |> ").
 
+%% -spec get_prompt_regexp() -> PromptRegexp
+%%                            when PromptRegexp :: prompt_regexp().
 get_prompt_regexp() ->
     ?prx.
 
+%% -spec connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) ->
+%%                  {ok, Handle} | {error, Reason}
+%%                  when
+%%                      ConnName :: target_name(),
+%%                      Ip ::
+%%                          string() |
+%%                          {integer(), integer(), integer(), integer()},
+%%                      Port :: integer(),
+%%                      Timeout :: integer(),
+%%                      KeepAlive :: bool(),
+%%                      TCPNoDelay :: bool(),
+%%                      Extra :: target_name() | {Username, Password},
+%%                      Username :: string(),
+%%                      Password :: string(),
+%%                      Handle :: handle(),
+%%                      Reason :: term().
 connect(ConnName,Ip,Port,Timeout,KeepAlive,TCPNoDelay,Extra) ->
     case Extra of
 	{Username,Password} -> 

@@ -99,12 +99,39 @@
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
+%% -spec get_stats() -> {ok, TotalStats} | {error, Reason} when TotalStats :: [send_handle_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: tcp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {tcp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats() ->
     megaco_stats:get_stats(megaco_tcp_stats).
 
+%% -spec get_stats(SendHandle) -> {ok, SendHandleStats} | {error, Reason} when TotalStats :: [send_handle_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: tcp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {tcp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats(Socket) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket).
 
+%% -spec get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason} when TotalStats :: [send_handle_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: tcp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {tcp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats(Socket, Counter) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket, Counter).
 
@@ -113,9 +140,11 @@ get_stats(Socket, Counter) ->
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
+%% -spec reset_stats() -> void() when SendHandle :: send_handle().
 reset_stats() ->
     megaco_stats:reset_stats(megaco_tcp_stats).
 
+%% -spec reset_stats(SendHandle) -> void() when SendHandle :: send_handle().
 reset_stats(Socket) ->
     megaco_stats:reset_stats(megaco_tcp_stats, Socket).
 
@@ -124,6 +153,7 @@ reset_stats(Socket) ->
 %% Func: start_transport/0
 %% Description: Starts the TPKT transport service
 %%-----------------------------------------------------------------
+-spec start_transport() -> {ok, TransportRef} when TransportRef :: pid().
 start_transport() ->
     ?d2("start_transport -> entry"),
     (catch megaco_stats:init(megaco_tcp_stats)),
@@ -149,6 +179,9 @@ stop_transport(Pid, Reason) ->
 %% Func: listen/2
 %% Description: Starts new TPKT listener sockets
 %%-----------------------------------------------------------------
+%% -spec listen(TransportRef, ListenPortSpecList) -> ok when TransportRef :: pid() | regname(),
+%%    OptionListPerPort :: [Option],
+%%    Option :: {port, integer()} | {options, list()} | {receive_handle, term()} | {inet_backend, default | inet | socket}.
 listen(SupPid, Parameters) ->
     ?d1("listen -> entry with"
 	"~n   SupPid:     ~p"
@@ -169,6 +202,21 @@ listen(SupPid, Parameters) ->
 %% Description: Function is used when opening an TCP socket 
 %%              at the MG side when trying to connect an MGC
 %%-----------------------------------------------------------------
+%% -spec connect(TransportRef, OptionList) ->
+%%                  {ok, Handle, ControlPid} | {error, Reason}
+%%                  when
+%%                      TransportRef :: pid() | regname(),
+%%                      OptionList :: [Option],
+%%                      Option ::
+%%                          {host, IpAddr :: term()} |
+%%                          {port, integer()} |
+%%                          {options, list()} |
+%%                          {receive_handle, term()} |
+%%                          {module, atom()} |
+%%                          {inet_backend, default | inet | socket},
+%%                      Handle :: socket_handle(),
+%%                      ControlPid :: pid(),
+%%                      Reason :: term().
 connect(SupPid, Parameters) ->
     ?d1("connect -> entry with"
 	"~n   SupPid:     ~p"
@@ -374,6 +422,10 @@ post_process_opts4(inet6,
 %% Func: send_message
 %% Description: Function is used for sending data on the TCP socket
 %%-----------------------------------------------------------------
+%% -spec send_message(Handle, Message) -> ok
+%%                       when
+%%                           Handle :: socket_handle(),
+%%                           Message :: binary() | iolist().
 send_message(Socket, Data) ->
     ?d1("send_message -> entry with"
 	"~n   Socket:     ~p"
@@ -402,6 +454,7 @@ sz(List) when is_list(List) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+%% -spec block(Handle) -> ok when Handle :: socket_handle().
 block(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp block", []),
     inet:setopts(Socket, [{active, false}]).
@@ -412,6 +465,7 @@ block(Socket) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+%% -spec unblock(Handle) -> ok when Handle :: socket_handle().
 unblock(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp unblock", []),
     inet:setopts(Socket, [{active, once}]).
@@ -421,6 +475,7 @@ unblock(Socket) ->
 %% Func: close
 %% Description: Function is used for closing the TCP socket
 %%-----------------------------------------------------------------
+%% -spec close(Handle) -> ok when Handle :: socket_handle().
 close(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp close", []),
     gen_tcp:close(Socket).
@@ -430,9 +485,13 @@ close(Socket) ->
 %% Func: socket
 %% Description: Returns the inet socket
 %%-----------------------------------------------------------------
+%% -spec socket(Handle) -> Socket
+%%                 when Handle :: socket_handle(), Socket :: inet_socket().
 socket(Socket) ->
     Socket.
 
+-spec upgrade_receive_handle(ControlPid, NewHandle :: term()) -> ok
+                                when ControlPid :: pid().
 upgrade_receive_handle(Pid, NewHandle) 
   when is_pid(Pid) andalso is_record(NewHandle, megaco_receive_handle) ->
     megaco_tcp_connection:upgrade_receive_handle(Pid, NewHandle).

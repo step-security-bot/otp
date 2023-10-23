@@ -59,12 +59,39 @@
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
+%% -spec get_stats() -> {ok, TotalStats} | {error, Reason} when TotalStats :: [total_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: udp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {udp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats() ->
     megaco_stats:get_stats(megaco_udp_stats).
 
+%% -spec get_stats(SendHandle) -> {ok, SendHandleStats} | {error, Reason} when TotalStats :: [total_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: udp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {udp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats(SH) when is_record(SH, send_handle) ->
     megaco_stats:get_stats(megaco_udp_stats, SH).
 
+%% -spec get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason} when TotalStats :: [total_stats()],
+%%    total_stats() :: {send_handle(), [stats()]},
+%%    SendHandle :: send_handle(),
+%%    SendHandleStats :: [stats()],
+%%    Counter :: udp_stats_counter(),
+%%    CounterStats :: integer(),
+%%    stats() :: {udp_stats_counter(), integer()},
+%%    tcp_stats_counter() :: medGwyGatewayNumInMessages | medGwyGatewayNumInOctets | medGwyGatewayNumOutMessages | medGwyGatewayNumOutOctets | medGwyGatewayNumErrors,
+%%    Reason :: term().
 get_stats(SH, Counter) 
   when is_record(SH, send_handle) andalso is_atom(Counter) ->
     megaco_stats:get_stats(megaco_udp_stats, SH, Counter).
@@ -74,9 +101,11 @@ get_stats(SH, Counter)
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
+%% -spec reset_stats() -> void() when SendHandle :: send_handle().
 reset_stats() ->
     megaco_stats:reset_stats(megaco_udp_stats).
 
+%% -spec reset_stats(SendHandle) -> void() when SendHandle :: send_handle().
 reset_stats(SH) when is_record(SH, send_handle) ->
     megaco_stats:reset_stats(megaco_udp_stats, SH).
 
@@ -86,6 +115,7 @@ reset_stats(SH) when is_record(SH, send_handle) ->
 %% Func: start_transport
 %% Description: Starts the UDP transport service
 %%-----------------------------------------------------------------
+-spec start_transport() -> {ok, TransportRef} when TransportRef :: pid().
 start_transport() ->
     (catch megaco_stats:init(megaco_udp_stats)),
     megaco_udp_sup:start_link().
@@ -107,6 +137,13 @@ stop_transport(Pid, Reason) ->
 %% Func: open
 %% Description: Function is used when opening an UDP socket
 %%-----------------------------------------------------------------
+%% -spec open(TransportRef, OptionList) ->  {ok, Handle, ControlPid} |  {error, Reason} when TransportRef :: pid() | regname(),
+%%    OptionList :: [option()],
+%%    option() :: {port, integer()} | {options, list()} | {receive_handle, receive_handle()} | {module, atom()} | {inet_backend, default | inet | socket},
+%%    Handle :: socket_handle(),
+%%    receive_handle() :: term(),
+%%    ControlPid :: pid(),
+%%    Reason :: term().
 open(SupPid, Options) ->
     Mand = [port, receive_handle],
     case parse_options(Options, #megaco_udp{}, Mand) of
@@ -249,12 +286,17 @@ post_process_opts4(inet6,
 %% Func: socket
 %% Description: Returns the inet socket
 %%-----------------------------------------------------------------
+%% -spec socket(Handle) -> Socket
+%%                 when Handle :: socket_handle(), Socket :: inet_socket().
 socket(SH) when is_record(SH, send_handle) ->
     SH#send_handle.socket;
 socket(Socket) ->
     Socket.
 
 
+%% -spec upgrade_receive_handle(ControlPid, NewHandle) -> ok when ControlPid :: pid(),
+%%    NewHandle :: receive_handle(),
+%%    receive_handle() :: term().
 upgrade_receive_handle(Pid, NewHandle) 
   when is_pid(Pid) andalso is_record(NewHandle, megaco_receive_handle) ->
     megaco_udp_server:upgrade_receive_handle(Pid, NewHandle).
@@ -265,6 +307,16 @@ upgrade_receive_handle(Pid, NewHandle)
 %% Description: Function is used for creating the handle used when 
 %%    sending data on the UDP socket
 %%-----------------------------------------------------------------
+%% -spec create_send_handle(Handle, Host, Port) -> send_handle()
+%%                             when
+%%                                 Handle :: socket_handle(),
+%%                                 Host ::
+%%                                     {A :: term(),
+%%                                      B :: term(),
+%%                                      C :: term(),
+%%                                      D :: term()} |
+%%                                     string(),
+%%                                 Port :: integer().
 create_send_handle(Socket, {_, _, _, _} = Addr, Port) ->
     do_create_send_handle(Socket, Addr, Port);
 create_send_handle(Socket, Addr0, Port) ->
@@ -308,6 +360,8 @@ create_snmp_counters(SH, [Counter|Counters]) ->
 %% Func: send_message
 %% Description: Function is used for sending data on the UDP socket
 %%-----------------------------------------------------------------
+%% -spec send_message(SendHandle, Msg) -> ok when SendHandle :: send_handle(),
+%%    Message :: binary() | iolist().
 send_message(SH, Data) when is_record(SH, send_handle) ->
     #send_handle{socket = Socket, addr = Addr, port = Port} = SH,
     Res = gen_udp:send(Socket, Addr, Port, Data),
@@ -328,6 +382,7 @@ send_message(SH, _Data) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+%% -spec block(Handle) -> ok when Handle :: socket_handle().
 block(SH) when is_record(SH, send_handle) ->
     block(SH#send_handle.socket);
 block(Socket) ->
@@ -340,6 +395,7 @@ block(Socket) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+%% -spec unblock(Handle) -> ok when Handle :: socket_handle().
 unblock(SH) when is_record(SH, send_handle) ->
     unblock(SH#send_handle.socket);
 unblock(Socket) ->
@@ -351,6 +407,7 @@ unblock(Socket) ->
 %% Func: close
 %% Description: Function is used for closing the UDP socket
 %%-----------------------------------------------------------------
+%% -spec close(Handle) -> ok when Handle :: socket_handle().
 close(#send_handle{socket = Socket}) ->
     close(Socket);
 close(Socket) ->

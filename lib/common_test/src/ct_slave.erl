@@ -36,9 +36,18 @@
 		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,
 		  stop_timeout}).
 
+-spec start(Node) -> Result when Node :: atom(),
+   Result :: {ok, NodeName} | {error, Reason, NodeName},
+   Reason :: already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive,
+   NodeName :: atom().
 start(Node) ->
     start(gethostname(), Node).
 
+-spec start(HostOrNode, NodeOrOpts) -> Result when HostOrNode :: atom(),
+   NodeOrOpts :: atom() | list(),
+   Result :: {ok, NodeName} | {error, Reason, NodeName},
+   Reason :: already_started | started_not_connected | boot_timeout | init_timeout | startup_timeout | not_alive,
+   NodeName :: atom().
 start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     start(gethostname(), Node, Opts);
@@ -46,6 +55,43 @@ start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
 start(Host, Node) ->
     start(Host, Node, []).
 
+%% -spec start(Host, Node, Opts) -> Result
+%%                when
+%%                    Node :: atom(),
+%%                    Host :: atom(),
+%%                    Opts :: [OptTuples],
+%%                    OptTuples ::
+%%                        {username, Username} |
+%%                        {password, Password} |
+%%                        {boot_timeout, BootTimeout} |
+%%                        {init_timeout, InitTimeout} |
+%%                        {startup_timeout, StartupTimeout} |
+%%                        {startup_functions, StartupFunctions} |
+%%                        {monitor_master, Monitor} |
+%%                        {kill_if_fail, KillIfFail} |
+%%                        {erl_flags, ErlangFlags} |
+%%                        {env, [{EnvVar, Value}]},
+%%                    Username :: string(),
+%%                    Password :: string(),
+%%                    BootTimeout :: integer(),
+%%                    InitTimeout :: integer(),
+%%                    StartupTimeout :: integer(),
+%%                    StartupFunctions :: [StartupFunctionSpec],
+%%                    StartupFunctionSpec :: {Module, Function, Arguments},
+%%                    Module :: atom(),
+%%                    Function :: atom(),
+%%                    Arguments :: [term],
+%%                    Monitor :: bool(),
+%%                    KillIfFail :: bool(),
+%%                    ErlangFlags :: string(),
+%%                    EnvVar :: string(),
+%%                    Value :: string(),
+%%                    Result :: {ok, NodeName} | {error, Reason, NodeName},
+%%                    Reason ::
+%%                        already_started | started_not_connected |
+%%                        boot_timeout | init_timeout | startup_timeout |
+%%                        not_alive,
+%%                    NodeName :: atom().
 start(Host, Node, Opts) ->
     ENode = enodename(Host, Node),
     case erlang:is_alive() of
@@ -63,9 +109,19 @@ start(Host, Node, Opts) ->
 	    end
     end.
 
+%% -spec stop(Node) -> Result
+%%               when
+%%                   Node :: atom(),
+%%                   Result :: {ok, NodeName} | {error, Reason, NodeName},
+%%                   Reason :: not_started | not_connected | stop_timeout.
 stop(Node) ->
     stop(gethostname(), Node).
 
+-spec stop(Host, Node) -> Result when Host :: atom(),
+   Node :: atom(),
+   Result :: {ok, NodeName} | {error, Reason, NodeName},
+   Reason :: not_started | not_connected | stop_timeout,
+   NodeName :: atom().
 stop(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     stop(gethostname(), Node, Opts);

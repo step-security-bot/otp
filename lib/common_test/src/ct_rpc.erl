@@ -27,12 +27,24 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
+-spec app_node(App, Candidates) -> NodeName when App :: atom(),
+   Candidates :: [NodeName],
+   NodeName :: atom().
 app_node(App, Candidates) ->
     app_node(App, Candidates, true, []).
 
+-spec app_node(App, Candidates, FailOnBadRPC) -> NodeName when App :: atom(),
+   Candidates :: [NodeName],
+   NodeName :: atom(),
+   FailOnBadRPC :: true | false.
 app_node(App, Candidates, FailOnBadRPC) ->
     app_node(App, Candidates, FailOnBadRPC, []).
 
+-spec app_node(App, Candidates, FailOnBadRPC, Cookie) -> NodeName when App :: atom(),
+   Candidates :: [NodeName],
+   NodeName :: atom(),
+   FailOnBadRPC :: true | false,
+   Cookie :: atom().
 app_node(App, [], _, _) -> 
     ct:fail({application_not_running, App});
 
@@ -57,12 +69,40 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
 	    end
     end.
 
+-spec call(Node :: term(),
+           Module :: term(),
+           Function :: term(),
+           Args :: term()) ->
+              term() | {badrpc, Reason :: term()}.
 call(Node, Module, Function, Args) ->
     call(Node, Module, Function, Args, infinity, []). 
 
+-spec call(Node, Module, Function, Args, TimeOut :: term()) ->
+              term() | {badrpc, Reason}
+              when
+                  Node :: NodeName | {Fun, FunArgs},
+                  Fun :: function(),
+                  FunArgs :: term(),
+                  NodeName :: atom(),
+                  Module :: atom(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Reason :: timeout | term().
 call(Node, Module, Function, Args, TimeOut) ->
     call(Node, Module, Function, Args, TimeOut, []).
 
+-spec call(Node, Module, Function, Args, TimeOut :: term(), Cookie) ->
+              term() | {badrpc, Reason}
+              when
+                  Node :: NodeName | {Fun, FunArgs},
+                  Fun :: function(),
+                  FunArgs :: term(),
+                  NodeName :: atom(),
+                  Module :: atom(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Reason :: timeout | term(),
+                  Cookie :: atom().
 call({Fun, FunArgs}, Module, Function, Args, TimeOut, Cookie) ->
     Node = Fun(FunArgs),
     call(Node, Module, Function, Args, TimeOut, Cookie);
@@ -72,9 +112,26 @@ call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     _ = set_the_cookie(Cookie0),
     Result.    
 
+%% -spec cast(Node, Module, Function, Args) -> ok when Node :: NodeName | {Fun, FunArgs},
+%%    Fun :: function(),
+%%    FunArgs :: term(),
+%%    NodeName :: atom(),
+%%    Module :: atom(),
+%%    Function :: atom(),
+%%    Args :: [term()],
+%%    Reason :: timeout | term().
 cast(Node, Module, Function, Args) ->
     cast(Node, Module, Function, Args, []).
 
+%% -spec cast(Node, Module, Function, Args, Cookie) -> ok when Node :: NodeName | {Fun, FunArgs},
+%%    Fun :: function(),
+%%    FunArgs :: term(),
+%%    NodeName :: atom(),
+%%    Module :: atom(),
+%%    Function :: atom(),
+%%    Args :: [term()],
+%%    Reason :: timeout | term(),
+%%    Cookie :: atom().
 cast({Fun, FunArgs}, Module, Function, Args, Cookie) ->
     Node = Fun(FunArgs),
     cast(Node, Module, Function, Args, Cookie);

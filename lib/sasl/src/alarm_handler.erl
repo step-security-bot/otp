@@ -45,6 +45,9 @@ start_link() ->
 %% Args: Alarm ::= {AlarmId, term()}
 %%       where AlarmId ::= term()
 %%-----------------------------------------------------------------
+%% -spec set_alarm(alarm()) -> term() when alarm() :: {AlarmId, AlarmDescription},
+%%    AlarmId :: term(),
+%%    AlarmDescription :: term().
 set_alarm(Alarm) ->
     gen_event:notify(alarm_handler, {set_alarm, Alarm}).
 
@@ -52,6 +55,7 @@ set_alarm(Alarm) ->
 %% Func: clear_alarm/1
 %% Args: AlarmId ::= term()
 %%-----------------------------------------------------------------
+%% -spec clear_alarm(AlarmId) -> void() when AlarmId :: term().
 clear_alarm(AlarmId) ->
     gen_event:notify(alarm_handler, {clear_alarm, AlarmId}).
 
@@ -59,6 +63,7 @@ clear_alarm(AlarmId) ->
 %% Func: get_alarms/0
 %% Returns: [{AlarmId, AlarmDesc}]
 %%-----------------------------------------------------------------
+%% -spec get_alarms() -> [alarm()].
 get_alarms() ->
     gen_event:call(alarm_handler, alarm_handler, get_alarms).
 

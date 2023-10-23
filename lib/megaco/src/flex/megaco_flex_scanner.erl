@@ -41,6 +41,11 @@ is_enabled() ->
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
+%% -spec is_scanner_port(Port, PortOrPorts) -> Boolean
+%%                          when
+%%                              Port :: port(),
+%%                              PortOrPorts :: megaco_ports(),
+%%                              Boolean :: boolean().
 is_scanner_port(Port, Port) when is_port(Port) ->
     true;
 is_scanner_port(Port, Ports) when is_tuple(Ports) ->
@@ -66,6 +71,8 @@ is_own_port(Port, N, Ports) when (N > 0) ->
 %% Start the flex scanner
 %%----------------------------------------------------------------------
 
+%% -spec start() -> {ok, PortOrPorts} | {error, Reason}
+%%                when PortOrPorts :: megaco_ports(), Reason :: term().
 start() ->
     start(?SMP_SUPPORT_DEFAULT()).
 
@@ -136,6 +143,7 @@ drv_name() ->
 %% Stop the flex scanner
 %%----------------------------------------------------------------------
 
+%% -spec stop(PortOrPorts) -> stopped when PortOrPorts :: megaco_ports().
 stop(Port) when is_port(Port) ->
     erlang:port_close(Port), 
     _ = erl_ddll:unload_driver(drv_name()),
@@ -152,6 +160,16 @@ stop(Ports) when is_list(Ports) ->
 %% Scan a message
 %%----------------------------------------------------------------------
 
+%% -spec scan(Binary, PortOrPorts) ->
+%%               {ok, Tokens, Version, LatestLine} |
+%%               {error, Reason, LatestLine}
+%%               when
+%%                   Binary :: binary(),
+%%                   PortOrPorts :: megaco_ports(),
+%%                   Tokens :: list(),
+%%                   Version :: megaco_version(),
+%%                   LatestLine :: integer(),
+%%                   Reason :: term().
 scan(Binary, Port) when is_port(Port) ->
     do_scan(Binary, Port);
 scan(Binary, Ports) when is_tuple(Ports) ->

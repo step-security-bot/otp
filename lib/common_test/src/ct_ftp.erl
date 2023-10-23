@@ -40,14 +40,36 @@
 %%%=================================================================
 %%% API
 
+%% -spec put(KeyOrName, LocalFile, RemoteFile) ->
+%%              ok | {error, Reason :: term()}
+%%              when
+%%                  KeyOrName :: Key | Name,
+%%                  Key :: atom(),
+%%                  Name :: target_name(),
+%%                  LocalFile :: string(),
+%%                  RemoteFile :: string().
 put(KeyOrName,LocalFile,RemoteFile) ->
     Fun = fun(Ftp) -> send(Ftp,LocalFile,RemoteFile) end,
     open_and_do(KeyOrName,Fun).
 
+%% -spec get(KeyOrName, RemoteFile, LocalFile) ->
+%%              ok | {error, Reason :: term()}
+%%              when
+%%                  KeyOrName :: Key | Name,
+%%                  Key :: atom(),
+%%                  Name :: target_name(),
+%%                  RemoteFile :: string(),
+%%                  LocalFile :: string().
 get(KeyOrName,RemoteFile,LocalFile) ->
     Fun = fun(Ftp) -> recv(Ftp,RemoteFile,LocalFile) end,
     open_and_do(KeyOrName,Fun).
 
+%% -spec open(KeyOrName) -> {ok, Handle} | {error, Reason :: term()}
+%%               when
+%%                   KeyOrName :: Key | Name,
+%%                   Key :: atom(),
+%%                   Name :: target_name(),
+%%                   Handle :: handle().
 open(KeyOrName) ->
     case ct_util:get_key_from_name(KeyOrName) of
 	{ok,node} ->
@@ -88,9 +110,17 @@ open(KeyOrName,Username,Password) ->
 	    ct_gen_conn:start(KeyOrName,full_addr(Addr),{Username,Password},?MODULE)
     end.
 
+-spec send(Connection :: term(), LocalFile :: term()) ->
+              ok | {error, Reason :: term()}.
 send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
+-spec send(Connection, LocalFile, RemoteFile) ->
+              ok | {error, Reason :: term()}
+              when
+                  Connection :: connection(),
+                  LocalFile :: string(),
+                  RemoteFile :: string().
 send(Connection,LocalFile,RemoteFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -99,9 +129,17 @@ send(Connection,LocalFile,RemoteFile) ->
 	    Error
     end.
 
+-spec recv(Connection :: term(), RemoteFile :: term()) ->
+              ok | {error, Reason :: term()}.
 recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
+-spec recv(Connection, RemoteFile, LocalFile) ->
+              ok | {error, Reason :: term()}
+              when
+                  Connection :: connection(),
+                  RemoteFile :: string(),
+                  LocalFile :: string().
 recv(Connection,RemoteFile,LocalFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -110,6 +148,8 @@ recv(Connection,RemoteFile,LocalFile) ->
 	    Error
     end.
 
+-spec cd(Connection, Dir) -> ok | {error, Reason :: term()}
+            when Connection :: connection(), Dir :: string().
 cd(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -118,6 +158,11 @@ cd(Connection,Dir) ->
 	    Error
     end.
 
+-spec ls(Connection, Dir) -> {ok, Listing} | {error, Reason :: term()}
+            when
+                Connection :: connection(),
+                Dir :: string(),
+                Listing :: string().
 ls(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -126,6 +171,8 @@ ls(Connection,Dir) ->
 	    Error
     end.
 
+-spec type(Connection, Type) -> ok | {error, Reason :: term()}
+              when Connection :: connection(), Type :: ascii | binary.
 type(Connection,Type) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -134,6 +181,8 @@ type(Connection,Type) ->
 	    Error
     end.
     
+-spec delete(Connection, File) -> ok | {error, Reason :: term()}
+                when Connection :: connection(), File :: string().
 delete(Connection,File) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -142,6 +191,8 @@ delete(Connection,File) ->
 	    Error
     end.
 
+-spec close(Connection) -> ok | {error, Reason :: term()}
+               when Connection :: connection().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->

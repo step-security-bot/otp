@@ -83,9 +83,15 @@
 %%%  API
 %%%=========================================================================
 
+-spec start(Config :: term(), MgrAgentConfName :: term()) -> ok.
 start(Config, MgrAgentConfName) ->
     start(Config, MgrAgentConfName, undefined).
 
+%% -spec start(Config, MgrAgentConfName, SnmpAppConfName) -> ok when Config :: [{Key, Value}],
+%%    Key :: atom(),
+%%    Value :: term(),
+%%    MgrAgentConfName :: atom(),
+%%    SnmpConfName :: atom().
 start(Config, MgrAgentConfName, SnmpAppConfName) ->
     StartManager= ct:get_config({MgrAgentConfName, start_manager}, true),
     StartAgent = ct:get_config({MgrAgentConfName, start_agent}, false),
@@ -113,6 +119,9 @@ start_application(App) ->
             Else
     end.
  
+-spec stop(Config) -> ok when Config :: [{Key, Value}],
+   Key :: atom(),
+   Value :: term().
 stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
     ok = application:stop(snmp),
@@ -125,16 +134,33 @@ stop(Config) ->
     catch del_dir(DbDir).
     
     
+-spec get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+                    when
+                        Agent :: agent_name(),
+                        Oids :: oids(),
+                        MgrAgentConfName :: atom(),
+                        SnmpReply :: snmpreply().
 get_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
+-spec get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+                         when
+                             Agent :: agent_name(),
+                             Oids :: oids(),
+                             MgrAgentConfName :: atom(),
+                             SnmpReply :: snmpreply().
 get_next_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get_next2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
+%% -spec set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply when Agent :: agent_name(),
+%%    Oids :: oids(),
+%%    MgrAgentConfName :: atom(),
+%%    Config :: [{Key, Value}],
+%%    SnmpReply :: snmpreply().
 set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
@@ -150,6 +176,12 @@ set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     end,
     SnmpSetReply.
 
+-spec set_info(Config) -> [{Agent, OldVarsAndVals, NewVarsAndVals}]
+                  when
+                      Config :: [{Key :: term(), Value :: term()}],
+                      Agent :: agent_name(),
+                      OldVarsAndVals :: varsandvals(),
+                      NewVarsAndVals :: varsandvals().
 set_info(Config) ->
     PrivDir = ?config(priv_dir, Config),
     SetLogFile = filename:join(PrivDir, ?CT_SNMP_LOG_FILE),
@@ -161,6 +193,11 @@ set_info(Config) ->
 	    []
     end.
 
+%% -spec register_users(MgrAgentConfName, Users) -> ok | {error, Reason}
+%%                         when
+%%                             MgrAgentConfName :: atom(),
+%%                             Users :: [user()],
+%%                             Reason :: term().
 register_users(MgrAgentConfName, Users) ->
     case setup_users(Users) of
 	ok ->
@@ -174,6 +211,12 @@ register_users(MgrAgentConfName, Users) ->
 	    Error
     end.
 
+%% -spec register_agents(MgrAgentConfName, ManagedAgents) ->
+%%                          ok | {error, Reason}
+%%                          when
+%%                              MgrAgentConfName :: atom(),
+%%                              ManagedAgents :: [agent()],
+%%                              Reason :: term().
 register_agents(MgrAgentConfName, ManagedAgents) ->
     case setup_managed_agents(MgrAgentConfName,ManagedAgents) of
 	ok ->
@@ -188,6 +231,12 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
 	    Error
     end.
 
+%% -spec register_usm_users(MgrAgentConfName, UsmUsers) ->
+%%                             ok | {error, Reason}
+%%                             when
+%%                                 MgrAgentConfName :: atom(),
+%%                                 UsmUsers :: [usm_user()],
+%%                                 Reason :: term().
 register_usm_users(MgrAgentConfName, UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     case setup_usm_users(UsmUsers, EngineID) of
@@ -202,10 +251,15 @@ register_usm_users(MgrAgentConfName, UsmUsers) ->
 	    Error
     end.
 
+%% -spec unregister_users(MgrAgentConfName) -> ok when MgrAgentConfName :: atom(),
+%%    Reason :: term().
 unregister_users(MgrAgentConfName) ->
     Users = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, users},[])],
     unregister_users(MgrAgentConfName,Users).
 
+%% -spec unregister_users(MgrAgentConfName, Users) -> ok when MgrAgentConfName :: atom(),
+%%    Users :: [user_name()],
+%%    Reason :: term().
 unregister_users(MgrAgentConfName,Users) ->
     takedown_users(Users),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -218,12 +272,17 @@ unregister_users(MgrAgentConfName,Users) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+%% -spec unregister_agents(MgrAgentConfName) -> ok when MgrAgentConfName :: atom(),
+%%    Reason :: term().
 unregister_agents(MgrAgentConfName) ->    
     ManagedAgents =  [AgentName ||
 			 {AgentName, _} <-
 			     ct:get_config({MgrAgentConfName,managed_agents},[])],
     unregister_agents(MgrAgentConfName,ManagedAgents).
 
+%% -spec unregister_agents(MgrAgentConfName, ManagedAgents) -> ok when MgrAgentConfName :: atom(),
+%%    ManagedAgents :: [agent_name()],
+%%    Reason :: term().
 unregister_agents(MgrAgentConfName,ManagedAgents) ->
     takedown_managed_agents(MgrAgentConfName, ManagedAgents),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -237,10 +296,15 @@ unregister_agents(MgrAgentConfName,ManagedAgents) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+%% -spec unregister_usm_users(MgrAgentConfName) -> ok when MgrAgentConfName :: atom(),
+%%    Reason :: term().
 unregister_usm_users(MgrAgentConfName) ->
     UsmUsers = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, usm_users},[])],
     unregister_usm_users(MgrAgentConfName,UsmUsers).
 
+%% -spec unregister_usm_users(MgrAgentConfName, UsmUsers) -> ok when MgrAgentConfName :: atom(),
+%%    UsmUsers :: [usm_user_name()],
+%%    Reason :: term().
 unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     takedown_usm_users(UsmUsers,EngineID),
@@ -255,9 +319,15 @@ unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+-spec load_mibs(Mibs) -> ok | {error, Reason} when Mibs :: [MibName],
+   MibName :: string(),
+   Reason :: term().
 load_mibs(Mibs) ->       
     snmpa:load_mibs(snmp_master_agent, Mibs).
  
+-spec unload_mibs(Mibs) -> ok | {error, Reason} when Mibs :: [MibName],
+   MibName :: string(),
+   Reason :: term().
 unload_mibs(Mibs) ->
     snmpa:unload_mibs(snmp_master_agent, Mibs).
 

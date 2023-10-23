@@ -84,9 +84,12 @@
 %% Description: Starts the inets application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
+%% -spec start() -> 
 start() -> 
     application:start(odbc).
 
+-spec start(Type) -> ok | {error, Reason :: term()}
+               when Type :: permanent | transient | temporary.
 start(Type) -> 
     application:start(odbc, Type).
 
@@ -95,6 +98,7 @@ start(Type) ->
 %%
 %% Description: Stops the odbc application.
 %%--------------------------------------------------------------------
+-spec stop() -> ok .
 stop() -> 
     application:stop(odbc).
 
@@ -105,6 +109,11 @@ stop() ->
 %%              to a c-process that uses the ODBC API to open a connection
 %%              to the database. 
 %%-------------------------------------------------------------------------
+%% -spec connect(ConnectStr, Options) -> {ok, Ref} | {error, Reason}  when ConnectStr :: string(),
+%%    Options :: [] | [option()],
+%%    option() :: {auto_commit, on | off} | {timeout, milliseconds()} | {binary_strings, on | off} | {tuple_row, on | off} | {scrollable_cursors, on | off} | {trace_driver, on | off} | {extended_errors, on | off},
+%%    Ref :: connection_reference() - should be used to access the connection.,
+%%    Reason :: port_program_executable_not_found | common_reason().
 connect(ConnectionStr, Options) when is_list(ConnectionStr), is_list(Options) ->
     
     %% Spawn the erlang control process.
@@ -124,6 +133,12 @@ connect(ConnectionStr, Options) when is_list(ConnectionStr), is_list(Options) ->
 %% Description: Disconnects from the database and terminates both the erlang
 %%              control process and the database handling c-process. 
 %%--------------------------------------------------------------------------
+%% -spec disconnect(Ref) -> ok | {error, Reason}
+%%                     when
+%%                         Ref :: connection_reference(),
+%%                         Reason ::
+%%                             process_not_owner_of_odbc_connection |
+%%                             extended_error().
 disconnect(ConnectionReference) when is_pid(ConnectionReference)->
     ODBCCmd = [?CLOSE_CONNECTION],
     case call(ConnectionReference, {disconnect, ODBCCmd}, 5000) of 
@@ -149,9 +164,19 @@ disconnect(ConnectionReference) when is_pid(ConnectionReference)->
 %% Description: Commits or rollbacks a transaction. Needed on connections
 %%              where automatic commit is turned off.  
 %%--------------------------------------------------------------------------
+%% -spec commit(Ref, CommitMode) ->
 commit(ConnectionReference, CommitMode) ->
     commit(ConnectionReference, CommitMode, ?DEFAULT_TIMEOUT).
 
+%% -spec commit(Ref, CommitMode, TimeOut) -> ok | {error, Reason}
+%%                 when
+%%                     Ref :: connection_reference(),
+%%                     CommitMode :: commit | rollback,
+%%                     TimeOut :: time_out(),
+%%                     Reason ::
+%%                         not_an_explicit_commit_connection |
+%%                         process_not_owner_of_odbc_connection |
+%%                         common_reason().
 commit(ConnectionReference, commit, infinity) 
   when is_pid(ConnectionReference) ->
     ODBCCmd = [?COMMIT_TRANSACTION, ?COMMIT],
@@ -180,9 +205,15 @@ commit(ConnectionReference, rollback, TimeOut)
 %%              result set is returned, otherwise the number of affected 
 %%       	rows are returned.
 %%--------------------------------------------------------------------------
+%% -spec sql_query(Ref, SQLQuery) -> 
 sql_query(ConnectionReference, SQLQuery) ->
     sql_query(ConnectionReference, SQLQuery, ?DEFAULT_TIMEOUT).
 
+%% -spec sql_query(Ref, SQLQuery, TimeOut) -> ResultTuple | [ResultTuple] |{error, Reason} when Ref :: connection_reference(),
+%%    SQLQuery :: string() - The string may be composed by several SQL-queries separated by a ";", this is called a batch.,
+%%    TimeOut :: time_out(),
+%%    ResultTuple :: result_tuple(),
+%%    Reason :: process_not_owner_of_odbc_connection | common_reason().
 sql_query(ConnectionReference, SQLQuery, infinity) when 
   is_pid(ConnectionReference), is_list(SQLQuery) -> 
     ODBCCmd = [?QUERY, SQLQuery],
@@ -202,9 +233,20 @@ sql_query(ConnectionReference, SQLQuery, TimeOut)
 %%        	the first row in the result set and the number of
 %%	        rows in the result set is returned.
 %%--------------------------------------------------------------------------
+%% -spec select_count(Ref, SelectQuery) -> 
 select_count(ConnectionReference, SQLQuery) ->	
     select_count(ConnectionReference, SQLQuery, ?DEFAULT_TIMEOUT).
 
+%% -spec select_count(Ref, SelectQuery, TimeOut) ->
+%%                       {ok, NrRows} | {error, Reason}
+%%                       when
+%%                           Ref :: connection_reference(),
+%%                           SelectQuery :: string(),
+%%                           TimeOut :: time_out(),
+%%                           NrRows :: n_rows(),
+%%                           Reason ::
+%%                               process_not_owner_of_odbc_connection |
+%%                               common_reason().
 select_count(ConnectionReference, SQLQuery, infinity) when 
   is_pid(ConnectionReference), is_list(SQLQuery) ->
     ODBCCmd = [?SELECT_COUNT, SQLQuery],
@@ -222,9 +264,15 @@ select_count(ConnectionReference, SQLQuery, TimeOut) when
 %% Description: Selects the first row in the current result set. The cursor
 %%            : is positioned at this row. 
 %%--------------------------------------------------------------------------
+%% -spec first(Ref) ->
 first(ConnectionReference) ->	
     first(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+%% -spec first(Ref, Timeout) -> {selected, ColNames, Rows} | {error, Reason}  when Ref :: connection_reference(),
+%%    TimeOut :: time_out(),
+%%    ColNames :: col_names(),
+%%    Rows :: rows(),
+%%    Reason :: result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason().
 first(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_FIRST],
     call(ConnectionReference, {select_cmd, absolute, ODBCCmd}, infinity);
@@ -241,9 +289,22 @@ first(ConnectionReference, TimeOut)
 %% Description: Selects the last row in the current result set. The cursor
 %%            : is positioned at this row. 
 %%--------------------------------------------------------------------------
+%% -spec last(Ref) ->
 last(ConnectionReference) ->	
     last(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+%% -spec last(Ref, TimeOut) -> {selected, ColNames, Rows} | {error, Reason}
+%%               when
+%%                   Ref :: connection_reference(),
+%%                   TimeOut :: time_out(),
+%%                   ColNames :: col_names(),
+%%                   Rows :: rows(),
+%%                   Reason ::
+%%                       result_set_does_not_exist |
+%%                       driver_does_not_support_function |
+%%                       scrollable_cursors_disabled |
+%%                       process_not_owner_of_odbc_connection |
+%%                       common_reason().
 last(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_LAST],
     call(ConnectionReference, {select_cmd, absolute, ODBCCmd}, infinity);
@@ -260,9 +321,20 @@ last(ConnectionReference, TimeOut)
 %%            : in the current result set. The cursor is positioned at 
 %%            : this row. 
 %%--------------------------------------------------------------------------
+%% -spec next(Ref) -> 
 next(ConnectionReference) ->	
     next(ConnectionReference, ?DEFAULT_TIMEOUT).	
     
+%% -spec next(Ref, TimeOut) -> {selected, ColNames, Rows} | {error, Reason}
+%%               when
+%%                   Ref :: connection_reference(),
+%%                   TimeOut :: time_out(),
+%%                   ColNames :: col_names(),
+%%                   Rows :: rows(),
+%%                   Reason ::
+%%                       result_set_does_not_exist |
+%%                       process_not_owner_of_odbc_connection |
+%%                       common_reason().
 next(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_NEXT],
     call(ConnectionReference, {select_cmd, next, ODBCCmd}, infinity);
@@ -280,9 +352,15 @@ next(ConnectionReference, TimeOut)
 %%            : position in the current result set. The cursor is
 %%            : positioned at this row. 
 %%--------------------------------------------------------------------------
+%% -spec prev(Ref) -> 
 prev(ConnectionReference) ->	
     prev(ConnectionReference, ?DEFAULT_TIMEOUT).	
 
+%% -spec prev(ConnectionReference, TimeOut) -> {selected, ColNames, Rows} | {error, Reason}  when Ref :: connection_reference(),
+%%    TimeOut :: time_out(),
+%%    ColNames :: col_names(),
+%%    Rows :: rows(),
+%%    Reason :: result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason().
 prev(ConnectionReference, infinity) when is_pid(ConnectionReference) ->	
     ODBCCmd = [?SELECT, ?SELECT_PREV],
     call(ConnectionReference, {select_cmd, relative, ODBCCmd}, infinity);
@@ -305,9 +383,25 @@ prev(ConnectionReference, TimeOut)
 %%              row selected. After this function has returned the
 %%              cursor is positioned at the last selected row.
 %%--------------------------------------------------------------------------
+%% -spec select(Ref, Position, N) ->
 select(ConnectionReference, Position, N) ->
     select(ConnectionReference, Position, N, ?DEFAULT_TIMEOUT).
 
+%% -spec select(Ref, Position, N, TimeOut) ->
+%%                 {selected, ColNames :: term(), Rows :: term()} |
+%%                 {error, Reason}
+%%                 when
+%%                     Ref :: connection_reference(),
+%%                     Position :: next | {relative, Pos} | {absolute, Pos},
+%%                     Pos :: integer(),
+%%                     N :: integer(),
+%%                     TimeOut :: time_out(),
+%%                     Reason ::
+%%                         result_set_does_not_exist |
+%%                         driver_does_not_support_function |
+%%                         scrollable_cursors_disabled |
+%%                         process_not_owner_of_odbc_connection |
+%%                         common_reason().
 select(ConnectionReference, next, N, infinity) 
   when is_pid(ConnectionReference), is_integer(N), N > 0 ->
     ODBCCmd = [?SELECT, ?SELECT_N_NEXT,
@@ -360,9 +454,16 @@ select(ConnectionReference, {absolute, Pos} , N, TimeOut)
 %%                                    
 %% Description: Executes a parameterized update/delete/insert-query. 
 %%--------------------------------------------------------------------------
+%% -spec param_query(Ref, SQLQuery, Params) -> 
 param_query(ConnectionReference, SQLQuery, Params) ->
     param_query(ConnectionReference, SQLQuery, Params, ?DEFAULT_TIMEOUT).
 
+%% -spec param_query(Ref, SQLQuery, Params, TimeOut) -> ResultTuple | {error, Reason}  when Ref :: connection_reference(),
+%%    SQLQuery :: string() - a SQL query with parameter markers/place holders in form of question marks.,
+%%    Params :: [{odbc_data_type(), [value()]}] |[{odbc_data_type(), in_or_out(), [value()]}],
+%%    in_or_out :: in | out | inout,
+%%    TimeOut :: time_out(),
+%%    Values :: term() - Must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType.
 param_query(ConnectionReference, SQLQuery, Params, infinity) 
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params) ->
     Values = param_values(Params),
@@ -391,9 +492,15 @@ param_query(ConnectionReference, SQLQuery, Params, TimeOut)
 %% Description: Queries the database to find out the datatypes of the
 %%              table <Table>
 %%--------------------------------------------------------------------------
+%% -spec describe_table(Ref, Table) -> 
 describe_table(ConnectionReference, Table) ->
     describe_table(ConnectionReference, Table, ?DEFAULT_TIMEOUT).
 
+%% -spec describe_table(Ref, Table, Timeout) -> {ok, Description} | {error, Reason}  when Ref :: connection_reference(),
+%%    Table :: string() - Name of database table.,
+%%    TimeOut :: time_out(),
+%%    Description :: [{col_name(), odbc_data_type()}],
+%%    Reason :: common_reason().
 describe_table(ConnectionReference, Table, infinity) when 
   is_pid(ConnectionReference), is_list(Table) -> 
     ODBCCmd = [?DESCRIBE, "SELECT * FROM " ++ Table],

@@ -126,26 +126,59 @@
 %% Other events (termed actions) may be undirected and only have one actor.
 %%----------------------------------------------------------------------
 
+-spec trace_me(DetailLevel :: term(),
+               FromTo :: term(),
+               Label :: term(),
+               Contents :: term()) ->
+                  hopefully_traced.
 trace_me(DetailLevel, FromTo, Label, Contents)
   when is_integer(DetailLevel) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+%% -spec trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced when DetailLevel :: integer(X) when X =< 0, X >= 100,
+%%    From :: actor(),
+%%    To :: actor(),
+%%    Label :: atom() | string() | term(),
+%%    Contents :: [{Key, Value}] | term(),
+%%    actor() :: term().
 trace_me(DetailLevel, _From, _To, _Label, _Contents)
   when is_integer(DetailLevel) ->
     hopefully_traced.
 
+-spec phone_home(DetailLevel :: term(),
+                 FromTo :: term(),
+                 Label :: term(),
+                 Contents :: term()) ->
+                    hopefully_traced.
 phone_home(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec phone_home(DetailLevel :: term(),
+                 From :: term(),
+                 To :: term(),
+                 Label :: term(),
+                 Contents :: term()) ->
+                    hopefully_traced.
 phone_home(DetailLevel, From, To, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, From, To, Label, Contents).
 
+-spec report_event(DetailLevel :: term(),
+                   FromTo :: term(),
+                   Label :: term(),
+                   Contents :: term()) ->
+                      hopefully_traced.
 report_event(DetailLevel, FromTo, Label, Contents) ->
     %% N.B External call
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec report_event(DetailLevel :: term(),
+                   From :: term(),
+                   To :: term(),
+                   Label :: term(),
+                   Contents :: term()) ->
+                      hopefully_traced.
 report_event(DetailLevel, From, To, Label, Contents)
   when is_integer(DetailLevel) ->
     %% N.B External call

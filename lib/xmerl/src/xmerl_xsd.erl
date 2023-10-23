@@ -93,6 +93,7 @@
 
 %% @spec validate(Element,State) -> Result
 %% @equiv validate(Element,State,[])
+-spec validate(Xml :: term(), State :: term()) -> term().
 validate(Xml,State) ->
     validate(Xml,State,[]).
 
@@ -134,6 +135,7 @@ validate(Xml,State,Opts) when is_record(State,xsd_state) ->
 %%
 %% The name of the saved file is the same as the name of the
 %% schema, but with <code>.xss</code> extension.
+-spec state2file(S :: term()) -> term().
 state2file(S=#xsd_state{schema_name=SN}) ->
     state2file(S,filename:rootname(SN)).
 
@@ -144,6 +146,7 @@ state2file(S=#xsd_state{schema_name=SN}) ->
 %% schema in a file. You can provide the file name for the saved
 %% state. FileName is saved with the <code>.xss</code> extension
 %% added.
+-spec state2file(S :: term(), FileName :: term()) -> term().
 state2file(S,FileName) when is_record(S,xsd_state) ->
     save_xsd_state(S),
     case catch ets:tab2file(S#xsd_state.table,lists:append(FileName,".xss")) of
@@ -159,6 +162,7 @@ state2file(S,FileName) when is_record(S,xsd_state) ->
 %% schema from a file created with <code>state2file/[1,2]</code>.  The
 %% format of this file is internal. The state can then be used
 %% validating an XML document.
+-spec file2state(FileName :: term()) -> term().
 file2state(FileName) ->
     case catch ets:file2tab(FileName) of
 	{ok,Tab} ->
@@ -200,6 +204,7 @@ xmerl_xsd_vsn_check(S=#xsd_state{vsn=MD5_VSN}) ->
 
 %% @spec process_validate(Schema,Element) -> Result
 %% @equiv process_validate(Schema,Xml,[])
+-spec process_validate(Schema :: term(), Xml :: term()) -> term().
 process_validate(Schema,Xml) ->
     process_validate(Schema,Xml,[]).
 %% @spec process_validate(Schema,Element,Options) -> Result
@@ -219,6 +224,8 @@ process_validate(Schema,Xml) ->
 %% </p>
 %% <p> Observe that E2 may differ from E if for instance there are default
 %% values defined in <code>my_XML_Schema.xsd</code>.</p>
+-spec process_validate(Schema :: term(), Xml :: term(), Opts :: term()) ->
+                          term().
 process_validate(Schema,Xml,Opts) ->
     TargetNamespace = target_namespace(Xml),
     case Schema of
@@ -280,6 +287,7 @@ validate3(_,_,S) ->
 
 %% @spec process_schema(Schema) -> Result
 %% @equiv process_schema(Schema,[])
+-spec process_schema(Schema :: term()) -> term().
 process_schema(Schema) ->
     process_schema(Schema,[]).
 %% @spec process_schema(Schema,Options) -> Result
@@ -292,6 +300,7 @@ process_schema(Schema) ->
 %% Returns the <code>global_state()</code> with schema info or an 
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
+-spec process_schema(Schema :: term(), Options :: term()) -> term().
 process_schema(Schema,Options) when is_list(Options) ->
     State = initiate_state(Options,Schema),
     process_schema(Schema, State);
@@ -322,6 +331,7 @@ process_schema2({SE,_},State,_Schema) ->
 
 %% @spec process_schemas(Schemas) -> Result
 %% @equiv process_schema(Schemas,[])
+-spec process_schemas(Schemas :: term()) -> term().
 process_schemas(Schemas) ->
     process_schemas(Schemas,[]).
 %% @spec process_schemas(Schemas,Options) -> Result
@@ -333,6 +343,7 @@ process_schemas(Schemas) ->
 %% Returns the <code>global_state()</code> with schema info or an 
 %% error reason. The error reason may be a list of several errors
 %% or a single error encountered during the processing.
+-spec process_schemas(Schemas :: term(), Options :: term()) -> term().
 process_schemas(Schemas=[{_,Schema}|_],Options) when is_list(Options) ->
     State = initiate_state(Options,Schema),
     process_schemas(Schemas, State);
@@ -5430,6 +5441,7 @@ add_key_once(Key,N,El,L) ->
 %%       Errors     = tuple() | [tuple()]
 %%       Result       = string() | [string()]
 %% @doc Formats error descriptions to human readable strings.
+-spec format_error(L :: term()) -> term().
 format_error(L) when is_list(L) -> 
     [format_error(X)||X<-L];
 format_error({unexpected_rest,UR}) ->

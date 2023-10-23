@@ -87,6 +87,12 @@ gen(Sources, _App, Modules, Ctxt) ->
 %% INHERIT-OPTIONS: edoc:get_doc/3
 %% DEFER-OPTIONS: run/2
 
+-spec sources(Sources :: term(),
+              Dir :: term(),
+              Modules :: term(),
+              Env :: term(),
+              Options :: term()) ->
+                 term().
 sources(Sources, Dir, Modules, Env, Options) ->
     Suffix = proplists:get_value(file_suffix, Options, ?DEFAULT_FILE_SUFFIX),
     {Ms, E} = lists:foldl(fun (Src, {Set, Error}) ->
@@ -101,6 +107,14 @@ sources(Sources, Dir, Modules, Env, Options) ->
 %% Add its name to the set if it was successful.
 %% Errors are just flagged at this stage,
 %% allowing all source files to be processed even if some of them fail.
+-spec source(_,
+             Dir :: term(),
+             Suffix :: term(),
+             Env :: term(),
+             OkSet :: term(),
+             ErrorFlag :: term(),
+             Options0 :: term()) ->
+                term().
 source({_M, Name, Path}, Dir, Suffix, Env, OkSet, ErrorFlag, Options0) ->
     File = filename:join(Path, Name),
     try

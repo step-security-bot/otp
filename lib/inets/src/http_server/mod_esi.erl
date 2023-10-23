@@ -87,6 +87,11 @@
 %% Description: Send <Data> (Html page generated sofar) to the server
 %% request handling process so it can forward it to the client.
 %%-------------------------------------------------------------------------
+%% -spec deliver(SessionID, Data) -> ok | {error, Reason}
+%%                  when
+%%                      SessionID :: term(),
+%%                      Data :: string() | io_list() | binary(),
+%%                      Reason :: term().
 deliver(SessionID, Data) when is_pid(SessionID) ->
     SessionID ! {esi_data, Data},
     ok;

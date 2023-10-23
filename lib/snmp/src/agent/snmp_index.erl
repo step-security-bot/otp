@@ -51,6 +51,8 @@
 %% Returns: handle()
 %%-----------------------------------------------------------------
 
+%% -spec new(KeyTypes) -> Index
+%%              when KeyTypes :: key_types(), Index :: index().
 new(KeyTypes) ->
     ?vlog("new -> entry with"
 	  "~n   KeyTypes: ~p", [KeyTypes]),
@@ -83,6 +85,8 @@ do_new(KeyTypes, EtsName, EtsOpts) ->
     end.
 
 
+%% -spec get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined
+%%              when Index :: index(), KeyOid :: oid(), Value :: term().
 get(#tab{id = OrdSet}, KeyOid) ->
     ?vlog("get -> entry with"
 	  "~n   OrdSet: ~p"
@@ -96,6 +100,12 @@ get(#tab{id = OrdSet}, KeyOid) ->
 
       
 
+%% -spec get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined
+%%                   when
+%%                       Index :: index(),
+%%                       KeyOid :: oid(),
+%%                       NextKeyOid :: oid(),
+%%                       Value :: term().
 get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
     ?vlog("get_next -> entry with"
 	  "~n   Tab:    ~p"
@@ -107,6 +117,9 @@ get_next(#tab{id = OrdSet} = Tab, KeyOid) ->
 	    get(Tab, Key)
     end.
 
+%% -spec get_last(Index) -> {ok, {KeyOid, Value}} | undefined
+%%                   when
+%%                       Index :: index(), KeyOid :: oid(), Value :: term().
 get_last(#tab{id = OrdSet} = Tab) ->
     ?vlog("get_last -> entry with"
 	  "~n   Tab: ~p", [Tab]),
@@ -117,17 +130,32 @@ get_last(#tab{id = OrdSet} = Tab) ->
 	    get(Tab, Key)
     end.
 
+%% -spec insert(Index, Key, Value) -> NewIndex
+%%                 when
+%%                     Index :: index(),
+%%                     NewIndex :: index(),
+%%                     Key :: key(),
+%%                     Value :: term().
 insert(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key, Val) ->
     ets:insert(OrdSet, {key_to_oid_i(Key, KeyTypes), Val}),
     Tab.
 
+%% -spec delete(Index, Key) -> NewIndex
+%%                 when Index :: index(), NewIndex :: index(), Key :: key().
 delete(#tab{id = OrdSet, keys = KeyTypes} = Tab, Key) ->
     ets:delete(OrdSet, key_to_oid_i(Key, KeyTypes)),
     Tab.
 
+%% -spec delete(Index) -> true when Index :: index(),
+%%    NewIndex :: index(),
+%%    Key :: key().
 delete(#tab{id = OrdSet}) ->
     ets:delete(OrdSet).
 
+%% -spec key_to_oid(Index, Key) -> KeyOid when Index :: index(),
+%%    Key :: key(),
+%%    KeyOid :: oid(),
+%%    NextKeyOid :: oid().
 key_to_oid(#tab{keys = KeyTypes}, Key) ->
     key_to_oid_i(Key, KeyTypes).
 

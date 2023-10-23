@@ -52,6 +52,13 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Shortcut
+%% -spec start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result when Result :: see p/2,
+%%    Nodes :: see tracer/2,
+%%    Patterns :: [tuple()],
+%%    FlagSpec :: {Procs, Flags},
+%%    Proc :: see p/2,
+%%    Flags :: see p/2,
+%%    Opts :: see tracer/2.
 start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
     {ok, _} = tracer(Nodes, Options),
     [{ok, _} = apply(?MODULE, tpl, tuple_to_list(Args)) || Args <- Patterns],
@@ -60,10 +67,30 @@ start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Open a trace port on all given nodes and create the meta data file
+-spec tracer() -> Result :: term().
 tracer() -> tracer(node()).
+-spec tracer(Nodes :: term()) -> Result :: term().
 tracer(shell) -> tracer(node(), shell);
 tracer(dbg) -> tracer(node(), {shell, only});
 tracer(Nodes) -> tracer(Nodes,[]).
+%% -spec tracer(Nodes,Opts) -> Result when Result :: {ok, ActivatedNodes} | {error,Reason},
+%%    Nodes :: atom() | [atom()] | all | existing | new,
+%%    Opts :: Opt | [Opt],
+%%    Opt :: {file,Client} | {handler, FormatHandler} | {process_info,PI} | shell | {shell, ShellSpec} | {timer, TimerSpec} | {overload_check, {MSec, Module, Function}} | {flush, MSec} | resume | {resume, FetchTimeout} | {queue_size, QueueSize},
+%%    TimerSpec :: MSec | {MSec, StopOpts},
+%%    MSec :: integer(),
+%%    FetchTimeout :: integer(),
+%%    Module :: atom(),
+%%    Function :: atom(),
+%%    StopOpts :: see stop/2,
+%%    Client :: File | {local, File},
+%%    File :: Filename | Wrap,
+%%    Filename :: string(),
+%%    Wrap :: {wrap,Filename} | {wrap,Filename,Size,Count},
+%%    FormatHandler :: See format/2,
+%%    PI :: true | false,
+%%    ShellSpec :: true | false | only,
+%%    QueueSize :: non_neg_integer().
 tracer(Nodes,Opt) ->
     {PI,Client,Traci} = opt(Opt),
     %%We use initial Traci as SessionInfo for loop/2
@@ -272,6 +299,12 @@ store(Func,Args) ->
 	   end,
     ets:insert(?history_table,{Last+1,{?MODULE,Func,Args}}).
 
+-spec list_history() -> History
+                      when
+                          History ::
+                              [{N :: term(),
+                                Func :: term(),
+                                Args :: term()}].
 list_history() -> 
     %% the check is only to see if the tool is started.
     case ets:info(?history_table) of
@@ -279,6 +312,8 @@ list_history() ->
 	_info -> ets:tab2list(?history_table)
     end.
 
+-spec run_history(N) -> ok | {error, Reason :: term()}
+                     when N :: integer() | [integer()].
 run_history([H|T]) ->
     case run_history(H) of
 	ok -> run_history(T);
@@ -308,10 +343,22 @@ run_printed({M,F,A},Verbose) ->
     R = apply(M,F,A),
     Verbose andalso print_result(R).
 	
+-spec write_config(ConfigFile :: term(), Config :: term()) -> term().
 write_config(ConfigFile,all) ->
     write_config(ConfigFile,['_']);
 write_config(ConfigFile,Config) ->
     write_config(ConfigFile,Config,[]).
+-spec write_config(ConfigFile, Config, Opts) ->
+                      ok | {error, Reason :: term()}
+                      when
+                          ConfigFile :: string(),
+                          Config ::
+                              all | [integer()] | [{Mod, Func, Args}],
+                          Mod :: atom(),
+                          Func :: atom(),
+                          Args :: [term()],
+                          Opts :: Opt | [Opt],
+                          Opt :: append.
 write_config(ConfigFile,all,Opt) ->
     write_config(ConfigFile,['_'],Opt);
 write_config(ConfigFile,Config,Opt) when not(is_list(Opt)) ->
@@ -351,6 +398,13 @@ check_config([Other|_Rest],_Acc) ->
     {error,{illegal_config,Other}}.
 
 
+-spec list_config(ConfigFile) -> Config | {error, Reason :: term()}
+                     when
+                         ConfigFile :: string(),
+                         Config ::
+                             [{N :: term(),
+                               Func :: term(),
+                               Args :: term()}].
 list_config(ConfigFile) ->
     case file:read_file(ConfigFile) of
 	{ok,B} -> read_config(B,[],1);
@@ -364,6 +418,8 @@ read_config(B,Acc,N) ->
     read_config(Rest,[{N,{M,F,A}}|Acc],N+1).
 
 
+-spec run_config(ConfigFile) -> ok | {error, Reason :: term()}
+                    when ConfigFile :: string().
 run_config(ConfigFile) ->
     case list_config(ConfigFile) of
 	Config when is_list(Config) ->
@@ -375,6 +431,8 @@ run_config(ConfigFile) ->
 	Error -> Error
     end.
 
+-spec run_config(ConfigFile, NumList) -> ok | {error, Reason :: term()}
+                    when ConfigFile :: string(), NumList :: [integer()].
 run_config(ConfigFile,N) ->
     case list_config(ConfigFile) of
 	Config when is_list(Config) ->
@@ -405,6 +463,12 @@ arg_list([A1|A],Acc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
+%% -spec p(Item,Flags) -> Return when Return :: {ok,[{Item,MatchDesc}]},
+%%    Items :: Item | [Item],
+%%    Item :: pid() | port() | RegName | {global,GlobalRegName} | all | processes | ports | existing | existing_processes | existing_ports | new | new_processes | new_ports,
+%%    RegName :: atom(),
+%%    GlobalRegName :: term(),
+%%    Flags :: Flag | [Flag].
 p(ProcsPorts0,Flags0) ->
     ensure_no_overloaded_nodes(),
     store(p,[ProcsPorts0,Flags0]),
@@ -463,76 +527,96 @@ proc_port({global,Name}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace pattern
+%% -spec tp({Module, Function , Arity}, MatchSpec)tp(Module [, Function [, Arity]], MatchSpec)
 tp(A,B) ->
     ensure_no_overloaded_nodes(),
     store(tp,[A,ms(B)]),
     dbg:tp(A,ms(B)).
+%% -spec tp(Module [, Function [, Arity]], MatchSpec)
 tp(A,B,C) ->
     ensure_no_overloaded_nodes(),
     store(tp,[A,B,ms(C)]),
     dbg:tp(A,B,ms(C)).
+%% -spec tp(Module [, Function [, Arity]], MatchSpec)
 tp(A,B,C,D) ->
     ensure_no_overloaded_nodes(),
     store(tp,[A,B,C,ms(D)]),
     dbg:tp(A,B,C,ms(D)).
 
+%% -spec tpl({Module, Function , Arity}, MatchSpec)tpl(Module [, Function [, Arity]], MatchSpec)
 tpl(A,B) ->
     ensure_no_overloaded_nodes(),
     store(tpl,[A,ms(B)]),
     dbg:tpl(A,ms(B)).
+%% -spec tpl(Module [, Function [, Arity]], MatchSpec)
 tpl(A,B,C) ->
     ensure_no_overloaded_nodes(),
     store(tpl,[A,B,ms(C)]),
     dbg:tpl(A,B,ms(C)).
+%% -spec tpl(Module [, Function [, Arity]], MatchSpec)
 tpl(A,B,C,D) ->
     ensure_no_overloaded_nodes(),
     store(tpl,[A,B,C,ms(D)]),
     dbg:tpl(A,B,C,ms(D)).
 
+-spec tpe(Event :: term(), MatchSpec :: term()) -> term().
 tpe(A,B) ->
     ensure_no_overloaded_nodes(),
     store(tpe,[A,ms(B)]),
     dbg:tpe(A,ms(B)).
 
+-spec ctp() -> term().
 ctp() ->
     store(ctp,[]),
     dbg:ctp().
+%% -spec ctp({Module, Function, Arity})ctp(Module [, Function [, Arity]])
 ctp(A) ->
     store(ctp,[A]),
     dbg:ctp(A).
+%% -spec ctp(Module [, Function [, Arity]])
 ctp(A,B) ->
     store(ctp,[A,B]),
     dbg:ctp(A,B).
+%% -spec ctp(Module [, Function [, Arity]])
 ctp(A,B,C) ->
     store(ctp,[A,B,C]),
     dbg:ctp(A,B,C).
 
+-spec ctpl() -> term().
 ctpl() ->
     store(ctpl,[]),
     dbg:ctpl().
+%% -spec ctpl({Module, Function, Arity})ctpl(Module [, Function [, Arity]])
 ctpl(A) ->
     store(ctpl,[A]),
     dbg:ctpl(A).
+%% -spec ctpl(Module [, Function [, Arity]])
 ctpl(A,B) ->
     store(ctpl,[A,B]),
     dbg:ctpl(A,B).
+%% -spec ctpl(Module [, Function [, Arity]])
 ctpl(A,B,C) ->
     store(ctpl,[A,B,C]),
     dbg:ctpl(A,B,C).
 
+-spec ctpg() -> term().
 ctpg() ->
     store(ctpg,[]),
     dbg:ctpg().
+%% -spec ctpg({Module, Function, Arity})ctpg(Module [, Function [, Arity]])
 ctpg(A) ->
     store(ctpg,[A]),
     dbg:ctpg(A).
+%% -spec ctpg(Module [, Function [, Arity]])
 ctpg(A,B) ->
     store(ctpg,[A,B]),
     dbg:ctpg(A,B).
+%% -spec ctpg(Module [, Function [, Arity]])
 ctpg(A,B,C) ->
     store(ctpg,[A,B,C]),
     dbg:ctpg(A,B,C).
 
+-spec ctpe(Event :: term()) -> term().
 ctpe(A) ->
     store(ctpe,[A]),
     dbg:ctpe(A).
@@ -590,7 +674,13 @@ fix_dot(FunStr) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Support for sequential trace
+-spec seq_trigger_ms() -> MatchSpec :: term().
 seq_trigger_ms() -> seq_trigger_ms(all).
+%% -spec seq_trigger_ms(Flags) -> MatchSpec
+%%                         when
+%%                             MatchSpec :: match_spec(),
+%%                             Flags :: all | SeqTraceFlag | [SeqTraceFlag],
+%%                             SeqTraceFlag :: atom().
 seq_trigger_ms(all) -> seq_trigger_ms(?seq_trace_flags);
 seq_trigger_ms(Flag) when is_atom(Flag) -> seq_trigger_ms([Flag],[]);
 seq_trigger_ms(Flags) -> seq_trigger_ms(Flags,[]).
@@ -605,6 +695,9 @@ seq_trigger_ms([],Body) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Write information to the .ti file
+%% -spec write_trace_info(Key,Info) -> ok when Key :: term(),
+%%    Info :: Data | fun() -> Data,
+%%    Data :: term().
 write_trace_info(Key,What) ->
     store(write_trace_info,[Key,What]),
     no_store_write_trace_info(Key,What).
@@ -619,8 +712,13 @@ no_store_write_trace_info(Key,What) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Stop tracing on all nodes
+-spec stop() -> term().
 stop() ->
     stop([]).
+%% -spec stop(Opts) -> stopped | {stopped, Dir} when Opts :: Opt | [Opt],
+%%    Opt :: nofetch | {fetch_dir, Dir} | format | {format, FormatOpts} | return_fetch_dir,
+%%    Dir :: string(),
+%%    FormatOpts :: see format/2.
 stop(Opts) when is_list(Opts) ->
     Fetch = stop_opts(Opts),
     Result =
@@ -1023,11 +1121,22 @@ write_info(Nodes,PI,Traci) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Format binary trace logs
+-spec get_et_handler() -> term().
 get_et_handler() ->
     {fun ttb_et:handler/4, initial}.
 
+-spec format(File :: term()) -> term().
 format(Files) ->
     format(Files,[]).
+%% -spec format(File,Options) -> ok | {error, Reason} when File :: string() | [string()],
+%%    Options :: Opt | [Opt],
+%%    Opt :: {out,Out} | {handler,FormatHandler} | disable_sort,
+%%    Out :: standard_io | string(),
+%%    FormatHandler :: {Function, InitialState},
+%%    Function :: fun(Fd,Trace,TraceInfo,State) -> State,
+%%    Fd :: standard_io | FileDescriptor,
+%%    Trace :: tuple(),
+%%    TraceInfo :: [{Key,ValueList}].
 format(Files,Opt) ->
     {Out,Handler,DisableSort} = format_opt(Opt),
     ets:new(?MODULE,[named_table]),
