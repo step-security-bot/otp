@@ -917,19 +917,19 @@ attribute_state(Form, St) ->
     function_state(Form, St#lint{state=function}).
 
 
--doc "
-Tracks whether we have read a documentation attribute string multiple times.
-Terminal elements that reset the state of the documentation attribute tracking
-are:
+%% -doc "
+%% Tracks whether we have read a documentation attribute string multiple times.
+%% Terminal elements that reset the state of the documentation attribute tracking
+%% are:
 
-- function,
-- opaque,
-- type
-- callback
+%% - function,
+%% - opaque,
+%% - type
+%% - callback
 
-These terminal elements are also the only ones where one should place
-documentation attributes.
-".
+%% These terminal elements are also the only ones where one should place
+%% documentation attributes.
+%% ".
 track_doc({attribute, A, Tag, Doc}=_AST, #lint{}=St)
   when is_list(Doc) andalso (Tag =:= moduledoc orelse Tag =:= doc) ->
     case get_doc_attr(Tag, St) of
@@ -950,13 +950,13 @@ update_doc_attr(moduledoc, A, #lint{}=St) ->
 update_doc_attr(doc, A, #lint{}=St) ->
     St#lint{doc_defined = {true, erl_anno:line(A)}}.
 
--doc "
-Reset the tracking of a documentation attribute.
+%% -doc "
+%% Reset the tracking of a documentation attribute.
 
-That is, assume that a terminal object was reached, thus we need to reset
-the state so that the linter understands that we have not seen any other
-documentation attribute.
-".
+%% That is, assume that a terminal object was reached, thus we need to reset
+%% the state so that the linter understands that we have not seen any other
+%% documentation attribute.
+%% ".
 untrack_doc(_AST, St) ->
     St#lint{doc_defined = {false, 0}}.
 
