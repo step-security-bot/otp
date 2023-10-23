@@ -83,10 +83,12 @@ extract_meta(AST, MetaData) ->
               (_, Meta) -> Meta
           end, MetaData, AST).
 
--spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary()} | false.
+-spec extract_moduledoc(AST :: [tuple()]) -> ModuleDoc :: {erl_anno:anno(), binary() | none | hidden}.
 extract_moduledoc([]) ->
     {?DEFAULT_MODULE_DOC_LOC, none};
 extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, false}| _AST]) ->
+    extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, hidden}| _AST]);
+extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, hidden}| _AST]) ->
     {ModuleDocAnno, hidden};
 extract_moduledoc([{attribute, ModuleDocAnno, moduledoc, ModuleDoc}| _AST]) when is_list(ModuleDoc) ->
     {ModuleDocAnno, unicode:characters_to_binary(string:trim(ModuleDoc))};
@@ -129,7 +131,7 @@ reset_state(State) ->
 update_meta(#docs{meta = Meta0}=State, Meta1) ->
     State#docs{meta = maps:merge(Meta0, Meta1)}.
 
--spec update_doc(State :: internal_docs(), Doc :: unicode:chardata()) -> internal_docs().
+-spec update_doc(State :: internal_docs(), Doc :: unicode:chardata() | atom()) -> internal_docs().
 update_doc(State, Doc) ->
 State#docs{doc = string:trim(Doc)}.
 
@@ -156,7 +158,9 @@ extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) -
     extract_documentation(T, update_module(State, ModuleName));
 extract_documentation([{attribute, _Anno, doc, Meta0}=_AST | T], State) when is_map(Meta0) ->
     extract_documentation(T, update_meta(State, Meta0));
-extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) ->
+extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) when Doc =:= hidden orelse Doc =:= false ->
+    extract_documentation(T, State);
+extract_documentation([{attribute, _Anno, doc, Doc}=_AST | T], State) when is_list(Doc) ->
     extract_documentation(T, update_doc(State, Doc));
 extract_documentation([AST0 | _T]=AST,
                       #docs{meta = #{ equiv := {call,_,{atom,_,EquivF},Args}} = Meta}=State)
