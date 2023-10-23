@@ -106,9 +106,6 @@ extract_docformat([{attribute, _ModuleDocAnno, moduledoc, MetaFormat} | Ls]) whe
 extract_docformat([_ | Ls]) ->
     extract_docformat(Ls).
 
--doc "
-Creates a map containing the module documentation.
-".
 -spec create_module_doc(ModuleDoc :: binary()) -> map().
 create_module_doc(ModuleDoc) when is_atom(ModuleDoc) ->
     ModuleDoc;
@@ -147,9 +144,6 @@ update_export_funs(State, ExportedFuns) ->
 update_export_types(State, ExportedTypes) ->
     State#docs{exported_types = sets:from_list(ExportedTypes)}.
 
--doc "
-Creates EEP-48 documentation format from an Erlang abstract form.
-".
 extract_documentation([{attribute,_ANNO,export,ExportedFuns} | T]=_AST, State) ->
     extract_documentation(T, update_export_funs(State, ExportedFuns));
 extract_documentation([{attribute,_ANNO,export_type,ExportedTypes} | T]=_AST, State) ->
