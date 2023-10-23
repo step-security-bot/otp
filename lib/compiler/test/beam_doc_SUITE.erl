@@ -3,7 +3,7 @@
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
          singleton_docformat/1, singleton_meta/1, slogan/1,
-         types_and_opaques/1, callback/1]).
+         types_and_opaques/1, callback/1, hide_moduledoc2/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -12,6 +12,7 @@ all() ->
      singleton_doc,
      docmodule_with_doc_attributes,
      hide_moduledoc,
+     hide_moduledoc2,
      docformat,
      singleton_docformat,
      singleton_meta,
@@ -56,6 +57,14 @@ docmodule_with_doc_attributes(Conf) ->
 
 hide_moduledoc(Conf) ->
     {ok, ModName} = compile_file(Conf, "hide_moduledoc"),
+    {ok, {docs_v1, _,_, _Mime, hidden, _,
+          [{{function, main, 0}, _, [<<"main()">>],
+            #{ <<"en">> := <<"Doc test module">> }, #{}}]}} = code:get_doc(ModName),
+    ok.
+
+hide_moduledoc2(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
           [{{function, main, 0}, _, [<<"main()">>],
             #{ <<"en">> := <<"Doc test module">> }, #{}}]}} = code:get_doc(ModName),
