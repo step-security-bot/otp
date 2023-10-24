@@ -49,7 +49,7 @@ documentation format.
                module_name = undefined  :: unicode:chardata() | undefined,
                exported_functions = sets:new() :: sets:set({atom(), non_neg_integer()}),
                exported_types     = sets:new() :: sets:set({atom(), non_neg_integer()}),
-               doc    = none  :: unicode:chardata(), % Function/type/callback local doc
+               doc    = none  :: atom() | unicode:chardata(), % Function/type/callback local doc
                meta   = maps:new() :: map()}).      % Function/type/callback local meta
 
 -type internal_docs() :: #docs{}.
@@ -212,7 +212,7 @@ extract_documentation([], #docs{doc = none}) ->
       Anno      :: erl_anno:anno(),
       AttrBody  :: {function | type | callback, term(), integer()},
       Slogan    :: unicode:chardata(),
-      Docs      :: unicode:chardata(),
+      Docs      :: none | hidden | unicode:chardata(),
       State     :: internal_docs(),
       Signature :: [binary()],
       D         :: map() | none | hidden,
