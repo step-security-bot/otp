@@ -175,8 +175,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context(),
                load_nif=false :: boolean(),      %true if calls erlang:load_nif/2
-               doc_defined = {false, 0} :: {boolean(), erl_anno:location()},
-               moduledoc_defined = {false, 0} :: {boolean(), erl_anno:location()}
+               doc_defined = {false, none} :: {boolean(), term()},
+               moduledoc_defined = {false, none} :: {boolean(), term()}
               }).
 
 -type lint_state() :: #lint{}.
@@ -252,8 +252,8 @@ format_error(multiple_on_loads) ->
     "more than one on_load attribute";
 format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
-format_error({Tag, duplicate_doc_attribute, FirstAnn}) ->
-    io_lib:format("redefining documentation attribute (~p) previously set at line ~p", [Tag, FirstAnn]);
+format_error({Tag, duplicate_doc_attribute, Ann}) ->
+    io_lib:format("redefining documentation attribute (~p) previously set at line ~p", [Tag, erl_anno:line(Ann)]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error(nif_inline) ->
@@ -933,7 +933,7 @@ attribute_state(Form, St) ->
 track_doc({attribute, A, Tag, Doc}=_AST, #lint{}=St)
   when is_list(Doc) andalso (Tag =:= moduledoc orelse Tag =:= doc) ->
     case get_doc_attr(Tag, St) of
-        {true, Ann} -> add_error(A, {Tag, duplicate_doc_attribute, erl_anno:line(Ann)}, St);
+        {true, Ann} -> add_error(A, {Tag, duplicate_doc_attribute, Ann}, St);
         {false, _} -> update_doc_attr(Tag, A, St)
     end;
 track_doc(_AST, St) ->
@@ -946,9 +946,9 @@ get_doc_attr(moduledoc, #lint{moduledoc_defined = Moduledoc}) -> Moduledoc;
 get_doc_attr(doc, #lint{doc_defined = Doc}) -> Doc.
 
 update_doc_attr(moduledoc, A, #lint{}=St) ->
-    St#lint{moduledoc_defined = {true, erl_anno:line(A)}};
+    St#lint{moduledoc_defined = {true, A}};
 update_doc_attr(doc, A, #lint{}=St) ->
-    St#lint{doc_defined = {true, erl_anno:line(A)}}.
+    St#lint{doc_defined = {true, A}}.
 
 %% -doc "
 %% Reset the tracking of a documentation attribute.
@@ -958,7 +958,7 @@ update_doc_attr(doc, A, #lint{}=St) ->
 %% documentation attribute.
 %% ".
 untrack_doc(_AST, St) ->
-    St#lint{doc_defined = {false, 0}}.
+    St#lint{doc_defined = {false, none}}.
 
 %% function_state(Form, State) ->
 %%      State'
