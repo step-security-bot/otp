@@ -253,7 +253,7 @@ format_error(multiple_on_loads) ->
 format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
 format_error({Tag, duplicate_doc_attribute, Ann}) ->
-    io_lib:format("redefining documentation attribute (~p) previously set at line ~p", [Tag, erl_anno:line(Ann)]);
+    io_lib:format("redefining documentation attribute (~p) previously set at line ~p", [Tag, Ann]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error(nif_inline) ->
@@ -933,7 +933,7 @@ attribute_state(Form, St) ->
 track_doc({attribute, A, Tag, Doc}=_AST, #lint{}=St)
   when is_list(Doc) andalso (Tag =:= moduledoc orelse Tag =:= doc) ->
     case get_doc_attr(Tag, St) of
-        {true, Ann} -> add_error(A, {Tag, duplicate_doc_attribute, Ann}, St);
+        {true, Ann} -> add_error(A, {Tag, duplicate_doc_attribute, erl_anno:line(Ann)}, St);
         {false, _} -> update_doc_attr(Tag, A, St)
     end;
 track_doc(_AST, St) ->
