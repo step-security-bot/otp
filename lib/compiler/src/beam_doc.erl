@@ -49,6 +49,7 @@ documentation format.
                module_name = undefined  :: unicode:chardata() | undefined,
                exported_functions = sets:new() :: sets:set({atom(), non_neg_integer()}),
                exported_types     = sets:new() :: sets:set({atom(), non_neg_integer()}),
+               export_all         = false :: boolean(),
                doc    = none  :: atom() | unicode:chardata(), % Function/type/callback local doc
                meta   = maps:new() :: map()}).      % Function/type/callback local meta
 
@@ -62,6 +63,7 @@ Transforms an Erlang abstract syntax form into EEP-48 documentation format.
 ".
 -spec main(term(), term()) -> #docs_v1{} | badarg.
 main(Dirname, AST) ->
+    io:format("~p~n~n", [AST]),
     try
         {ModuleDocAnno, ModuleDoc} = extract_moduledoc(AST),
         DocFormat = extract_docformat(AST),
@@ -138,12 +140,19 @@ update_module(#docs{}=State, ModuleName) ->
 
 -spec update_export_funs(State :: internal_docs(), proplists:proplist()) -> internal_docs().
 update_export_funs(State, ExportedFuns) ->
-    State#docs{exported_functions = sets:from_list(ExportedFuns)}.
+    ExportedFuns1 = sets:union(State#docs.exported_functions, sets:from_list(ExportedFuns)),
+    State#docs{exported_functions = ExportedFuns1}.
 
 -spec update_export_types(State :: internal_docs(), proplists:proplist()) -> internal_docs().
 update_export_types(State, ExportedTypes) ->
-    State#docs{exported_types = sets:from_list(ExportedTypes)}.
+    ExportedTypes1 = sets:union(State#docs.exported_types, sets:from_list(ExportedTypes)),
+    State#docs{exported_types = ExportedTypes1}.
 
+update_export_all(State, ExportAll) ->
+    State#docs{ export_all = ExportAll }.
+
+extract_documentation([{attribute,_ANNO,compile, export_all} | T]=_AST, State) ->
+    extract_documentation(T, update_export_all(State, true));
 extract_documentation([{attribute,_ANNO,export,ExportedFuns} | T]=_AST, State) ->
     extract_documentation(T, update_export_funs(State, ExportedFuns));
 extract_documentation([{attribute,_ANNO,export_type,ExportedTypes} | T]=_AST, State) ->
@@ -164,7 +173,7 @@ extract_documentation([AST0 | _T]=AST,
 extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
                       #docs{exported_functions = ExpFuns}=State) ->
     maybe
-        true ?= sets:is_element({F, A}, ExpFuns),
+        true ?= sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all,
         FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
         [FunDoc | extract_documentation(T, reset_state(State))]
     else
@@ -174,7 +183,7 @@ extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_
 extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
                       #docs{doc = Doc, exported_functions=ExpFuns}=State) when Doc =/= none ->
     maybe
-        true ?= sets:is_element({F, A}, ExpFuns),
+        true ?= sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all,
         {Slogan, DocsWithoutSlogan} =
             %% First we check if there is a doc prototype
             case extract_slogan(Doc, F, A) of
