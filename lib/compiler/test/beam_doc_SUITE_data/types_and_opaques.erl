@@ -2,6 +2,7 @@
 
 -export_type([name/1,unnamed/0, mmaybe/1]).
 -export_type([natural_number/0, param/1]).
+-export_type([hidden_false/0, hidden/0]).
 
 -doc "
 name(_)
@@ -41,3 +42,13 @@ Represents a maybe type.
 -opaque non_exported() :: atom().
 
 -type not_exported_either() :: atom().
+
+-doc hidden.
+-doc #{ authors => "Someone else" }.
+-type hidden_false() :: atom().
+
+-doc false.
+-doc "
+Here is ok.
+".
+-type hidden() :: hidden_false().
