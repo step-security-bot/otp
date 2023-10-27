@@ -4,7 +4,7 @@
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
          singleton_docformat/1, singleton_meta/1, slogan/1,
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
-         private_types/1]).
+         private_types/1, export_all/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -20,7 +20,8 @@ all() ->
      slogan,
      types_and_opaques,
      callback,
-    private_types].
+     private_types,
+     export_all].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -174,6 +175,19 @@ private_types(Conf) ->
            {{function,hidden,0},_,[<<"hidden/0">>],hidden,#{}},
            {{function,bar,0},_,[<<"bar/0">>],none,#{}}
            ]}} = Code,
+    ok.
+
+
+export_all(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    ImpCallback = #{<<"en">> => <<"This is a test">>},
+    FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}},
+           {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
+           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}}
+          ]}} = code:get_doc(ModName),
     ok.
 
 
