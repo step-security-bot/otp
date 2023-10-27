@@ -3,7 +3,8 @@
 -export([all/0, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
          singleton_docformat/1, singleton_meta/1, slogan/1,
-         types_and_opaques/1, callback/1, hide_moduledoc2/1]).
+         types_and_opaques/1, callback/1, hide_moduledoc2/1,
+         private_types/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -18,7 +19,8 @@ all() ->
      singleton_meta,
      slogan,
      types_and_opaques,
-     callback].
+     callback,
+    private_types].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -155,6 +157,18 @@ callback(Conf) ->
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
            {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}}
           ]}} = code:get_doc(ModName),
+    ok.
+
+private_types(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    Code = code:get_doc(ModName),
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{type,public_t,0},_, [<<"public_t/0">>], none,#{ exported := true}},
+           {{type,private_t,0},_, [<<"private_t/0">>], none,#{ exported := false}},
+           {{type,hidden_export_t,0},_,[<<"hidden_export_t/0">>],hidden,#{exported := true}},
+           {{function,bar,0},_,[<<"bar/0">>],none,#{}},
+           {{function,hidden,0},_,[<<"hidden/0">>],none,#{}}]}} = Code,
     ok.
 
 

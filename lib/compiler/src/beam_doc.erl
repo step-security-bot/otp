@@ -51,7 +51,7 @@ documentation format.
                exported_types     = sets:new() :: sets:set({atom(), non_neg_integer()}),
                export_all         = false :: boolean(),
                doc    = none  :: atom() | unicode:chardata(), % Function/type/callback local doc
-               meta   = maps:new() :: map()}).      % Function/type/callback local meta
+               meta   = #{exported => false} :: map()}).      % Function/type/callback local meta
 
 -type internal_docs() :: #docs{}.
 
@@ -124,7 +124,7 @@ new_state(Dirname) ->
 
 -spec reset_state(State :: internal_docs()) -> internal_docs().
 reset_state(State) ->
-    State#docs{doc = none, meta = maps:new()}.
+    State#docs{doc = none, meta = #{exported => false}}.
 
 -spec update_meta(State :: internal_docs(), Meta :: map()) -> internal_docs().
 update_meta(#docs{meta = Meta0}=State, Meta1) ->
@@ -132,7 +132,9 @@ update_meta(#docs{meta = Meta0}=State, Meta1) ->
 
 -spec update_doc(State :: internal_docs(), Doc :: unicode:chardata() | atom()) -> internal_docs().
 update_doc(State, Doc) ->
-State#docs{doc = string:trim(Doc)}.
+    Meta = State#docs.meta,
+    State#docs{doc = string:trim(Doc),
+               meta = Meta#{exported := true}}.
 
 -spec update_module(State :: internal_docs(), ModuleName :: unicode:chardata()) -> internal_docs().
 update_module(#docs{}=State, ModuleName) ->
@@ -150,6 +152,10 @@ update_export_types(State, ExportedTypes) ->
 
 update_export_all(State, ExportAll) ->
     State#docs{ export_all = ExportAll }.
+
+remove_exported_type_info(State) ->
+    Meta = State#docs.meta,
+    State#docs{meta = maps:remove(exported, Meta)}.
 
 extract_documentation([{attribute,_ANNO,compile, export_all} | T]=_AST, State) ->
     extract_documentation(T, update_export_all(State, true));
@@ -172,12 +178,12 @@ extract_documentation([AST0 | _T]=AST,
     extract_documentation(AST, update_meta(State, Meta1));
 extract_documentation([{function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]}=_AST | T],
                       #docs{exported_functions = ExpFuns}=State) ->
-    maybe
-        true ?= sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all,
-        FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State),
-        [FunDoc | extract_documentation(T, reset_state(State))]
-    else
-      _ ->
+    case sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all of
+        true ->
+            State1 = remove_exported_type_info(State),
+            FunDoc = template_gen_doc({function, Anno, F, A, ClauseArgs}, State1),
+            [FunDoc | extract_documentation(T, reset_state(State))];
+        false ->
             extract_documentation(T, reset_state(State))
     end;
 extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
@@ -191,7 +197,8 @@ extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
                 SloganDocs -> SloganDocs
             end,
         AttrBody = {function, F, A},
-        FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State),
+        State1 = remove_exported_type_info(State),
+        FunDoc = gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State1),
         [FunDoc | extract_documentation(T, reset_state(State))]
     else
         _ -> extract_documentation(T, reset_state(State))
@@ -199,17 +206,19 @@ extract_documentation([{function, Anno, F, A, _Body}=_AST | T],
 extract_documentation([{attribute, Anno, TypeOrOpaque, {Type, _, TypeArgs}}=_AST | T],
                       #docs{exported_types=ExpTypes}=State)
   when TypeOrOpaque =:= type orelse TypeOrOpaque =:= opaque ->
-    maybe
-        Args = fun_to_varargs(TypeArgs),
-        true ?= sets:is_element({Type, length(Args)}, ExpTypes),
-        FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State),
-        [FunDoc | extract_documentation(T, reset_state(State))]
-    else
-        _ -> extract_documentation(T, reset_state(State))
+    Args = fun_to_varargs(TypeArgs),
+    case sets:is_element({Type, length(Args)}, ExpTypes) of
+        true ->
+            State1 = State#docs{ meta = #{export => true}},
+            FunDoc = template_gen_doc({type, Anno, Type, length(Args), Args}, State1),
+            [FunDoc | extract_documentation(T, reset_state(State1))];
+        false ->
+            extract_documentation(T, reset_state(State))
     end;
 extract_documentation([{attribute, Anno, callback, {{CB, A}, [Fun]}}=_AST | T], State) ->
     Args = fun_to_varargs(Fun),
-    FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State),
+    State1 = remove_exported_type_info(State),
+    FunDoc = template_gen_doc({callback, Anno, CB, A, Args}, State1),
     [FunDoc | extract_documentation(T, reset_state(State))];
 extract_documentation([_H|T], State) ->
     extract_documentation(T, State);
@@ -236,7 +245,7 @@ gen_doc(Anno0, AttrBody, Slogan, Docs, #docs{meta = Meta, module_name = Module})
     {AttrBody, Anno1, [unicode:characters_to_binary(Slogan)],
       #{ <<"en">> => unicode:characters_to_binary(string:trim(Docs)) }, Meta}.
 
-template_gen_doc({Attr, Anno, F, A, _Args}, #docs{doc = Doc}=State) when Doc =:= none ->
+template_gen_doc({Attr, Anno, F, A, _Args}, #docs{doc = Doc}=State) when Doc =:= none orelse Doc =:= hidden ->
     {Slogan, DocsWithoutSlogan} = {io_lib:format("~p/~p",[F,A]), Doc},
     AttrBody = {Attr, F, A},
     gen_doc(Anno, AttrBody, Slogan, DocsWithoutSlogan, State);
