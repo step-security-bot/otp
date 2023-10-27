@@ -40,9 +40,8 @@ singleton_doc(Conf) ->
     Doc = #{<<"en">> => <<"Doc test module">>},
     FooDoc = #{<<"en">> => <<"Tests multi-clauses">>},
     {ok, {docs_v1, 1,_, Mime, none, _,
-          [{{function, main,0},_, [<<"main()">>], Doc, _},
-           {{function, foo,1},_, [<<"foo(ok)">>], FooDoc, _}
-          ]}} = code:get_doc(ModName),
+          [{{function, foo,1},_, [<<"foo(ok)">>], FooDoc, _},
+           {{function, main,0},_, [<<"main()">>], Doc, _}]}} = code:get_doc(ModName),
     ok.
 
 docmodule_with_doc_attributes(Conf) ->
@@ -52,9 +51,9 @@ docmodule_with_doc_attributes(Conf) ->
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Doc = #{<<"en">> => <<"Doc test module">>},
     {ok, {docs_v1, _,_, Mime, ModuleDoc, _,
-          [{{function, main,_},_, _, Doc, _},
+          [{{function,no_docs,0},_, [<<"no_docs/0">>],none,#{}},
            {{function,ok,0}, _, [<<"ok/0">>],none,#{authors := "Someone"}},
-           {{function,no_docs,0},_, [<<"no_docs/0">>],none,#{}}]}} = code:get_doc(ModName),
+           {{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
     ok.
 
 hide_moduledoc(Conf) ->
@@ -64,6 +63,7 @@ hide_moduledoc(Conf) ->
             #{ <<"en">> := <<"Doc test module">> }, #{}}]}} = code:get_doc(ModName),
     ok.
 
+%% TODO: crashes
 hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = compile_file(Conf, ModuleName),
@@ -102,8 +102,8 @@ singleton_meta(Conf) ->
     Meta = #{ authors => [<<"Beep Bop">>], equiv => {main,3}},
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main,0},_, [<<"main/0">>], none, Meta},
-           {{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := {main,1}}}]}}
+          [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := {main,1}}},
+           {{function, main,0},_, [<<"main/0">>], none, Meta}]}}
         = code:get_doc(ModName),
     ok.
 
@@ -116,9 +116,9 @@ slogan(Conf) ->
     NoSlogan = [<<"no_slogan/1">>],
     NoSloganDoc = #{ <<"en">> => <<"Not a slogan\n\nTests slogans in multi-clause">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main,0},_,Slogan, Doc, #{}},
+          [{{function, no_slogan,1},_,NoSlogan, NoSloganDoc, #{}},
            {{function, bar,0},_,[<<"bar()">>], BarDoc, #{}},
-           {{function, no_slogan,1},_,NoSlogan, NoSloganDoc, #{}}]}} = code:get_doc(ModName),
+           {{function, main,0},_,Slogan, Doc, #{}}]}} = code:get_doc(ModName),
     ok.
 
 types_and_opaques(Conf) ->
@@ -132,13 +132,13 @@ types_and_opaques(Conf) ->
     MaybeMeta = #{ authors => "Someone else", exported => true },
     NaturalNumberMeta = #{since => "1.0", equiv => {non_neg_integer,0}, exported => true},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}},
-           {{type, natural_number,0},_,[<<"natural_number/0">>], none, NaturalNumberMeta},
-           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{equiv := {madeup, 0}, exported := true}},
-           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{equiv := {non_neg_integer,0}, exported := true}},
-           {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta},
+          [{{type,hidden,0},_,[<<"hidden/0">>],hidden,#{exported := true}},
            {{type,hidden_false,0},_,[<<"hidden_false/0">>],hidden,#{exported := true,authors := "Someone else"}},
-           {{type,hidden,0},_,[<<"hidden/0">>],hidden,#{exported := true}}
+           {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta},
+           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{equiv := {non_neg_integer,0}, exported := true}},
+           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{equiv := {madeup, 0}, exported := true}},
+           {{type, natural_number,0},_,[<<"natural_number/0">>], none, NaturalNumberMeta},
+           {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}}
           ]}} = code:get_doc(ModName),
     ok.
 
@@ -150,13 +150,13 @@ callback(Conf) ->
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
     ChangeOrder = #{<<"en">> => <<"Test changing order">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{callback, all_ok,0},_,[<<"all_ok()">>], Doc, #{}},
-           {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder, #{equiv := {ok, 0}}},
+          [{{callback,ann,1},_,[<<"ann/1">>],none,#{}},
            {{callback,param,1},_,[<<"param/1">>],none,#{}},
-           {{callback,ann,1},_,[<<"ann/1">>],none,#{}},
-           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}},
+           {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder, #{equiv := {ok, 0}}},
+           {{callback, all_ok,0},_,[<<"all_ok()">>], Doc, #{}},
+           {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}},
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
-           {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}}
+           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}}
           ]}} = code:get_doc(ModName),
     ok.
 
@@ -165,12 +165,15 @@ private_types(Conf) ->
     {ok, ModName} = compile_file(Conf, ModuleName),
     Code = code:get_doc(ModName),
     {ok, {docs_v1, _,_, _, none, _,
-          [{{type,public_t,0},_, [<<"public_t/0">>], none,#{ exported := true}},
+          [
            {{type,hidden_export_t,0},_,[<<"hidden_export_t/0">>],hidden,#{exported := true}},
+           {{type,public_t,0},_, [<<"public_t/0">>], none,#{ exported := true}},
+
            %% TODO: fix line below
            %% {{type,private_t,0},_, [<<"private_t/0">>], none,#{ exported := false}},
-           {{function,bar,0},_,[<<"bar/0">>],none,#{}},
-           {{function,hidden,0},_,[<<"hidden/0">>],hidden,#{}}]}} = Code,
+           {{function,hidden,0},_,[<<"hidden/0">>],hidden,#{}},
+           {{function,bar,0},_,[<<"bar/0">>],none,#{}}
+           ]}} = Code,
     ok.
 
 
