@@ -1408,9 +1408,9 @@ build_attribute({atom,Aa,file}, Val) ->
     end;
 build_attribute({atom,Aa,Attr}, Val) when Attr =:= doc; Attr =:= moduledoc ->
     case Val of
-    [{atom,_,Value}] when is_boolean(Value) ->
+        [{atom,_,Value}] when is_boolean(Value) ->
 	    {attribute,Aa,Attr,Value};
-    [{atom,_,hidden=Value}]  ->
+        [{atom,_,hidden=Value}]  ->
 	    {attribute,Aa,Attr,Value};
 	[{string,_,Value}] ->
 	    {attribute,Aa,Attr,Value};
