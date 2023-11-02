@@ -207,10 +207,15 @@ extract_documentation([{attribute, _Anno, file, {ModuleName, _A}} | T], State) -
     extract_documentation(T, update_module(State, ModuleName));
 extract_documentation([{attribute, _Anno, doc, _Meta0}| _]=AST, State) ->
     extract_documentation_from_doc(AST, State);
-extract_documentation([AST0 | _T]=AST,
-                      #docs{meta = #{ equiv := {call,_,Equiv,Args}} = Meta}=State)
+extract_documentation([AST0 | _T]=AST, %% What does this match?
+                      #docs{meta = #{ equiv := {call,_,_Equiv,_Args} = Equiv} = Meta}=State)
     when is_tuple(AST0) andalso (tuple_size(AST0) > 2 orelse tuple_size(AST0) < 6) ->
-    Meta1 = Meta#{ equiv := {erl_parse:normalise(Equiv), [erl_parse:normalise(A) || A <- Args]}},
+    Meta1 = Meta#{ equiv := unicode:characters_to_binary(erl_pp:expr(Equiv)) },
+    extract_documentation(AST, update_meta(State, Meta1));
+extract_documentation([AST0 | _T]=AST, %% What does this match?
+                      #docs{meta = #{ equiv := {Func,Arity}} = Meta}=State)
+    when is_tuple(AST0) andalso (tuple_size(AST0) > 2 orelse tuple_size(AST0) < 6) ->
+    Meta1 = Meta#{ equiv := unicode:characters_to_binary(io_lib:format("~p/~p",[Func,Arity])) },
     extract_documentation(AST, update_meta(State, Meta1));
 extract_documentation([{function, _Anno, _F, _A, _Body} | _]=AST, State) ->
     State1 = remove_exported_type_info(State),
