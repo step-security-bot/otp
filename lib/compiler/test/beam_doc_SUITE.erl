@@ -52,8 +52,8 @@ docmodule_with_doc_attributes(Conf) ->
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Doc = #{<<"en">> => <<"Doc test module">>},
     {ok, {docs_v1, _,_, Mime, ModuleDoc, _,
-          [{{function,no_docs,0},_, [<<"no_docs/0">>],none,#{}},
-           {{function,ok,0}, _, [<<"ok/0">>],none,#{authors := "Someone"}},
+          [{{function,no_docs,0},_, [<<"no_docs()">>],none,#{}},
+           {{function,ok,0}, _, [<<"ok()">>],none,#{authors := "Someone"}},
            {{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
     ok.
 
