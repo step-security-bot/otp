@@ -4,9 +4,11 @@
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
          singleton_docformat/1, singleton_meta/1, slogan/1,
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
-         private_types/1, export_all/1]).
+         private_types/1, export_all/1, equiv/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/eep48.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 all() ->
     [singleton_moduledoc,
@@ -21,7 +23,8 @@ all() ->
      types_and_opaques,
      callback,
      private_types,
-     export_all].
+     export_all,
+     equiv].
 
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
@@ -51,10 +54,23 @@ docmodule_with_doc_attributes(Conf) ->
     Mime = <<"text/markdown">>,
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Doc = #{<<"en">> => <<"Doc test module">>},
-    {ok, {docs_v1, _,_, Mime, ModuleDoc, _,
-          [{{function,no_docs,0},_, [<<"no_docs()">>],none,#{}},
-           {{function,ok,0}, _, [<<"ok()">>],none,#{authors := "Someone"}},
-           {{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    {ok, #docs_v1{ anno = ModuleAnno,
+                   beam_language = erlang,
+                   format = Mime,
+                   module_doc = ModuleDoc,
+                   metadata = #{},
+                   docs = Docs
+                 }} = code:get_doc(ModName),
+
+    
+    [{{function,no_docs,0},NoDocsAnno, [<<"no_docs()">>],none,#{}},
+     {{function,ok,0}, OkAnno, [<<"ok()">>],none,#{authors := "Someone"}},
+     {{function, main,_},MainAnno, _, Doc, _}] = Docs,
+    
+    ?assertEqual(5, erl_anno:line(ModuleAnno)),
+    ?assertEqual(10, erl_anno:line(MainAnno)),
+    ?assertEqual(18, erl_anno:line(OkAnno)),
+    ?assertEqual(21, erl_anno:line(NoDocsAnno)),
     ok.
 
 hide_moduledoc(Conf) ->
@@ -69,7 +85,7 @@ hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
-          [{{function, main, 0}, _, [<<"main/0">>],hidden, #{}}]}} = code:get_doc(ModName),
+          [{{function, main, 0}, _, [<<"main()">>],hidden, #{}}]}} = code:get_doc(ModName),
     ok.
 
 docformat(Conf) ->
@@ -104,7 +120,7 @@ singleton_meta(Conf) ->
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
     {ok, {docs_v1, _,_, _, none, _,
           [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := {main,1}}},
-           {{function, main,0},_, [<<"main/0">>], none, Meta}]}}
+           {{function, main,0},_, [<<"main()">>], none, Meta}]}}
         = code:get_doc(ModName),
     ok.
 
@@ -134,13 +150,16 @@ types_and_opaques(Conf) ->
                       <<"Represents the name of a person that cannot be named.">>},
     MaybeOpaqueDoc = #{<<"en">> => <<"mmaybe(X) ::= nothing | X.\n\nRepresents a maybe type.">>},
     MaybeMeta = #{ authors => "Someone else", exported => true },
-    NaturalNumberMeta = #{since => "1.0", equiv => {non_neg_integer,0}, exported => true},
+    NaturalNumberMeta = #{since => "1.0", equiv => <<"non_neg_integer()">>, exported => true},
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,hidden,0},_,[<<"hidden/0">>],hidden,#{exported := true}},
-           {{type,hidden_false,0},_,[<<"hidden_false/0">>],hidden,#{exported := true,authors := "Someone else"}},
+           {{type,hidden_false,0},_,[<<"hidden_false/0">>],hidden,
+            #{exported := true, authors := "Someone else"}},
            {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta},
-           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc, #{equiv := {non_neg_integer,0}, exported := true}},
-           {{type, param,1},_,[<<"param(X)">>], GenericsDoc, #{equiv := {madeup, 0}, exported := true}},
+           {{type, unnamed,0},_,[<<"unnamed()">>], OpaqueDoc,
+            #{equiv := <<"non_neg_integer/0">>, exported := true}},
+           {{type, param,1},_,[<<"param(X)">>], GenericsDoc,
+            #{equiv := <<"madeup/0">>, exported := true}},
            {{type, natural_number,0},_,[<<"natural_number/0">>], none, NaturalNumberMeta},
            {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}}
           ]}} = code:get_doc(ModName),
@@ -156,11 +175,14 @@ callback(Conf) ->
     {ok, {docs_v1, _,_, _, none, _,
           [{{callback,ann,1},_,[<<"ann/1">>],none,#{}},
            {{callback,param,1},_,[<<"param/1">>],none,#{}},
-           {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder, #{equiv := {ok, 0}}},
+           {{callback, change_order,0},_,[<<"change_order()">>], ChangeOrder,
+            #{equiv := <<"ok()">>}},
            {{callback, all_ok,0},_,[<<"all_ok()">>], Doc, #{}},
-           {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}},
+           {{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>},
+            #{equiv := <<"main()">>}},
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
-           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}}
+           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback,
+            #{equiv := <<"ok/0">>}}
           ]}} = code:get_doc(ModName),
     ok.
 
@@ -187,12 +209,24 @@ export_all(Conf) ->
     ImpCallback = #{<<"en">> => <<"This is a test">>},
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>}, #{equiv := {main,0}}},
+          [{{function, main2,0},_,[<<"main2()">>], #{<<"en">> := <<"Second main">>},
+            #{equiv := <<"main()">>}},
            {{function, main,0},_,[<<"main()">>], FunctionDoc, #{}},
-           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback, #{equiv := {ok, 0}}}
+           {{function, all_ok,0},_, [<<"all_ok()">>],ImpCallback,
+            #{equiv := <<"ok/0">>}}
           ]}} = code:get_doc(ModName),
     ok.
 
+equiv(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, {docs_v1, _,_, _, none, _,
+          [{{function, main, 2},_,[<<"main(A, B)">>], none,
+            #{ }},
+            {{function, main, 1},_,[<<"main(A)">>], none,
+             #{ equiv := <<"main(A, 1)">> }}
+          ]}} = code:get_doc(ModName),
+    ok.
 
 compile_file(Conf, ModuleName) ->
     ErlModName = ModuleName ++ ".erl",

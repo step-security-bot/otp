@@ -789,6 +789,7 @@ standard_passes() ->
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
      {iff,beam_docs,?pass(beam_docs)},
+     ?pass(remove_doc_attributes),
 
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
