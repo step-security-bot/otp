@@ -67,8 +67,8 @@ static Eterm do_chksum(ChksumFun sumfun, Process *p, Eterm ioterm, int left,
         const byte *temp_alloc = NULL, *bytes;
         Uint size;
 
-        /* As we've alrady checked that this is a bitstring, this can only fail
-         * when we've got a non-binary. */
+        /* As we've already checked that this is a bitstring, this can only
+         * fail when we've got a non-binary. */
         bytes = erts_get_aligned_binary_bytes(ioterm, &size, &temp_alloc);
         if (bytes == NULL) {
             *res = 0;

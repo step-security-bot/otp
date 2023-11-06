@@ -473,7 +473,7 @@ L_return:
     if (YieldSupport) {
         int reds, yc;
 
-        yc = init_yield_count - yield_count;;
+        yc = init_yield_count - yield_count;
         reds = (yc - 1) / ERTS_IOLIST_SIZE_YIELDS_COUNT_PER_RED + 1;
         BUMP_REDS(list_state->c_p, reds);
         list_state->reds_left -= reds;

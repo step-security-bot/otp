@@ -207,6 +207,12 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		    break;
 		case SUB_BITS_SUBTAG:
 		    {
+                        /* Note that we copy the structure verbatim even if the
+                         * size is lower than the off-heap limit as it was most
+                         * likely created that way on purpose.
+                         *
+                         * We also include the size of the attached BinRef to
+                         * save us another lap through the main loop. */
                         sum += ERL_REFC_BITS_SIZE;
 			goto pop_next;
 		    }

@@ -1067,14 +1067,12 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         Uint unit;
         Eterm Src;
 
-        $test_heap(alloc + ERL_REFC_BITS_SIZE, $Live);
+        $test_heap(alloc, $Live);
 
         $BS_LOAD_UNIT(p, unit);
         $BS_LOAD_SRC(p, Src);
 
-        LIGHT_SWAPOUT;
         new_binary = erts_bs_private_append_checked(c_p, Src, num_bits, unit);
-        LIGHT_SWAPIN;
 
         if (is_non_value(new_binary)) {
             $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, Src);

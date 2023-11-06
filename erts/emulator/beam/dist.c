@@ -4553,12 +4553,12 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         ASSERT(binv[ix]);
         bin = ErlDrvBinary2Binary(binv[ix]);
         bin_term = erts_wrap_refc_bitstring(&MSO(BIF_P).first,
-                                       &MSO(BIF_P).overhead,
-                                       &hp,
-                                       bin,
-                                       iov[ix].iov_base,
-                                       0,
-                                       NBITS(iov[ix].iov_len));
+                                            &MSO(BIF_P).overhead,
+                                            &hp,
+                                            bin,
+                                            iov[ix].iov_base,
+                                            0,
+                                            NBITS(iov[ix].iov_len));
 
         res = CONS(hp, bin_term, res);
         hp += 2;
