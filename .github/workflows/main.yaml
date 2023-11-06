@@ -117,7 +117,7 @@ jobs:
             scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_src.tar.gz
       - name: Build flavors
         run: |
-            docker run --entry-point "" otp "(cd erts/emulator && V=1 make depend TYPE=opt FLAVOR=emu  && cat x86_64-pc-linux-gnu/opt/emu/src.depend.mk) && V=1 make --debug TYPE=opt FLAVOR=emu"
+            docker run --entrypoint "" otp "(cd erts/emulator && V=1 make depend TYPE=opt FLAVOR=emu  && cat x86_64-pc-linux-gnu/opt/emu/src.depend.mk) && V=1 make --debug TYPE=opt FLAVOR=emu"
       - name: Build cache
         run: |
           if [ -f otp_cache.tar.gz ]; then
