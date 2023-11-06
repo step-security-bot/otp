@@ -79,8 +79,6 @@ jobs:
         id: cache
         with:
           filters: |
-              no-cache:
-                  - '.github/**'
               deleted:
                   - deleted: '**'
               bootstrap:
@@ -362,7 +360,7 @@ jobs:
             for TYPE in ${TYPES}; do
               for FLAVOR in ${FLAVORS}; do
                 echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
-                docker run otp "make TYPE=$TYPE FLAVOR=$FLAVOR"
+                docker run otp "V=1 make --debug TYPE=$TYPE FLAVOR=$FLAVOR"
                 echo "::endgroup::"
               done
             done
