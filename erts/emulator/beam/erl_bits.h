@@ -309,7 +309,7 @@ Eterm erts_hfact_new_binary_from_data(ErtsHeapFactory *hfact,
  * @param hpp must have at least ERL_REFC_BITS_SIZE words available during
  * migration. */
 Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
-                               Uint *overhead,
+                               Uint64 *overhead,
                                Eterm **hpp,
                                Binary *bin,
                                byte *data,

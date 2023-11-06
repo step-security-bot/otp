@@ -2310,7 +2310,7 @@ Eterm erts_build_sub_bitstring(Eterm **hp, const BinRef *br,
 }
 
 Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
-                               Uint *overhead,
+                               Uint64 *overhead,
                                Eterm **hpp,
                                Binary *bin,
                                byte *bytes,

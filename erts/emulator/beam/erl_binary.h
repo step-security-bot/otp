@@ -35,13 +35,6 @@
 ** in reality are equal.
 */
 
-#ifdef ARCH_32
- /* *DO NOT USE* only for alignment. */
-#define ERTS_BINARY_STRUCT_ALIGNMENT Uint32 align__;
-#else
-#define ERTS_BINARY_STRUCT_ALIGNMENT
-#endif
-
 enum binary_flags {
     BIN_FLAG_MAGIC =            (1 << 0),
     BIN_FLAG_DRV =              (1 << 1),
@@ -53,18 +46,25 @@ enum binary_flags {
     BIN_FLAG_ACTIVE_WRITER =    (1 << 3),
 };
 
+#define ERTS_BINARY_STRUCT_ALIGNMENT
+
 /* Add fields in binary_internals, otherwise the drivers crash */
 struct binary_internals {
     UWord flags;
     /* Valid iff BIN_FLAG_WRITABLE is set. */
     UWord apparent_size;
     erts_refc_t refc;
+
     ERTS_BINARY_STRUCT_ALIGNMENT
 };
 
 typedef struct binary {
     struct binary_internals intern;
     SWord orig_size;
+
+    /* Note that this field has to be 8-byte aligned even on 32-bit
+     * platforms. Any required padding should be added at the tail of
+     * the binary_internals struct above. */
     char orig_bytes[1]; /* to be continued */
 } Binary;
 
