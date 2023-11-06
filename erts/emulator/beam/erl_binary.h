@@ -75,6 +75,13 @@ typedef struct binary {
 #error "Update ErtsMagicBinary"
 #endif
 
+#ifdef ARCH_32
+ /* *DO NOT USE* only for alignment. */
+#define ERTS_MAGIC_BINARY_STRUCT_ALIGNMENT Uint32 align__;
+#else
+#define ERTS_MAGIC_BINARY_STRUCT_ALIGNMENT
+#endif
+
 typedef struct magic_binary ErtsMagicBinary;
 struct magic_binary {
     struct binary_internals intern;
@@ -84,7 +91,7 @@ struct magic_binary {
     ErtsAlcType_t alloc_type;
     union {
         struct {
-            ERTS_BINARY_STRUCT_ALIGNMENT
+            ERTS_MAGIC_BINARY_STRUCT_ALIGNMENT
             char data[1];
         } aligned;
         struct {
