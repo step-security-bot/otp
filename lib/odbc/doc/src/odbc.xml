@@ -77,7 +77,7 @@
     <code type="none">
  common_reason() = connection_closed | extended_error() | term() - some kind of
  explanation of what went wrong    </code>
-    <code type="none">
+    <code type="erlang">
  extended_error() = {string(), integer(), Reason} - extended error type with ODBC
  and native database error codes, as well as the base reason that would have been
  returned had extended_errors not been enabled. </code>
@@ -91,18 +91,18 @@
     <code type="none">
  row() = {value()} - Tuple of column values e.g. one row of the
            result set.     </code>
-    <code type="none">
+    <code type="erlang">
  value() = null | term() - A column value.     </code>
     <code type="none">
  rows() = [row()] - A list of rows from the result set.    </code>
-    <code type="none">
+    <code type="erlang">
  result_tuple() =
       {updated, n_rows()} | {selected, col_names(), rows()}    </code>
-    <code type="none">
+    <code type="erlang">
  n_rows() = integer() - The number of affected rows for UPDATE,
            INSERT, or DELETE queries. For other query types the value
            is driver defined, and hence should be ignored.    </code>
-    <code type="none">
+    <code type="erlang">
  odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
       {sql_decimal, precision(), scale()} |
       {sql_numeric, precision(), scale()} |

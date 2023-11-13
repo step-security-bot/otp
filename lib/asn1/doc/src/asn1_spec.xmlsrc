@@ -104,7 +104,7 @@
       <p>If the exclusive decode function has, for example, the name
         <c>decode_exclusive</c> and an ASN.1 encoded message
         <c>Bin</c> is to be exclusive decoded, the call is as follows:</p>
-      <pre>
+      <pre type="erlang">
 {ok,Excl_Message} = 'MyModule':decode_exclusive(Bin)      </pre>
       <marker id="UndecodedPart"></marker>
       <p>The result <c>Excl_Message</c> has the same structure as a
@@ -114,7 +114,7 @@
         </p>
       <p>Each undecoded part that is to be decoded must be fed into
         function <c>decode_part/2</c> as follows:</p>
-      <pre>
+      <pre type="erlang">
 {ok,Part_Message} = 'MyModule':decode_part(Type_Key,Undecoded_Value)</pre>
     </section>
 
@@ -123,7 +123,7 @@
       <title>Writing an Exclusive Decode Instruction</title>
       <p>This instruction is written in the configuration file
         in the following format:</p>
-      <pre>
+      <pre type="c">
 Exclusive_Decode_Instruction = {exclusive_decode,{Module_Name,Decode_Instructions}}.
 
 Module_Name = atom()
@@ -208,12 +208,12 @@ Name = atom()</pre>
       <p></p>
       <p>Compiling <c>GUI.asn</c> including the configuration file is done
         as follows:</p>
-      <pre>
+      <pre type="erlang">
 unix> erlc -bber +asn1config GUI.asn
 
 erlang> asn1ct:compile('GUI', [ber,asn1config]).</pre>
       <p>The module can be used as follows:</p>
-      <pre>
+      <pre type="erlang">
 1> Button_Msg = {'Button',123,true}.
 {'Button',123,true}
 2> {ok,Button_Bytes} = 'GUI':encode('Button',Button_Msg).
@@ -411,7 +411,7 @@ List_Selector = [integer()]</pre>
       <p>In this example, the same ASN.1 specification as in Section
         <seeguide marker="#Asn1spec">Writing an Exclusive Decode Instruction</seeguide>
          is used. The following is a valid selective decode instruction:</p>
-      <pre>
+      <pre type="erlang">
 {selective_decode,
     {'GUI',
         [{selected_decode_Window1,
@@ -437,7 +437,7 @@ List_Selector = [integer()]</pre>
         <c>ValAction = {'Action',17,{'Button',4711,false}}</c>, the internal
         value 4711 is to be picked by <c>selected_decode_Action</c>. In an
         Erlang terminal it looks as follows:</p>
-      <pre>
+      <pre type="erlang">
 ValAction = {'Action',17,{'Button',4711,false}}.
 {'Action',17,{'Button',4711,false}}
 7> {ok,Bytes}='GUI':encode('Action',ValAction).
@@ -481,7 +481,7 @@ ValAction = {'Action',17,{'Button',4711,false}}.
         <c>selected_decode_Window2</c> and
         <c>selected_decode_Window1</c> decodes the intended subvalue
         of value <c>Val</c>:</p>
-      <pre>
+      <pre type="erlang">
 1> Val = {'Window',{status,{'Status',12,
                     [{'Button',13,true},
                      {'Button',14,false},
@@ -522,7 +522,7 @@ ValAction = {'Action',17,{'Button',4711,false}}.
         were used in the test.
         </p>
       <p>For the <c>GUI</c> specification the configuration was as follows:</p>
-      <pre>
+      <pre type="erlang">
 {selective_decode,
   {'GUI',
     [{selected_decode_Window1,
@@ -545,7 +545,7 @@ ValAction = {'Action',17,{'Button',4711,false}}.
                      [{buttonList,parts},
                       {actions,undecoded}]}]]}]}}.</pre>
       <p>The <c>MEDIA-GATEWAY-CONTROL</c> configuration was as follows:</p>
-      <pre>
+      <pre type="erlang">
 {exclusive_decode,
   {'MEDIA-GATEWAY-CONTROL',
     [{decode_MegacoMessage_exclusive,
@@ -559,7 +559,7 @@ ValAction = {'Action',17,{'Button',4711,false}}.
     [{decode_MegacoMessage_selective,
          ['MegacoMessage',mess,version]}]}}.</pre>
       <p>The corresponding values were as follows:</p>
-      <pre>
+      <pre type="erlang">
 {'Window',{status,{'Status',12,
               [{'Button',13,true},
                {'Button',14,false},

@@ -435,7 +435,7 @@
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
+    <code type="erlang"><![CDATA[
 options()           = [option()]
 option()            = {config, config() | file()}
                     | {trap_exit, bool()}
