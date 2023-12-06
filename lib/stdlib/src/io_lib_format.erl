@@ -43,7 +43,8 @@
       Data :: [term()].
 
 fwrite(Format, Args) ->
-    build(scan(Format, Args)).
+    {Scanned, []} = scan(Format, Args),
+    build(Scanned).
 
 -spec fwrite(Format, Data, Options) -> io_lib:chars() when
       Format :: io:format(),
@@ -53,7 +54,8 @@ fwrite(Format, Args) ->
       CharsLimit :: io_lib:chars_limit().
 
 fwrite(Format, Args, Options) ->
-    build(scan(Format, Args), Options).
+    {Scanned, []} = scan(Format, Args),
+    build(Scanned, Options).
 
 %% Build the output text for a pre-parsed format list.
 
@@ -83,10 +85,11 @@ build(Cs, Options) ->
 
 %% Parse all control sequences in the format string.
 
--spec scan(Format, Data) -> FormatList when
+-spec scan(Format, Data) -> {FormatList, Rest} when
       Format :: io:format(),
       Data :: [term()],
-      FormatList :: [char() | io_lib:format_spec()].
+      FormatList :: [char() | io_lib:format_spec()],
+      Rest :: [term()].
 
 scan(Format, Args) when is_atom(Format) ->
     scan(atom_to_list(Format), Args);
@@ -153,12 +156,15 @@ print_maps_order(ordered) -> "k";
 print_maps_order(reversed) -> "K";
 print_maps_order(CmpFun) when is_function(CmpFun, 2) -> "K".
 
-collect([$~|Fmt0], Args0) ->
+collect(Fmt, Args) ->
+    collect(Fmt, Args, []).
+collect([$~|Fmt0], Args0, Acc) ->
     {C,Fmt1,Args1} = collect_cseq(Fmt0, Args0),
-    [C|collect(Fmt1, Args1)];
-collect([C|Fmt], Args) ->
-    [C|collect(Fmt, Args)];
-collect([], []) -> [].
+    collect(Fmt1, Args1, [C | Acc]);
+collect([C|Fmt], Args, Acc) ->
+    collect(Fmt, Args, [C | Acc]);
+collect([], Remain, Acc) ->
+    {lists:reverse(Acc), Remain}.
 
 collect_cseq(Fmt0, Args0) ->
     {F,Ad,Fmt1,Args1} = field_width(Fmt0, Args0),

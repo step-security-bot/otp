@@ -210,7 +210,9 @@ format(Format, Args, Options) ->
       FormatList :: [char() | format_spec()].
 
 scan_format(Format, Args) ->
-    try io_lib_format:scan(Format, Args)
+    try
+        {Scanned, []} = io_lib_format:scan(Format, Args),
+        Scanned
     catch
         C:R:S ->
             test_modules_loaded(C, R, S),
