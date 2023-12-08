@@ -77,7 +77,7 @@
                %% helper field to track hidden types
                hidden_types = sets:new() :: sets:set({Name :: atom(), Arity :: non_neg_integer()}),
 
-               % user defined types that need to be shown in the documentation. these are types that are not
+               %% user defined types that need to be shown in the documentation. these are types that are not
                %% exported but that the documentation needs to show because exported functions referred to them.
                user_defined_types = sets:new() :: sets:set({TypeName :: atom(), Arity :: non_neg_integer()}),
 
@@ -565,7 +565,7 @@ update_user_defined_types({_Attr, _F, _A}=Key,
       {{hidden, _Anno}, _, _} ->
          State#docs{last_read_user_types = #{}};
       _ ->
-         State#docs{user_defined_types = sets:union(UserDefinedTypes, LastAddedTypes),
+         State#docs{user_defined_types = sets:union(UserDefinedTypes, sets:from_list(maps:keys(LastAddedTypes))),
                     last_read_user_types = #{}}
    end.
 
@@ -625,16 +625,32 @@ remove_exported_type_info(Key, #docs{docs = Docs}=State) ->
 
 extract_documentation(AST, State) ->
    State1 = foldl(fun extract_documentation0/2, State, AST),
-   State2 = purge_private_types(State1),
-   warnings(AST, State2).
+   State2 = purge_types_not_used_from_exported_functions(State1),
+   State3 = purge_unreachable_types(State2),
+   warnings(AST, State3).
 
-purge_private_types(#docs{ast_types = AstTypes,
-                          user_defined_types = UserDefinedTypes}=State) ->
-   AstTypes1 = filter(fun ({{_, F, A}, _Anno, _Slogan, _Doc, #{exported := Exported}}) ->
+%%
+%% purges types that are not used in exported functions.
+%% the type dependency field in docs does not keep track of which type
+%% is used in a public function, it simply connects all types.
+%% types of hidden functions may exist in the reachable type graph
+%% and they should be ignored unless reachable from
+purge_types_not_used_from_exported_functions(#docs{user_defined_types = UserDefinedTypes}=State) ->
+   AstTypes = filter(fun ({{_, F, A}, _Anno, _Slogan, _Doc, #{exported := Exported}}) ->
                                   sets:is_element({F, A}, UserDefinedTypes) orelse Exported
-                            end, AstTypes),
-   State#docs{ast_types = AstTypes1}.
+                            end, State#docs.ast_types),
+   State#docs{ast_types = AstTypes }.
 
+purge_unreachable_types(#docs{types_from_exported_funs = TypesFromExportedFuns,
+                              type_dependency = TypeDependency}=State) ->
+   SetTypesFromExportedFns = sets:from_list(maps:keys(TypesFromExportedFuns)),
+   SetTypes = sets:union(SetTypesFromExportedFns, State#docs.exported_types),
+   ReachableTypes = digraph_utils:reachable(sets:to_list(SetTypes), TypeDependency),
+   ReachableSet = sets:from_list(ReachableTypes),
+   AstTypes = filter(fun ({{_, F, A}, _Anno, _Slogan, _Doc, #{exported := Exported}}) ->
+                           sets:is_element({F, A}, ReachableSet) orelse Exported
+                     end, State#docs.ast_types),
+   State#docs{ast_types = AstTypes }.
 
 warnings(_AST, State) ->
    WarnFuns = [fun warn_hidden_types_used_in_public_fns/1,

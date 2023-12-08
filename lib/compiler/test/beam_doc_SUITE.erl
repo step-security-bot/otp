@@ -5,8 +5,8 @@
          singleton_docformat/1, singleton_meta/1, slogan/1,
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
-         doc_with_file/1, doc_with_file_error/1,
-         all_string_formats/1, docs_from_ast/1, spec_switch_order/1]).
+         doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
+         docs_from_ast/1, spec_switch_order/1, user_defined_type/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -47,7 +47,8 @@ documentation_generation_tests() ->
      doc_with_file_error,
      all_string_formats,
      spec_switch_order,
-     docs_from_ast
+     docs_from_ast,
+     user_defined_type
     ].
 
 singleton_moduledoc(Conf) ->
@@ -346,6 +347,12 @@ spec(Conf) ->
            {{callback,me,1},_,[<<"me/1">>],none,#{}},
            {{function,baz,1},_,[<<"baz(X)">>],none,#{}},
            {{function,foo,1},_,[<<"foo(X)">>],none,#{}}]}} = code:get_doc(ModName),
+    ok.
+
+user_defined_type(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, {docs_v1, _,_, _, none, _, []}} = code:get_doc(ModName),
     ok.
 
 deprecated(Conf) ->
