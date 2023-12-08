@@ -812,7 +812,7 @@ standard_passes() ->
 
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
-     {iff,beam_docs,?pass(beam_docs)},
+     {unless,no_docs,?pass(beam_docs)},
      ?pass(remove_doc_attributes),
 
      {iff,'P',{src_listing,"P"}},
@@ -824,7 +824,7 @@ standard_passes() ->
 abstr_passes(AbstrStatus) ->
     case AbstrStatus of
         non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)},
-                               {iff,beam_docs,?pass(beam_docs)},
+                               {unless,no_docs,?pass(beam_docs)},
                                ?pass(remove_doc_attributes)];
         verified_abstr -> []
     end ++

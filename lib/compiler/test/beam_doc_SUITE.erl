@@ -6,7 +6,7 @@
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
-         docs_from_ast/1, spec_switch_order/1, user_defined_type/1]).
+         docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -48,12 +48,13 @@ documentation_generation_tests() ->
      all_string_formats,
      spec_switch_order,
      docs_from_ast,
-     user_defined_type
+     user_defined_type,
+     skip_doc
     ].
 
 singleton_moduledoc(Conf) ->
     ModuleName = "singletonmoduledoc",
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
 
     Mime = <<"text/markdown">>,
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
@@ -62,7 +63,7 @@ singleton_moduledoc(Conf) ->
 
 singleton_doc(Conf) ->
     ModuleName = "singletondoc",
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     Mime = <<"text/markdown">>,
     Doc = #{<<"en">> => <<"Doc test module">>},
     FooDoc = #{<<"en">> => <<"Tests multi-clauses">>},
@@ -73,7 +74,7 @@ singleton_doc(Conf) ->
 
 docmodule_with_doc_attributes(Conf) ->
     ModuleName = "docmodule_with_doc_attributes",
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     Mime = <<"text/markdown">>,
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Doc = #{<<"en">> => <<"Doc test module">>},
@@ -104,7 +105,7 @@ docmodule_with_doc_attributes(Conf) ->
     ok.
 
 hide_moduledoc(Conf) ->
-    {ok, ModName} = compile_file(Conf, "hide_moduledoc"),
+    {ok, ModName} = default_compile_file(Conf, "hide_moduledoc"),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
           [{{function, main, 0}, _, [<<"main()">>],
             #{ <<"en">> := <<"Doc test module">> }, #{}}]}} = code:get_doc(ModName),
@@ -113,13 +114,13 @@ hide_moduledoc(Conf) ->
 %% TODO: crashes
 hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
           [{{function, main, 0}, _, [<<"main()">>], hidden, #{}}]}} = code:get_doc(ModName),
     ok.
 
 docformat(Conf) ->
-    {ok, ModName} = compile_file(Conf, "docformat"),
+    {ok, ModName} = default_compile_file(Conf, "docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Meta = #{format => "text/asciidoc",
              deprecated => "Use something else",
@@ -131,7 +132,7 @@ docformat(Conf) ->
     ok.
 
 singleton_docformat(Conf) ->
-    {ok, ModName} = compile_file(Conf, "singleton_docformat"),
+    {ok, ModName} = default_compile_file(Conf, "singleton_docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Meta = #{format => <<"text/asciidoc">>,
              deprecated => "Use something else",
@@ -145,7 +146,7 @@ singleton_docformat(Conf) ->
 
 singleton_meta(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>},
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
     {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, _,
@@ -156,7 +157,7 @@ singleton_meta(Conf) ->
 
 slogan(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     Doc = #{<<"en">> => <<"Returns ok.">>},
     BarDoc = #{ <<"en">> => <<"foo()\nNot a slogan since foo =/= bar">> },
     NoSloganDoc = #{ <<"en">> => <<"Not a slogan\n\nTests slogans in multi-clause">>},
@@ -175,7 +176,7 @@ slogan(Conf) ->
 
 types_and_opaques(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName, Warnings} = compile_file(Conf, ModuleName, [return_warnings]),
+    {ok, ModName, Warnings} = default_compile_file(Conf, ModuleName, [return_warnings]),
     TypeDoc = #{<<"en">> => <<"Represents the name of a person.">>},
     GenericsDoc = #{<<"en">> => <<"Tests generics">>},
     OpaqueDoc = #{<<"en">> =>
@@ -249,7 +250,7 @@ types_and_opaques(Conf) ->
 callback(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName, [{File,Warnings}]} =
-        compile_file(Conf, ModuleName, [return_warnings, report]),
+        default_compile_file(Conf, ModuleName, [return_warnings, report]),
     Doc = #{<<"en">> => <<"Callback fn that always returns ok.">>},
     ImpCallback = #{<<"en">> => <<"This is a test">>},
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
@@ -281,7 +282,7 @@ callback(Conf) ->
 
 private_types(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     Code = code:get_doc(ModName),
     ?assertMatch(
        {ok, {docs_v1, _,_, _, none, _,
@@ -315,7 +316,7 @@ private_types(Conf) ->
 
 export_all(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     ImpCallback = #{<<"en">> => <<"This is a test">>},
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
     {ok, {docs_v1, _,_, _, none, _,
@@ -329,7 +330,7 @@ export_all(Conf) ->
 
 equiv(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _, none, _,
           [{{function, main, 2},_,[<<"main(A, B)">>], none,
             #{ }},
@@ -340,7 +341,7 @@ equiv(Conf) ->
 
 spec(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,no,0},_,[<<"no()">>],none,#{exported := false}},
            {{type,yes,0},_,[<<"yes()">>],none,#{exported := false}},
@@ -351,13 +352,13 @@ spec(Conf) ->
 
 user_defined_type(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _, none, _, []}} = code:get_doc(ModName),
     ok.
 
 deprecated(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the type deprecated:test(_) is deprecated; Deprecation reason">>}},
            {{type,test,0},_,[<<"test()">>],none,#{deprecated := <<"the type deprecated:test() is deprecated; see the documentation for details">>}},
@@ -367,7 +368,7 @@ deprecated(Conf) ->
            {{function,test,0},_,[<<"test()">>],none,#{deprecated := <<"deprecated:test/0 is deprecated; see the documentation for details">>}}]}} =
         code:get_doc(ModName),
 
-    {ok, ModName} = compile_file(Conf, ModuleName, [{d,'TEST_WILDCARD'},
+    {ok, ModName} = default_compile_file(Conf, ModuleName, [{d,'TEST_WILDCARD'},
                                                     {d, 'REASON', next_major_release}]),
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the type deprecated:test(_) is deprecated; see the documentation for details">>}},
@@ -378,7 +379,7 @@ deprecated(Conf) ->
            {{function,test,0},_,[<<"test()">>],none,#{deprecated := <<"deprecated:test/0 is deprecated; see the documentation for details">>}}]}} =
         code:get_doc(ModName),
 
-    {ok, ModName} = compile_file(Conf, ModuleName, [{d,'ALL_WILDCARD'},
+    {ok, ModName} = default_compile_file(Conf, ModuleName, [{d,'ALL_WILDCARD'},
                                                     {d,'REASON',next_version},
                                                     {d,'TREASON',eventually}]),
     {ok, {docs_v1, _,_, _, none, _,
@@ -394,7 +395,7 @@ deprecated(Conf) ->
 warn_missing_doc(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName, [{File,Warnings}, {HrlFile, HrlWarnings}]} =
-        compile_file(Conf, ModuleName, [return_warnings, warn_missing_doc, report]),
+        default_compile_file(Conf, ModuleName, [return_warnings, warn_missing_doc, report]),
 
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,_},
@@ -425,7 +426,7 @@ doc_with_file(Conf) ->
     {ok, Cwd} = file:get_cwd(),
     try
         ok = file:set_cwd(proplists:get_value(data_dir, Conf)),
-        {ok, ModName} = compile_file(Conf, ModuleName, [{i, "./folder"}]),
+        {ok, ModName} = default_compile_file(Conf, ModuleName, [{i, "./folder"}]),
         {ok, {docs_v1, ModuleAnno,_, _, #{<<"en">> := <<"# README\n\nThis is a test">>}, _,
               [{{type,bar,1},_,[<<"bar(X)">>],none,#{exported := false}},
                {{type,foo,1},_,[<<"foo(X)">>],none,#{exported := true}},
@@ -450,14 +451,14 @@ doc_with_file_error(Conf) ->
      [{_,
        [{{6,2},epp,{moduledoc,file,"doesnotexist"}},
         {{8,2},epp,{doc,file,"doesnotexist"}},
-        {{11,2},epp,{doc,file,"doesnotexist"}}]}] = Errors, []} = compile_file(Conf, ModuleName),
+        {{11,2},epp,{doc,file,"doesnotexist"}}]}] = Errors, []} = default_compile_file(Conf, ModuleName),
     [[Mod:format_error(Error) || {_Loc, Mod, Error} <- Errs] || {_File, Errs} <- Errors],
-    {error, _, []} = compile_file(Conf, ModuleName, [report]),
+    {error, _, []} = default_compile_file(Conf, ModuleName, [report]),
     ok.
 
 all_string_formats(Conf) ->
     ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
 
     {ok, {docs_v1, _ModuleAnno,_, _, #{<<"en">> := <<"Moduledoc test module">>}, _,
               [
@@ -472,7 +473,7 @@ all_string_formats(Conf) ->
 
 spec_switch_order(Conf) ->
   ModuleName = ?get_name(),
-    {ok, ModName} = compile_file(Conf, ModuleName),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
 
     {ok, {docs_v1, _ModuleAnno,_, _, _, _,
           [NotFalse, Other, Bar, Foo]}} = code:get_doc(ModName),
@@ -480,6 +481,21 @@ spec_switch_order(Conf) ->
   {{function,other,0},{37,2},[<<"other()">>],hidden,#{}} = Other,
   {{function,bar,1},{31,2},[<<"bar(X)">>],hidden,#{}} = Bar,
   {{function,foo,1}, {5, 2}, [<<"foo(X)">>], hidden, #{}} = Foo.
+
+skip_doc(Conf) ->
+  ModuleName =?get_name(),
+  {ok, ModName} = default_compile_file(Conf, ModuleName, [no_docs]),
+
+  {ok,{docs_v1,0,erlang,<<"application/erlang+html">>,none,
+     #{generated := true,
+       otp_doc_vsn := {1,0,0}},
+       [{{function,main,0},{8,1},[<<"main/0">>],none,#{}},
+        {{function,foo,1},{16,1},[<<"foo/1">>],none,#{}}]}} = code:get_doc(ModName),
+
+  {ok, _ModName} = compile_file(Conf, ModuleName, [report, return_errors, no_docs]),
+  {error, missing} = code:get_doc(ModName),
+  ok.
+
 
 docs_from_ast(_Conf) ->
     Code = """
@@ -523,21 +539,28 @@ parse(Toks) ->
     {ok, F} = erl_parse:parse_form(Form ++ [Dot]),
     [F | parse(Rest)].
 
-compile_file(Conf, ModuleName) ->
-    compile_file(Conf, ModuleName, []).
 compile_file(Conf, ModuleName, ExtraOpts) ->
     ErlModName = ModuleName ++ ".erl",
     Filename = filename:join(proplists:get_value(data_dir, Conf), ErlModName),
-    io:format("Compiling: ~ts~n",[Filename]),
-    case compile:file(Filename, [report, return_errors, debug_info, beam_docs | ExtraOpts]) of
+    io:format("Compiling: ~ts~n~p~n",[Filename, ExtraOpts]),
+    case compile:file(Filename, ExtraOpts) of
         Res when element(1, Res) =:= ok ->
             ModName = element(2, Res),
-            check_no_doc_attributes(code:which(ModName)),
-
-            Res;
+            case lists:search(fun (X) -> X =:= no_docs end, ExtraOpts) of
+              false when length(ExtraOpts) > 0 ->
+                check_no_doc_attributes(code:which(ModName)),
+                Res;
+              _ ->
+                Res
+            end;
         Else ->
             Else
     end.
+
+default_compile_file(Conf, ModuleName) ->
+  default_compile_file(Conf, ModuleName, []).
+default_compile_file(Conf, ModuleName, ExtraOpts) ->
+  compile_file(Conf, ModuleName, [report, return_errors, debug_info] ++ ExtraOpts).
 
 
 %% Verify that all doc and moduledoc attributes are stripped from debug_info
@@ -552,5 +575,5 @@ check_no_doc_attributes(Mod) ->
                           andalso
                             (element(3,E) == doc orelse element(3,E) == moduledoc)
               end, AST),
-    true = lists:member(beam_docs, Opts),
+    false = lists:member(no_docs, Opts),
     ok.
