@@ -7,7 +7,8 @@
          spec_slogan/2,
          no_doc_slogan/1,
          spec_no_doc_slogan/1,
-         spec_multiclause_slogan_ignored/1
+         spec_multiclause_slogan_ignored/1,
+         connect/2
         ]).
 
 -doc "
@@ -57,3 +58,16 @@ spec_no_doc_slogan(X) ->
                                      (Z) -> Z when Z :: integer().
 spec_multiclause_slogan_ignored(X) ->
     X.
+
+
+-doc(#{equiv => connect/3}).
+-doc(#{since => <<"OTP R14B">>}).
+-spec connect(TCPSocket, TLSOptions) ->
+                     {ok, sslsocket} |
+                     {error, reason} |
+                     {option_not_a_key_value_tuple, any()} when
+      TCPSocket :: socket,
+      TLSOptions :: [tls_client_option].
+
+connect(Socket, SslOptions) ->
+    {Socket, SslOptions}.

@@ -156,23 +156,26 @@ singleton_meta(Conf) ->
     ok.
 
 slogan(Conf) ->
-    ModuleName = ?get_name(),
-    {ok, ModName} = default_compile_file(Conf, ModuleName),
-    Doc = #{<<"en">> => <<"Returns ok.">>},
-    BarDoc = #{ <<"en">> => <<"foo()\nNot a slogan since foo =/= bar">> },
-    NoSloganDoc = #{ <<"en">> => <<"Not a slogan\n\nTests slogans in multi-clause">>},
-    {ok, {docs_v1, _,_, _, none, _,
-          [{{function,spec_multiclause_slogan_ignored,1},_,[<<"spec_multiclause_slogan_ignored(X)">>],none,#{}},
-           {{function, spec_no_doc_slogan, 1}, _, [<<"spec_no_doc_slogan(Y)">>], none, #{}},
-           {{function, no_doc_slogan, 1}, _, [<<"no_doc_slogan(X)">>], none, #{}},
-           {{function, spec_slogan, 2}, _, [<<"spec_slogan(Y, Z)">>], _, #{}},
-           {{function, spec_slogan, 1}, _, [<<"spec_slogan(Y)">>], _, #{}},
-           {{function, no_slogan,1},_,[<<"no_slogan/1">>], NoSloganDoc, #{}},
-           {{function, bar,0},_,[<<"bar()">>], BarDoc, #{}},
-           {{function, main,1},_,[<<"main(Foo)">>], Doc, #{}}
-          ]}
-    } = code:get_doc(ModName),
-    ok.
+  ModuleName = ?get_name(),
+  {ok, ModName} = default_compile_file(Conf, ModuleName),
+  Doc = #{<<"en">> => <<"Returns ok.">>},
+  BarDoc = #{ <<"en">> => <<"foo()\nNot a slogan since foo =/= bar">> },
+  NoSloganDoc = #{ <<"en">> => <<"Not a slogan\n\nTests slogans in multi-clause">>},
+  {ok, {docs_v1, _,_, _, none, _,
+          [Connect, MulticlauseSloganIgnored, SpecNoDocSlogan, NoDocSlogan,
+           Slogan2, Slogan1, NoSlogan, Bar, Main]}} = code:get_doc(ModName),
+
+  {{function,connect,2},_,
+   [<<"connect(TCPSocket, TLSOptions)">>],none,#{equiv := <<"connect/3">>,since := <<"OTP R14B">>}} = Connect,
+  {{function,spec_multiclause_slogan_ignored,1},_,[<<"spec_multiclause_slogan_ignored(X)">>],none,#{}} = MulticlauseSloganIgnored,
+  {{function, spec_no_doc_slogan, 1}, _, [<<"spec_no_doc_slogan(Y)">>], none, #{}} = SpecNoDocSlogan,
+  {{function, no_doc_slogan, 1}, _, [<<"no_doc_slogan(X)">>], none, #{}}= NoDocSlogan,
+  {{function, spec_slogan, 2}, _, [<<"spec_slogan(Y, Z)">>], _, #{}} = Slogan2,
+  {{function, spec_slogan, 1}, _, [<<"spec_slogan(Y)">>], _, #{}} = Slogan1,
+  {{function, no_slogan,1},_,[<<"no_slogan/1">>], NoSloganDoc, #{}} = NoSlogan,
+  {{function, bar,0},_,[<<"bar()">>], BarDoc, #{}} = Bar,
+  {{function, main,1},_,[<<"main(Foo)">>], Doc, #{}} = Main,
+  ok.
 
 types_and_opaques(Conf) ->
     ModuleName = ?get_name(),
@@ -226,7 +229,7 @@ types_and_opaques(Conf) ->
     {{function,uses_public,0},{127,1},[<<"uses_public()">>],none,#{}} = UsesPublic,
     {{function,ignore_type_from_hidden_fun,0},_,[<<"ignore_type_from_hidden_fun()">>],hidden,#{}} = Ignore,
     {{function,map_fun,0},_,[<<"map_fun()">>],none,#{}} = MapFun,
-    {{function,private_encoding_func,2},_,[<<"private_encoding_func/2">>],none,#{}} = PrivateEncoding,
+    {{function,private_encoding_func,2},_,[<<"private_encoding_func(Data, Options)">>],none,#{}} = PrivateEncoding,
     {{function,foo,0},_,[<<"foo()">>],none,#{}} = Foo,
 
     ?assertEqual(106, erl_anno:line(MyOtherPrivateTypeLine)),

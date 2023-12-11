@@ -300,14 +300,8 @@ extract_exported_types0(_AST, State) ->
 
 extract_slogan_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= spec; Tag =:= callback ->
    maybe
-      %% checks that slogans are not considered for multi-clause callbacks and specs
-      {Name, Arity, [{type, _, 'fun', [{type, _, product, Args}, _Return]}]} ?=
-         case Form of
-            {{Name0, Arity0}, Types0} ->
-               {Name0, Arity0, Types0};
-            {{_Mod, Name0, Arity0}, Types0} ->
-               {Name0, Arity0, Types0}
-         end,
+      {Name, Arity, Args} = extract_args_from_spec(Form),
+      true ?= is_list(Args),
 
       Vars = foldl(fun (_, false) -> false;
                        ({var, _, Var}, Vars) -> [Var | Vars];
@@ -324,6 +318,23 @@ extract_slogan_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= spec
    end;
 extract_slogan_from_spec0(_, State) ->
    State.
+
+%%
+%% extract arguments for the slogan from the spec.
+%% does not accept multi-clause callbacks / specs due to the ambiguity
+%% of which spec clause to choose.
+%%
+extract_args_from_spec({{Name, Arity}, Types}) ->
+   case Types of
+      [{type, _, 'fun', [{type, _, product, Args}, _Return]}] ->
+         {Name, Arity, Args};
+      [{type, _, bounded_fun, [Args, _Constraints]}] ->
+         extract_args_from_spec({{Name, Arity}, [Args]});
+      _ ->
+         {Name, Arity, false}
+   end;
+extract_args_from_spec({{_Mod, Name, Arity}, Types}) ->
+   extract_args_from_spec({{Name, Arity}, Types}).
 
 update_slogan0(#docs{slogans = Slogans}=State, _Anno, {FunName, Vars, Arity}=Slogan)
   when is_atom(FunName) andalso is_list(Vars) andalso is_number(Arity) ->
@@ -744,20 +755,17 @@ extract_documentation0(_, State) ->
     State.
 
 
-extract_documentation_spec({attribute, Anno, spec, Form}, State) ->
-   extract_spec_types(Anno, Form, State).
-
+extract_documentation_spec({attribute, Anno, spec, {{Name,Arity}, SpecTypes}}, #docs{exported_functions = ExpFuns}=State) ->
 %% this is because public functions may use private types and these private
 %% types need to be included in the beam and documentation.
-extract_spec_types(Anno, {{Name,Arity}, SpecTypes}, #docs{exported_functions = ExpFuns}=State) ->
    case sets:is_element({Name, Arity}, ExpFuns) orelse State#docs.export_all of
       true ->
          add_user_types(Anno, SpecTypes, State);
       false ->
          State
    end;
-extract_spec_types(Anno, {{_Mod, Name, Arity}, Types}, State) ->
-   extract_spec_types(Anno, {{Name, Arity}, Types}, State).
+extract_documentation_spec({attribute, Anno, spec, {{_Mod, Name,Arity}, SpecTypes}}, State) ->
+   extract_documentation_spec({attribute, Anno, spec, {{Name,Arity}, SpecTypes}}, State).
 
 add_user_types(_Anno, SpecTypes, State) ->
    Types = extract_user_types(SpecTypes),
@@ -821,7 +829,10 @@ extract_documentation_from_type({attribute, Anno, TypeOrOpaque, {TypeName, _Type
   when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
    Args = fun_to_varargs(TypeArgs),
    Key =  {type, TypeName, length(TypeArgs)},
+
+   % we assume it exists because a first pass must have added it
    {Status, Doc, Meta} = maps:get(Key, Docs),
+
    State0 = add_last_read_user_type(Anno, Types, State),
    Type = {TypeName, length(Args)},
 
@@ -981,6 +992,21 @@ fun_to_varargs(Else) ->
 extract_slogan(Doc, State, F, A) ->
    extract_slogan(Doc, State, F, A, [invalid]).
 extract_slogan(Doc, State, F, A, Args) ->
+   %% order of the strategy matters
+   StrategyOrder = [fun slogan_strategy_doc_attr/5,
+                    fun slogan_strategy_spec/5,
+                    fun slogan_strategy_args/5,
+                    fun slogan_strategy_default/5],
+
+   %% selection alg. tries strategy until one strategy
+   %% returns value =/= false
+   SloganSelection = fun (Fun, false) -> Fun(Doc, State, F, A, Args);
+                         (_F, Acc) -> Acc
+                     end,
+   foldl(SloganSelection, false, StrategyOrder).
+
+
+slogan_strategy_doc_attr(Doc, _State, F, A, _Args) ->
    maybe
       false ?= Doc =:= none orelse Doc =:= hidden,
       [MaybeSlogan | Rest] = string:split(Doc, "\n"),
@@ -990,20 +1016,35 @@ extract_slogan(Doc, State, F, A, Args) ->
       {MaybeSlogan, Rest}
    else
       _ ->
-         Slogan =
-            case maps:get({F, A}, State#docs.slogans, none) of
-               none ->
-                  case all(fun({var,_,N}) when N =/= '_' -> true; (_) -> false end, Args)  of
-                     true ->
-                        extract_slogan_from_args(F, Args);
-                     false -> io_lib:format("~p/~p",[F,A])
-                  end;
-               {F, Vars, A} ->
-                  VarString = join(", ",[atom_to_list(Var) || Var <- Vars]),
-                  unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString]))
-            end,
-         {Slogan, Doc}
+         false
    end.
+
+slogan_strategy_spec(Doc, State, F, A, _Args) ->
+   case maps:get({F, A}, State#docs.slogans, none) of
+      {F, Vars, A} ->
+         VarString = join(", ",[atom_to_list(Var) || Var <- Vars]),
+         Slogan = unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString])),
+         {Slogan, Doc};
+      none ->
+         false
+   end.
+
+slogan_strategy_args(Doc, _State, F, _A, Args) ->
+   case all(fun is_var_without_underscore/1, Args)  of
+      true ->
+         {extract_slogan_from_args(F, Args), Doc};
+      false ->
+         false
+   end.
+
+slogan_strategy_default(Doc, _State, F, A, _Args) ->
+   {io_lib:format("~p/~p",[F,A]), Doc}.
+
+
+is_var_without_underscore({var, _, N}) ->
+   N =/= '_';
+is_var_without_underscore(_) ->
+   false.
 
 extract_slogan_from_args(F, Args) ->
    io_lib:format("~p(~ts)",[F, join(", ",[string:trim(atom_to_list(Arg),leading,"_") || {var, _, Arg} <- Args])]).
