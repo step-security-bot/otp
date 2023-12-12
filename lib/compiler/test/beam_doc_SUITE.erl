@@ -116,7 +116,8 @@ hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
-          [{{function, main, 0}, _, [<<"main()">>], hidden, #{}}]}} = code:get_doc(ModName),
+          [{{function,handle_call,1},{19,2},[<<"handle_call/1">>],hidden,#{}},
+           {{function, main, 0}, _, [<<"main()">>], hidden, #{}}]}} = code:get_doc(ModName),
     ok.
 
 docformat(Conf) ->

@@ -18,11 +18,12 @@
 %% %CopyrightEnd%
 %%
 %% Purpose : Generate documentation as per EEP-48
-%% Tool to convert an Erlang program in its abstract form to EEP-48 format.
+%%
+%% Pass to generate EEP-48 format for beam files.
 %%
 %% Example:
 %%
-%% 1> compile:file(test, [beam_docs]).
+%% 1> compile:file(test).
 %%
 
 -module(beam_doc).
@@ -592,7 +593,7 @@ update_doc(#docs{doc_status = DocStatus}=State, Doc0) ->
         none ->
             State2;
         {Doc, Anno} ->
-            State2#docs{doc = {string:trim(Doc), set_file_anno(Anno, State)}}
+            State2#docs{doc = {string:trim(Doc), set_file_anno(Anno, State2)}}
     end.
 
 set_file_anno(Anno, State) ->
@@ -860,14 +861,9 @@ extract_documentation_from_funs({function, Anno, F, A, [{clause, _, ClauseArgs, 
        false ->
           reset_state(State)
     end;
-extract_documentation_from_funs({function, Anno0, F, A, _Body},
-                                #docs{docs = Docs, exported_functions=ExpFuns}=State) ->
-   {_Status, Doc0, _Meta} = maps:get({function, F, A}, Docs),
-   {Doc1, Anno1} = case Doc0 of
-                      none -> {none, set_file_anno(Anno0, State)};
-                      {Doc, Anno} -> {Doc, Anno}
-                   end,
-
+extract_documentation_from_funs({function, _Anno0, F, A, _Body}=AST,
+                                #docs{exported_functions=ExpFuns}=State) ->
+   {Doc1, Anno1} = fetch_doc_and_anno(State, AST),
    case sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all of
       true ->
          {Slogan, DocsWithoutSlogan} = extract_slogan(Doc1, State, F, A),
@@ -877,28 +873,16 @@ extract_documentation_from_funs({function, Anno0, F, A, _Body},
          reset_state(State)
    end.
 
-extract_documentation_from_cb({attribute, Anno, callback, {{CB, A}, [Fun]=Form}}, State) ->
+extract_documentation_from_cb({attribute, Anno, callback, {{CB, A}, Form}}, State) ->
    %% adds user types as part of possible types that need to be exported
    State2 = add_user_types(Anno, Form, State),
-
-   Args = fun_to_varargs(Fun),
-   gen_doc_with_slogan({callback, Anno, CB, A, Args}, State2);
-extract_documentation_from_cb({attribute, Anno0, callback, {{CB, A}, Form}}, #docs{docs = Docs}=State) ->
-   %% Multi-clause callback. Do not create a slogan from the callback args.
-
-   {_Status, Doc0, _Meta} = maps:get({callback, CB, A}, Docs),
-   %% adds user types as part of possible types that need to be exported
-   State2 = add_user_types(Anno0, Form, State),
-
-   {Doc1, Anno1} = case Doc0 of
-                        none -> {none, set_file_anno(Anno0, State)};
-                        {Doc, Anno} -> {Doc, Anno}
-                    end,
-
-   {Slogan, DocsWithoutSlogan} = extract_slogan(Doc1, State2, CB, A),
-
-   AttrBody = {callback, CB, A},
-   gen_doc(Anno1, AttrBody, Slogan, DocsWithoutSlogan, State2).
+   Args = case Form of
+              [Fun] ->
+                  fun_to_varargs(Fun);
+              _ -> %% multi-clause
+                  Form
+          end,
+   gen_doc_with_slogan({callback, Anno, CB, A, Args}, State2).
 
 %% Generates documentation
 -spec gen_doc(Anno, AttrBody, Slogan, Docs, State) -> Response when
@@ -970,6 +954,7 @@ gen_doc_with_slogan({Attr, _Anno0, F, A, Args}=AST, State) ->
     gen_doc(Anno1, AttrBody, Slogan, DocsWithoutSlogan, State).
 
 fetch_doc_and_anno(#docs{docs = DocsMap}=State, {Attr, Anno0, F, A, _Args}) ->
+    %% a first pass guarantees that DocsMap cannot be empty
     {DocStatus, Doc, _Meta} = maps:get({Attr, F, A}, DocsMap),
     case {DocStatus, Doc} of
         {{hidden, Anno}, _} -> {hidden, Anno};
