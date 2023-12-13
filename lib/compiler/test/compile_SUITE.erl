@@ -713,7 +713,6 @@ encrypted_abstr_1(Simple, Target) ->
     erpc:call(
       Node,
       fun() ->
-              {ok,OldCwd} = file:get_cwd(),
               ok = file:set_cwd(TargetDir),
 
               error = compile:file(Simple, [encrypt_debug_info,report]),

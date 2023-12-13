@@ -2151,6 +2151,7 @@ pre_load() ->
          beam_core_to_ssa,
 	 beam_dict,
 	 beam_digraph,
+     beam_doc,
 	 beam_flatten,
 	 beam_jump,
 	 beam_opcodes,
