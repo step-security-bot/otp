@@ -146,13 +146,14 @@
 	      exception at runtime).</p>
           </item>
 
-          <tag><c>beam_docs</c><marker id="beam_docs"/></tag>
+          <tag><c>no_docs</c><marker id="beam_docs"/></tag>
           <item>
-            <p>Tell the compiler to extract <seeguide marker="system/reference_manual:documentation">documentation</seeguide> from
+            <p>The compiler by default extracts <seeguide marker="system/reference_manual:documentation">documentation</seeguide> from
               <seeguide marker="system/reference_manual:modules#documentation-attributes"><c>-doc</c> attributes</seeguide>
-              and place them in the <seetype marker="stdlib:beam_lib#chunkid"><c>Docs</c> chunk</seetype> according to <seeguide marker="kernel:eep48_chapter">EEP-48</seeguide>.
+              and places them in the <seetype marker="stdlib:beam_lib#chunkid"><c>Docs</c> chunk</seetype> according to <seeguide marker="kernel:eep48_chapter">EEP-48</seeguide>.
             </p>
-            <p>This option can be combined with <seeerl marker="#warn_missing_doc"><c>warn_missing_doc</c></seeerl></p>.
+            <p>This option switches off the placement of <seeguide marker="system/reference_manual:modules#documentation-attributes"><c>-doc</c> attributes</seeguide>
+            in the <seetype marker="stdlib:beam_lib#chunkid"><c>Docs</c> chunk</seetype></p>.
           </item>
 
           <tag><c>binary</c></tag>
@@ -889,8 +890,6 @@ module.beam: module.erl \
               <p>By default, warnings are not emitted when <c>-doc</c>
                 attribute for an exported function is not given. Use this
                 option to turn on this kind of warning.</p>
-              <p>This option only has effect if <seeerl marker="#beam_docs"><c>beam_docs</c></seeerl>
-                also is enabled.</p>
           </item>
 
           <tag><c>warn_missing_spec</c></tag>
