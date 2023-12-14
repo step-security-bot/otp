@@ -320,8 +320,8 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	ERL_MESSAGE_TOKEN(mp) = token;
 
-    /* If the sender is known, try to enqueue to an outer signal queue buffer
-     * instead of directly to the outer signal queue.
+    /* If the sender is known, try to enqueue to an outer message queue buffer
+     * instead of directly to the outer message queue.
      *
      * Otherwise, the code below flushes the buffer before adding the message
      * to ensure the signal order is maintained. This should only happen for
@@ -329,7 +329,7 @@ erts_queue_dist_message(Process *rcvr,
     if (is_external_pid(from) &&
          erts_proc_sig_queue_try_enqueue_to_buffer(from, rcvr, rcvr_locks,
                                                    mp, &mp->next,
-                                                   NULL, 1)) {
+                                                   NULL, 1, 0)) {
         return;
     }
 
@@ -363,7 +363,7 @@ erts_queue_dist_message(Process *rcvr,
             erts_proc_sig_queue_flush_buffers(rcvr);
         }
 
-        LINK_MESSAGE(rcvr, mp, state);
+        LINK_MESSAGE(rcvr, mp);
 
         if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
             erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
@@ -401,11 +401,11 @@ queue_messages(Eterm from,
                    == (receiver_locks & ERTS_PROC_LOCK_MSGQ));
 
     /*
-     * Try to enqueue to an outer signal queue buffer instead of
-     * directly to the outer signal queue
+     * Try to enqueue to an outer message queue buffer instead of
+     * directly to the outer message queue
      */
     if (erts_proc_sig_queue_try_enqueue_to_buffer(from, receiver, receiver_locks,
-                                                  first, last, NULL, len)) {
+                                                  first, last, NULL, len, 0)) {
         return;
     }
 
@@ -449,10 +449,10 @@ queue_messages(Eterm from,
              */
             erts_proc_sig_queue_flush_buffers(receiver);
         }
-        LINK_MESSAGE(receiver, first, state);
+        LINK_MESSAGE(receiver, first);
     }
     else {
-        state = erts_enqueue_signals(receiver, first, last, len, state);
+        erts_enqueue_signals(receiver, first, last, NULL, len, state);
     }
 
     if (locked_msgq) {
@@ -540,9 +540,8 @@ erts_queue_proc_message(Process* sender,
                         ErtsMessage* mp, Eterm msg)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->xstate,
-					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
-
+	(void) erts_atomic32_read_bor_nob(&sender->state,
+					  ERTS_PSFLG_MAYBE_SELF_SIGS);
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
     queue_messages(sender->common.id, receiver, receiver_locks,
@@ -557,9 +556,8 @@ erts_queue_proc_messages(Process* sender,
                          ErtsMessage* first, ErtsMessage** last, Uint len)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->xstate,
-					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
-
+	(void) erts_atomic32_read_bor_nob(&sender->state,
+					  ERTS_PSFLG_MAYBE_SELF_SIGS);
     queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);
