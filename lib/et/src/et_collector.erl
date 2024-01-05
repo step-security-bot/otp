@@ -87,6 +87,42 @@
 -record(trace_ts, {trace_ts, event_ts}).
 -record(event_ts, {event_ts, trace_ts}).
 
+-type event() :: #event{}.
+-type table_handle() :: #table_handle{}.
+-type event_ts() :: #event_ts{}.
+-type trace_ts() :: #trace_ts{}.
+
+-type collector_fun() :: trace_filter_fun() | event_filter_fun().
+
+-type trace_filter_fun() :: fun((TraceData::tuple()) -> boolean() | {true, event()}).
+-type event_filter_fun() :: fun((Event::event()) -> boolean() | {true, event()}).
+
+-type dbg_match_spec() :: [tuple()].  %% See dbg match specs
+-type dbg_trace_type() :: ip | file | follow_file.   %% See dbg:trace_client
+-type dbg_trace_parameters() :: file:filename() | integer() | {string(), integer()}. %% See dbg:trace_client
+
+-type ets_match_object_pattern() :: term(). %% See ets:match_object()
+
+-type option()::
+        {parent_pid, pid() | undefined} |
+        {event_order, trace_ts | event_ts} |
+        {dict_insert, {filter, all}, collector_fun()} |
+        {dict_insert, {filter, EventFilterName::atom()}, event_filter_fun()} |
+        {dict_insert, {subscriber, pid()}, Val::term()} |
+        {dict_insert, Key::term(), Val::term()} |
+        {dict_delete, Key::term()} |
+        {trace_client, {event_file, file:filename()} |
+         {dbg_trace_type(), dbg_trace_parameters()}} |
+        {trace_global, boolean()} |
+        {trace_pattern, {module() | undefined, Level::pos_integer() | dbg_match_spec()} |
+         undefined} |
+        {trace_port, integer()} |
+        {trace_max_queue, integer()}.
+
+-type actor() :: term().
+
+-export_type([option/0]).
+
 %%%----------------------------------------------------------------------
 %%% Client side
 %%%----------------------------------------------------------------------
@@ -163,7 +199,8 @@
 %% CollectorPid = pid()
 %% Reason = term()
 %%----------------------------------------------------------------------
-
+-spec start_link(Options) -> {ok, Pid::pid()} | {error, term()} when
+      Options :: [option()].
 start_link(Options) ->
     case parse_opt(Options, default_state(), [], []) of
 	{ok, S, Dict2, Clients} ->
@@ -266,7 +303,7 @@ start_clients(CollectorPid, []) ->
 %%
 %% CollectorPid = pid()
 %%----------------------------------------------------------------------
-
+-spec stop(CollectorPid::pid()) -> ok.
 stop(CollectorPid) ->
     call(CollectorPid, stop).
 
@@ -295,7 +332,10 @@ stop(CollectorPid) ->
 %% 
 %% The options defaults to existing, write and keep.
 %%----------------------------------------------------------------------
-
+-spec save_event_file(CollectorPid, FileName, [Option]) -> ok | {error, term()} when
+      CollectorPid :: pid(),
+      FileName :: file:filename(),
+      Option :: existing | write | append | keep | clear.
 save_event_file(CollectorPid, FileName, Options) ->
     call(CollectorPid, {save_event_file, FileName, Options}).
 
@@ -309,7 +349,10 @@ save_event_file(CollectorPid, FileName, Options) ->
 %% BadBytes = integer(X) where X >= 0
 %% Reason = term()
 %%----------------------------------------------------------------------
-
+-spec load_event_file(CollectorPid, FileName) ->{ok, BadBytes} when
+      CollectorPid :: pid(),
+      FileName :: file:filename(),
+      BadBytes :: pos_integer().
 load_event_file(CollectorPid, FileName) ->
     Fd = make_ref(),
     Args = [{file, FileName}, {name, Fd}, {repair, true}, {mode, read_only}],
@@ -359,6 +402,11 @@ do_load_event_file(Fun, Fd, Cont, Acc, FileName, BadBytes) ->
 %% Returns: {ok, Continuation} | exit(Reason)
 %%----------------------------------------------------------------------
 
+-spec report(CollectorPid, TraceOrEvent) -> {ok, Continuation} when
+      CollectorPid :: pid(),
+      TraceOrEvent :: event() | TraceData | end_of_trace,
+      TraceData :: tuple(),
+      Continuation :: table_handle().
 report(CollectorPid, TraceOrEvent) when is_pid(CollectorPid) ->
     case get_table_handle(CollectorPid) of
         {ok, TH} when is_record(TH, table_handle) ->
@@ -411,9 +459,24 @@ report(TH, TraceOrEvent) when is_record(TH, table_handle) ->
 report(_, Bad) ->
     exit({bad_event, Bad}).
 
+-spec report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} when
+      CollectorPid :: pid(),
+      DetailLevel :: pos_integer(),
+      FromTo :: actor(),
+      Label  :: term(),
+      Contents :: [{Key::term(), Value::term()}] | term(),
+      Continuation :: table_handle().
 report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) ->
     report_event(CollectorPid, DetailLevel, FromTo, FromTo, Label, Contents).
 
+-spec report_event(CollectorPid, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} when
+      CollectorPid :: pid(),
+      DetailLevel :: pos_integer(),
+      From :: actor(),
+      To :: actor(),
+      Label  :: term(),
+      Contents :: [{Key::term(), Value::term()}] | term(),
+      Continuation :: table_handle().
 report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
   when is_integer(DetailLevel), 
        DetailLevel >= ?detail_level_min,
@@ -438,6 +501,10 @@ report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
 %% Key = record(event_ts) | record(trace_ts)
 %%----------------------------------------------------------------------
 
+-spec make_key(TH, Stuff) -> Key when
+      TH :: table_handle() | trace_ts | event_ts,
+      Stuff :: event() | Key,
+      Key :: event_ts() | trace_ts().
 make_key(TH, Stuff) when is_record(TH, table_handle) ->
     make_key(TH#table_handle.event_order, Stuff);
 make_key(trace_ts, Stuff) ->
@@ -490,7 +557,7 @@ get_table_handle(CollectorPid) when is_pid(CollectorPid) ->
 %% CollectorPid = pid()
 %% Reason = term()
 %%----------------------------------------------------------------------
-
+-spec get_global_pid() -> CollectorPid :: pid().
 get_global_pid() ->
     case global:whereis_name(?MODULE) of
         CollectorPid when is_pid(CollectorPid) ->
@@ -512,7 +579,10 @@ get_global_pid() ->
 %% detail_level() = min | max | integer(X) when X =< 0, X >= 100
 %% TracePattern = {report_module(), dbg_match_spec_match_spec()}
 %%----------------------------------------------------------------------
-
+-spec change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern} when
+      CollectorPid :: pid(),
+      RawPattern :: min | max | pos_integer(),
+      TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}].
 change_pattern(CollectorPid, RawPattern) ->
     Pattern = et_selector:make_pattern(RawPattern),
     call(CollectorPid, {change_pattern, Pattern}).
@@ -542,7 +612,11 @@ change_pattern(CollectorPid, RawPattern) ->
 %% Key = term()
 %% Val = term()
 %%----------------------------------------------------------------------
-
+-spec dict_insert(CollectorPid, What, Fun) -> ok when
+      CollectorPid :: pid(),
+      What :: {filter, atom()} | {subscriber, pid()} | Key,
+      Key  :: term(),
+      Fun  :: collector_fun().
 dict_insert(CollectorPid, Key = {filter, Name}, Fun) ->
     if
 	is_atom(Name), is_function(Fun) ->
@@ -569,14 +643,14 @@ dict_insert(CollectorPid, Key, Val) ->
 %% Key = term()
 %% Val = term()
 %%----------------------------------------------------------------------
-
+-spec dict_lookup(CollectorPid::pid(), Key::term()) -> [Val::term()].
 dict_lookup(CollectorPid, Key) ->
     call(CollectorPid, {dict_lookup, Key}).
 
 %%----------------------------------------------------------------------
-%% Ddict_delete(CollectorPid, Key) -> ok
+%% dict_delete(CollectorPid, Key) -> ok
 %%
-%% elete a dictionary entry
+%% Delete a dictionary entry
 %% and send a {et, {dict_delete, Key}} tuple
 %% to all registered subscribers.
 %%
@@ -591,7 +665,7 @@ dict_lookup(CollectorPid, Key) ->
 %% SubscriberPid = pid()
 %% Key = term()
 %%----------------------------------------------------------------------
-
+-spec dict_delete(CollectorPid::pid(), Key::term()) -> ok.
 dict_delete(CollectorPid, Key) ->
     call(CollectorPid, {dict_delete, Key}).
 
@@ -608,7 +682,10 @@ dict_delete(CollectorPid, Key) ->
 %% key() = term()
 %% val() = term()
 %%----------------------------------------------------------------------
-
+-spec dict_match(CollectorPid::pid(), {KeyPattern, ValPattern}) -> [Match] when
+      KeyPattern :: ets_match_object_pattern(),
+      ValPattern :: ets_match_object_pattern(),
+      Match :: {Key::term(), Val::term()}.
 dict_match(CollectorPid, Pattern)  ->
     call(CollectorPid, {dict_match, Pattern}).
 
@@ -620,7 +697,7 @@ dict_match(CollectorPid, Pattern)  ->
 %% CollectorPid = pid()
 %% Msg = term()
 %%----------------------------------------------------------------------
-
+-spec multicast(CollectorPid :: pid(), Msg::term()) -> ok.
 multicast(_CollectorPid, Msg = {dict_insert, _Key, _Val}) ->
     exit({badarg, Msg});
 multicast(_CollectorPid, Msg = {dict_delete, _Key}) ->
@@ -638,7 +715,10 @@ multicast(CollectorPid, Msg) ->
 %% Parameters = dbg_trace_client_parameters()
 %% Pid        = dbg_trace_client_pid()
 %%----------------------------------------------------------------------
-
+-spec start_trace_client(CollectorPid, Type, Parameter) -> file_loaded | {trace_client_pid, pid()} when
+      CollectorPid :: pid(),
+      Type :: event_file | dbg_trace_type(),
+      Parameter :: dbg_trace_parameters().
 start_trace_client(CollectorPid, Type, FileName) when Type =:= event_file ->
     load_event_file(CollectorPid, FileName);
 start_trace_client(CollectorPid, Type, FileName) when Type =:= file -> 
@@ -697,7 +777,15 @@ monitor_trace_port(CollectorPid, Parameters) ->
 %% 
 %% Short for iterate/5.
 %%----------------------------------------------------------------------
-
+-spec iterate(Handle, Prev, Limit) -> NewAcc when
+      Handle :: CollectorPid | table_handle(),
+      CollectorPid :: pid(),
+      Prev :: first | last | term(),
+      Limit :: Done | Forward | Backward,
+      Done :: 0,
+      Forward :: pos_integer(),
+      Backward :: neg_integer(),
+      NewAcc :: term().
 iterate(Handle, Prev, Limit) ->
     iterate(Handle, Prev, Limit, undefined, Prev).
 
@@ -720,7 +808,17 @@ iterate(Handle, Prev, Limit) ->
 %% Fun = fun(Event, Acc) -> NewAcc
 %% Acc = NewAcc = term()
 %%----------------------------------------------------------------------
-
+-spec iterate(Handle, Prev, Limit, Fun, Acc) -> NewAcc when
+      Handle :: CollectorPid | table_handle(),
+      CollectorPid :: pid(),
+      Prev :: first | last | term(),
+      Limit :: Done | Forward | Backward,
+      Done :: 0,
+      Forward :: pos_integer(),
+      Backward :: neg_integer(),
+      Fun :: fun((event(), Acc) -> NewAcc),
+      Acc :: term(),
+      NewAcc :: term().
 iterate(_, _, Limit, _, Acc) when Limit =:= 0 ->
     Acc;
 iterate(CollectorPid, Prev, Limit, Fun, Acc) when is_pid(CollectorPid) ->
@@ -858,7 +956,9 @@ incr(Val, Incr) ->
 %% collector_pid() = pid()
 %% table_handle() = record(table_handle)
 %%----------------------------------------------------------------------
-
+-spec clear_table(Handle) -> ok when
+      Handle :: CollectorPid | table_handle(),
+      CollectorPid :: pid().
 clear_table(CollectorPid) when is_pid(CollectorPid) ->
     call(CollectorPid, clear_table);
 clear_table(TH) when is_record(TH, table_handle) ->

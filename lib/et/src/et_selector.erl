@@ -31,6 +31,8 @@
 
 -include("../include/et.hrl").
 
+-type event() :: #event{}.
+
 %%----------------------------------------------------------------------
 %% make_pattern(RawPattern) -> TracePattern
 %%
@@ -46,7 +48,9 @@
 %%   max       - maximum level of tracing  (all calls to trace_me/4,5)
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
-
+-spec make_pattern({Mod::module(), RawPattern}) -> {Mod::module(), TracePattern} when
+      RawPattern :: min | max | pos_integer(),
+      TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}].
 make_pattern(undefined) ->
     {undefined, undefined};
 make_pattern({Mod, Pattern}) when is_atom(Mod) ->
@@ -93,7 +97,11 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% Other match specs activates tracing of calls to trace_me/4,5
 %% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
-
+-spec change_pattern({Mod::module(), Pattern}) -> ok when
+      Pattern :: DetailLevel | TracePattern | EmptyTracePattern,
+      DetailLevel :: min | max | pos_integer(),
+      TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}],
+      EmptyTracePattern :: [].
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->
     MFA = {Mod, trace_me, 5},
     case Pattern of
@@ -176,7 +184,17 @@ error_to_exit({ok, _Res}) ->
 %%   false         - means that the trace data is uninteresting and
 %%                   should be dropped
 %%----------------------------------------------------------------------
-
+-spec parse_event(Mod, ValidTraceData) -> boolean | {true, event()} when
+      Mod :: module(),
+      ValidTraceData :: ErlangTraceData | event(),
+      ErlangTraceData ::
+        {trace, pid(), atom(), term()} |
+        {trace, pid(), atom(), term(), term()} |
+        {trace_ts, pid(), atom(), term(), TS::{integer(), integer(), integer()}} |
+        {trace_ts, pid(), atom(), term(), term(), TS::{integer(), integer(), integer()}} |
+        {seq_trace, atom(), term()} |
+        {seq_trace, atom(), term(), TS::{integer(), integer(), integer()}} |
+        {drop, integer()}.
 parse_event(_Mod, E) when is_record(E, event) ->
     true;
 parse_event(Mod, Trace) ->
