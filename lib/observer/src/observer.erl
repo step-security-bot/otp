@@ -25,7 +25,7 @@
 start() ->
     observer_wx:start().
 
--spec start(node()) -> ok | {error, term()}.
+-spec start(node()|[node()]) -> ok | {error, term()}.
 start(Node) when is_atom(Node) ->
     start([Node]);
 start([Node]) ->
@@ -52,7 +52,7 @@ start_and_wait() ->
             ok
     end.
 
--spec start_and_wait(node()) -> ok.
+-spec start_and_wait(node()|[node()]) -> ok.
 start_and_wait(Node) when is_atom(Node) ->
     start_and_wait([Node]);
 start_and_wait(List) when is_list(List) ->

@@ -81,7 +81,16 @@
                     format | {format, format_opts()} | return_fetch_dir.
 
 -type mfas() :: {Module::atom(), Function::atom(), [term()]}.
--type trace_flag() :: 's' | 'r' | 'm' | 'c' | 'p' | 'ports' | 'sos' | 'sol' | 'sofs' | 'all' | 'clear'.
+-type trace_flag() :: 's' | 'r' | 'm' | 'c' | 'p' |
+                      'sos' | 'sol' | 'sofs' | 'all' | 'clear' |
+                      'send' | 'receive' | 'procs' | 'ports' |
+                      'call' | 'arity' | 'return_to' | 'silent' | 'running' |
+                      'exiting' | 'running_procs' | 'running_ports' |
+                      'garbage_collection' | 'timestamp' | 'cpu_timestamp' | 'monotonic_timestamp' |
+                      'strict_monotonic_timestamp' | 'set_on_spawn' |
+                      'set_on_first_spawn' | 'set_on_link' | 'set_on_first_link' |
+                      {tracer, pid() | port()} |
+                      {tracer, module(), term()}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Shortcut
@@ -338,7 +347,7 @@ list_history() ->
     end.
 
 -spec run_history(Entries) -> ok | {error, term()} when
-      Entries :: [Entry] | Entry,
+      Entries :: [Entry] | Entry | all | all_silent,
       Entry :: integer().
 run_history([H|T]) ->
     case run_history(H) of
@@ -373,8 +382,6 @@ run_printed({M,F,A},Verbose) ->
       ConfigFile :: file:filename(),
       Config :: all | [integer()] | [mfas()],
       Result :: ok | {error, term()}.
-write_config(ConfigFile,all) ->
-    write_config(ConfigFile,['_']);
 write_config(ConfigFile,Config) ->
     write_config(ConfigFile,Config,[]).
 
@@ -384,16 +391,17 @@ write_config(ConfigFile,Config) ->
       Opts :: Opt | [Opt],
       Opt :: append,
       Result :: ok | {error, term()}.
-write_config(ConfigFile,all,Opt) ->
-    write_config(ConfigFile,['_'],Opt);
 write_config(ConfigFile,Config,Opt) when not(is_list(Opt)) ->
     write_config(ConfigFile,Config,[Opt]);
 write_config(ConfigFile,Nums,Opt) when is_list(Nums), is_integer(hd(Nums)); 
-				       Nums=:=['_'] ->
+				       Nums=:=all ->
     F = fun(N) -> ets:select(?history_table,
 			     [{{N,'$1'},[],['$1']}])
 	end,
-    Config = lists:append(lists:map(F,Nums)),
+    Config = case Nums of
+                 all -> lists:append(lists:map(F,['_']));
+                 _ -> lists:append(lists:map(F,Nums))
+             end,
     do_write_config(ConfigFile,Config,Opt);
 write_config(ConfigFile,Config,Opt) when is_list(Config) ->
     case check_config(Config,[]) of
