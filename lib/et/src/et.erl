@@ -91,6 +91,7 @@
 
 
 -type actor() :: term().
+-type level() :: 0..100.
 
 %%----------------------------------------------------------------------
 %% Reports an event, such as a message
@@ -130,7 +131,7 @@
 %%----------------------------------------------------------------------
 
 -spec trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       FromTo :: actor(),
       Label :: atom() | string() | term(),
       Contents :: [{Key::term(), Value::term()}] | term().
@@ -139,7 +140,7 @@ trace_me(DetailLevel, FromTo, Label, Contents)
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -spec trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       From :: actor(),
       To :: actor(),
       Label :: atom() | string() | term(),
@@ -149,7 +150,7 @@ trace_me(DetailLevel, _From, _To, _Label, _Contents)
     hopefully_traced.
 
 -spec phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       FromTo :: actor(),
       Label :: atom() | string() | term(),
       Contents :: [{Key::term(), Value::term()}] | term().
@@ -158,7 +159,7 @@ phone_home(DetailLevel, FromTo, Label, Contents) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -spec phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       From :: actor(),
       To :: actor(),
       Label :: atom() | string() | term(),
@@ -168,7 +169,7 @@ phone_home(DetailLevel, From, To, Label, Contents) ->
     ?MODULE:trace_me(DetailLevel, From, To, Label, Contents).
 
 -spec report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       FromTo :: actor(),
       Label :: atom() | string() | term(),
       Contents :: [{Key::term(), Value::term()}] | term().
@@ -177,7 +178,7 @@ report_event(DetailLevel, FromTo, Label, Contents) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -spec report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced when
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       From :: actor(),
       To :: actor(),
       Label :: atom() | string() | term(),

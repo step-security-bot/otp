@@ -103,6 +103,8 @@
 
 -type ets_match_object_pattern() :: term(). %% See ets:match_object()
 
+-type level() :: 0..100.
+
 -type option()::
         {parent_pid, pid() | undefined} |
         {event_order, trace_ts | event_ts} |
@@ -114,7 +116,7 @@
         {trace_client, {event_file, file:filename()} |
          {dbg_trace_type(), dbg_trace_parameters()}} |
         {trace_global, boolean()} |
-        {trace_pattern, {module() | undefined, Level::pos_integer() | dbg_match_spec()} |
+        {trace_pattern, {module() | undefined, Level::level() | dbg_match_spec()} |
          undefined} |
         {trace_port, integer()} |
         {trace_max_queue, integer()}.
@@ -402,8 +404,8 @@ do_load_event_file(Fun, Fd, Cont, Acc, FileName, BadBytes) ->
 %% Returns: {ok, Continuation} | exit(Reason)
 %%----------------------------------------------------------------------
 
--spec report(CollectorPid, TraceOrEvent) -> {ok, Continuation} when
-      CollectorPid :: pid(),
+-spec report(Handle, TraceOrEvent) -> {ok, Continuation} when
+      Handle :: table_handle() | CollectorPid::pid(),
       TraceOrEvent :: event() | TraceData | end_of_trace,
       TraceData :: tuple(),
       Continuation :: table_handle().
@@ -461,7 +463,7 @@ report(_, Bad) ->
 
 -spec report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} when
       CollectorPid :: pid(),
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       FromTo :: actor(),
       Label  :: term(),
       Contents :: [{Key::term(), Value::term()}] | term(),
@@ -471,7 +473,7 @@ report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) ->
 
 -spec report_event(CollectorPid, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} when
       CollectorPid :: pid(),
-      DetailLevel :: pos_integer(),
+      DetailLevel :: level(),
       From :: actor(),
       To :: actor(),
       Label  :: term(),
@@ -581,7 +583,7 @@ get_global_pid() ->
 %%----------------------------------------------------------------------
 -spec change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern} when
       CollectorPid :: pid(),
-      RawPattern :: min | max | pos_integer(),
+      RawPattern :: {module(), min | max | level()},
       TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}].
 change_pattern(CollectorPid, RawPattern) ->
     Pattern = et_selector:make_pattern(RawPattern),
@@ -612,11 +614,11 @@ change_pattern(CollectorPid, RawPattern) ->
 %% Key = term()
 %% Val = term()
 %%----------------------------------------------------------------------
--spec dict_insert(CollectorPid, What, Fun) -> ok when
+-spec dict_insert(CollectorPid, What, Value) -> ok when
       CollectorPid :: pid(),
       What :: {filter, atom()} | {subscriber, pid()} | Key,
       Key  :: term(),
-      Fun  :: collector_fun().
+      Value :: collector_fun() | term().
 dict_insert(CollectorPid, Key = {filter, Name}, Fun) ->
     if
 	is_atom(Name), is_function(Fun) ->
@@ -814,9 +816,9 @@ iterate(Handle, Prev, Limit) ->
       Prev :: first | last | term(),
       Limit :: Done | Forward | Backward,
       Done :: 0,
-      Forward :: pos_integer(),
-      Backward :: neg_integer(),
-      Fun :: fun((event(), Acc) -> NewAcc),
+      Forward :: pos_integer() | 'infinity',
+      Backward :: neg_integer() | '-infinity',
+      Fun :: fun((event(), Acc) -> NewAcc) | undefined,
       Acc :: term(),
       NewAcc :: term().
 iterate(_, _, Limit, _, Acc) when Limit =:= 0 ->

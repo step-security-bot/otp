@@ -44,7 +44,7 @@
 -type first_key() :: term().
 -type option() ::
         {title, string()} |
-        {detail_level, pos_integer()} |
+        {detail_level, 0..100} |
         {is_suspended, boolean()} |
         {scale, integer()} |
         {width, integer()} |

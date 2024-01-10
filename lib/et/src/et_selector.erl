@@ -33,6 +33,8 @@
 
 -type event() :: #event{}.
 
+-type level() :: 0..100.
+
 %%----------------------------------------------------------------------
 %% make_pattern(RawPattern) -> TracePattern
 %%
@@ -49,7 +51,7 @@
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
 -spec make_pattern({Mod::module(), RawPattern}) -> {Mod::module(), TracePattern} when
-      RawPattern :: min | max | pos_integer(),
+      RawPattern :: level(),
       TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}].
 make_pattern(undefined) ->
     {undefined, undefined};
@@ -99,7 +101,7 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %%----------------------------------------------------------------------
 -spec change_pattern({Mod::module(), Pattern}) -> ok when
       Pattern :: DetailLevel | TracePattern | EmptyTracePattern,
-      DetailLevel :: min | max | pos_integer(),
+      DetailLevel :: level(),
       TracePattern :: [{[term()] | '_' | atom(), [term()], [term()]}],
       EmptyTracePattern :: [].
 change_pattern({Mod, Pattern}) when is_atom(Mod) ->
