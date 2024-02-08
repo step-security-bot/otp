@@ -19,11 +19,11 @@
 %%
 -module(beam_lib).
 -moduledoc """
-An interface to the BEAM file format.
-
 This module provides an interface to files created by the BEAM Compiler ("BEAM
-files"). The format used, a variant of "EA IFF 1985" Standard for Interchange
-Format Files, divides data into chunks.
+files").
+
+The format used, a variant of "EA IFF 1985" Standard for Interchange Format Files,
+divides data into chunks.
 
 Chunk data can be returned as binaries or as compound terms. Compound terms are
 returned when chunks are referenced by names (atoms) rather than identifiers

@@ -21,8 +21,6 @@
 
 -module(base64).
 -moduledoc """
-Provides base64 encode and decode, see RFC 2045.
-
 Provides base64 encode and decode, see
 [RFC 2045](https://www.ietf.org/rfc/rfc2045.txt).
 """.
