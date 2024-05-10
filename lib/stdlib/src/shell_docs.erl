@@ -66,6 +66,8 @@ be rendered as is.
 -export([render_type/2, render_type/3, render_type/4, render_type/5]).
 -export([render_callback/2, render_callback/3, render_callback/4, render_callback/5]).
 
+-export([test/1]).
+
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1, supported_tags/0]).
 
@@ -458,6 +460,18 @@ get_doc(Module, Function, Arity) ->
                      end, Docs),
 
     [{F,A,S,get_local_doc(F,Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
+
+-doc "Test the code in documentation examples".
+-spec test(module()) -> ok.
+test(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ~"text/markdown" } = Docs} ->
+            shell_docs_test:module(Docs);
+        {ok, _} ->
+            {error, unsupported_format};
+        Else ->
+            Else
+    end.
 
 -doc(#{equiv => render(Module, Docs, #{})}).
 -doc(#{since => <<"OTP 23.0">>}).

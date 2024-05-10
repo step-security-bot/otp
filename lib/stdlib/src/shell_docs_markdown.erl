@@ -73,12 +73,12 @@ format_line(Ls) ->
       OmissionSet :: sets:set(atom()).
 format_line([], _BlockSet0) ->
     [];
-format_line([{Tag, [], List} | Rest], BlockSet0) ->
+format_line([{Tag, Attr, List} | Rest], BlockSet0) ->
     case format_line(List, sets:add_element(Tag, BlockSet0)) of
         [] ->
             format_line(Rest, BlockSet0);
         Ls ->
-            [{Tag, [], Ls}] ++ format_line(Rest, BlockSet0)
+            [{Tag, Attr, Ls}] ++ format_line(Rest, BlockSet0)
     end;
 format_line([Bin | Rest], BlockSet0) when is_binary(Bin) ->
     %% Ignores formatting these elements
@@ -365,8 +365,8 @@ process_kind_block([<<">", _/binary>>=Line | Rest], Block) ->
 %%
 %% process block code
 %%
-process_kind_block([<<"```", _Line/binary>> | Rest], Block) ->
-    Block ++ process_fence_code(Rest, []);
+process_kind_block([<<"```", Line/binary>> | Rest], Block) ->
+    Block ++ process_fence_code(Rest, Line, []);
 %%
 %% New line
 %%
@@ -803,27 +803,27 @@ format(Format, Line0) when is_list(Line0)->
       PrevLines  :: [binary()],  %% Represent unprocessed lines.
       HtmlErlang :: shell_docs:chunk_elements().
 process_code([], Block) ->
-    [create_code(Block)];
+    [create_code(Block, "")];
 process_code([<<"    ", Line/binary>> | Rest], Block) ->
     %% process blank line followed by code
     process_code(Rest, [Line | Block]);
 process_code(Rest, Block) ->
     process_code([], Block) ++ parse_md(Rest, []).
 
-process_fence_code([], Block) ->
-    [create_code(Block)];
-process_fence_code([<<"```">> | Rest], Block) ->
+process_fence_code([], Meta, Block) ->
+    [create_code(Block, Meta)];
+process_fence_code([<<"```">> | Rest], Meta, Block) ->
     %% close block
-    process_fence_code([], Block) ++ parse_md(Rest, []);
-process_fence_code([Line | Rest], Block) ->
+    process_fence_code([], Meta, Block) ++ parse_md(Rest, []);
+process_fence_code([Line | Rest], Meta, Block) ->
     {Stripped, _} = strip_spaces(Line, 0, infinity),
     maybe
         <<"```", RestLine/binary>> ?= Stripped,
         {<<>>, _} ?= strip_spaces(RestLine, 0, infinity),
-        process_fence_code([<<"```">> | Rest], Block)
+        process_fence_code([<<"```">> | Rest], Meta, Block)
     else
         _ ->
-            process_fence_code(Rest, [Line | Block])
+            process_fence_code(Rest, Meta, [Line | Block])
     end.
 
 -spec process_comment(Line :: [binary()]) -> [binary()].
@@ -853,11 +853,17 @@ create_paragraph(<<$\s, Line/binary>>) ->
 create_paragraph(Line) when is_binary(Line) ->
     p(Line).
 
--spec create_code(Lines :: [binary()]) -> code().
-create_code(CodeBlocks) when is_list(CodeBlocks) ->
+-spec create_code(Lines :: [binary()], Meta :: binary()) -> code().
+create_code(CodeBlocks, Meta) when is_list(CodeBlocks), is_binary(Meta) ->
     %% assumes that the code block is in reverse order
     Bin = trim_and_add_new_line(CodeBlocks),
-    {pre,[], [{code,[], [Bin]}]}.
+    CodeAttr =
+        case string:lexemes(Meta, " ") of
+            [] -> [];
+            [Lang | _Rest] ->
+                [{class,<<"language-",Lang/binary>>}]
+        end,
+    {pre,[], [{code,CodeAttr, [Bin]}]}.
 
 create_table(Table) when is_list(Table) ->
     {pre,[], [{code,[], Table}]}.
