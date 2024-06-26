@@ -292,7 +292,7 @@ io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
     end;
 
 io_request({get_chars,Encoding,Prompt,N}, Drv, Shell, _From, Buf) ->
-    get_chars_n(Prompt, io_lib, collect_chars, N, Drv, Shell, Buf, Encoding);
+    get_chars_n(Prompt, N, Drv, Shell, Buf, Encoding);
 io_request({get_line,Encoding,Prompt}, Drv, Shell, _From, Buf) ->
     get_chars_line(Prompt, io_lib, collect_line, [], Drv, Shell, Buf, Encoding);
 io_request({get_until,Encoding, Prompt,M,F,As}, Drv, Shell, _From, Buf) ->
@@ -499,13 +499,13 @@ get_password_chars(Drv,Shell,Buf) ->
             {error, {error, enotsup}, []}
     end.
 
-get_chars_n(Prompt, M, F, Xa, Drv, Shell, Buf, Encoding) ->
+get_chars_n(Prompt, N, Drv, Shell, Buf, Encoding) ->
     Pbs = prompt_bytes(Prompt, Encoding),
     case get(echo) of
         true ->
-            get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, start, [], Encoding);
+            get_chars_loop(Pbs, io_lib, collect_chars, N, Drv, Shell, Buf, start, [], Encoding);
         false ->
-            get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf, start, Encoding)
+            get_chars_n_loop(Pbs, N, Drv, Shell, Buf, start, Encoding)
     end.
 
 get_chars_line(Prompt, M, F, Xa, Drv, Shell, Buf, Encoding) ->
@@ -568,12 +568,12 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, LineCont, Encoding) ->
             get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, LineCont, Encoding)
     end.
 
-get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
+get_chars_n_loop(Pbs, N, Drv, Shell, Buf0, State, Encoding) ->
     case check_encoding(Buf0, Encoding) of
         false ->
             {error,{error,{no_translation,unicode,Encoding}},[]};
         true ->
-            try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+            try io_lib:collect_chars(State, cast(Buf0, get(read_mode), Encoding), Encoding, N) of
                 {stop,eof,_} ->
                     {ok, eof, eof};
                 {stop,Result,Rest} ->
@@ -585,10 +585,10 @@ get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
                         terminated ->
                             {exit,terminated};
                         Buf ->
-                            get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
+                            get_chars_n_loop(Pbs, N, Drv, Shell, Buf, State1, Encoding)
                     end
             catch _:_ ->
-                    {error,{error,err_func(M, F, Xa)},[]}
+                    {error,{error,err_func(io_lib, collect_chars, N)},[]}
             end
     end.
 
