@@ -129,6 +129,7 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM tty_set_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM tty_select_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_encoding_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -151,11 +152,12 @@ static ErlNifFunc nif_funcs[] = {
     {"tty_set", 1, tty_set_nif},
     {"tty_read_signal", 2, tty_read_signal_nif},
     {"setlocale", 1, setlocale_nif},
-    {"tty_select", 3, tty_select_nif},
+    {"tty_select", 2, tty_select_nif},
+    {"tty_select_signal", 2, tty_select_signal_nif},
     {"tty_window_size", 1, tty_window_size_nif},
     {"write_nif", 2, tty_write_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"tty_encoding", 1, tty_encoding_nif},
-    {"read_nif", 2, tty_read_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"read_nif", 3, tty_read_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"isprint", 1, isprint_nif},
     {"wcwidth", 1, wcwidth_nif},
     {"wcswidth", 1, wcswidth_nif},
@@ -395,6 +397,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     TTYResource *tty;
     ErlNifBinary bin;
     ERL_NIF_TERM res_term;
+    Uint64 n;
     ssize_t res = 0;
 #ifdef __WIN32__
     HANDLE select_event;
@@ -402,13 +405,21 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int select_event;
 #endif
 
+    ASSERT(argc == 3);
+
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
+    if (!enif_get_uint64(env, argv[2], &n))
+        return enif_make_badarg(env);
+
+    n = n > 1024 ? 1024 : n;
+
     select_event = tty->ifd;
 
-#ifdef __WIN32__
     debug("tty_read_nif(%T, %T, %T)\r\n",argv[0],argv[1],argv[2]);
+
+#ifdef __WIN32__
     /**
      * We have three different read scenarios we need to deal with
      * using different approaches.
@@ -441,15 +452,13 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
      * call will not block until a full line is complete, so this is safe to do.
      *
      **/
-    if (GetFileType(tty->ifd) == FILE_TYPE_CHAR) {
-        if (tty->ifdOverlapped == INVALID_HANDLE_VALUE) {
-            /* Input is a terminal and we are in "new shell" mode */
+
+    if (GetFileType(tty->ifd) == FILE_TYPE_CHAR && tty->tty) {
+        /* Input is a terminal and we are in "raw"/"new shell" mode */
 
             ssize_t inputs_read, num_characters = 0;
             wchar_t *characters = NULL;
-            INPUT_RECORD inputs[128];
-
-            ASSERT(tty->tty);
+            INPUT_RECORD inputs[n > 128 ? 128 : n];
 
             if (!ReadConsoleInputW(tty->ifd, inputs, sizeof(inputs)/sizeof(*inputs),
                                    &inputs_read)) {
@@ -565,48 +574,10 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                 }
             }
             res *= sizeof(wchar_t);
-        } else {
-            /* Input is a terminal and we are in "noshell" or "oldshell" mode */
-	    DWORD bytesRead = 0;
-	    debug("GetOverlapped on %d\r\n", tty->ifdOverlapped);
-	    if (!GetOverlappedResult(tty->ifdOverlapped, &tty->overlapped, &bytesRead, TRUE)) {
-		if (GetLastError() == ERROR_OPERATION_ABORTED && tty->tty) {
-                    /* The overlapped operation was cancels by CancelIo because
-                       we are upgrading to "newshell". So we close the handles
-                       involved with the overlapped io and select on the stdin
-                       handle. From now on we use ReadConsoleInputW to get
-                       input. */
-                    CloseHandle(tty->ifdOverlapped);
-                    CloseHandle(tty->overlapped.hEvent);
-                    tty->ifdOverlapped = INVALID_HANDLE_VALUE;
-                    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-                    /* Return {error,aborted} to signal that the encoding has changed . */
-                    return make_error(env, enif_make_atom(env, "aborted"));
-		}
-		return make_errno_error(env, "GetOverlappedResult");
-	    }
-	    if (bytesRead == 0) {
-		return make_error(env, enif_make_atom(env, "closed"));
-	    }
-	    debug("Read %d bytes\r\n", bytesRead);
-#ifdef HARD_DEBUG
-	    for (int i = 0; i < bytesRead; i++)
-                debug("Read %u\r\n", tty->overlappedBuffer.data[i]);
-#endif
-	    bin = tty->overlappedBuffer;
-	    res = bytesRead;
-	    enif_alloc_binary(1024, &tty->overlappedBuffer);
-	    if (!ReadFile(tty->ifdOverlapped, tty->overlappedBuffer.data,
-                          tty->overlappedBuffer.size, NULL, &tty->overlapped)) {
-		if (GetLastError() != ERROR_IO_PENDING)
-                    return make_errno_error(env, "ReadFile");
-	    }
-	    select_event = tty->overlapped.hEvent;
-        }
     } else {
-        /* Input is not a terminal */
+        /* Input is not a terminal or we are in "cooked" mode */
         DWORD bytesTransferred;
-        enif_alloc_binary(1024, &bin);
+        enif_alloc_binary(n, &bin);
         if (ReadFile(tty->ifd, bin.data, bin.size,
                      &bytesTransferred, NULL)) {
             res = bytesTransferred;
@@ -623,7 +594,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         }
     }
 #else
-    enif_alloc_binary(1024, &bin);
+    enif_alloc_binary(n, &bin);
     res = read(tty->ifd, bin.data, bin.size);
     if (res < 0) {
         if (errno != EAGAIN && errno != EINTR) {
@@ -631,13 +602,13 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             return make_errno_error(env, "read");
         }
         res = 0;
+        debug("select on %d\r\n",select_event);
+        enif_select_read(env, select_event, tty, NULL, argv[1], NULL);
     } else if (res == 0) {
         enif_release_binary(&bin);
         return make_error(env, enif_make_atom(env, "closed"));
     }
 #endif
-    debug("select on %d\r\n",select_event);
-    enif_select(env, select_event, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
     if (res == bin.size) {
 	res_term = enif_make_binary(env, &bin);
     } else if (res < bin.size / 2) {
@@ -789,13 +760,15 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     TTYResource *tty = enif_alloc_resource(tty_rt, sizeof(TTYResource));
     ERL_NIF_TERM tty_term;
     memset(tty, 0, sizeof(*tty));
+
+#ifdef HARD_DEBUG
+    logFile = fopen("tty.log","w+");
+#endif
+
 #ifndef __WIN32__
     tty->ifd = 0;
     tty->ofd = 1;
 #else
-#ifdef HARD_DEBUG
-    logFile = fopen("tty.log","w+");
-#endif
     tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
     if (tty->ifd == INVALID_HANDLE_VALUE || tty->ifd == NULL) {
         tty->ifd = CreateFile("nul", GENERIC_READ, 0,
@@ -1071,15 +1044,27 @@ static ERL_NIF_TERM tty_read_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
 static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
+
+    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
+        return enif_make_badarg(env);
+
+    debug("tty_select(%T, %T)\r\n",argv[0], argv[1]);
+    enif_select_read(env, tty->ifd, tty, NULL, argv[1], NULL);
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM tty_select_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    TTYResource *tty;
 #ifndef __WIN32__
     extern int using_oldshell; /* set this to let the rest of erts know */
-#else
-    struct tty_reader *tty_reader;
 #endif
+
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
 #ifndef __WIN32__
+
     if (pipe(tty->signal) == -1) {
         return make_errno_error(env, "pipe");
     }
@@ -1092,25 +1077,6 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     using_oldshell = 0;
 
-    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
-#else
-    if (tty->tty || GetFileType(tty->ifd) != FILE_TYPE_CHAR) {
-        debug("Select on %d\r\n",  tty->ifd);
-        enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
-    } else {
-        tty->ifdOverlapped = CreateFile("CONIN$", GENERIC_READ, FILE_SHARE_READ, NULL,
-                                        OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-        enif_alloc_binary(1024, &tty->overlappedBuffer);
-        tty->overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        debug("Calling ReadFile on %d\r\n", tty->ifdOverlapped);
-        if (!ReadFile(tty->ifdOverlapped, tty->overlappedBuffer.data, tty->overlappedBuffer.size, NULL, &tty->overlapped)) {
-            if (GetLastError() != ERROR_IO_PENDING) {
-                return make_errno_error(env, "ReadFile");
-            }
-        }
-        debug("Select on %d\r\n",  tty->overlapped.hEvent);
-        enif_select(env, tty->overlapped.hEvent, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
-    }
 #endif
 
     enif_self(env, &tty->reader);

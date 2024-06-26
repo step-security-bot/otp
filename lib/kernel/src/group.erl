@@ -579,7 +579,7 @@ get_chars_n_loop(Pbs, N, Drv, Shell, Buf0, State, Encoding) ->
                 {stop,Result,Rest} ->
                     {ok, Result, append(Rest,[],Encoding)};
                 State1 ->
-                    case get_chars_echo_off(Pbs, Drv, Shell) of
+                    case get_chars_echo_off(Pbs, Drv, Shell, io_lib:collect_chars_remaining(State1)) of
                         interrupted ->
                             {error,{error,interrupted},[]};
                         terminated ->
@@ -851,10 +851,15 @@ get_line1({What,Cont0,Rs}, Drv, Shell, Ls, Encoding) ->
     more_data(What, Cont0, Drv, Shell, Ls, Encoding).
 
 more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
+    send_drv(Drv, read),
+    more_data_wait(What, Cont0, Drv, Shell, Ls, Encoding).
+
+more_data_wait(What, Cont0, Drv, Shell, Ls, Encoding) ->
     receive
         {Drv, activate} ->
             send_drv_reqs(Drv, edlin:redraw_line(Cont0)),
-            more_data(What, Cont0, Drv, Shell, Ls, Encoding);
+            send_drv(Drv, read),
+            more_data_wait(What, Cont0, Drv, Shell, Ls, Encoding);
         {Drv,{data,Cs}} ->
             Res = edlin:edit_line(cast(Cs, list), Cont0),
             get_line1(Res,
@@ -870,7 +875,7 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
         {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
-            more_data(What, Cont0, Drv, Shell, Ls, Encoding);
+            more_data_wait(What, Cont0, Drv, Shell, Ls, Encoding);
         {'EXIT',Drv,interrupt} ->
             interrupted;
         {'EXIT',Drv,_} ->
@@ -897,29 +902,12 @@ get_line_echo_off(Chars, ToEnc, Pbs, Drv, Shell) ->
     end.
 
 get_line_echo_off1({Chars,[],Rs}, Drv, Shell) ->
+    send_drv(Drv, read),
     case get(echo) of
         true -> send_drv_reqs(Drv, Rs);
         false -> skip
     end,
-    receive
-	{Drv,{data,Cs}} ->
-	    get_line_echo_off1(edit_line(cast(Cs, list), Chars), Drv, Shell);
-	{Drv,eof} ->
-	    get_line_echo_off1(edit_line(eof, Chars), Drv, Shell);
-	{io_request,From,ReplyAs,Req} when is_pid(From) ->
-	    io_request(Req, From, ReplyAs, Drv, Shell, []),
-	    get_line_echo_off1({Chars,[],[]}, Drv, Shell);
-        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
-            %% We take care of replies from puts here as well
-            io_reply(From, ReplyAs, Reply),
-            get_line_echo_off1({Chars,[],[]},Drv, Shell);
-	{'EXIT',Drv,interrupt} ->
-	    interrupted;
-	{'EXIT',Drv,_} ->
-	    terminated;
-	{'EXIT',Shell,R} ->
-	    exit(R)
-    end;
+    get_line_echo_off1_wait({Chars,[],[]}, Drv, Shell);
 get_line_echo_off1(eof, _Drv, _Shell) ->
     {done,eof,eof};
 get_line_echo_off1({Chars,Rest,Rs}, Drv, _Shell) ->
@@ -928,8 +916,33 @@ get_line_echo_off1({Chars,Rest,Rs}, Drv, _Shell) ->
         false -> skip
     end,
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
-get_chars_echo_off(Pbs, Drv, Shell) ->
-    send_drv_reqs(Drv, [{insert_chars, unicode,Pbs}]),
+
+get_line_echo_off1_wait({Chars, _, _} = State, Drv, Shell) ->
+    receive
+        {Drv, activate} ->
+            get_line_echo_off1(State, Drv, Shell);
+	{Drv,{data,Cs}} ->
+	    get_line_echo_off1(edit_line(cast(Cs, list), Chars), Drv, Shell);
+	{Drv,eof} ->
+	    get_line_echo_off1(edit_line(eof, Chars), Drv, Shell);
+	{io_request,From,ReplyAs,Req} when is_pid(From) ->
+	    io_request(Req, From, ReplyAs, Drv, Shell, []),
+	    get_line_echo_off1_wait(State, Drv, Shell);
+        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
+            %% We take care of replies from puts here as well
+            io_reply(From, ReplyAs, Reply),
+            get_line_echo_off1_wait(State,Drv, Shell);
+	{'EXIT',Drv,interrupt} ->
+	    interrupted;
+	{'EXIT',Drv,_} ->
+	    terminated;
+	{'EXIT',Shell,R} ->
+	    exit(R)
+    end.
+
+get_chars_echo_off(Pbs, Drv, Shell, N) ->
+    send_drv_reqs(Drv, [{insert_chars, unicode, Pbs}]),
+    send_drv(Drv, {read, N}),
     get_chars_echo_off1(Drv, Shell).
 
 get_chars_echo_off1(Drv, Shell) ->

@@ -109,11 +109,11 @@
          handle_signal/2, window_size/1, handle_request/2, write/2, write/3,
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
--export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
+-export([reader_stop/1, disable_reader/1, enable_reader/1, read/2, is_reader/2, is_writer/2]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
-       wcwidth/1, wcswidth/1,
+       tty_select/2, tty_select_signal/2, tty_window_size/1,
+       tty_encoding/1, write_nif/2, read_nif/3, isprint/1, wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
        tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
 
@@ -474,6 +474,11 @@ disable_reader(#state{ reader = {ReaderPid, _} }) ->
 enable_reader(#state{ reader = {ReaderPid, _} }) ->
     ok = call(ReaderPid, enable).
 
+-spec read(state(), pos_integer()) -> ok.
+read(#state{ reader = {ReaderPid, _}}, N) ->
+    ReaderPid ! {read, N},
+    ok.
+
 call(Pid, Msg) ->
     Alias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
     Pid ! {Alias, Msg},
@@ -489,7 +494,7 @@ reader([TTY, Encoding, Parent]) ->
     ReaderRef = make_ref(),
     SignalRef = make_ref(),
 
-    ok = tty_select(TTY, SignalRef, ReaderRef),
+    ok = tty_select_signal(TTY, SignalRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
     FromEnc = case tty_encoding(TTY) of
                   utf8 -> Encoding;
@@ -517,9 +522,12 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
-        {select, TTY, ReaderRef, ready_input} ->
+        {read, N} ->
+            ok = tty_select(TTY, {select, TTY, {ReaderRef, N}, ready_input}),
+            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+        {select, TTY, {ReaderRef, N}, ready_input} ->
             %% This call may block until data is available
-            case read_nif(TTY, ReaderRef) of
+            case read_nif(TTY, {select, TTY, {ReaderRef, N}, ready_input}, N) of
                 {error, closed} ->
                     Parent ! {ReaderRef, eof},
                     ok;
@@ -1362,13 +1370,15 @@ tty_set(_TTY) ->
     erlang:nif_error(undef).
 setlocale(_TTY) ->
     erlang:nif_error(undef).
-tty_select(_TTY, _SignalRef, _ReadRef) ->
+tty_select_signal(_TTY, _SignalRef) ->
     erlang:nif_error(undef).
+tty_select(_TTY, _ReadRef) ->
+        erlang:nif_error(undef).
 tty_encoding(_TTY) ->
     erlang:nif_error(undef).
 write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
-read_nif(_TTY, _Ref) ->
+read_nif(_TTY, _Ref, _N) ->
     erlang:nif_error(undef).
 tty_window_size(_TTY) ->
     erlang:nif_error(undef).

@@ -86,7 +86,7 @@ used for flattening deep lists.
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters.
--export([collect_chars/3, collect_chars/4,
+-export([collect_chars/3, collect_chars/4, collect_chars_remaining/1,
 	 collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
@@ -1134,6 +1134,10 @@ collect_chars_list(Stack, N, []) ->
     {list,Stack,N};
 collect_chars_list(Stack,N, [H|T]) ->
     collect_chars_list([H|Stack], N-1, T).
+
+-doc false.
+collect_chars_remaining({_Type, _Stack, Remain}) ->
+    Remain.
 
 %% collect_line(State, Data, _). New in R9C.
 %%  Returns:

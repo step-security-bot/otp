@@ -100,6 +100,9 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+%% The default size of buffer to read from prim_tty
+-define(DEFAULT_BUFFER_SIZE, 1024).
+
 -record(editor, { port :: port(), file :: file:name(), requester :: pid() }).
 -record(state, { tty :: prim_tty:state() | undefined,
                  write :: reference() | undefined,
@@ -447,6 +450,11 @@ server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
 
+server(info, {Requester, read}, State) ->
+    server(info, {Requester, {read, ?DEFAULT_BUFFER_SIZE}}, State);
+server(info, {_Requester, {read, N}}, State) ->
+    prim_tty:read(State#state.tty, N),
+    keep_state_and_data;
 server(info, {Requester, tty_geometry}, #state{ tty = TTYState }) ->
     case prim_tty:window_size(TTYState) of
         {ok, Geometry} ->
@@ -621,6 +629,7 @@ switch_loop(internal, init, State) ->
     end;
 switch_loop(internal, line, State) ->
     {more_chars, Cont, Rs} = edlin:start(" --> "),
+    prim_tty:read(State#state.tty, ?DEFAULT_BUFFER_SIZE),
     {keep_state, {Cont, State#state{ tty = io_requests(Rs, State#state.tty) }}};
 switch_loop(internal, {line, Line}, State) ->
     case erl_scan:string(Line) of
@@ -657,15 +666,19 @@ switch_loop(info,{ReadHandle,{data,Cs}}, {Cont, #state{ read = ReadHandle } = St
             {keep_state, State#state{ tty = io_requests(Rs, State#state.tty) },
              {next_event, internal, {line, Line}}};
         {more_chars,NewCont,Rs} ->
+            ok = prim_tty:read(State#state.tty, ?DEFAULT_BUFFER_SIZE),
             {keep_state,
              {NewCont, State#state{ tty = io_requests(Rs, State#state.tty)}}};
         {blink,NewCont,Rs} ->
+            ok = prim_tty:read(State#state.tty, ?DEFAULT_BUFFER_SIZE),
             {keep_state,
              {NewCont, State#state{ tty = io_requests(Rs, State#state.tty)}},
              1000};
         {_What, _Cs, _NewCont, _Rs}  ->
+            ok = prim_tty:read(State#state.tty, ?DEFAULT_BUFFER_SIZE),
             keep_state_and_data;
         {_What, _Bef, _Cs, _NewCont, _Rs}  ->
+            ok = prim_tty:read(State#state.tty, ?DEFAULT_BUFFER_SIZE),
             keep_state_and_data
     end;
 switch_loop(info, {Requester, get_unicode_state}, {_Cont, #state{ tty = TTYState }}) ->
