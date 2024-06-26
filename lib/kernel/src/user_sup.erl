@@ -118,13 +118,16 @@ wait_for_user_p(N) ->
 get_user(Flags) ->
     check_flags(Flags, lists:keymember(detached, 1, Flags), {user_drv, start, []}).
 
-%% These flags depend upon what arguments the erl script passes on
-%% to erl91.
+%% These flags depend upon what arguments the erl script passes on to beam.
 check_flags([{nouser, []} |T], Attached, _) -> check_flags(T, Attached, nouser);
 check_flags([{user, [User]} | T], Attached, _) ->
     check_flags(T, Attached, {list_to_atom(User), start, []});
 check_flags([{noshell, []} | T], Attached, _) ->
-    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell }]});
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => 'noshell-cooked' }]});
+check_flags([{'noshell-cookied', []} | T], Attached, _) ->
+        check_flags(T, Attached, {user_drv, start, [#{ initial_shell => 'noshell-cooked' }]});
+check_flags([{'noshell-raw', []} | T], Attached, _) ->
+        check_flags(T, Attached, {user_drv, start, [#{ initial_shell => 'noshell-raw' }]});
 check_flags([{oldshell, []} | T], false, _) ->
     %% When running in detached mode, we ignore any -oldshell flags as we do not
     %% want input => true to be set as they may halt the node (on bsd)

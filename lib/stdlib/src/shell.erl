@@ -78,7 +78,7 @@ or when [`erl`](`e:erts:erl_cmd.md`) is started with the
 [`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
 allowed:
 
-- **noshell** - Starts the interactive shell as if
+- **noshell | noshell-cooked | noshell-raw** - Starts the interactive shell as if
   [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
   [`erl`](`e:erts:erl_cmd.md`). This is only useful when erl is started with
   [`-noinput`](`e:erts:erl_cmd.md#noinput`) and the system want to read input
@@ -113,7 +113,7 @@ On error this function will return:
   description of the error reasons.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start_interactive(noshell | {module(), atom(), [term()]}) ->
+-spec start_interactive(noshell | 'noshell-raw' | 'noshell-cooked' | {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
@@ -121,6 +121,8 @@ On error this function will return:
           ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(noshell) ->
+    start_interactive('noshell-cooked');
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
 

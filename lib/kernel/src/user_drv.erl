@@ -162,14 +162,16 @@ callback_mode() -> state_functions.
 init(Args) ->
     process_flag(trap_exit, true),
 
+    erlang:display({args, Args}),
+
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
-    StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
+    RawMode = not lists:member(maps:get(initial_shell, Args, undefined), [noshell,'noshell-cooked']),
     OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
     try
         if
-            not IsTTY andalso StartShell; OldShell ->
+            not IsTTY andalso RawMode; OldShell ->
                 error(enotsup);
-            IsTTY, StartShell ->
+            IsTTY, RawMode ->
                 TTYState = prim_tty:init(#{}),
                 init_standard_error(TTYState, true),
                 {ok, init, {Args, #state{ user = start_user() } },
@@ -218,8 +220,12 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
                           },
 
     case Args of
-        #{ initial_shell := noshell } ->
-            init_noshell(NewState);
+        #{ initial_shell := 'noshell-raw' } ->
+            init_noshell(NewState, 'noshell-raw');
+        #{ initial_shell := 'noshell-cooked' } ->
+           init_noshell(NewState, 'noshell-cooked');
+        #{ initial_shell := 'noshell' } ->
+           init_noshell(NewState, 'noshell-cooked');
         #{ initial_shell := {remote, Node} } ->
             InitialShell = {shell,start,[]},
             exit_on_remote_shell_error(
@@ -247,7 +253,7 @@ exit_on_remote_shell_error(_, _, Result) ->
 
 %% We have been started with -noshell. In this mode the current_group is
 %% the `user` group process.
-init_noshell(State) ->
+init_noshell(State, _) ->
     init_shell(State#state{ shell_started = false }, "").
 
 init_remote_shell(State, Node, {M, F, A}) ->
@@ -392,18 +398,22 @@ server({call, From}, {start_shell, Args},
     {Result, Reply}
         = case maps:get(initial_shell, Args, undefined) of
               noshell ->
-                  {init_noshell(NewHandleState), ok};
+                  {init_noshell(NewHandleState, 'noshell-cooked'), ok};
+              'noshell-cooked' ->
+                        {init_noshell(NewHandleState, 'noshell-cooked'), ok};
+              'noshell-raw' ->
+                        {init_noshell(NewHandleState, 'noshell-raw'), ok};
               {remote, Node} ->
                   case init_remote_shell(NewHandleState, Node, {shell, start, []}) of
                       {error, _} = Error ->
-                          {init_noshell(NewHandleState), Error};
+                          {init_noshell(NewHandleState, 'noshell-cooked'), Error};
                       R ->
                           {R, ok}
                   end;
               {remote, Node, InitialShell} ->
                   case init_remote_shell(NewHandleState, Node, InitialShell) of
                       {error, _} = Error ->
-                          {init_noshell(NewHandleState), Error};
+                          {init_noshell(NewHandleState, 'noshell-cooked'), Error};
                       R ->
                           {R, ok}
                   end;

@@ -362,9 +362,20 @@ described in the corresponding application documentation.
 - **`-noinput`{: #noinput }** - Ensures that the Erlang runtime system never
   tries to read any input. Implies `-noshell`.
 
-- **`-noshell`{: #noshell }** - Starts an Erlang runtime system with no shell.
-  This flag makes it possible to have the Erlang runtime system as a component
-  in a series of Unix pipes.
+- **`-noshell | -noshell-cooked | -noshell-raw`{: #noshell }** - Starts an Erlang
+  runtime system with no shell. This flag makes it possible to have the Erlang
+  runtime system as a component in a series of Unix pipes or create your own
+  interactive shell program.
+  
+  When set as `-noshell-raw` and `t:io:user/0` is a tty, reading from `t:io:user/0`
+  is done `raw`, meaning that the key-presses are passed to the program as typed when
+  typed and are not echoed to the screen.
+  
+  When set as `-noshell-cooked` and `t:io:user/0` is a tty, the OS will handle the
+  line editing and all data is passed to the program when a newline is entered.
+  `-noshell` is equivalent to `-noshell-cooked`.
+
+  If `t:io:user/0` is a **not** a tty, then `raw` and `cooked` behave the same way.
 
 - **`-nostick`** - Disables the sticky directory facility of the Erlang code
   server; see `m:code`.
