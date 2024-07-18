@@ -923,6 +923,10 @@ typedef erts_atomic_t erts_refc_t;
 
 ERTS_GLB_INLINE void erts_refc_init(erts_refc_t *refcp, erts_aint_t val);
 ERTS_GLB_INLINE void erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val);
+ERTS_GLB_INLINE erts_aint_t erts_refc_add_unless(erts_refc_t *refcp,
+                                                 erts_aint_t diff,
+                                                 erts_aint_t unless_val,
+                                                 erts_aint_t min_val);
 ERTS_GLB_INLINE erts_aint_t erts_refc_inc_unless(erts_refc_t *refcp,
                                                  erts_aint_t unless_val,
                                                  erts_aint_t min_val);
@@ -962,7 +966,8 @@ erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val)
 }
 
 ERTS_GLB_INLINE erts_aint_t
-erts_refc_inc_unless(erts_refc_t *refcp,
+erts_refc_add_unless(erts_refc_t *refcp,
+                     erts_aint_t diff,
                      erts_aint_t unless_val,
                      erts_aint_t min_val)
 {
@@ -977,12 +982,20 @@ erts_refc_inc_unless(erts_refc_t *refcp,
 #endif
         if (val == unless_val)
             return val;
-        new_value = val + 1;
+        new_value = val + diff;
         exp = val;
         val = erts_atomic_cmpxchg_nob((erts_atomic_t *) refcp, new_value, exp);
         if (val == exp)
             return new_value;
     }
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_refc_inc_unless(erts_refc_t *refcp,
+                     erts_aint_t unless_val,
+                     erts_aint_t min_val)
+{
+    return erts_refc_add_unless(refcp, 1, unless_val, min_val);
 }
 
 ERTS_GLB_INLINE void

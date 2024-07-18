@@ -48,6 +48,7 @@
 #include "erl_check_io.h"
 #endif
 #include "erl_bif_unique.h"
+#include "erl_db_ctrie.h"
 
 #define GET_ERL_GF_ALLOC_IMPL
 #include "erl_goodfit_alloc.h"
@@ -646,6 +647,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
         = sizeof(ErtsRecvMarkerBlock);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_SIGQ_BUFFERS)]
         = sizeof(ErtsSignalInQueueBufferArray);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ETS_CTRIE_STRUCTURE)]
+        = erts_db_ctrie_structure_fix_alloc_size();
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ETS_CTRIE_BRANCH)]
+        = erts_db_ctrie_branch_fix_alloc_size();
 
 #ifdef HARD_DEBUG
     hdbg_init();

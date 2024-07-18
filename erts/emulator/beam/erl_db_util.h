@@ -358,12 +358,13 @@ typedef struct db_table_common {
 #define DB_DUPLICATE_BAG  (1 << 6)
 #define DB_ORDERED_SET    (1 << 7)
 #define DB_CA_ORDERED_SET (1 << 8)
-#define DB_FINE_LOCKED    (1 << 9)  /* write_concurrency */
-#define DB_FREQ_READ      (1 << 10) /* read_concurrency */
-#define DB_NAMED_TABLE    (1 << 11)
-#define DB_BUSY           (1 << 12)
-#define DB_EXPLICIT_LOCK_GRANULARITY  (1 << 13)
-#define DB_FINE_LOCKED_AUTO (1 << 14)
+#define DB_CTRIE          (1 << 9)
+#define DB_FINE_LOCKED    (1 << 10)  /* write_concurrency */
+#define DB_FREQ_READ      (1 << 11) /* read_concurrency */
+#define DB_NAMED_TABLE    (1 << 12)
+#define DB_BUSY           (1 << 13)
+#define DB_EXPLICIT_LOCK_GRANULARITY  (1 << 14)
+#define DB_FINE_LOCKED_AUTO (1 << 15)
 
 #define DB_CATREE_FORCE_SPLIT (1 << 31)  /* erts_debug */
 #define DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN (1 << 30)  /* erts_debug */
@@ -372,16 +373,18 @@ typedef struct db_table_common {
                                   (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_HASH_WITH_AUTO_TABLE(Status) \
     (((Status) &                                                        \
-      (DB_ORDERED_SET | DB_CA_ORDERED_SET | DB_FINE_LOCKED_AUTO)) == DB_FINE_LOCKED_AUTO)
+      (DB_CTRIE | DB_ORDERED_SET | DB_CA_ORDERED_SET | DB_FINE_LOCKED_AUTO)) == DB_FINE_LOCKED_AUTO)
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
 #define IS_CATREE_TABLE(Status) (!!((Status) & \
                                     DB_CA_ORDERED_SET))
+#define IS_CTRIE_TABLE(Status) (!!((Status) & \
+                                   DB_CTRIE))
 #define NFIXED(T) (erts_refc_read(&(T)->common.fix_count,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
 #define META_DB_LOCK_FREE() (erts_no_schedulers == 1)
-#define DB_LOCK_FREE(T) META_DB_LOCK_FREE()
+#define DB_LOCK_FREE(T) (META_DB_LOCK_FREE() || (T != NULL && (((DbTableCommon*)T)->status & DB_CTRIE)))
 
 /*
  * tplp is an untagged pointer to a tuple we know is large enough

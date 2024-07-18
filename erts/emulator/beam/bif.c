@@ -3845,6 +3845,8 @@ BIF_RETTYPE throw_1(BIF_ALIST_1)
  */
 BIF_RETTYPE display_1(BIF_ALIST_1)
 {
+    // extern int test_ctrie(void);
+    // test_ctrie();
     erts_printf("%.*T\n", INT_MAX, BIF_ARG_1);
     BIF_RET(am_true);
 }

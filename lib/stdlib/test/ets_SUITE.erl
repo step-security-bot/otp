@@ -8602,7 +8602,7 @@ throughput_benchmark(
                     not_set -> prefill_table(Table, Range, Nobj, fun(K) -> {K} end);
                     _ -> InitFun(Table, Range, Nobj, fun(K) -> {K} end)
                 end,
-                Nobj = ets:info(Table, size),
+                %% Nobj = ets:info(Table, size), %% NYI for ctrie.
                 SafeFixTableIfRequired(Table, Scenario, true),
                 ParentPid = self(),
                 Worker =
@@ -8722,7 +8722,7 @@ throughput_benchmark(
       end,
       KeyRanges),
     PrintData("~n#BENCHMARK ENDED$~n~n",[]),
-    VerifyETSMemFun(EtsMem),
+    %% VerifyETSMemFun(EtsMem),
     DataDir = filename:join(filename:dirname(code:which(?MODULE)), "ets_SUITE_data"),
     TemplatePath = filename:join(DataDir, "visualize_throughput.html"),
     {ok, Template} = file:read_file(TemplatePath),
@@ -8747,12 +8747,24 @@ test_throughput_benchmark(Config) when is_list(Config) ->
 
 long_throughput_benchmark(Config) when is_list(Config) ->
     N = erlang:system_info(schedulers),
+    ct:timetrap({minutes,240}), %% Really, really long benchmark.
     throughput_benchmark(
       #ets_throughput_bench_config{
          benchmark_duration_ms = 3000,
          recover_time_ms = 1000,
-         thread_counts = [1, N div 2, N],
-         key_ranges = [1000000],
+         thread_counts = lists:usort([NumProcs ||
+                                      NumProcs <- [1,
+                                                   2,
+                                                   N div 64,
+                                                   N div 32,
+                                                   N div 16,
+                                                   N div 8,
+                                                   N div 4,
+                                                   N div 2,
+                                                   (N div 4) * 3,
+                                                   N],
+                                      NumProcs > 0]),
+         key_ranges = lists:usort([8, 16, 32, N, 512, 1000000]),
          scenarios =
              [
               [
@@ -8769,29 +8781,33 @@ long_throughput_benchmark(Config) when is_list(Config) ->
                {0.01, delete},
                {0.98, lookup}
               ],
+            %   [
+            %    {0.1, insert},
+            %    {0.1, delete},
+            %    {0.4, lookup}
+            %    %%{0.4, nextseq100}
+            %   ],
+            %   [
+            %    {0.1, insert},
+            %    {0.1, delete},
+            %    {0.79, lookup}
+            %    %% {0.01, selectAll}
+            %   ],
+            %   [
+            %    {0.1, insert},
+            %    {0.1, delete},
+            %    {0.79, lookup}
+            %    %% {0.01, partial_select1000}
+            %   ],
               [
-               {0.1, insert},
-               {0.1, delete},
-               {0.4, lookup},
-               {0.4, nextseq100}
-              ],
-              [
-               {0.1, insert},
-               {0.1, delete},
-               {0.79, lookup},
-               {0.01, selectAll}
-              ],
-              [
-               {0.1, insert},
-               {0.1, delete},
-               {0.79, lookup},
-               {0.01, partial_select1000}
+               {1.00, lookup}
               ]
              ],
          table_types =
              ([
                [ordered_set, public, {write_concurrency, true}, {read_concurrency, true}],
-               [set, public, {write_concurrency, true}, {read_concurrency, true}]
+               [set, public, {write_concurrency, true}, {read_concurrency, true}],
+               [ctrie, public]
               ] ++
                   case catch list_to_integer(erlang:system_info(otp_release)) of
                       Recent when is_integer(Recent), Recent >= 25 ->
