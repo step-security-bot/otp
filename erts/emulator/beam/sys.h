@@ -177,6 +177,15 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
 
+#if !defined(DEBUG) && (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) ||                    \
+                        __has_builtin(__builtin_unreachable))
+#  define ERTS_UNREACHABLE(Text) __builtin_unreachable()
+#elif !defined(DEBUG) && defined(_MSC_VER)
+#  define ERTS_UNREACHABLE(Text) __assume(0)
+#else
+#  define ERTS_UNREACHABLE(Text) ERTS_INTERNAL_ERROR((Text))
+#endif
+
 /* AIX doesn't like this and claims section conflicts */
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0) && !defined(_AIX)
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
