@@ -2532,7 +2532,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET | DB_CTRIE);
 	}
 	else if (val == am_ctrie) {
-            is_decentralized_counters = true;
+            is_decentralized_counters = 1;
 	    status |= DB_CTRIE;
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}

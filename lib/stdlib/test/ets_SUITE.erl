@@ -8747,7 +8747,7 @@ test_throughput_benchmark(Config) when is_list(Config) ->
 
 long_throughput_benchmark(Config) when is_list(Config) ->
     N = erlang:system_info(schedulers),
-    ct:timetrap({minutes,240}), %% Really, really long benchmark.
+    catch ct:timetrap({minutes,240}), %% Really, really long benchmark.
     throughput_benchmark(
       #ets_throughput_bench_config{
          benchmark_duration_ms = 3000,
