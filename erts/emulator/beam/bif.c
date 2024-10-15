@@ -5657,7 +5657,7 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
     Eterm b; 
     Eterm *hp;
     if (is_bitstring((DT_UTAG(BIF_P)))) {
-        byte *temp_alloc = NULL;
+        const byte *temp_alloc = NULL;
         const byte *p;
         byte *q;
         Uint size;
