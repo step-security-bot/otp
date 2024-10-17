@@ -197,7 +197,9 @@ jobs:
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
-        run: .github/scripts/build-macos-wxwidgets.sh
+        run: |
+            brew install xz
+            .github/scripts/build-macos-wxwidgets.sh
 
       - name: Compile Erlang
         run: |
