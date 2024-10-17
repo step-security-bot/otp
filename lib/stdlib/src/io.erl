@@ -497,8 +497,7 @@ The options and values supported by the OTP I/O devices are as follows:
   This option is supported by the standard shell (`group.erl`), the 'oldshell'
   (`user.erl`), and the file I/O servers.
 
-- **`{echo, boolean()}`** - Denotes if the terminal is to echo input. Only
-  supported for the standard shell I/O server (`group.erl`)
+- **`{echo, boolean()}`** - Denotes if the terminal is to echo input.
 
 - **`{expand_fun, expand_fun()}`** - Provides a function for tab-completion
   (expansion) like the Erlang shell. This function is called when the user
@@ -522,12 +521,26 @@ The options and values supported by the OTP I/O devices are as follows:
      (_) -> {no, "", ["quit"]} end
   ```
 
-  This option is only supported by the standard shell (`group.erl`).
-
 - **`{line_history, true | false}`** - Specifies if `get_line` and `get_until`
   I/O requests should be saved in the `m:shell` history buffer.
 
-  This option is only supported by the standard shell (`group.erl`).
+- **`{log, true | false}`** - Tells the I/O server that it should log each I/O request.
+  Requests will be logged at `info` level with the following report:
+
+  ```erl
+  #{ request := IoRequest, server := pid(), server_name => term() }.
+  ```
+
+  > #### Note {: .info }
+  >
+  > The I/O servers in Erlang/OTP will set the [logger domain](`logger_filters:domain/2`)
+  > to `[otp, kernel, io, input | output]`. By default `m:logger` will not print this domain,
+  > so you need to enable it. This can be done by adding a new filter like this:
+  >
+  > ```erl
+  > logger:add_handler_filter(default, io_domain,
+  >    {fun logger_filters:domain/2, {log,sub,[otp,kernel,io]}}).
+  > ```
 
 - **`{encoding, latin1 | unicode}`** - Specifies how characters are input or
   output from or to the I/O device, implying that, for example, a terminal is
@@ -565,19 +578,12 @@ The options and values supported by the OTP I/O devices are as follows:
   Files can also be set in `{encoding, unicode}`, meaning that data is written
   and read as UTF-8. More encodings are possible for files, see below.
 
-  `{encoding, unicode | latin1}` is supported by both the standard shell
-  (`group.erl` including `werl` on Windows), the 'oldshell' (`user.erl`), and
-  the file I/O servers.
-
 - **`{encoding, utf8 | utf16 | utf32 | {utf16,big} | {utf16,little} | {utf32,big} | {utf32,little}}`** -
   For disk files, the encoding can be set to various UTF variants. This has the
   effect that data is expected to be read as the specified encoding from the
   file, and the data is written in the specified encoding to the disk file.
 
   `{encoding, utf8}` has the same effect as `{encoding, unicode}` on files.
-
-  The extended encodings are only supported on disk files (opened by function
-  `file:open/2`).
 """.
 -spec setopts(IoDevice, Opts) -> 'ok' | {'error', Reason} when
       IoDevice :: device(),
