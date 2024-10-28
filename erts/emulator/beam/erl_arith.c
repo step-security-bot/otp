@@ -409,6 +409,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		    goto badarith;
 		}
 	    }
+            ERTS_ASSERT(0 && "unreachable");
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
@@ -616,6 +617,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		    goto badarith;
 		}
 	    }
+            ERTS_ASSERT(0 && "unreachable");
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
@@ -811,6 +813,7 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		    goto badarith;
 		}
 	    }
+            ERTS_ASSERT(0 && "unreachable");
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
@@ -1029,6 +1032,7 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		    goto badarith;
 		}
 	    }
+            ERTS_ASSERT(0 && "unreachable");
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
