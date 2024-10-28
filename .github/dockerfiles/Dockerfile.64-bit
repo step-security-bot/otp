@@ -13,6 +13,15 @@ RUN cd /buildroot && tar -xzf ./otp.tar.gz
 WORKDIR /buildroot/otp/
 
 ENV CFLAGS="-O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1"
+## OpenSSF recommended CFLAGS, removed are:
+##  -Wconversion - As we have way too many of these warnings
+##  -fstrict-flex-arrays=3 -Wbidi-chars=any - As gcc 11 does not support it
+ENV CFLAGS="${CFLAGS} -Wall -Wformat -Wformat=2 -Wno-conversion -Wimplicit-fallthrough \
+    -Werror=format-security -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS \
+    -fstack-clash-protection -fstack-protector-strong -Wtrampolines \
+    -fcf-protection=full -fexceptions"
+## -Wl,-z,nodlopen - as opening drivers/nifs needs this
+ENV LDFLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--as-needed -Wl,--no-copy-dt-needed-entries"
 
 ## Configure (if not cached), check that no application are disabled and then make
 RUN if [ ! -f Makefile ]; then \
@@ -26,6 +35,7 @@ RUN if [ ! -f Makefile ]; then \
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
+ENV LDFLAGS=""
 
 ## Update init.sh with correct env vars
 RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
