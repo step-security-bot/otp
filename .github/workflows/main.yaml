@@ -67,7 +67,7 @@ jobs:
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@v3.1.3
+        uses: actions/upload-artifact@v4
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -108,7 +108,7 @@ jobs:
               '${{ steps.cache.outputs.deleted_files }}' \
               '${{ steps.changes.outputs.changes }}'
       - name: Upload restored cache
-        uses: actions/upload-artifact@v3.1.3
+        uses: actions/upload-artifact@v4
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -135,7 +135,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v3.1.3
+        uses: actions/upload-artifact@v4
         with:
           name: otp_prebuilt
           path: |
@@ -219,7 +219,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@v3.1.3
+        uses: actions/upload-artifact@v4
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
