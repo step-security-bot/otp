@@ -310,9 +310,12 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #endif
 
 /* Taken from https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html#warn-about-implicit-fallthrough-in-switch-statements */
-#if __has_attribute(__fallthrough__)
-# define ERTS_FALLTHROUGH()                    __attribute__((__fallthrough__))
-#else
+#ifdef __has_attribute
+#  if __has_attribute(__fallthrough__)
+#    define ERTS_FALLTHROUGH()                    __attribute__((__fallthrough__))
+#  endif
+#endif
+#ifndef ERTS_FALLTHROUGH
 # define ERTS_FALLTHROUGH()                    do {} while (0)  /* fallthrough */
 #endif
 
