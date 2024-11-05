@@ -507,7 +507,6 @@ $(BINDIR)/$(PRIMARY_EXECUTABLE): $(BINDIR)/$(FLAVOR_EXECUTABLE)
 	$(INSTALL_PROGRAM) $< $@
 ifeq ($(TARGET), win32)
 	$(INSTALL_PROGRAM) $(basename $<).pdb $(basename $@).pdb
-	$(INSTALL_PROGRAM) $(basename $<).pdb $(basename $<).pdb
 endif
 
 include zlib/zlib.mk
