@@ -161,7 +161,7 @@ be specified as the value of a transport_module option to
 %% ---------------------------------------------------------------------------
 
 -doc """
-start({Type, Ref}, Svc, [Opt]) -> {ok, Pid, [LAddr]} | {error, Reason}
+start(TypeRef, Svc, Options)
 
 The start function required by `m:diameter_transport`.
 
