@@ -545,6 +545,9 @@ ifneq ($(TARGET), win32)
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(BINDIR)/$(INSTALL_PROGS:.exe=.pdb) "$(RELSYSDIR)/bin"
+endif
 endif
 ifneq ($(INSTALL_TOP),)
 	$(INSTALL_SCRIPT) $(INSTALL_TOP) "$(RELEASE_PATH)"
