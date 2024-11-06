@@ -1,0 +1,44 @@
+name: Open Source Security Foundation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * *
+
+permissions:
+  # Required to upload SARIF file to CodeQL.
+  # See: https://github.com/github/codeql-action/issues/2117
+  actions: read
+  # Require writing security events to upload SARIF file to security tab
+  security-events: write
+  # Only need to read contents
+  contents: read
+
+jobs:
+  schedule-scan:
+    runs-on: ubuntu-latest
+    if: github.repository == 'garazdawi/otp'
+    steps:
+      - uses: actions/checkout@v4.2.1
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
+      - uses: actions/checkout@v4.2.1
+        with:
+            repository: https://github.com/ossf/wg-best-practices-os-developers
+            sparse-checkout: docs/Compiler-Hardening-Guides/compiler-options-scraper
+            path: ossf
+    
+      - name: Setup compiler options scraper
+        run: |
+          pip3 install -r ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/requirements.txt
+          python3 ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/main.py
+
+      - uses: ./.github/actions/build-base-image
+        with:
+          BASE_BRANCH: master
+          BUILD_IMAGE: true
+      
+      - name: Extract CFLAGS and LDFLAGS
+        run: |
+          docker run --entrypoint "" otp \
+              bash -c "erl -noshell -eval 'io:format(\"~ts~n\",[proplists:get_value(cflags,erlang:system_info(compile_info))]).' -s init stop"
