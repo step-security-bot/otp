@@ -257,8 +257,6 @@ cast(ChannelRef, Msg) ->
 
 -opaque client() :: term().
 -doc """
-reply(Client, Reply) -> \_
-
 This function can be used by a channel to send a reply to a client that called
 `call/[2,3]` when the reply cannot be defined in the return value of
 [Module:handle_call/3](`c:handle_call/3`).
@@ -327,10 +325,10 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
     gen_server:start_link(?MODULE, [Options], []).
 
 -doc """
-enter*loop(State) -> *
-
 Makes an existing process an `ssh_client_channel` (replaces ssh_channel)
-process. Does not return, instead the calling process enters the
+process.
+
+Does not return, instead the calling process enters the
 `ssh_client_channel` (replaces ssh_channel) process receive loop and become an
 `ssh_client_channel` process. The process must have been started using one of
 the start functions in `proc_lib`, see the `m:proc_lib` manual page in STDLIB.
